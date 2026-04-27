@@ -1,0 +1,821 @@
+{
+  "$defs": {
+    "CrisisComponent": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "raw_data": {
+          "additionalProperties": true,
+          "title": "Raw Data",
+          "type": "object"
+        },
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
+        },
+        "benchmark": {
+          "additionalProperties": true,
+          "title": "Benchmark",
+          "type": "object"
+        },
+        "trend": {
+          "additionalProperties": true,
+          "title": "Trend",
+          "type": "object"
+        },
+        "source": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source",
+          "type": "array"
+        },
+        "source_date": {
+          "title": "Source Date",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "score",
+        "raw_data",
+        "derived_metrics",
+        "benchmark",
+        "trend",
+        "source",
+        "source_date",
+        "confidence",
+        "limitations",
+        "missing_data"
+      ],
+      "title": "CrisisComponent",
+      "type": "object"
+    },
+    "CrisisOutput": {
+      "properties": {
+        "level": {
+          "title": "Level",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "reference": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Reference",
+          "type": "object"
+        },
+        "components": {
+          "items": {
+            "$ref": "#/$defs/CrisisComponent"
+          },
+          "title": "Components",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "required": [
+        "level",
+        "confidence",
+        "reference",
+        "components",
+        "limitations",
+        "missing_data"
+      ],
+      "title": "CrisisOutput",
+      "type": "object"
+    },
+    "FutureTheme": {
+      "properties": {
+        "name": {
+          "default": "theme_score",
+          "title": "Name",
+          "type": "string"
+        },
+        "theme": {
+          "title": "Theme",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "max_score": {
+          "default": 100,
+          "title": "Max Score",
+          "type": "number"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "raw_data": {
+          "additionalProperties": true,
+          "title": "Raw Data",
+          "type": "object"
+        },
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
+        },
+        "benchmark": {
+          "additionalProperties": true,
+          "title": "Benchmark",
+          "type": "object"
+        },
+        "trend": {
+          "additionalProperties": true,
+          "title": "Trend",
+          "type": "object"
+        },
+        "source": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source",
+          "type": "array"
+        },
+        "source_date": {
+          "title": "Source Date",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        },
+        "candidate_companies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Candidate Companies",
+          "type": "array"
+        }
+      },
+      "required": [
+        "theme",
+        "score",
+        "label",
+        "raw_data",
+        "derived_metrics",
+        "benchmark",
+        "trend",
+        "source",
+        "source_date",
+        "confidence",
+        "limitations",
+        "missing_data",
+        "candidate_companies"
+      ],
+      "title": "FutureTheme",
+      "type": "object"
+    },
+    "MacroIndicatorComponent": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "raw_data": {
+          "additionalProperties": true,
+          "title": "Raw Data",
+          "type": "object"
+        },
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
+        },
+        "benchmark": {
+          "additionalProperties": true,
+          "title": "Benchmark",
+          "type": "object"
+        },
+        "trend": {
+          "additionalProperties": true,
+          "title": "Trend",
+          "type": "object"
+        },
+        "source": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source",
+          "type": "array"
+        },
+        "source_date": {
+          "title": "Source Date",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "score",
+        "raw_data",
+        "derived_metrics",
+        "benchmark",
+        "trend",
+        "source",
+        "source_date",
+        "confidence",
+        "limitations",
+        "missing_data"
+      ],
+      "title": "MacroIndicatorComponent",
+      "type": "object"
+    },
+    "MacroRegimeOutput": {
+      "properties": {
+        "name": {
+          "default": "macro_regime_score",
+          "title": "Name",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "max_score": {
+          "default": 100,
+          "title": "Max Score",
+          "type": "number"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "raw_data": {
+          "additionalProperties": true,
+          "title": "Raw Data",
+          "type": "object"
+        },
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
+        },
+        "benchmark": {
+          "additionalProperties": true,
+          "title": "Benchmark",
+          "type": "object"
+        },
+        "trend": {
+          "additionalProperties": true,
+          "title": "Trend",
+          "type": "object"
+        },
+        "source": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source",
+          "type": "array"
+        },
+        "source_date": {
+          "title": "Source Date",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "components": {
+          "items": {
+            "$ref": "#/$defs/MacroIndicatorComponent"
+          },
+          "title": "Components",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "required": [
+        "score",
+        "label",
+        "raw_data",
+        "derived_metrics",
+        "benchmark",
+        "trend",
+        "source",
+        "source_date",
+        "confidence",
+        "components",
+        "limitations",
+        "missing_data"
+      ],
+      "title": "MacroRegimeOutput",
+      "type": "object"
+    },
+    "RiskAllocationReference": {
+      "properties": {
+        "risk_posture": {
+          "enum": [
+            "risk_on_watch",
+            "balanced_watch",
+            "defensive_watch",
+            "crisis_watch",
+            "overheat_warning",
+            "insufficient_data"
+          ],
+          "title": "Risk Posture",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "reference": {
+          "additionalProperties": {
+            "enum": [
+              "risk_on_watch",
+              "balanced_watch",
+              "defensive_watch",
+              "crisis_watch",
+              "overheat_warning",
+              "insufficient_data"
+            ],
+            "type": "string"
+          },
+          "title": "Reference",
+          "type": "object"
+        },
+        "risk_flags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Risk Flags",
+          "type": "array"
+        },
+        "raw_data": {
+          "additionalProperties": true,
+          "title": "Raw Data",
+          "type": "object"
+        },
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
+        },
+        "benchmark": {
+          "additionalProperties": true,
+          "title": "Benchmark",
+          "type": "object"
+        },
+        "trend": {
+          "additionalProperties": true,
+          "title": "Trend",
+          "type": "object"
+        },
+        "source": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source",
+          "type": "array"
+        },
+        "source_date": {
+          "title": "Source Date",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "required": [
+        "risk_posture",
+        "score",
+        "reference",
+        "risk_flags",
+        "raw_data",
+        "derived_metrics",
+        "benchmark",
+        "trend",
+        "source",
+        "source_date",
+        "confidence",
+        "limitations",
+        "missing_data"
+      ],
+      "title": "RiskAllocationReference",
+      "type": "object"
+    },
+    "ScoreObject": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "score": {
+          "title": "Score",
+          "type": "number"
+        },
+        "max_score": {
+          "default": 100,
+          "title": "Max Score",
+          "type": "number"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "raw_data": {
+          "additionalProperties": true,
+          "title": "Raw Data",
+          "type": "object"
+        },
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
+        },
+        "benchmark": {
+          "additionalProperties": true,
+          "title": "Benchmark",
+          "type": "object"
+        },
+        "trend": {
+          "additionalProperties": true,
+          "title": "Trend",
+          "type": "object"
+        },
+        "source": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source",
+          "type": "array"
+        },
+        "source_date": {
+          "title": "Source Date",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "score",
+        "label",
+        "raw_data",
+        "derived_metrics",
+        "benchmark",
+        "trend",
+        "source",
+        "source_date",
+        "confidence",
+        "limitations",
+        "missing_data"
+      ],
+      "title": "ScoreObject",
+      "type": "object"
+    },
+    "StockCandidate": {
+      "properties": {
+        "ticker": {
+          "title": "Ticker",
+          "type": "string"
+        },
+        "company_name": {
+          "title": "Company Name",
+          "type": "string"
+        },
+        "theme": {
+          "title": "Theme",
+          "type": "string"
+        },
+        "leadership_score": {
+          "minimum": 0,
+          "title": "Leadership Score",
+          "type": "number"
+        },
+        "smart_money_score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Smart Money Score",
+          "type": "number"
+        },
+        "market_timing_score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Market Timing Score",
+          "type": "number"
+        },
+        "overheat_score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Overheat Score",
+          "type": "number"
+        },
+        "risk_score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Risk Score",
+          "type": "number"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "source": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source",
+          "type": "array"
+        },
+        "source_date": {
+          "title": "Source Date",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ticker",
+        "company_name",
+        "theme",
+        "leadership_score",
+        "smart_money_score",
+        "market_timing_score",
+        "overheat_score",
+        "risk_score",
+        "label",
+        "source",
+        "source_date",
+        "confidence",
+        "limitations",
+        "missing_data"
+      ],
+      "title": "StockCandidate",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "date": {
+      "title": "Date",
+      "type": "string"
+    },
+    "market": {
+      "default": "US",
+      "title": "Market",
+      "type": "string"
+    },
+    "report_generated_at": {
+      "title": "Report Generated At",
+      "type": "string"
+    },
+    "macro_regime": {
+      "$ref": "#/$defs/MacroRegimeOutput"
+    },
+    "market_timing": {
+      "$ref": "#/$defs/ScoreObject"
+    },
+    "overheat_risk": {
+      "$ref": "#/$defs/ScoreObject"
+    },
+    "crisis_risk": {
+      "$ref": "#/$defs/ScoreObject"
+    },
+    "crisis": {
+      "$ref": "#/$defs/CrisisOutput"
+    },
+    "future_themes": {
+      "items": {
+        "$ref": "#/$defs/FutureTheme"
+      },
+      "title": "Future Themes",
+      "type": "array"
+    },
+    "stock_candidates": {
+      "items": {
+        "$ref": "#/$defs/StockCandidate"
+      },
+      "title": "Stock Candidates",
+      "type": "array"
+    },
+    "smart_money_summary": {
+      "$ref": "#/$defs/ScoreObject"
+    },
+    "smart_money": {
+      "$ref": "#/$defs/ScoreObject"
+    },
+    "risk_allocation": {
+      "$ref": "#/$defs/RiskAllocationReference"
+    },
+    "risk_notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Risk Notes",
+      "type": "array"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "missing_data": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Data",
+      "type": "array"
+    },
+    "human_verification_queue": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Human Verification Queue",
+      "type": "array"
+    },
+    "not_investment_advice": {
+      "default": true,
+      "title": "Not Investment Advice",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "date",
+    "report_generated_at",
+    "macro_regime",
+    "market_timing",
+    "overheat_risk",
+    "crisis_risk",
+    "crisis",
+    "future_themes",
+    "stock_candidates",
+    "smart_money_summary",
+    "smart_money",
+    "risk_allocation",
+    "risk_notes",
+    "limitations",
+    "missing_data",
+    "human_verification_queue"
+  ],
+  "title": "DailyResearchReport",
+  "type": "object"
+}

@@ -1,0 +1,279 @@
+:root {
+  font-family: Inter, Segoe UI, Arial, sans-serif;
+  color: #1e293b;
+  background: #f6f7f9;
+}
+
+body {
+  margin: 0;
+}
+
+button, input {
+  font: inherit;
+}
+
+.appNav {
+  align-items: center;
+  background: #ffffff;
+  border-bottom: 1px solid #d8dee8;
+  display: flex;
+  gap: 8px;
+  padding: 12px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.brand {
+  font-weight: 700;
+  margin-right: auto;
+}
+
+.appNav button, .tickerForm button {
+  background: #1f2937;
+  border: 0;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  padding: 8px 12px;
+}
+
+.appNav button {
+  background: #eef2f7;
+  color: #1e293b;
+}
+
+.appNav button.active {
+  background: #1f2937;
+  color: #ffffff;
+}
+
+.page {
+  margin: 0 auto;
+  max-width: 1180px;
+  padding: 24px;
+}
+
+.pageHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.eyebrow {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h1, h2, h3, h4, p {
+  margin-top: 0;
+}
+
+.disclaimer, .warningBanner {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  color: #7c2d12;
+  padding: 10px 12px;
+}
+
+.warningBanner {
+  margin-bottom: 16px;
+}
+
+.pageSection {
+  background: #ffffff;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  margin-bottom: 18px;
+  padding: 18px;
+}
+
+.scoreGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.scoreCard {
+  border: 1px solid #dde3ec;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.scoreCardHeader {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.scoreRow {
+  align-items: baseline;
+  display: flex;
+  gap: 6px;
+}
+
+.scoreRow strong {
+  font-size: 30px;
+}
+
+.meter {
+  background: #e5e7eb;
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.meter span {
+  background: #475569;
+  display: block;
+  height: 100%;
+}
+
+.signalBadge {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 2px;
+  padding: 4px 8px;
+}
+
+.signalBadge.positive { background: #e0f2fe; color: #075985; }
+.signalBadge.neutral { background: #eef2f7; color: #334155; }
+.signalBadge.warning { background: #fef3c7; color: #92400e; }
+.signalBadge.danger { background: #fee2e2; color: #991b1b; }
+.signalBadge.insufficient { background: #ede9fe; color: #5b21b6; }
+
+.muted {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.evidenceGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.evidencePanel, .rawPanel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.metaGrid, .profileGrid, .referenceGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.metaGrid dt {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.metaGrid dd {
+  margin: 0;
+}
+
+.compactList, .noteList {
+  margin-bottom: 0;
+}
+
+.rawGrid, .twoColumn {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.jsonBlock {
+  background: #0f172a;
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-size: 12px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 10px;
+}
+
+.trendSummary {
+  color: #475569;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.trendSummary span {
+  background: #eef2f7;
+  border-radius: 999px;
+  padding: 4px 8px;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  color: #475569;
+  font-size: 13px;
+}
+
+.referenceItem, .profileGrid div {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+}
+
+.tickerForm {
+  align-items: end;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.tickerForm label {
+  display: flex;
+  flex-direction: column;
+}
+
+.tickerForm input {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 10px;
+  text-transform: uppercase;
+}
+
+.errorText {
+  color: #991b1b;
+}
+
+@media (max-width: 720px) {
+  .appNav, .pageHeader, .tickerForm {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
