@@ -220,9 +220,36 @@ npm run build
 npm test
 ```
 
-## Next Phase: Live Market Data
+## Phase 8 Live Market Price Data
 
-Live market, macro, SEC, options, news, and theme APIs are not connected yet. The current system is fully mock-based so schemas, report quality checks, and UI flows can stabilize before live integrations are added.
+Market price data can now be enabled for US-listed tickers and index proxies through the repository-backed yfinance adapter. Mock mode remains the default.
+
+Keep mock mode:
+
+```powershell
+cd D:\jane-investment-research
+.\.venv\Scripts\Activate.ps1
+$env:USE_LIVE_MARKET_DATA="false"
+uvicorn backend.app.main:app --reload
+```
+
+Enable live market prices:
+
+```powershell
+cd D:\jane-investment-research
+.\.venv\Scripts\Activate.ps1
+$env:USE_LIVE_MARKET_DATA="true"
+$env:MARKET_DATA_PROVIDER="yfinance"
+uvicorn backend.app.main:app --reload
+```
+
+You can also request a live-backed daily report for one call:
+
+```powershell
+Invoke-RestMethod "http://localhost:8000/api/daily-report/latest?use_live_market_data=true"
+```
+
+Phase 8 only covers OHLCV market prices for `SPY`, `QQQ`, `^VIX`, and requested watchlist tickers. Macro, SEC, options, news, YouTube, and theme evidence are still mock or manually verified placeholders. yfinance is suitable for MVP research reference only; it is not an official exchange feed and may have delays, gaps, adjustments, or availability limits.
 
 ## Project Guardrails
 

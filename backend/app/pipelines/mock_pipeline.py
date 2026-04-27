@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from backend.app.data_sources.mock_crisis import MOCK_CRISIS_SCENARIOS
 from backend.app.data_sources.mock_macro import MOCK_MACRO_SCENARIOS
-from backend.app.data_sources.mock_data import MARKET_SNAPSHOTS, MOCK_SMART_MONEY_SUMMARY, MOCK_SOURCE, MOCK_SOURCE_DATE, STOCK_FIXTURES
+from backend.app.data_sources.mock_data import MOCK_SMART_MONEY_SUMMARY, MOCK_SOURCE, MOCK_SOURCE_DATE, STOCK_FIXTURES
 from backend.app.engines.crisis_engine import crisis_to_score_object, evaluate_crisis
 from backend.app.engines.future_industry_engine import evaluate_future_industry_radar
 from backend.app.engines.leadership_engine import evaluate_leadership
@@ -13,6 +13,7 @@ from backend.app.engines.market_timing_engine import evaluate_market_timing
 from backend.app.engines.overheat_engine import evaluate_overheat
 from backend.app.engines.risk_allocation_engine import evaluate_risk_allocation
 from backend.app.engines.smart_money_engine import evaluate_smart_money
+from backend.app.raw_store.repository import read_market_data
 from backend.app.schemas.candidate import StockCandidate
 from backend.app.schemas.common import ScoreObject
 from backend.app.schemas.daily_report import DailyResearchReport
@@ -54,12 +55,17 @@ def _crisis_scenario_name(scenario: str) -> str:
     return {"fearful": "high", "fear_crisis": "high", "overheated": "normal"}.get(scenario, scenario)
 
 
-def _candidate(ticker: str, theme: str) -> StockCandidate:
+def _candidate(ticker: str, theme: str, market_context: dict | None = None) -> StockCandidate:
     fixture = STOCK_FIXTURES[ticker]
+    engine_context = {**fixture, **(market_context or {})}
+    source = market_context.get("source", MOCK_SOURCE) if market_context else MOCK_SOURCE
+    source_date = market_context.get("source_date", MOCK_SOURCE_DATE) if market_context else MOCK_SOURCE_DATE
+    if isinstance(source, str):
+        source = [source]
     leadership = evaluate_leadership({"ticker": ticker, **fixture})
     smart_money = evaluate_smart_money(fixture["smart_money"])
-    market_timing = evaluate_market_timing(fixture)
-    overheat = evaluate_overheat(fixture)
+    market_timing = evaluate_market_timing(engine_context)
+    overheat = evaluate_overheat(engine_context)
     leadership_percent = leadership.score / leadership.max_score * 100
     risk_score = round(overheat.score * 0.60 + max(0, 100 - leadership_percent) * 0.40, 2)
     confidence = round((leadership.confidence + smart_money.confidence + market_timing.confidence + overheat.confidence) / 4, 2)
@@ -73,16 +79,16 @@ def _candidate(ticker: str, theme: str) -> StockCandidate:
         overheat_score=overheat.score,
         risk_score=risk_score,
         label=leadership.label,
-        source=MOCK_SOURCE,
-        source_date=MOCK_SOURCE_DATE,
+        source=source,
+        source_date=source_date,
         confidence=confidence,
         limitations=sorted({*leadership.limitations, *smart_money.limitations, *market_timing.limitations, *overheat.limitations}),
         missing_data=sorted({*fixture.get("missing_data", []), *leadership.missing_data, *smart_money.missing_data, *market_timing.missing_data, *overheat.missing_data}),
     )
 
 
-def build_daily_report(scenario: str = "normal") -> DailyResearchReport:
-    snapshot = MARKET_SNAPSHOTS.get(scenario, MARKET_SNAPSHOTS["normal"])
+def build_daily_report(scenario: str = "normal", use_live_market_data: bool | None = None) -> DailyResearchReport:
+    snapshot = read_market_data(scenario, use_live=use_live_market_data)
     macro_snapshot = MOCK_MACRO_SCENARIOS.get(_macro_scenario_name(scenario), MOCK_MACRO_SCENARIOS["normal"])
     crisis_snapshot = MOCK_CRISIS_SCENARIOS.get(_crisis_scenario_name(scenario), MOCK_CRISIS_SCENARIOS["normal"])
     macro_regime = evaluate_macro_regime(macro_snapshot)
@@ -94,15 +100,15 @@ def build_daily_report(scenario: str = "normal") -> DailyResearchReport:
     risk_allocation = evaluate_risk_allocation(macro_regime, market_timing, overheat_risk, crisis, snapshot)
     today = MOCK_SOURCE_DATE
     stock_candidates = [
-        _candidate("NVDA", "AI energy infrastructure"),
-        _candidate("TSLA", "humanoid robotics"),
+        _candidate("NVDA", "AI energy infrastructure", snapshot),
+        _candidate("TSLA", "humanoid robotics", snapshot),
     ]
     missing_data = sorted(
         set(
             [
-                "live market prices",
                 "live SEC filings",
                 "live options feed",
+                *(["live market prices"] if snapshot.get("source_type") != "live" else []),
                 *macro_regime.missing_data,
                 *crisis.missing_data,
                 *risk_allocation.missing_data,
@@ -113,7 +119,7 @@ def build_daily_report(scenario: str = "normal") -> DailyResearchReport:
     limitations = sorted(
         set(
             [
-                "Mock-only validation report; live market data APIs are not connected.",
+                "Live market price data is enabled for price-derived fields only." if snapshot.get("source_type") == "live" else "Mock-only validation report; live market data APIs are not connected.",
                 *macro_regime.limitations,
                 *crisis.limitations,
                 *smart_money.limitations,

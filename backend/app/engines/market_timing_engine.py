@@ -6,6 +6,7 @@ from backend.app.data_sources.mock_data import MOCK_SOURCE, MOCK_SOURCE_DATE
 from backend.app.schemas.common import ScoreObject
 
 LIMITATION = "Phase 2 deterministic mock engine; no live source connection."
+LIVE_LIMITATION = "Deterministic engine using repository-backed live market price features where available."
 
 
 def _confidence(missing_data: list[str]) -> float:
@@ -38,6 +39,27 @@ def _score(
         limitations=[LIMITATION],
         missing_data=missing,
     )
+
+
+def _source(data: dict[str, Any]) -> list[str]:
+    value = data.get("source")
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        return [value]
+    return MOCK_SOURCE
+
+
+def _source_date(data: dict[str, Any]) -> str:
+    value = data.get("source_date")
+    return str(value) if value else MOCK_SOURCE_DATE
+
+
+def _limitations(data: dict[str, Any]) -> list[str]:
+    existing = data.get("limitations")
+    if isinstance(existing, list) and existing:
+        return existing
+    return [LIVE_LIMITATION if data.get("source_type") == "live" else LIMITATION]
 
 
 def fed_easing_component(data: dict[str, Any]) -> ScoreObject:
@@ -160,7 +182,7 @@ def vix_confirmation_component(data: dict[str, Any]) -> ScoreObject:
     range_20d = data.get("index_range_20d_pct")
     vol_20d = data.get("realized_vol_20d")
     prev_vol_20d = data.get("previous_realized_vol_20d")
-    index_stabilization_exists = (
+    index_stabilization_exists = data.get("stabilization_status") == "stabilizing" or (
         range_20d is not None
         and range_20d <= 8
         and vol_20d is not None
@@ -344,9 +366,9 @@ def evaluate_market_timing(data: dict[str, Any]) -> ScoreObject:
             "market_environment": "fearful" if component_payload["fear_greed_extreme_fear_score"]["score"] >= 70 else "steady",
             "component_count": len(components),
         },
-        source=MOCK_SOURCE,
-        source_date=MOCK_SOURCE_DATE,
+        source=_source(data),
+        source_date=_source_date(data),
         confidence=_confidence(missing),
-        limitations=[LIMITATION],
+        limitations=_limitations(data),
         missing_data=missing,
     )

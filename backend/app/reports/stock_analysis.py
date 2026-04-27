@@ -6,18 +6,23 @@ from backend.app.engines.market_timing_engine import evaluate_market_timing
 from backend.app.engines.overheat_engine import evaluate_overheat
 from backend.app.engines.smart_money_engine import evaluate_smart_money
 from backend.app.pipelines.mock_pipeline import score_object
+from backend.app.raw_store.repository import read_market_data
 from backend.app.schemas.stock_analysis import AnalyzeStockRequest, AnalyzeStockResponse
 
 
 def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     fixture = STOCK_FIXTURES.get(request.ticker, DEFAULT_STOCK)
+    market_context = read_market_data()
     engine_context = {
         **fixture,
+        **market_context,
         "user_reported_social_heat": request.user_context.social_discussion_level,
         "friends_asking_about_stock": request.user_context.friends_asking_about_stock,
     }
     missing_data = list(fixture["missing_data"])
-    missing_data.extend(["live price history", "live SEC filing details"])
+    if market_context.get("source_type") != "live":
+        missing_data.append("live price history")
+    missing_data.append("live SEC filing details")
 
     return AnalyzeStockResponse(
         ticker=request.ticker,
@@ -28,6 +33,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
             "themes": fixture["themes"],
             "source": ["phase1_mock_company_profile"],
             "source_date": MOCK_SOURCE_DATE,
+            "market_price_source_type": market_context.get("source_type", "mock"),
         },
         leadership_score=evaluate_leadership({"ticker": request.ticker, **fixture}),
         market_timing_context=evaluate_market_timing(engine_context),

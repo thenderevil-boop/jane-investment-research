@@ -26,6 +26,10 @@ Response:
 
 Returns latest daily research report.
 
+Optional query parameter:
+
+- `use_live_market_data`: boolean. Defaults to environment configuration. When `true`, the backend attempts repository-backed yfinance OHLCV fetches for market price fields and falls back to mock market data if the fetch fails.
+
 Response shape:
 
 ```json
@@ -153,7 +157,7 @@ Response:
 }
 ```
 
-This endpoint returns mock fixture snapshots only until the live raw data store is connected.
+This endpoint returns mock company fixture snapshots plus the repository market price snapshot. In Phase 8, market price snapshots may be live when `USE_LIVE_MARKET_DATA=true`; company fundamentals remain mock-only.
 
 ### GET /api/signals/{ticker}
 
@@ -448,3 +452,19 @@ Before live data integrations, Phase 7.1 stabilizes:
 - `risk_allocation` as a research-reference object without allocation percentages.
 - Market Timing VIX confirmation: high VIX alone is not treated as favorable; full confirmation requires recent spike, falling VIX, and index stabilization.
 - Overheat benchmark: primary index heat uses prior-cycle high gain, recent-trough gain, and distance from 52-week high. The 200-day extension field remains supplemental only.
+
+## Phase 8 Live Market Price Data
+
+Phase 8 adds a yfinance market price adapter behind the raw store boundary.
+
+Configuration:
+
+```powershell
+$env:USE_LIVE_MARKET_DATA="true"
+$env:MARKET_DATA_PROVIDER="yfinance"
+uvicorn backend.app.main:app --reload
+```
+
+Mock mode remains the default. Live market data can also be requested for `GET /api/daily-report/latest` with `?use_live_market_data=true`.
+
+Public response schemas remain stable. Live-vs-mock status is carried inside existing raw-data evidence fields such as `source`, `source_date`, and `raw_data.source_type`. Phase 8 does not connect 13F, Form 4, FRED, news, YouTube, options, or live theme data.

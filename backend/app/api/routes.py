@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from backend.app.data_sources.mock_data import DEFAULT_STOCK, MOCK_SOURCE, MOCK_SOURCE_DATE, STOCK_FIXTURES
 from backend.app.middleware.safety_filter import SafetyViolationError, check_safety
 from backend.app.pipelines.mock_pipeline import build_daily_report
+from backend.app.raw_store.repository import get_market_data
 from backend.app.reports.stock_analysis import analyze_stock
 from backend.app.schemas.daily_report import DailyResearchReport
 from backend.app.schemas.health import HealthResponse
@@ -39,8 +40,10 @@ def health() -> HealthResponse:
 
 
 @router.get("/daily-report/latest", response_model=DailyResearchReport)
-def latest_daily_report() -> DailyResearchReport:
-    return _ensure_safe_response(build_daily_report())
+def latest_daily_report(use_live_market_data: bool | None = Query(default=None)) -> DailyResearchReport:
+    if use_live_market_data is None:
+        return _ensure_safe_response(build_daily_report())
+    return _ensure_safe_response(build_daily_report(use_live_market_data=use_live_market_data))
 
 
 @router.get("/daily-report/{report_date}", response_model=DailyResearchReport)
@@ -79,12 +82,13 @@ def raw_data_by_ticker(ticker: str) -> RawDataResponse:
         ticker=normalized_ticker,
         raw_data={
             "company_fixture": fixture,
-            "note": "Mock fixture snapshot only; live raw data store is not connected.",
+            "market_price_snapshot": get_market_data(normalized_ticker),
+            "note": "Company fixture remains mock-only; market price snapshot may be live when enabled.",
         },
         source=MOCK_SOURCE,
         source_date=MOCK_SOURCE_DATE,
-        limitations=["Mock fixture data only; raw data persistence is reserved for live data phases."],
-        missing_data=["live market prices", "live SEC filings", "live options feed"],
+        limitations=["Company fundamentals remain mock fixtures; Phase 8 live integration covers market prices only."],
+        missing_data=["live SEC filings", "live options feed"],
     )
 
 
