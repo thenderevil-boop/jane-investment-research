@@ -6,8 +6,12 @@ from typing import Any
 from backend.app.schemas.common import DataQualitySummary, DataSourceStatus
 
 DAILY_MARKET_FRESHNESS_WINDOW = "latest_expected_trading_day"
+DAILY_RATE_FRESHNESS_WINDOW = "daily_rate_5_business_days"
+MONTHLY_MACRO_FRESHNESS_WINDOW = "monthly_macro_latest_observation"
+DERIVED_FRED_FRESHNESS_WINDOW = "derived_from_FRED"
 MOCK_LIMITATION = "Mock data is a non-live research reference and is excluded from stale-data counts."
 FALLBACK_LIMITATION = "Live market data unavailable; mock fallback used."
+MONTHLY_FRED_LIMITATION = "Monthly FRED series are evaluated using observation-month freshness, not latest trading-day freshness."
 
 
 def parse_source_date(value: Any) -> date | None:
@@ -44,6 +48,44 @@ def is_daily_market_data_fresh(source_date: Any, as_of: date | None = None) -> b
         return False
     latest = _latest_expected_trading_day(as_of)
     return parsed >= latest
+
+
+def _business_days_between(start: date, end: date) -> int:
+    if start > end:
+        return 0
+    count = 0
+    current = start
+    while current < end:
+        current += timedelta(days=1)
+        if current.weekday() < 5:
+            count += 1
+    return count
+
+
+def is_daily_rate_data_fresh(source_date: Any, as_of: date | None = None) -> bool:
+    parsed = parse_source_date(source_date)
+    if parsed is None:
+        return False
+    current = as_of or datetime.now(timezone.utc).date()
+    return _business_days_between(parsed, current) <= 5
+
+
+def is_monthly_macro_data_fresh(source_date: Any, as_of: date | None = None) -> bool:
+    parsed = parse_source_date(source_date)
+    if parsed is None:
+        return False
+    current = as_of or datetime.now(timezone.utc).date()
+    return parsed >= current - timedelta(days=70)
+
+
+def is_source_fresh_for_window(source_date: Any, freshness_window: str, as_of: date | None = None) -> bool:
+    if freshness_window == DAILY_RATE_FRESHNESS_WINDOW:
+        return is_daily_rate_data_fresh(source_date, as_of=as_of)
+    if freshness_window == MONTHLY_MACRO_FRESHNESS_WINDOW:
+        return is_monthly_macro_data_fresh(source_date, as_of=as_of)
+    if freshness_window == DAILY_MARKET_FRESHNESS_WINDOW:
+        return is_daily_market_data_fresh(source_date, as_of=as_of)
+    return is_daily_market_data_fresh(source_date, as_of=as_of)
 
 
 def _source_list(value: Any) -> list[str]:
@@ -105,18 +147,23 @@ def build_source_status(
     resolved_reason = fallback_reason or data.get("fallback_reason") or data.get("error") or data.get("live_market_data_error")
     status_missing = list(missing_data if missing_data is not None else data.get("missing_data", []) or [])
     status_limitations = list(limitations if limitations is not None else data.get("limitations", []) or [])
+    if freshness_window == MONTHLY_MACRO_FRESHNESS_WINDOW and MONTHLY_FRED_LIMITATION not in status_limitations:
+        status_limitations.append(MONTHLY_FRED_LIMITATION)
     if not resolved_source_date:
         status_missing.append("source_date")
     if resolved_type == "mock" and MOCK_LIMITATION not in status_limitations:
         status_limitations.append(MOCK_LIMITATION)
     if resolved_fallback and FALLBACK_LIMITATION not in status_limitations:
         status_limitations.append(FALLBACK_LIMITATION)
-    if resolved_type == "mock":
+    explicit_is_fresh = data.get("is_fresh")
+    if isinstance(explicit_is_fresh, bool):
+        is_fresh = explicit_is_fresh
+    elif resolved_type == "mock":
         is_fresh = True
     elif resolved_type == "unknown":
         is_fresh = False
     else:
-        is_fresh = is_daily_market_data_fresh(resolved_source_date, as_of=as_of)
+        is_fresh = is_source_fresh_for_window(resolved_source_date, freshness_window, as_of=as_of)
     return DataSourceStatus(
         source_type=resolved_type,  # type: ignore[arg-type]
         provider=provider or _provider(data, resolved_type),
@@ -155,6 +202,15 @@ def summarize_data_quality(statuses: list[DataSourceStatus]) -> DataQualitySumma
         limitations.append("Some live, fallback, or derived components are stale.")
     if missing_source_date:
         limitations.append("Some components are missing source dates.")
+    providers = {item.provider for item in statuses}
+    windows = {item.freshness_window for item in statuses}
+    if "FRED" in providers or "derived_from_FRED" in providers:
+        fred_windows = sorted(
+            window
+            for window in windows
+            if window in {DAILY_RATE_FRESHNESS_WINDOW, MONTHLY_MACRO_FRESHNESS_WINDOW, DERIVED_FRED_FRESHNESS_WINDOW}
+        )
+        limitations.append(f"FRED macro freshness windows active: {', '.join(fred_windows)}.")
     return DataQualitySummary(
         mode=mode,  # type: ignore[arg-type]
         live_components=live,

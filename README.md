@@ -269,7 +269,10 @@ Daily report, stock analysis, and raw-data responses now expose additive source 
 Freshness rules:
 
 - Daily market data is fresh when `source_date` is within the latest expected trading-day window.
-- Mock data is shown as not fully fresh.
+- FRED Treasury yield series are fresh within `daily_rate_5_business_days`.
+- FRED monthly macro series use `monthly_macro_latest_observation`.
+- Derived FRED fields use `derived_from_FRED` and inherit the strictest relevant input freshness.
+- Mock data is counted as mock reference data, not stale live data.
 - Missing source dates are marked in `missing_data`.
 - Fallbacks include a safe summarized `fallback_reason` and do not expose stack traces.
 
@@ -284,6 +287,52 @@ uvicorn backend.app.main:app --reload
 ```
 
 Live market data remains limited to US market prices. FRED, SEC filings, news, YouTube, options, and 13F integrations are not connected yet.
+
+## Phase 9 Live Macro / FRED Data
+
+Selected US macro indicators can now be enabled through the repository-backed FRED adapter. Mock macro mode remains the default.
+
+Keep mock macro mode:
+
+```powershell
+cd D:\jane-investment-research
+.\.venv\Scripts\Activate.ps1
+$env:USE_LIVE_MACRO_DATA="false"
+uvicorn backend.app.main:app --reload
+```
+
+Enable live FRED-backed macro fields:
+
+```powershell
+cd D:\jane-investment-research
+.\.venv\Scripts\Activate.ps1
+$env:USE_LIVE_MACRO_DATA="true"
+$env:FRED_API_KEY="your_key_here"
+$env:MACRO_DATA_PROVIDER="fred"
+uvicorn backend.app.main:app --reload
+```
+
+Live Phase 9 fields:
+
+- Effective Federal Funds Rate and `fed_policy_trend`
+- 10-year Treasury yield and 2-year Treasury yield
+- `ten_year_minus_two_year_spread_bps`, derived from FRED yields
+- CPI YoY
+- PPI YoY
+- unemployment rate and `unemployment_trend`
+
+Still mock in Phase 9:
+
+- ISM Manufacturing PMI
+- DXY trend
+- gold trend
+- oil trend
+- Fear & Greed
+- macro equity drawdown context unless live market prices are separately enabled
+
+If `USE_LIVE_MACRO_DATA=true` but `FRED_API_KEY` is missing, FRED is unavailable, or the provider is unsupported, the raw store returns deterministic mock fallback macro data with `source_type="fallback"`. FRED release schedules can lag the current date, so live macro components include release-delay limitations and may require human verification.
+
+Phase 9.1 keeps `/api/daily-report/latest` compact: FRED raw payloads include latest/previous values and bounded recent observations instead of full historical series. The report `date` is the current report date, `report_generated_at` is the actual generation timestamp, and each data source keeps its own `source_date`.
 
 ## Project Guardrails
 

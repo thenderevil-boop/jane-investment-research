@@ -30,13 +30,19 @@ Optional query parameter:
 
 - `use_live_market_data`: boolean. Defaults to environment configuration. When `true`, the backend attempts repository-backed yfinance OHLCV fetches for market price fields and falls back to mock market data if the fetch fails.
 
+Environment-controlled live macro behavior:
+
+- `USE_LIVE_MACRO_DATA=false` by default keeps macro data on deterministic mock fixtures.
+- `USE_LIVE_MACRO_DATA=true` with `FRED_API_KEY` attempts repository-backed FRED fetches for selected macro fields.
+- Missing `FRED_API_KEY`, unsupported provider, or FRED fetch failure falls back to mock macro data with `source_type="fallback"`.
+
 Response shape:
 
 ```json
 {
-  "date": "2026-04-24",
+  "date": "2026-04-27",
   "market": "US",
-  "report_generated_at": "2026-04-24T08:00:00+08:00",
+  "report_generated_at": "2026-04-27T08:00:00+00:00",
   "macro_regime": {},
   "market_timing": {},
   "overheat_risk": {},
@@ -228,6 +234,10 @@ Allowed `source_type` values:
 Freshness rules:
 
 - Daily market data is fresh when `source_date` matches the latest expected trading day.
+- FRED daily rate series use `freshness_window="daily_rate_5_business_days"`.
+- FRED monthly macro series use `freshness_window="monthly_macro_latest_observation"`.
+- FRED-derived fields use `freshness_window="derived_from_FRED"` and inherit freshness from their input series. If an input series is stale, the derived field is stale and includes the stale input in `missing_data`.
+- For monthly FRED series, `source_date` is the observation month being measured, not the report generation date or the FRED release timestamp. The MVP treats monthly observations within 70 calendar days of report generation as fresh to account for normal release delay.
 - Mock data is classified as mock reference data and does not count as stale solely because it is not live.
 - Stale applies only to live, fallback, or derived components with outdated `source_date`.
 - Fallback data sets `fallback_used=true` and includes a safe `fallback_reason`.
@@ -323,6 +333,8 @@ Evidence is represented by:
 
 Raw data is always an object under `raw_data`. It contains mock source snapshots in the MVP.
 
+For live FRED macro data, `/api/daily-report/latest` includes compact `raw_fred_snapshot.raw_series` summaries instead of full historical observations. Each series summary includes `series_id`, `latest_date`, `latest_value`, `previous_value`, a bounded `recent_observations` array, `source_status`, `limitations`, and `missing_data`. Full macro raw-series access is reserved for a future `GET /api/raw-data/macro/{series_id}` endpoint.
+
 ### Benchmark
 
 Benchmark is always an object under `benchmark`. It contains thresholds, peer references, or rule cutoffs.
@@ -365,6 +377,8 @@ Missing data is an array of strings under `missing_data`.
   "not_investment_advice": true
 }
 ```
+
+`date` is the report date. `report_generated_at` is the actual generation timestamp. `source_date` remains source-specific on each score, component, candidate, and source-status object.
 
 `smart_money_summary` and `smart_money` currently contain the same score object. `smart_money` is the stable frontend-facing field; `smart_money_summary` is retained for backwards compatibility.
 
@@ -539,3 +553,46 @@ Mock mode remains the default. Live market data can also be requested for `GET /
 Public response schemas remain stable. Phase 8.1 adds `source_status` and `data_quality` as additive metadata so clients can distinguish live, mock, fallback, stale, and missing-source-date components. Phase 8.2 clarifies that mock components are mock reference data, not stale live data, and that market timing / overheat subcomponents derived from yfinance carry `source_type="derived"` with `provider="derived_from_yfinance"`. Phase 8 does not connect 13F, Form 4, FRED, news, YouTube, options, or live theme data.
 
 Phase 8.3 keeps nested SPY / QQQ market snapshots aligned with the aggregate live market snapshot date and ensures crisis aggregate source status is always present as derived component metadata.
+
+## Phase 9 Live Macro / FRED Data
+
+Phase 9 adds an opt-in FRED-compatible macro adapter behind the raw store boundary. Public response schemas remain stable; live/fallback/mixed state is exposed through existing `source_status`, `raw_data`, `limitations`, `missing_data`, and `data_quality` fields.
+
+PowerShell:
+
+```powershell
+$env:USE_LIVE_MACRO_DATA="true"
+$env:FRED_API_KEY="your_key_here"
+$env:MACRO_DATA_PROVIDER="fred"
+uvicorn backend.app.main:app --reload
+```
+
+Live FRED-backed fields in `macro_regime`:
+
+- `fed_policy_trend` from `FEDFUNDS`
+- `ten_year_minus_two_year_spread_bps` derived from `DGS10` and `DGS2`
+- `cpi_yoy` from `CPIAUCSL`
+- `ppi_yoy` from `PPIACO`
+- `unemployment_rate` and `unemployment_trend` from `UNRATE`
+
+Still mock in Phase 9:
+
+- `ism_manufacturing_pmi`
+- `dxy_trend`
+- `gold_trend`
+- `oil_trend`
+- `fear_greed`
+
+FRED release schedules may lag the current date. When live macro is enabled, `data_quality.live_components` counts FRED-backed macro components, while mock-only macro components remain visible as mock. If live macro fetch fails, macro source metadata is marked as fallback and the report adds macro missing-data and limitation notes.
+
+Phase 9.1 cleanup:
+
+- FRED freshness is series-aware: Treasury yield series use `daily_rate_5_business_days`; monthly macro releases use `monthly_macro_latest_observation`; derived FRED values use `derived_from_FRED`.
+- `/api/daily-report/latest` exposes compact FRED raw-series summaries and does not include full historical FRED observations.
+- `date` reflects the current report date, while `report_generated_at` is the actual report generation timestamp.
+
+Phase 9.2 monthly FRED freshness:
+
+- Monthly series (`FEDFUNDS`, `CPIAUCSL`, `PPIACO`, and `UNRATE`) are evaluated using observation-month freshness rather than latest-trading-day freshness.
+- A March 2026 monthly observation can be fresh in an April 27, 2026 report because the observation date is the measured month, while release schedules can lag.
+- Every live FRED component source status should propagate the macro snapshot `fetched_at` timestamp when available.

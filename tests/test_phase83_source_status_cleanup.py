@@ -2,12 +2,20 @@ from __future__ import annotations
 
 import json
 from datetime import date, datetime, timedelta
+from pathlib import Path
+from uuid import uuid4
 
 from backend.app import config
 from backend.app.data_sources import live_market_prices
 from backend.app.pipelines.mock_pipeline import build_daily_report
 from backend.app.raw_store import repository
 from backend.app.utils.forbidden_language import detect_forbidden_language
+
+
+def workspace_tmp_dir() -> Path:
+    path = Path("backend/raw_store/cache/test_phase83") / uuid4().hex
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def make_snapshot(ticker: str, source_date: str) -> dict:
@@ -39,8 +47,9 @@ def make_snapshot(ticker: str, source_date: str) -> dict:
     }
 
 
-def test_live_nested_spy_qqq_source_status_is_current_and_not_stale(monkeypatch, tmp_path):
-    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", tmp_path)
+def test_live_nested_spy_qqq_source_status_is_current_and_not_stale(monkeypatch):
+    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", workspace_tmp_dir())
+    monkeypatch.setattr(config, "USE_LIVE_MACRO_DATA", False)
     current_source_date = date.today().isoformat()
 
     def fake_fetch(ticker: str, period: str = "1y", interval: str = "1d"):
@@ -62,8 +71,9 @@ def test_live_nested_spy_qqq_source_status_is_current_and_not_stale(monkeypatch,
     assert payload["data_quality"]["missing_source_date_components"] == 0
 
 
-def test_live_fetch_ignores_stale_cache_when_live_mode_is_enabled(monkeypatch, tmp_path):
-    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", tmp_path)
+def test_live_fetch_ignores_stale_cache_when_live_mode_is_enabled(monkeypatch):
+    cache_dir = workspace_tmp_dir()
+    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", cache_dir)
     repository.write_market_data("SPY", make_snapshot("SPY", "2020-01-01"))
     current_source_date = date.today().isoformat()
 
@@ -75,7 +85,7 @@ def test_live_fetch_ignores_stale_cache_when_live_mode_is_enabled(monkeypatch, t
 
     assert payload["source_date"] == current_source_date
     assert payload["source_status"]["is_fresh"] is True
-    cached = json.loads((tmp_path / "SPY.json").read_text(encoding="utf-8"))
+    cached = json.loads((cache_dir / "SPY.json").read_text(encoding="utf-8"))
     assert cached["source_date"] == current_source_date
 
 
@@ -90,8 +100,9 @@ def test_crisis_aggregate_source_status_is_derived_from_components():
     assert crisis_status.is_fresh is True
 
 
-def test_live_price_and_mock_non_price_data_quality_is_mixed_without_stale_or_missing_dates(monkeypatch, tmp_path):
-    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", tmp_path)
+def test_live_price_and_mock_non_price_data_quality_is_mixed_without_stale_or_missing_dates(monkeypatch):
+    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", workspace_tmp_dir())
+    monkeypatch.setattr(config, "USE_LIVE_MACRO_DATA", False)
     current_source_date = date.today().isoformat()
 
     def fake_fetch(ticker: str, period: str = "1y", interval: str = "1d"):
@@ -107,4 +118,3 @@ def test_live_price_and_mock_non_price_data_quality_is_mixed_without_stale_or_mi
     assert payload["data_quality"]["stale_components"] == 0
     assert payload["data_quality"]["missing_source_date_components"] == 0
     assert detect_forbidden_language(payload) == []
-

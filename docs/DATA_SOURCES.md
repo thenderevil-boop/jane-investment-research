@@ -2,7 +2,74 @@
 
 ## MVP Rule
 
-Mock fixtures remain the default. Phase 8 added opt-in live market prices only; Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
+Mock fixtures remain the default. Phase 8 added opt-in live market prices, and Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
+
+## Phase 9 Live Macro / FRED
+
+Default:
+
+- `USE_LIVE_MACRO_DATA=false`
+- no FRED request is made
+- repository functions return mock macro snapshots with `source_type: "mock"`
+
+Opt-in:
+
+```powershell
+$env:USE_LIVE_MACRO_DATA="true"
+$env:FRED_API_KEY="your_key_here"
+$env:MACRO_DATA_PROVIDER="fred"
+uvicorn backend.app.main:app --reload
+```
+
+Implemented FRED series:
+
+- `FEDFUNDS`: Effective Federal Funds Rate
+- `DGS10`: 10-Year Treasury Constant Maturity Rate
+- `DGS2`: 2-Year Treasury Constant Maturity Rate
+- `CPIAUCSL`: CPI
+- `PPIACO`: PPI
+- `UNRATE`: unemployment rate
+
+Derived fields:
+
+- `ten_year_minus_two_year_spread_bps = (DGS10 - DGS2) * 100`
+- `cpi_yoy`
+- `ppi_yoy`
+- `unemployment_trend`
+- `fed_policy_trend`
+
+Still mock in Phase 9:
+
+- ISM Manufacturing PMI
+- DXY trend
+- gold trend
+- oil trend
+- Fear & Greed
+- SEC filings, options, news, YouTube, 13F, Form 4, and theme APIs
+
+Repository behavior:
+
+- live FRED fetches are made only through `backend.app.raw_store.repository`
+- successful live macro snapshots are cached under `backend/raw_store/cache/macro` unless `MACRO_DATA_CACHE_DIR` overrides it
+- missing API key, unsupported provider, or fetch failures return mock fallback macro data with `source_type: "fallback"`
+- engines consume normalized macro snapshots from the raw store and do not call FRED directly
+- FRED-backed components use `provider: "FRED"` and the yield spread uses `provider: "derived_from_FRED"`
+- daily reports expose compact FRED raw summaries, not full historical observation arrays
+
+FRED freshness windows:
+
+- `DGS10` and `DGS2`: `daily_rate_5_business_days`
+- `FEDFUNDS`, `CPIAUCSL`, `PPIACO`, and `UNRATE`: `monthly_macro_latest_observation`
+- derived FRED values use `derived_from_FRED` and inherit the strictest freshness decision from their input series
+
+Limitations:
+
+- FRED macro series may be delayed depending on release schedule
+- Monthly FRED `source_date` is the observation month being measured, not the report generation date or the public release timestamp
+- Monthly FRED freshness uses observation-month semantics; for the MVP, a latest observation within 70 calendar days of report generation is considered fresh
+- CPI, PPI, unemployment, and rate series update on different calendars
+- unavailable FRED fields are marked in `missing_data`
+- full FRED history is intentionally not included in `/api/daily-report/latest`; a future endpoint may expose `GET /api/raw-data/macro/{series_id}` for audited raw series access
 
 ## Phase 8 Live Market Prices
 
@@ -69,6 +136,7 @@ Every source-aware response can include:
 Freshness semantics:
 
 - live/fallback/derived components are stale only when `source_date` is older than the latest expected trading day
+- FRED macro components use series-aware freshness windows instead of the market trading-day rule
 - mock components are counted as mock components, not stale components
 - components with no source date are counted separately as missing-source-date components
 - nested SPY and QQQ live market feature snapshots inherit the aggregate market snapshot date for source-status consistency
@@ -83,7 +151,10 @@ Cache behavior:
 Freshness rules:
 
 - Daily market data is fresh if `source_date` is within the latest expected trading-day window.
-- Mock data is never treated as fully fresh.
+- FRED daily rate data is fresh if `source_date` is within 5 business days.
+- FRED monthly macro data uses `monthly_macro_latest_observation`: the observation date represents the month measured, and the MVP treats observations within 70 calendar days of report generation as fresh to account for FRED release delay.
+- Derived FRED data is fresh only when the relevant input series are fresh; if an input is stale, the derived status records the stale input in `missing_data`.
+- Mock data is counted as mock reference data and is excluded from stale-live counts.
 - Fallback data is not treated as fully fresh and must disclose the fallback reason.
 - Missing `source_date` adds `source_date` to `missing_data`.
 
