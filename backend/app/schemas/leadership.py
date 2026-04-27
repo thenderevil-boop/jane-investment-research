@@ -4,6 +4,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from backend.app.schemas.common import DataSourceStatus
+
 
 class LeadershipCriterion(BaseModel):
     criterion_id: int = Field(ge=1, le=20)
@@ -19,6 +21,7 @@ class LeadershipCriterion(BaseModel):
     confidence: float = Field(ge=0, le=1)
     limitations: list[str]
     missing_data: list[str]
+    source_status: DataSourceStatus | None = None
 
 
 class LeadershipScore(BaseModel):
@@ -36,3 +39,4 @@ class LeadershipScore(BaseModel):
     limitations: list[str]
     missing_data: list[str]
     criteria: list[LeadershipCriterion]
+    source_status: DataSourceStatus | None = None

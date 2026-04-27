@@ -4,6 +4,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from backend.app.schemas.common import DataSourceStatus
+
 
 class FutureTheme(BaseModel):
     name: str = "theme_score"
@@ -21,3 +23,4 @@ class FutureTheme(BaseModel):
     limitations: list[str]
     missing_data: list[str]
     candidate_companies: list[str]
+    source_status: DataSourceStatus | None = None

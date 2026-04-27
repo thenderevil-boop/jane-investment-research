@@ -6,6 +6,7 @@ from backend.app.data_sources.mock_crisis import MOCK_CRISIS_SOURCE_DATE
 from backend.app.features.crisis_features import build_crisis_components
 from backend.app.schemas.common import ScoreObject
 from backend.app.schemas.crisis import CrisisOutput
+from backend.app.utils.freshness import build_source_status, parse_source_date
 
 LIMITATION = "Phase 5 deterministic mock crisis playbook engine; no live source connection."
 REQUIRED_FIELDS = [
@@ -85,6 +86,30 @@ def evaluate_crisis(data: dict[str, Any]) -> CrisisOutput:
     level = _classify(data)
     missing = sorted(set(_missing_required(data) + [item for component in components for item in component.missing_data]))
     confidence = 0.35 if level == "insufficient_data" else round(sum(component.confidence for component in components) / len(components), 2)
+    source_dates = [component.source_date for component in components if parse_source_date(component.source_date)]
+    aggregate_source_date = max(source_dates) if source_dates else MOCK_CRISIS_SOURCE_DATE
+    component_statuses = [
+        build_source_status(
+            {
+                "source": component.source,
+                "source_date": component.source_date,
+                "limitations": component.limitations,
+                "missing_data": component.missing_data,
+            }
+        )
+        for component in components
+    ]
+    aggregate_status = build_source_status(
+        {
+            "source_type": "derived",
+            "provider": "derived_from_crisis_components",
+            "source": ["phase5_mock_crisis_dataset"],
+            "source_date": aggregate_source_date,
+            "limitations": [LIMITATION, "Reference labels describe research context only."],
+            "missing_data": missing,
+        }
+    )
+    aggregate_status.is_fresh = all(status.source_type == "mock" or status.is_fresh for status in component_statuses)
     return CrisisOutput(
         level=level,
         confidence=confidence,
@@ -92,6 +117,7 @@ def evaluate_crisis(data: dict[str, Any]) -> CrisisOutput:
         components=components,
         limitations=[LIMITATION, "Reference labels describe research context only."],
         missing_data=missing,
+        source_status=aggregate_status,
     )
 
 

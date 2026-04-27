@@ -1,15 +1,20 @@
+import type { DataSourceStatus } from '../types';
+import DataSourceBadge from './DataSourceBadge';
+
 type Props = {
   evidenceSummary?: string;
   source?: string[];
   sourceDate?: string;
   confidence?: number;
   limitations?: string[];
+  sourceStatus?: DataSourceStatus | null;
 };
 
-export default function EvidencePanel({ evidenceSummary, source, sourceDate, confidence, limitations }: Props) {
+export default function EvidencePanel({ evidenceSummary, source, sourceDate, confidence, limitations, sourceStatus }: Props) {
   return (
     <section className="evidencePanel">
       {evidenceSummary && <p>{evidenceSummary}</p>}
+      <DataSourceBadge status={sourceStatus} />
       <dl className="metaGrid">
         <div>
           <dt>Source</dt>
@@ -18,6 +23,10 @@ export default function EvidencePanel({ evidenceSummary, source, sourceDate, con
         <div>
           <dt>Source date</dt>
           <dd>{sourceDate || 'N/A'}</dd>
+        </div>
+        <div>
+          <dt>Freshness</dt>
+          <dd>{sourceStatus ? (sourceStatus.is_fresh ? (sourceStatus.source_type === 'mock' ? 'Mock reference' : 'Fresh') : 'Stale') : 'N/A'}</dd>
         </div>
         <div>
           <dt>Confidence</dt>

@@ -10,7 +10,7 @@ export function variantForLabel(label?: string): SignalVariant {
   if (value.includes('insufficient')) return 'insufficient';
   if (value.includes('risk') || value.includes('crisis') || value.includes('negative')) return 'danger';
   if (value.includes('overheated') || value.includes('warning') || value.includes('watch')) return 'warning';
-  if (value.includes('positive') || value.includes('favorable') || value.includes('worth')) return 'positive';
+  if (value.includes('supportive') || value.includes('accumulation') || value.includes('elevated') || value.includes('favorable') || value.includes('worth')) return 'positive';
   return 'neutral';
 }
 

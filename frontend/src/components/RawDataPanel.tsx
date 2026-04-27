@@ -1,3 +1,6 @@
+import type { DataSourceStatus } from '../types';
+import DataSourceBadge from './DataSourceBadge';
+
 type Props = {
   title?: string;
   rawData?: unknown;
@@ -6,16 +9,25 @@ type Props = {
   trend?: unknown;
   limitations?: string[];
   missingData?: string[];
+  sourceStatus?: DataSourceStatus | null;
 };
 
 function JsonBlock({ value }: { value: unknown }) {
   return <pre className="jsonBlock">{JSON.stringify(value ?? {}, null, 2)}</pre>;
 }
 
-export default function RawDataPanel({ title = 'Raw evidence', rawData, derivedMetrics, benchmark, trend, limitations, missingData }: Props) {
+export default function RawDataPanel({ title = 'Raw evidence', rawData, derivedMetrics, benchmark, trend, limitations, missingData, sourceStatus }: Props) {
   return (
     <details className="rawPanel">
       <summary>{title}</summary>
+      {sourceStatus && (
+        <div className="sourceStatusRow">
+          <DataSourceBadge status={sourceStatus} />
+          <span>{sourceStatus.provider}</span>
+          <span>{sourceStatus.source_date || 'Missing source date'}</span>
+          {sourceStatus.fallback_reason && <span>{sourceStatus.fallback_reason}</span>}
+        </div>
+      )}
       <div className="rawGrid">
         <div>
           <h4>Raw data</h4>

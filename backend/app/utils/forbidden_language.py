@@ -8,6 +8,7 @@ FORBIDDEN_PATTERNS = {
     "sell": re.compile(r"\bsell\b", re.IGNORECASE),
     "hold": re.compile(r"\bhold\b", re.IGNORECASE),
     "liquidate": re.compile(r"\bliquidate\b", re.IGNORECASE),
+    "enter": re.compile(r"\benter\b", re.IGNORECASE),
     "exit": re.compile(r"\bexit\b", re.IGNORECASE),
     "exit position": re.compile(r"\bexit\s+position\b", re.IGNORECASE),
     "enter position": re.compile(r"\benter\s+position\b", re.IGNORECASE),

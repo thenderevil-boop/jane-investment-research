@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from pydantic import BaseModel
+
 from backend.app.data_sources.mock_crisis import MOCK_CRISIS_SCENARIOS
 from backend.app.data_sources.mock_macro import MOCK_MACRO_SCENARIOS
 from backend.app.data_sources.mock_data import MOCK_SMART_MONEY_SUMMARY, MOCK_SOURCE, MOCK_SOURCE_DATE, STOCK_FIXTURES
@@ -17,6 +19,7 @@ from backend.app.raw_store.repository import read_market_data
 from backend.app.schemas.candidate import StockCandidate
 from backend.app.schemas.common import ScoreObject
 from backend.app.schemas.daily_report import DailyResearchReport
+from backend.app.utils.freshness import build_source_status, summarize_data_quality
 
 
 def score_object(
@@ -69,7 +72,7 @@ def _candidate(ticker: str, theme: str, market_context: dict | None = None) -> S
     leadership_percent = leadership.score / leadership.max_score * 100
     risk_score = round(overheat.score * 0.60 + max(0, 100 - leadership_percent) * 0.40, 2)
     confidence = round((leadership.confidence + smart_money.confidence + market_timing.confidence + overheat.confidence) / 4, 2)
-    return StockCandidate(
+    candidate = StockCandidate(
         ticker=ticker,
         company_name=fixture["company_name"],
         theme=theme,
@@ -85,6 +88,79 @@ def _candidate(ticker: str, theme: str, market_context: dict | None = None) -> S
         limitations=sorted({*leadership.limitations, *smart_money.limitations, *market_timing.limitations, *overheat.limitations}),
         missing_data=sorted({*fixture.get("missing_data", []), *leadership.missing_data, *smart_money.missing_data, *market_timing.missing_data, *overheat.missing_data}),
     )
+    candidate.source_status = build_source_status(
+        {
+            "source_type": market_context.get("source_type") if market_context else "mock",
+            "source": candidate.source,
+            "source_date": candidate.source_date,
+            "limitations": candidate.limitations,
+            "missing_data": candidate.missing_data,
+            "fallback_used": market_context.get("fallback_used") if market_context else False,
+            "fallback_reason": market_context.get("fallback_reason") if market_context else None,
+        }
+    )
+    return candidate
+
+
+def _payload_for_source_status(value) -> dict:
+    if hasattr(value, "model_dump"):
+        data = value.model_dump(mode="json")
+    elif isinstance(value, dict):
+        data = value
+    else:
+        return {}
+    raw_data = data.get("raw_data") if isinstance(data.get("raw_data"), dict) else {}
+    payload = {
+        "source_type": data.get("source_type") or raw_data.get("source_type"),
+        "source": data.get("source") or raw_data.get("source"),
+        "source_date": data.get("source_date") or raw_data.get("source_date"),
+        "cached_at": data.get("cached_at") or raw_data.get("cached_at"),
+        "fetched_at": data.get("fetched_at") or raw_data.get("fetched_at"),
+        "provider": data.get("provider") or raw_data.get("provider"),
+        "fallback_used": data.get("fallback_used") or raw_data.get("fallback_used"),
+        "fallback_reason": data.get("fallback_reason") or raw_data.get("fallback_reason") or raw_data.get("live_market_data_error"),
+        "limitations": data.get("limitations"),
+        "missing_data": data.get("missing_data"),
+    }
+    return payload
+
+
+def _has_source_status_payload(payload: dict) -> bool:
+    return any(payload.get(key) for key in ["source_type", "source", "source_date", "provider", "fallback_used", "fallback_reason"])
+
+
+def _enrich_source_status(value, statuses: list | None = None) -> None:
+    statuses = statuses if statuses is not None else []
+    if isinstance(value, BaseModel):
+        model_fields = value.__class__.model_fields
+        if "source_status" in model_fields:
+            payload = _payload_for_source_status(value)
+            if _has_source_status_payload(payload):
+                status = build_source_status(payload)
+                value.source_status = status
+                statuses.append(status)
+        for field_name in model_fields:
+            if field_name == "source_status":
+                continue
+            _enrich_source_status(getattr(value, field_name), statuses)
+        return
+    if isinstance(value, dict):
+        if {"source", "source_date"}.issubset(value.keys()) and value.get("source_status") is None:
+            status = build_source_status(_payload_for_source_status(value))
+            value["source_status"] = status.model_dump(mode="json")
+            statuses.append(status)
+        for child in value.values():
+            _enrich_source_status(child, statuses)
+        return
+    if isinstance(value, list):
+        for child in value:
+            _enrich_source_status(child, statuses)
+
+
+def _source_statuses(report: DailyResearchReport) -> list:
+    statuses: list = []
+    _enrich_source_status(report, statuses)
+    return statuses
 
 
 def build_daily_report(scenario: str = "normal", use_live_market_data: bool | None = None) -> DailyResearchReport:
@@ -128,7 +204,7 @@ def build_daily_report(scenario: str = "normal", use_live_market_data: bool | No
             ]
         )
     )
-    return DailyResearchReport(
+    report = DailyResearchReport(
         date=today,
         report_generated_at=datetime(2026, 4, 24, 8, 0, tzinfo=timezone.utc).isoformat(),
         macro_regime=macro_regime,
@@ -154,3 +230,11 @@ def build_daily_report(scenario: str = "normal", use_live_market_data: bool | No
             "Review theme news manually because Phase 1 uses mock mentions.",
         ],
     )
+    report.data_quality = summarize_data_quality(_source_statuses(report))
+    if report.data_quality.stale_components:
+        report.human_verification_queue.append("Review stale live or derived data source status before interpreting scores.")
+    if report.data_quality.missing_source_date_components:
+        report.human_verification_queue.append("Review components with missing source dates before interpreting scores.")
+    if report.data_quality.fallback_components:
+        report.human_verification_queue.append("Review fallback market data status because live price data was unavailable.")
+    return report

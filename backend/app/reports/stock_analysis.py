@@ -5,9 +5,10 @@ from backend.app.engines.leadership_engine import evaluate_leadership
 from backend.app.engines.market_timing_engine import evaluate_market_timing
 from backend.app.engines.overheat_engine import evaluate_overheat
 from backend.app.engines.smart_money_engine import evaluate_smart_money
-from backend.app.pipelines.mock_pipeline import score_object
+from backend.app.pipelines.mock_pipeline import _enrich_source_status, score_object
 from backend.app.raw_store.repository import read_market_data
 from backend.app.schemas.stock_analysis import AnalyzeStockRequest, AnalyzeStockResponse
+from backend.app.utils.freshness import build_source_status, summarize_data_quality
 
 
 def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
@@ -24,7 +25,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         missing_data.append("live price history")
     missing_data.append("live SEC filing details")
 
-    return AnalyzeStockResponse(
+    response = AnalyzeStockResponse(
         ticker=request.ticker,
         company_profile={
             "company_name": fixture["company_name"],
@@ -42,13 +43,13 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         financial_quality=score_object(
             "financial_quality_score",
             min(100, 50 + fixture["free_cash_flow_margin_pct"] - max(0, fixture["net_debt_to_ebitda"]) * 5),
-            "positive_signal" if fixture["free_cash_flow_margin_pct"] >= 15 else "neutral",
+            "favorable_research_environment" if fixture["free_cash_flow_margin_pct"] >= 15 else "neutral",
             {
                 "free_cash_flow_margin_pct": fixture["free_cash_flow_margin_pct"],
                 "net_debt_to_ebitda": fixture["net_debt_to_ebitda"],
             },
             {"cash_generation_proxy": fixture["free_cash_flow_margin_pct"]},
-            {"fcf_margin_positive_signal_pct": 15, "net_debt_to_ebitda_watch": 3},
+            {"fcf_margin_supportive_pct": 15, "net_debt_to_ebitda_watch": 3},
             {"financial_quality": "up" if fixture["free_cash_flow_margin_pct"] >= 15 else "mixed"},
             0.62,
             missing_data=["live income statement", "live balance sheet"],
@@ -79,3 +80,15 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
             "Review current news and filings before using this research output.",
         ],
     )
+    statuses: list = []
+    _enrich_source_status(response, statuses)
+    response.source_status = build_source_status(market_context)
+    statuses.append(response.source_status)
+    response.data_quality = summarize_data_quality(statuses)
+    if response.data_quality.fallback_components:
+        response.human_verification_queue.append("Review fallback market data status because live price data was unavailable.")
+    if response.data_quality.stale_components:
+        response.human_verification_queue.append("Review stale live or derived data source status before interpreting scores.")
+    if response.data_quality.missing_source_date_components:
+        response.human_verification_queue.append("Review components with missing source dates before interpreting scores.")
+    return response

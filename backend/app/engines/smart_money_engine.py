@@ -20,14 +20,38 @@ def _confidence(missing_data: list[str]) -> float:
     return round(completeness * 0.40 + 0.90 * 0.30 + 0.80 * 0.30, 2)
 
 
-def _label(score: float) -> str:
+def _aggregate_label(score: float) -> str:
     if score >= 75:
-        return "positive_signal"
+        return "smart_money_supportive"
     if score >= 60:
-        return "weak_positive_signal"
+        return "smart_money_mixed"
     if score >= 40:
-        return "neutral"
-    return "negative_signal"
+        return "smart_money_neutral"
+    return "risk_warning"
+
+
+def _institutional_label(score: float) -> str:
+    if score >= 60:
+        return "institutional_supportive"
+    if score >= 40:
+        return "smart_money_neutral"
+    return "risk_warning"
+
+
+def _insider_label(score: float) -> str:
+    if score >= 70:
+        return "insider_accumulation_observed"
+    if score >= 40:
+        return "smart_money_neutral"
+    return "risk_warning"
+
+
+def _options_label(score: float) -> str:
+    if score >= 60:
+        return "options_activity_elevated"
+    if score >= 40:
+        return "smart_money_neutral"
+    return "risk_warning"
 
 
 def _score_object(
@@ -76,7 +100,7 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
     return _score_object(
         "institutional_support_13f_score",
         score,
-        _label(score),
+        _institutional_label(score),
         {
             "institution_name": raw.get("institution_name"),
             "issuer_name": raw.get("issuer_name"),
@@ -131,7 +155,7 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
     return _score_object(
         "insider_form4_signal_score",
         score,
-        _label(score),
+        _insider_label(score),
         {"transactions": transactions},
         {
             "net_insider_accumulation_value_180d": net_value,
@@ -167,7 +191,7 @@ def evaluate_options_abnormal_activity(data: dict[str, Any]) -> ScoreObject:
     return _score_object(
         "options_abnormal_activity_score",
         score,
-        _label(score),
+        _options_label(score),
         {
             "option_volume": option_volume,
             "open_interest": open_interest,
@@ -207,7 +231,7 @@ def evaluate_smart_money(data: dict[str, Any]) -> ScoreObject:
         name="smart_money_score",
         score=round(final_score, 2),
         max_score=100,
-        label=_label(final_score),
+        label=_aggregate_label(final_score),
         raw_data={
             "institutional_13f": institutional.raw_data,
             "form4": insider.raw_data,
@@ -221,7 +245,7 @@ def evaluate_smart_money(data: dict[str, Any]) -> ScoreObject:
             },
             "weights": weights,
         },
-        benchmark={"positive_signal_minimum": 75, "weak_positive_signal_minimum": 60},
+        benchmark={"smart_money_supportive_minimum": 75, "smart_money_mixed_minimum": 60},
         trend={
             "institutional_support": institutional.trend.get("institutional_support"),
             "insider_activity": insider.trend.get("insider_activity"),

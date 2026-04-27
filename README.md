@@ -251,6 +251,40 @@ Invoke-RestMethod "http://localhost:8000/api/daily-report/latest?use_live_market
 
 Phase 8 only covers OHLCV market prices for `SPY`, `QQQ`, `^VIX`, and requested watchlist tickers. Macro, SEC, options, news, YouTube, and theme evidence are still mock or manually verified placeholders. yfinance is suitable for MVP research reference only; it is not an official exchange feed and may have delays, gaps, adjustments, or availability limits.
 
+## Phase 8.1 Data Source Visibility
+
+Daily report, stock analysis, and raw-data responses now expose additive source metadata:
+
+- `source_status` on source-aware components
+- `data_quality` summary on daily report and stock analysis
+
+`source_type` meanings:
+
+- `live`: repository-backed live market price data
+- `mock`: deterministic fixture data
+- `fallback`: mock data used after live market price data was unavailable
+- `derived`: summary across multiple components
+- `unknown`: source could not be classified
+
+Freshness rules:
+
+- Daily market data is fresh when `source_date` is within the latest expected trading-day window.
+- Mock data is shown as not fully fresh.
+- Missing source dates are marked in `missing_data`.
+- Fallbacks include a safe summarized `fallback_reason` and do not expose stack traces.
+
+Enable live market data with:
+
+```powershell
+cd D:\jane-investment-research
+.\.venv\Scripts\Activate.ps1
+$env:USE_LIVE_MARKET_DATA="true"
+$env:MARKET_DATA_PROVIDER="yfinance"
+uvicorn backend.app.main:app --reload
+```
+
+Live market data remains limited to US market prices. FRED, SEC filings, news, YouTube, options, and 13F integrations are not connected yet.
+
 ## Project Guardrails
 
 Before changing an endpoint, verify Pydantic models, JSON schemas under `schemas\`, frontend TypeScript types, and `docs\API_SPEC.md` together. Mock raw data should be accessed through `backend.app.raw_store.repository`; live API clients should not be called from engines directly.

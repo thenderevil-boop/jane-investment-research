@@ -4,6 +4,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from backend.app.schemas.common import DataSourceStatus
+
 RiskPostureLabel = Literal[
     "risk_on_watch",
     "balanced_watch",
@@ -28,3 +30,4 @@ class RiskAllocationReference(BaseModel):
     confidence: float = Field(ge=0, le=1)
     limitations: list[str]
     missing_data: list[str]
+    source_status: DataSourceStatus | None = None

@@ -12,6 +12,7 @@ from backend.app.schemas.health import HealthResponse
 from backend.app.schemas.macro_regime import MacroRegimeOutput
 from backend.app.schemas.stock_analysis import AnalyzeStockRequest, AnalyzeStockResponse
 from backend.app.schemas.supplemental import RawDataResponse, ThemesLatestResponse, TickerSignalsResponse
+from backend.app.utils.freshness import build_source_status
 
 router = APIRouter(prefix="/api")
 
@@ -78,17 +79,20 @@ def latest_macro_regime() -> MacroRegimeOutput:
 def raw_data_by_ticker(ticker: str) -> RawDataResponse:
     normalized_ticker = ticker.strip().upper()
     fixture = STOCK_FIXTURES.get(normalized_ticker, DEFAULT_STOCK)
+    market_snapshot = get_market_data(normalized_ticker)
+    source_status = build_source_status(market_snapshot)
     return RawDataResponse(
         ticker=normalized_ticker,
         raw_data={
             "company_fixture": fixture,
-            "market_price_snapshot": get_market_data(normalized_ticker),
+            "market_price_snapshot": market_snapshot,
             "note": "Company fixture remains mock-only; market price snapshot may be live when enabled.",
         },
         source=MOCK_SOURCE,
         source_date=MOCK_SOURCE_DATE,
         limitations=["Company fundamentals remain mock fixtures; Phase 8 live integration covers market prices only."],
         missing_data=["live SEC filings", "live options feed"],
+        source_status=source_status,
     )
 
 

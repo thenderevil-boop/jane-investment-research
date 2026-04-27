@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from backend.app.schemas.common import ScoreObject
+from backend.app.schemas.common import DataQualitySummary, DataSourceStatus, ScoreObject
 from backend.app.schemas.leadership import LeadershipScore
 
 
@@ -38,4 +38,6 @@ class AnalyzeStockResponse(BaseModel):
     risk_flags: list[str]
     missing_data: list[str]
     human_verification_queue: list[str]
+    data_quality: DataQualitySummary | None = None
+    source_status: DataSourceStatus | None = None
     not_investment_advice: bool = True

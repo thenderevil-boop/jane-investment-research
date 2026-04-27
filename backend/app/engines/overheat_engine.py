@@ -62,6 +62,45 @@ def _limitations(data: dict[str, Any]) -> list[str]:
     return [LIVE_LIMITATION if data.get("source_type") == "live" else LIMITATION]
 
 
+def _mark_live_derived(component: ScoreObject, data: dict[str, Any]) -> ScoreObject:
+    if data.get("source_type") != "live":
+        return component
+    component.source = _source(data)
+    component.source_date = _source_date(data)
+    component.limitations = _limitations(data)
+    component.raw_data = {
+        **component.raw_data,
+        "source_type": "derived",
+        "provider": "derived_from_yfinance",
+        "source": _source(data),
+        "source_date": _source_date(data),
+    }
+    return component
+
+
+def _overheat_explanation(data: dict[str, Any], index_component: ScoreObject) -> dict[str, Any]:
+    qqq_drawdown = data.get("nasdaq_drawdown_pct")
+    spy_distance = data.get("distance_from_52w_high")
+    supporting_conditions: list[str] = []
+    unmet_conditions: list[str] = []
+    metrics = index_component.derived_metrics
+    for condition, present in {
+        "primary index gain versus prior cycle high is elevated": bool(metrics.get("gain_vs_prior_cycle_high_above_30pct")),
+        "primary index gain from recent trough is elevated": bool(metrics.get("gain_from_recent_trough_above_30pct")),
+        "primary index is near its 52-week high": bool(metrics.get("near_52w_high")),
+    }.items():
+        (supporting_conditions if present else unmet_conditions).append(condition)
+    if qqq_drawdown is not None and qqq_drawdown >= -3 and (spy_distance is None or spy_distance < -3):
+        supporting_conditions.append("secondary index is elevated")
+        unmet_conditions.append("primary index confirmation is not strong enough for overall overheat by itself")
+    return {
+        "primary_index_used": "SPY",
+        "secondary_index_used": "QQQ",
+        "supporting_conditions": supporting_conditions,
+        "unmet_conditions": unmet_conditions,
+    }
+
+
 def index_overextension_component(data: dict[str, Any]) -> ScoreObject:
     gain_vs_prior_high = data.get("index_gain_vs_prior_cycle_high")
     gain_from_trough = data.get("index_gain_from_recent_trough")
@@ -228,6 +267,7 @@ def evaluate_overheat(data: dict[str, Any]) -> ScoreObject:
         youtube_hype_component(data),
         user_social_heat_component(data),
     ]
+    _mark_live_derived(components[0], data)
     weights = {
         "index_overextension_score": 0.30,
         "fear_greed_greed_score": 0.20,
@@ -238,12 +278,13 @@ def evaluate_overheat(data: dict[str, Any]) -> ScoreObject:
     total = sum(component.score * weights[component.name] for component in components)
     missing = sorted({item for component in components for item in component.missing_data})
     component_payload = {component.name: component.model_dump() for component in components}
+    explanation = _overheat_explanation(data, components[0])
     return ScoreObject(
         name="overheat_score",
         score=round(total, 2),
         label=overheat_label(total),
         raw_data={key: data.get(key) for key in sorted(data.keys())},
-        derived_metrics={"components": component_payload, "weights": weights},
+        derived_metrics={"components": component_payload, "weights": weights, **explanation},
         benchmark={
             "high_risk_warning_minimum": 80,
             "overheated_minimum": 60,

@@ -2,9 +2,7 @@
 
 ## MVP Rule
 
-Phase 1 uses mock data only.
-
-Live data integrations come later.
+Mock fixtures remain the default. Phase 8 added opt-in live market prices only; Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
 
 ## Phase 8 Live Market Prices
 
@@ -50,8 +48,58 @@ Repository behavior:
 
 - live fetches are made only through `backend.app.raw_store.repository`
 - successful live snapshots are cached under `backend/raw_store/cache` unless `MARKET_DATA_CACHE_DIR` overrides it
-- failed live fetches fall back to mock market data and mark missing live market price data
+- failed live fetches fall back to mock market data, set `source_type: "fallback"`, set `fallback_used: true`, and mark missing live market price data
 - engines do not call yfinance directly
+
+## Phase 8.1 Source Status
+
+Every source-aware response can include:
+
+- `source_type`: `live`, `mock`, `fallback`, `derived`, or `unknown`
+- `provider`: data provider or fixture identifier
+- `source_date`: date of the underlying source observation
+- `fetched_at`: cache/write timestamp when available
+- `is_fresh`: freshness decision; mock reference data does not count as stale solely because it is mock
+- `freshness_window`: rule used for freshness
+- `fallback_used`: whether a fallback was used
+- `fallback_reason`: safe summarized reason, without stack traces
+- `limitations`
+- `missing_data`
+
+Freshness semantics:
+
+- live/fallback/derived components are stale only when `source_date` is older than the latest expected trading day
+- mock components are counted as mock components, not stale components
+- components with no source date are counted separately as missing-source-date components
+- nested SPY and QQQ live market feature snapshots inherit the aggregate market snapshot date for source-status consistency
+- crisis aggregate source status is derived from its component source dates
+
+Cache behavior:
+
+- live mode fetches fresh yfinance data through the adapter and writes a cache snapshot
+- stale cache files are not used as the source of truth when live fetch is requested
+- if live fetch fails, repository fallback metadata explicitly marks fallback usage
+
+Freshness rules:
+
+- Daily market data is fresh if `source_date` is within the latest expected trading-day window.
+- Mock data is never treated as fully fresh.
+- Fallback data is not treated as fully fresh and must disclose the fallback reason.
+- Missing `source_date` adds `source_date` to `missing_data`.
+
+Fallback behavior:
+
+- yfinance failures do not reach engines directly.
+- The raw store returns deterministic mock fallback data.
+- API users see `source_type: "fallback"`, `provider: "mock"`, and the limitation `Live market data unavailable; mock fallback used.`
+- Stack traces are not exposed.
+
+Interpretation:
+
+- `live` means live market-price data was available for price-derived fields only.
+- `mock` means deterministic fixtures are being used.
+- `fallback` means the system attempted live market data and used mock data after an unavailable fetch.
+- `derived` means the status summarizes multiple component statuses.
 
 Limitations:
 

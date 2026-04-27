@@ -21,10 +21,13 @@ Track institutional, insider, and options-related smart money signals referenced
 Allowed labels:
 
 ```text
-strong_positive_signal
-weak_positive_signal
-neutral
-negative_signal
+smart_money_supportive
+smart_money_mixed
+smart_money_neutral
+institutional_supportive
+insider_accumulation_observed
+options_activity_elevated
+risk_warning
 needs_human_verification
 ```
 

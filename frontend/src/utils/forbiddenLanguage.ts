@@ -3,6 +3,8 @@ export const forbiddenTerms = [
   'sell',
   'hold',
   'liquidate',
+  'enter',
+  'exit',
   'exit position',
   'enter position',
   'must invest',

@@ -103,9 +103,10 @@ def test_live_fetch_failure_falls_back_to_mock_data(monkeypatch, tmp_path):
     monkeypatch.setattr(live_market_prices, "fetch_ohlcv", fail_fetch)
     payload = repository.read_market_data(use_live=True)
 
-    assert payload["source_type"] == "mock"
+    assert payload["source_type"] == "fallback"
     assert payload["vix"] > 0
     assert "live market price data" in payload["missing_data"]
+    assert payload["source_status"]["fallback_used"] is True
 
 
 def test_repository_returns_live_source_type_when_fetch_succeeds(monkeypatch, tmp_path):
@@ -170,4 +171,3 @@ def test_daily_report_schema_remains_stable():
     assert response.status_code == 200
     report = DailyResearchReport.model_validate(response.json())
     assert set(report.model_dump()) == set(build_daily_report().model_dump())
-

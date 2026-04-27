@@ -8,4 +8,9 @@ describe('SignalBadge', () => {
     expect(html).toContain('watchlist_candidate');
     expect(html).toContain('neutral');
   });
+
+  it('treats smart money supportive labels as positive variants', () => {
+    const html = renderToStaticMarkup(<SignalBadge label="smart_money_supportive" />);
+    expect(html).toContain('positive');
+  });
 });

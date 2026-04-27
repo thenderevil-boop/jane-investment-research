@@ -4,6 +4,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from backend.app.schemas.common import DataSourceStatus
+
 
 class CrisisComponent(BaseModel):
     name: str
@@ -17,6 +19,7 @@ class CrisisComponent(BaseModel):
     confidence: float = Field(ge=0, le=1)
     limitations: list[str]
     missing_data: list[str]
+    source_status: DataSourceStatus | None = None
 
 
 class CrisisOutput(BaseModel):
@@ -26,3 +29,4 @@ class CrisisOutput(BaseModel):
     components: list[CrisisComponent]
     limitations: list[str]
     missing_data: list[str]
+    source_status: DataSourceStatus | None = None

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from backend.app.schemas.common import DataSourceStatus
+
 
 class StockCandidate(BaseModel):
     ticker: str
@@ -18,3 +20,4 @@ class StockCandidate(BaseModel):
     confidence: float = Field(ge=0, le=1)
     limitations: list[str]
     missing_data: list[str]
+    source_status: DataSourceStatus | None = None

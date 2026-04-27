@@ -106,7 +106,7 @@ def test_insider_net_buying_equivalent_accumulation_is_positive() -> None:
     )
     payload = result.model_dump()
     assert result.score == 100
-    assert result.label == "positive_signal"
+    assert result.label == "insider_accumulation_observed"
     assert payload["derived_metrics"]["net_insider_accumulation_value_180d"] > 0
     assert_no_prohibited_language(payload)
 
@@ -140,7 +140,7 @@ def test_insider_selling_equivalent_disposition_is_risk_signal() -> None:
     )
     payload = result.model_dump()
     assert result.score == 20
-    assert result.label == "negative_signal"
+    assert result.label == "risk_warning"
     assert payload["derived_metrics"]["disposition_count_180d"] == 2
     assert_no_prohibited_language(payload)
 
@@ -199,7 +199,7 @@ def test_final_smart_money_score_weights_components() -> None:
     )
     payload = result.model_dump()
     assert result.score == 90.5
-    assert result.label == "positive_signal"
+    assert result.label == "smart_money_supportive"
     assert set(payload["derived_metrics"]["components"]) == {
         "institutional_support_13f",
         "insider_form4_signal",

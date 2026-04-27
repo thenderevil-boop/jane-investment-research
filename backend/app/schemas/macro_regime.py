@@ -4,6 +4,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from backend.app.schemas.common import DataSourceStatus
+
 
 class MacroIndicatorComponent(BaseModel):
     name: str
@@ -17,6 +19,7 @@ class MacroIndicatorComponent(BaseModel):
     confidence: float = Field(ge=0, le=1)
     limitations: list[str]
     missing_data: list[str]
+    source_status: DataSourceStatus | None = None
 
 
 class MacroRegimeOutput(BaseModel):
@@ -34,3 +37,4 @@ class MacroRegimeOutput(BaseModel):
     components: list[MacroIndicatorComponent]
     limitations: list[str]
     missing_data: list[str]
+    source_status: DataSourceStatus | None = None

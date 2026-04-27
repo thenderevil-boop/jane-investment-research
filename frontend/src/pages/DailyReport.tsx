@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { getLatestDailyReport } from '../api/client';
+import DataQualitySummary from '../components/DataQualitySummary';
+import DataSourceBadge from '../components/DataSourceBadge';
 import EvidencePanel from '../components/EvidencePanel';
 import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
@@ -28,9 +30,9 @@ function ScoreEvidence({ title, score }: { title: string; score?: ScoreLike }) {
   return (
     <div className="evidenceGroup">
       <ScoreCard title={title} score={score.score} maxScore={scoreMax(score)} label={score.label} confidence={score.confidence} />
-      <EvidencePanel source={score.source} sourceDate={score.source_date} confidence={score.confidence} limitations={score.limitations} />
+      <EvidencePanel source={score.source} sourceDate={score.source_date} confidence={score.confidence} limitations={score.limitations} sourceStatus={score.source_status} />
       <TrendSummary trend={score.trend} />
-      <RawDataPanel rawData={score.raw_data} derivedMetrics={score.derived_metrics} benchmark={score.benchmark} trend={score.trend} limitations={score.limitations} missingData={score.missing_data} />
+      <RawDataPanel rawData={score.raw_data} derivedMetrics={score.derived_metrics} benchmark={score.benchmark} trend={score.trend} limitations={score.limitations} missingData={score.missing_data} sourceStatus={score.source_status} />
     </div>
   );
 }
@@ -40,6 +42,19 @@ function collectLimitations(report?: DailyReport): string[] {
   const scores = [report.macro_regime, report.market_timing, report.overheat_risk, report.crisis_risk, report.smart_money_summary, ...(report.future_themes ?? [])];
   const scoreLimitations = scores.flatMap((score) => score?.limitations ?? []);
   return Array.from(new Set([...scoreLimitations, ...(report.crisis?.limitations ?? []), ...(report.risk_allocation?.limitations ?? []), ...(report.limitations ?? [])]));
+}
+
+function latestSourceDate(report: DailyReport): string {
+  const dates = [
+    report.macro_regime?.source_status?.source_date,
+    report.market_timing?.source_status?.source_date,
+    report.overheat_risk?.source_status?.source_date,
+    report.crisis_risk?.source_status?.source_date,
+    report.smart_money?.source_status?.source_date,
+    ...(report.future_themes ?? []).map((theme) => theme.source_status?.source_date),
+  ].filter(Boolean) as string[];
+  const sorted = dates.sort();
+  return sorted[sorted.length - 1] ?? report.date;
 }
 
 export default function DailyReport() {
@@ -75,14 +90,15 @@ export default function DailyReport() {
         </div>
         <div className="disclaimer">Research reference only. Not investment advice.</div>
       </header>
+      <DataQualitySummary summary={report.data_quality} latestSourceDate={latestSourceDate(report)} />
 
       <Section title="Market State">
         <div className="scoreGrid">
-          <ScoreCard title="Macro regime" score={report.macro_regime?.score} label={report.macro_regime?.label} confidence={report.macro_regime?.confidence} />
-          <ScoreCard title="Crisis level" score={report.crisis_risk?.score} label={report.crisis?.level ?? report.crisis_risk?.label} confidence={report.crisis?.confidence} />
+          <div className="cardWithSource"><ScoreCard title="Macro regime" score={report.macro_regime?.score} label={report.macro_regime?.label} confidence={report.macro_regime?.confidence} /><DataSourceBadge status={report.macro_regime?.source_status} /></div>
+          <div className="cardWithSource"><ScoreCard title="Crisis level" score={report.crisis_risk?.score} label={report.crisis?.level ?? report.crisis_risk?.label} confidence={report.crisis?.confidence} /><DataSourceBadge status={report.crisis_risk?.source_status} /></div>
         </div>
         <ul className="noteList">{report.risk_notes?.map((item) => <li key={item}>{item}</li>)}</ul>
-        <RawDataPanel title="Macro regime evidence" rawData={report.macro_regime?.raw_data} derivedMetrics={{ components: report.macro_regime?.components }} benchmark={report.macro_regime?.benchmark} trend={report.macro_regime?.trend} limitations={report.macro_regime?.limitations} missingData={report.macro_regime?.missing_data} />
+        <RawDataPanel title="Macro regime evidence" rawData={report.macro_regime?.raw_data} derivedMetrics={{ components: report.macro_regime?.components }} benchmark={report.macro_regime?.benchmark} trend={report.macro_regime?.trend} limitations={report.macro_regime?.limitations} missingData={report.macro_regime?.missing_data} sourceStatus={report.macro_regime?.source_status} />
       </Section>
 
       <Section title="Market Timing">
@@ -95,7 +111,7 @@ export default function DailyReport() {
       <Section title="Future Industry Radar">
         <div className="tableWrap">
           <table>
-            <thead><tr><th>Theme</th><th>Score</th><th>Trend</th><th>Candidates</th><th>Evidence</th><th>Missing data</th></tr></thead>
+            <thead><tr><th>Theme</th><th>Score</th><th>Trend</th><th>Candidates</th><th>Evidence</th><th>Source</th><th>Missing data</th></tr></thead>
             <tbody>
               {report.future_themes?.map((theme) => (
                 <tr key={String(theme.theme ?? theme.raw_data?.theme ?? theme.label)}>
@@ -104,6 +120,7 @@ export default function DailyReport() {
                   <td>{Object.values(theme.trend ?? {}).join(', ') || 'N/A'}</td>
                   <td>{theme.candidate_companies?.join(', ') || 'None listed'}</td>
                   <td><SignalBadge label={theme.label} /></td>
+                  <td><DataSourceBadge status={theme.source_status} /></td>
                   <td>{theme.missing_data?.join(', ') || 'None listed'}</td>
                 </tr>
               ))}
@@ -115,7 +132,7 @@ export default function DailyReport() {
       <Section title="Stock Candidate Radar">
         <div className="tableWrap">
           <table>
-            <thead><tr><th>Ticker</th><th>Company</th><th>Leadership</th><th>Smart money</th><th>Risk</th><th>Label</th><th>Missing data</th></tr></thead>
+            <thead><tr><th>Ticker</th><th>Company</th><th>Leadership</th><th>Smart money</th><th>Risk</th><th>Label</th><th>Source</th><th>Missing data</th></tr></thead>
             <tbody>
               {report.stock_candidates?.map((candidate) => (
                 <tr key={candidate.ticker}>
@@ -125,6 +142,7 @@ export default function DailyReport() {
                   <td>{candidate.smart_money_score}</td>
                   <td>{candidate.risk_score}</td>
                   <td><SignalBadge label={candidate.label} /></td>
+                  <td><DataSourceBadge status={candidate.source_status} /></td>
                   <td>{candidate.missing_data?.join(', ') || 'None listed'}</td>
                 </tr>
               ))}
@@ -153,7 +171,7 @@ export default function DailyReport() {
             </div>
           ))}
         </div>
-        <RawDataPanel title="Risk reference evidence" rawData={report.risk_allocation?.raw_data} derivedMetrics={report.risk_allocation?.derived_metrics} benchmark={report.risk_allocation?.benchmark} trend={report.risk_allocation?.trend} limitations={report.risk_allocation?.limitations} missingData={report.risk_allocation?.missing_data} />
+        <RawDataPanel title="Risk reference evidence" rawData={report.risk_allocation?.raw_data} derivedMetrics={report.risk_allocation?.derived_metrics} benchmark={report.risk_allocation?.benchmark} trend={report.risk_allocation?.trend} limitations={report.risk_allocation?.limitations} missingData={report.risk_allocation?.missing_data} sourceStatus={report.risk_allocation?.source_status} />
       </Section>
 
       <Section title="Missing Data / Limitations">

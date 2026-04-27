@@ -1,3 +1,28 @@
+export type SourceType = 'live' | 'mock' | 'fallback' | 'derived' | 'unknown';
+
+export type DataSourceStatus = {
+  source_type: SourceType;
+  provider: string;
+  source_date: string;
+  fetched_at?: string | null;
+  is_fresh: boolean;
+  freshness_window: string;
+  fallback_used: boolean;
+  fallback_reason?: string | null;
+  limitations: string[];
+  missing_data: string[];
+};
+
+export type DataQualitySummary = {
+  mode: 'all_mock' | 'mixed' | 'mostly_live' | 'live_with_fallback';
+  live_components: number;
+  mock_components: number;
+  fallback_components: number;
+  stale_components: number;
+  missing_source_date_components?: number;
+  limitations: string[];
+};
+
 export type ScoreLike = {
   name?: string;
   title?: string;
@@ -14,6 +39,7 @@ export type ScoreLike = {
   source_date?: string;
   limitations?: string[];
   missing_data?: string[];
+  source_status?: DataSourceStatus | null;
   components?: unknown[];
   criteria?: unknown[];
 };
@@ -38,6 +64,7 @@ export type StockCandidate = {
   confidence: number;
   limitations: string[];
   missing_data: string[];
+  source_status?: DataSourceStatus | null;
 };
 
 export type RiskAllocation = {
@@ -54,6 +81,7 @@ export type RiskAllocation = {
   confidence?: number;
   limitations?: string[];
   missing_data?: string[];
+  source_status?: DataSourceStatus | null;
 };
 
 export type DailyReport = {
@@ -81,6 +109,7 @@ export type DailyReport = {
   limitations?: string[];
   missing_data?: string[];
   human_verification_queue?: string[];
+  data_quality?: DataQualitySummary | null;
   not_investment_advice?: boolean;
 };
 
@@ -97,6 +126,8 @@ export type StockAnalysis = {
   risk_flags?: string[];
   missing_data?: string[];
   human_verification_queue?: string[];
+  data_quality?: DataQualitySummary | null;
+  source_status?: DataSourceStatus | null;
   not_investment_advice?: boolean;
 };
 

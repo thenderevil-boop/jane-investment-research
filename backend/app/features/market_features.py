@@ -3,6 +3,8 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from backend.app.utils.freshness import build_source_status
+
 
 TRADING_DAYS_PER_YEAR = 252
 
@@ -87,11 +89,15 @@ def build_price_features(snapshot: dict[str, Any]) -> dict[str, Any]:
     range_20d = _range_pct(rows, 20)
     vol_falling = realized_vol_20d is not None and previous_realized_vol_20d is not None and realized_vol_20d < previous_realized_vol_20d
     range_stable = range_20d is not None and range_20d <= 8
-    return {
+    source = snapshot.get("source", "unknown")
+    source_type = "live" if source == "yfinance" else str(snapshot.get("source_type") or "mock")
+    provider = snapshot.get("provider") or ("yfinance" if source == "yfinance" else "mock")
+    payload = {
         "ticker": snapshot.get("ticker"),
-        "source": [snapshot.get("source", "unknown")],
+        "source": [source],
         "source_date": snapshot.get("source_date"),
-        "source_type": "live" if snapshot.get("source") == "yfinance" else "mock",
+        "source_type": source_type,
+        "provider": provider,
         "latest_close": _round(latest_close),
         "latest_volume": latest_volume,
         "average_volume_20d": _round(_average_volume(rows, 20), 0),
@@ -109,6 +115,8 @@ def build_price_features(snapshot: dict[str, Any]) -> dict[str, Any]:
         "limitations": snapshot.get("limitations", []),
         "missing_data": snapshot.get("missing_data", []),
     }
+    payload["source_status"] = build_source_status(payload).model_dump(mode="json")
+    return payload
 
 
 def build_market_snapshot_features(
@@ -126,12 +134,17 @@ def build_market_snapshot_features(
     vix_recent_spike = bool(recent_vix_high is not None and recent_vix_high >= 25 and latest_vix is not None)
     vix_falling = latest_vix is not None and recent_vix_high is not None and latest_vix < recent_vix_high * 0.9
     source_type = "live" if spy.get("source_type") == "live" and qqq.get("source_type") == "live" else "mock"
+    aggregate_source_date = max([value for value in [spy.get("source_date"), qqq.get("source_date"), vix_snapshot.get("source_date")] if value] or ["unknown"])
+    for index_features in [spy, qqq]:
+        if source_type == "live":
+            index_features["source_date"] = aggregate_source_date
+            index_features["source_status"] = build_source_status(index_features).model_dump(mode="json")
     missing = sorted({*spy.get("missing_data", []), *qqq.get("missing_data", []), *vix_snapshot.get("missing_data", [])})
     limitations = sorted({*spy.get("limitations", []), *qqq.get("limitations", []), *vix_snapshot.get("limitations", [])})
     return {
         "source_type": source_type,
         "source": sorted({*spy.get("source", []), *qqq.get("source", []), vix_snapshot.get("source", "unknown")}),
-        "source_date": max([value for value in [spy.get("source_date"), qqq.get("source_date"), vix_snapshot.get("source_date")] if value] or ["unknown"]),
+        "source_date": aggregate_source_date,
         "sp500_drawdown_pct": spy["drawdown_from_52w_high"],
         "nasdaq_drawdown_pct": qqq["drawdown_from_52w_high"],
         "drawdown_from_52w_high": spy["drawdown_from_52w_high"],
@@ -157,4 +170,3 @@ def build_market_snapshot_features(
         "limitations": limitations,
         "missing_data": missing,
     }
-

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 from backend.app.schemas.candidate import StockCandidate
-from backend.app.schemas.common import ScoreObject
+from backend.app.schemas.common import DataQualitySummary, ScoreObject
 from backend.app.schemas.crisis import CrisisOutput
 from backend.app.schemas.future_theme import FutureTheme
 from backend.app.schemas.macro_regime import MacroRegimeOutput
@@ -28,4 +28,5 @@ class DailyResearchReport(BaseModel):
     limitations: list[str]
     missing_data: list[str]
     human_verification_queue: list[str]
+    data_quality: DataQualitySummary | None = None
     not_investment_advice: bool = True

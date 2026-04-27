@@ -1,5 +1,135 @@
 {
   "$defs": {
+    "DataQualitySummary": {
+      "properties": {
+        "mode": {
+          "default": "all_mock",
+          "enum": [
+            "all_mock",
+            "mixed",
+            "mostly_live",
+            "live_with_fallback"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "live_components": {
+          "default": 0,
+          "title": "Live Components",
+          "type": "integer"
+        },
+        "mock_components": {
+          "default": 0,
+          "title": "Mock Components",
+          "type": "integer"
+        },
+        "fallback_components": {
+          "default": 0,
+          "title": "Fallback Components",
+          "type": "integer"
+        },
+        "stale_components": {
+          "default": 0,
+          "title": "Stale Components",
+          "type": "integer"
+        },
+        "missing_source_date_components": {
+          "default": 0,
+          "title": "Missing Source Date Components",
+          "type": "integer"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        }
+      },
+      "title": "DataQualitySummary",
+      "type": "object"
+    },
+    "DataSourceStatus": {
+      "properties": {
+        "source_type": {
+          "default": "unknown",
+          "enum": [
+            "live",
+            "mock",
+            "fallback",
+            "derived",
+            "unknown"
+          ],
+          "title": "Source Type",
+          "type": "string"
+        },
+        "provider": {
+          "default": "unknown",
+          "title": "Provider",
+          "type": "string"
+        },
+        "source_date": {
+          "default": "",
+          "title": "Source Date",
+          "type": "string"
+        },
+        "fetched_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fetched At"
+        },
+        "is_fresh": {
+          "default": false,
+          "title": "Is Fresh",
+          "type": "boolean"
+        },
+        "freshness_window": {
+          "default": "unknown",
+          "title": "Freshness Window",
+          "type": "string"
+        },
+        "fallback_used": {
+          "default": false,
+          "title": "Fallback Used",
+          "type": "boolean"
+        },
+        "fallback_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fallback Reason"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "title": "DataSourceStatus",
+      "type": "object"
+    },
     "LeadershipCriterion": {
       "properties": {
         "criterion_id": {
@@ -72,6 +202,17 @@
           },
           "title": "Missing Data",
           "type": "array"
+        },
+        "source_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataSourceStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -171,6 +312,17 @@
           },
           "title": "Criteria",
           "type": "array"
+        },
+        "source_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataSourceStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -259,6 +411,17 @@
           },
           "title": "Missing Data",
           "type": "array"
+        },
+        "source_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataSourceStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -333,6 +496,28 @@
       },
       "title": "Human Verification Queue",
       "type": "array"
+    },
+    "data_quality": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DataQualitySummary"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "source_status": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "not_investment_advice": {
       "default": true,

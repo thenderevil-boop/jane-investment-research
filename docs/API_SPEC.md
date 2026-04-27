@@ -48,6 +48,15 @@ Response shape:
   "smart_money": {},
   "risk_allocation": {},
   "risk_notes": [],
+  "data_quality": {
+    "mode": "mixed",
+    "live_components": 4,
+    "mock_components": 8,
+    "fallback_components": 1,
+    "stale_components": 2,
+    "missing_source_date_components": 0,
+    "limitations": []
+  },
   "limitations": [],
   "missing_data": [],
   "human_verification_queue": [],
@@ -183,6 +192,66 @@ Response:
 ```
 
 All score-like fields follow the shared `ScoreComponent` contract, except `leadership_score`, which includes the 20-criterion leadership detail.
+
+## Phase 8.1 Data Source Visibility
+
+Phase 8.1 adds non-breaking metadata fields:
+
+- `source_status`: optional object on score-like components, stock candidates, raw-data responses, and stock analysis responses.
+- `data_quality`: optional summary on daily report and stock analysis responses.
+
+`source_status` shape:
+
+```json
+{
+  "source_type": "live",
+  "provider": "yfinance",
+  "source_date": "2026-04-24",
+  "fetched_at": "2026-04-24T20:30:00+00:00",
+  "is_fresh": true,
+  "freshness_window": "latest_expected_trading_day",
+  "fallback_used": false,
+  "fallback_reason": null,
+  "limitations": [],
+  "missing_data": []
+}
+```
+
+Allowed `source_type` values:
+
+- `live`: repository-backed live market price data.
+- `mock`: deterministic mock fixture data.
+- `fallback`: mock data used because a live market price fetch was unavailable.
+- `derived`: summary metadata derived from multiple components.
+- `unknown`: source metadata could not be classified.
+
+Freshness rules:
+
+- Daily market data is fresh when `source_date` matches the latest expected trading day.
+- Mock data is classified as mock reference data and does not count as stale solely because it is not live.
+- Stale applies only to live, fallback, or derived components with outdated `source_date`.
+- Fallback data sets `fallback_used=true` and includes a safe `fallback_reason`.
+- Missing `source_date` sets `is_fresh=false`, adds `source_date` to `missing_data`, and increments `missing_source_date_components`.
+- Nested live market snapshots under `index_market_data` use the same aggregate market snapshot source date for SPY and QQQ freshness checks.
+- `crisis.source_status` is derived from crisis components with `provider="derived_from_crisis_components"`.
+
+`data_quality` shape:
+
+```json
+{
+  "mode": "live_with_fallback",
+  "live_components": 4,
+  "mock_components": 8,
+  "fallback_components": 1,
+  "stale_components": 2,
+  "missing_source_date_components": 0,
+  "limitations": [
+    "Some components use fallback data because live data was unavailable."
+  ]
+}
+```
+
+Allowed `mode` values are `all_mock`, `mixed`, `mostly_live`, and `live_with_fallback`.
 
 ## Response Requirements
 
@@ -467,4 +536,6 @@ uvicorn backend.app.main:app --reload
 
 Mock mode remains the default. Live market data can also be requested for `GET /api/daily-report/latest` with `?use_live_market_data=true`.
 
-Public response schemas remain stable. Live-vs-mock status is carried inside existing raw-data evidence fields such as `source`, `source_date`, and `raw_data.source_type`. Phase 8 does not connect 13F, Form 4, FRED, news, YouTube, options, or live theme data.
+Public response schemas remain stable. Phase 8.1 adds `source_status` and `data_quality` as additive metadata so clients can distinguish live, mock, fallback, stale, and missing-source-date components. Phase 8.2 clarifies that mock components are mock reference data, not stale live data, and that market timing / overheat subcomponents derived from yfinance carry `source_type="derived"` with `provider="derived_from_yfinance"`. Phase 8 does not connect 13F, Form 4, FRED, news, YouTube, options, or live theme data.
+
+Phase 8.3 keeps nested SPY / QQQ market snapshots aligned with the aggregate live market snapshot date and ensures crisis aggregate source status is always present as derived component metadata.

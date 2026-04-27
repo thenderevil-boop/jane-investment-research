@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from backend.app.schemas.common import ScoreObject
+from backend.app.schemas.common import DataSourceStatus, ScoreObject
 from backend.app.schemas.future_theme import FutureTheme
 from backend.app.schemas.leadership import LeadershipScore
 
@@ -25,6 +25,7 @@ class RawDataResponse(BaseModel):
     source_date: str
     limitations: list[str]
     missing_data: list[str]
+    source_status: DataSourceStatus | None = None
     not_investment_advice: bool = True
 
 

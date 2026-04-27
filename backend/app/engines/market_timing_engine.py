@@ -62,6 +62,22 @@ def _limitations(data: dict[str, Any]) -> list[str]:
     return [LIVE_LIMITATION if data.get("source_type") == "live" else LIMITATION]
 
 
+def _mark_live_derived(component: ScoreObject, data: dict[str, Any]) -> ScoreObject:
+    if data.get("source_type") != "live":
+        return component
+    component.source = _source(data)
+    component.source_date = _source_date(data)
+    component.limitations = _limitations(data)
+    component.raw_data = {
+        **component.raw_data,
+        "source_type": "derived",
+        "provider": "derived_from_yfinance",
+        "source": _source(data),
+        "source_date": _source_date(data),
+    }
+    return component
+
+
 def fed_easing_component(data: dict[str, Any]) -> ScoreObject:
     cuts = data.get("consecutive_rate_cut_count")
     rate_trend = data.get("rate_trend") or data.get("fed_policy_state")
@@ -339,6 +355,9 @@ def evaluate_market_timing(data: dict[str, Any]) -> ScoreObject:
         company_revenue_growth_component(data),
         founder_ceo_insider_component(data),
     ]
+    for component in components:
+        if component.name in {"index_drawdown_stabilization_score", "vix_confirmation_score"}:
+            _mark_live_derived(component, data)
     weights = {
         "fed_easing_score": 0.25,
         "index_drawdown_stabilization_score": 0.25,

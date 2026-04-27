@@ -11,6 +11,7 @@ from backend.app.data_sources.mock_crisis import MOCK_CRISIS_SCENARIOS
 from backend.app.data_sources.mock_data import MARKET_SNAPSHOTS, MOCK_SMART_MONEY_SUMMARY, STOCK_FIXTURES, THEMES
 from backend.app.data_sources.mock_macro import MOCK_MACRO_SCENARIOS
 from backend.app.features.market_features import build_market_snapshot_features
+from backend.app.utils.freshness import build_source_status
 
 
 INDEX_SYMBOLS = ["SPY", "QQQ"]
@@ -29,14 +30,18 @@ def _cache_key(ticker: str) -> str:
 
 def _mock_snapshot(scenario: str = "normal", reason: str | None = None) -> dict[str, Any]:
     snapshot = deepcopy(MARKET_SNAPSHOTS.get(scenario, MARKET_SNAPSHOTS["normal"]))
-    snapshot["source_type"] = "mock"
+    snapshot["source_type"] = "fallback" if reason else "mock"
     snapshot["source"] = ["phase1_mock_dataset"]
     snapshot["source_date"] = snapshot.get("source_date", "2026-04-24")
     snapshot.setdefault("limitations", []).append("Mock market snapshot is used when live market data is disabled or unavailable.")
     snapshot.setdefault("missing_data", [])
     if reason:
-        snapshot["live_market_data_error"] = reason
+        snapshot["fallback_used"] = True
+        snapshot["fallback_reason"] = reason
+        snapshot["provider"] = "mock"
         snapshot["missing_data"].append("live market price data")
+        snapshot["limitations"].append("Live market data unavailable; mock fallback used.")
+    snapshot["source_status"] = build_source_status(snapshot).model_dump(mode="json")
     return snapshot
 
 
@@ -54,9 +59,10 @@ def get_market_data(ticker: str, use_live: bool | None = None, period: str = "1y
     enabled = config.USE_LIVE_MARKET_DATA if use_live is None else use_live
     normalized_ticker = ticker.strip().upper()
     if not enabled:
-        return {
+        payload = {
             "ticker": normalized_ticker,
             "source_type": "mock",
+            "provider": "mock",
             "source": "phase1_mock_dataset",
             "source_date": "2026-04-24",
             "period": period,
@@ -65,10 +71,13 @@ def get_market_data(ticker: str, use_live: bool | None = None, period: str = "1y
             "limitations": ["Mock mode is active; live market price adapter was not called."],
             "missing_data": ["live market price data"],
         }
+        payload["source_status"] = build_source_status(payload).model_dump(mode="json")
+        return payload
     if config.MARKET_DATA_PROVIDER != "yfinance":
-        return {
+        payload = {
             "ticker": normalized_ticker,
-            "source_type": "mock",
+            "source_type": "fallback",
+            "provider": "mock",
             "source": "phase1_mock_dataset",
             "source_date": "2026-04-24",
             "period": period,
@@ -76,26 +85,37 @@ def get_market_data(ticker: str, use_live: bool | None = None, period: str = "1y
             "rows": [],
             "limitations": [f"Unsupported market data provider: {config.MARKET_DATA_PROVIDER}."],
             "missing_data": ["live market price data"],
+            "fallback_used": True,
+            "fallback_reason": "unsupported market data provider",
         }
+        payload["source_status"] = build_source_status(payload).model_dump(mode="json")
+        return payload
     try:
         from backend.app.data_sources.live_market_prices import fetch_ohlcv
 
         snapshot = fetch_ohlcv(normalized_ticker, period=period, interval=interval)
         snapshot["source_type"] = "live"
+        snapshot["provider"] = "yfinance"
+        snapshot["source_status"] = build_source_status(snapshot).model_dump(mode="json")
         return write_market_data(normalized_ticker, snapshot)
     except Exception as exc:
-        return {
+        safe_reason = str(exc).splitlines()[0][:180] or "live market price fetch failed"
+        payload = {
             "ticker": normalized_ticker,
-            "source_type": "mock",
+            "source_type": "fallback",
+            "provider": "mock",
             "source": "phase1_mock_dataset",
             "source_date": "2026-04-24",
             "period": period,
             "interval": interval,
             "rows": [],
-            "limitations": ["Live market price fetch failed; mock fallback is active."],
+            "limitations": ["Live market data unavailable; mock fallback used."],
             "missing_data": ["live market price data"],
-            "error": str(exc),
+            "fallback_used": True,
+            "fallback_reason": safe_reason,
         }
+        payload["source_status"] = build_source_status(payload).model_dump(mode="json")
+        return payload
 
 
 def get_index_market_data(use_live: bool | None = None) -> dict[str, dict[str, Any]]:
@@ -125,6 +145,8 @@ def read_market_data(scenario: str = "normal", use_live: bool | None = None) -> 
     live_features = build_market_snapshot_features(index_data["SPY"], index_data["QQQ"], vix_data)
     merged = {**mock_context, **live_features}
     merged["source_type"] = "live"
+    merged["provider"] = "yfinance"
+    merged["source_status"] = build_source_status(merged).model_dump(mode="json")
     return merged
 
 
