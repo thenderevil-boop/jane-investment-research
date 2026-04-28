@@ -180,6 +180,57 @@ def _as_int(value: Any) -> int | None:
     return int(number) if number is not None else None
 
 
+def normalize_13f_value(
+    raw_value: float | int | None,
+    shares: float | int | None = None,
+    ticker: str | None = None,
+    price_reference: float | int | None = None,
+) -> dict[str, Any]:
+    if raw_value is None:
+        return {
+            "reported_value_raw": None,
+            "reported_value_unit": "unknown",
+            "value_usd": None,
+            "value_unit_confidence": "low",
+            "value_normalization_note": "13F XML value was missing.",
+        }
+    raw = float(raw_value)
+    if price_reference is not None and shares is not None and shares > 0 and price_reference > 0:
+        expected_value = float(shares) * float(price_reference)
+        raw_delta = abs(raw - expected_value)
+        thousands_delta = abs(raw * 1000 - expected_value)
+        if thousands_delta < raw_delta:
+            return {
+                "reported_value_raw": raw,
+                "reported_value_unit": "thousands_usd",
+                "value_usd": raw * 1000,
+                "value_unit_confidence": "high",
+                "value_normalization_note": "13F XML value interpreted as thousands of USD because that is closer to shares times the available price reference.",
+            }
+        return {
+            "reported_value_raw": raw,
+            "reported_value_unit": "usd",
+            "value_usd": raw,
+            "value_unit_confidence": "high",
+            "value_normalization_note": "13F XML value interpreted as USD because that is closer to shares times the available price reference.",
+        }
+    if config.SEC_13F_ASSUME_VALUE_THOUSANDS:
+        return {
+            "reported_value_raw": raw,
+            "reported_value_unit": "thousands_usd",
+            "value_usd": raw * 1000,
+            "value_unit_confidence": "medium",
+            "value_normalization_note": "13F XML value interpreted as thousands of USD because SEC_13F_ASSUME_VALUE_THOUSANDS=true.",
+        }
+    return {
+        "reported_value_raw": raw,
+        "reported_value_unit": "as_reported",
+        "value_usd": raw,
+        "value_unit_confidence": "low",
+        "value_normalization_note": "13F XML value preserved as reported because no reliable unit disambiguation reference was available.",
+    }
+
+
 def _filing_key(filing: dict[str, Any]) -> tuple[str, str]:
     return (str(filing.get("report_date") or filing.get("filing_date") or ""), str(filing.get("accession_number") or ""))
 
@@ -417,6 +468,7 @@ def parse_13f_information_table_xml(
         cusip = _text(info_table, ["cusip"])
         raw_value = _as_float(_text(info_table, ["value"]))
         shares = _as_float(_text(info_table, ["shrsOrPrnAmt", "sshPrnamt"]))
+        value_fields = normalize_13f_value(raw_value, shares=shares)
         row = {
             "manager_cik": _cik10(manager_cik),
             "accession_number": accession_number,
@@ -425,8 +477,7 @@ def parse_13f_information_table_xml(
             "issuer_name": issuer_name,
             "title_of_class": _text(info_table, ["titleOfClass"]),
             "cusip": cusip,
-            "value_usd_thousands_raw": raw_value,
-            "value_usd": raw_value * 1000 if raw_value is not None else None,
+            **value_fields,
             "shares_or_principal_amount": shares,
             "share_type": _text(info_table, ["shrsOrPrnAmt", "sshPrnamtType"]),
             "put_call": _text(info_table, ["putCall"]),

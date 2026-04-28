@@ -38,7 +38,15 @@ URL strategy:
 
 No API key is required. SEC requests must include a proper `SEC_EDGAR_USER_AGENT`, and User-Agent values must never be returned by API responses or logs. `sec-api.io` is not a runtime provider.
 
-Normalized holding fields include manager CIK, accession number, filing date, report date, issuer name, title of class, CUSIP, reported value in thousands, computed value in dollars, shares or principal amount, share type, put/call, investment discretion, other manager, voting authority, source status, limitations, and missing data.
+Normalized holding fields include manager CIK, accession number, filing date, report date, issuer name, title of class, CUSIP, `reported_value_raw`, `reported_value_unit`, best-effort `value_usd`, `value_unit_confidence`, `value_normalization_note`, shares or principal amount, share type, put/call, investment discretion, other manager, voting authority, source status, limitations, and missing data.
+
+13F value normalization:
+
+- SEC 13F XML `<value>` is preserved as `reported_value_raw`.
+- `value_usd` is the normalized value used by smart-money totals and top-holding rankings.
+- Modern XML filings are not blindly multiplied by 1000. If no reliable price reference is available, the value is preserved as reported with `reported_value_unit: "as_reported"` and a low-confidence note.
+- If a reliable price reference is available, the parser compares raw value and raw value times 1000 against shares times the reference price, then chooses `reported_value_unit: "usd"` or `reported_value_unit: "thousands_usd"` accordingly.
+- `SEC_13F_ASSUME_VALUE_THOUSANDS=false` by default. Setting it true is a legacy override and should be used only when the source context requires that assumption.
 
 Repository behavior:
 

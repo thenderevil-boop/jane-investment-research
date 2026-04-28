@@ -118,6 +118,7 @@ Neither is a direct investment recommendation.
 | SEC_13F_LOOKBACK_QUARTERS | 4 | SEC EDGAR 13F | |
 | SEC_13F_TARGET_MANAGERS | none | SEC EDGAR 13F | optional comma-separated manager names or CIKs |
 | SEC_13F_TARGET_TICKERS | none | SEC EDGAR 13F | optional comma-separated tickers for future mapping support |
+| SEC_13F_ASSUME_VALUE_THOUSANDS | false | SEC EDGAR 13F | legacy fallback only; modern XML values are preserved unless disambiguated |
 | ALLOW_LIVE_FETCH_ON_REPORT_REQUEST | false | quota guard | default should remain false |
 
 ## Windows VSCode Runbook
@@ -451,6 +452,14 @@ SEC 13F URL strategy:
 - The index HTML filename keeps dashes in the accession number.
 
 13F source status uses `freshness_window="quarterly_filing_delay"`. It does not use market latest-trading-day freshness or Form 4 recency rules. 13F is delayed quarterly evidence, may lag up to 45 days after quarter end, and may not show shorts, many derivatives, or current positions.
+
+13F value normalization:
+
+- The raw XML `<value>` is preserved as `reported_value_raw`.
+- `value_usd` is a best-effort normalized USD value used for totals and top-holding rankings.
+- The backend no longer blindly multiplies every SEC 13F XML value by 1000. When a reliable price reference is not available, modern XML values are preserved as reported with `reported_value_unit="as_reported"`.
+- If a reliable price reference is available, the parser can choose between `reported_value_unit="usd"` and `reported_value_unit="thousands_usd"` based on which interpretation is closer to shares times the reference price.
+- `value_unit_confidence` and `value_normalization_note` explain the normalization decision. `SEC_13F_ASSUME_VALUE_THOUSANDS=true` is only a legacy override and is false by default.
 
 Repository behavior:
 

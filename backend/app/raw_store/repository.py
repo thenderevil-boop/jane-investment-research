@@ -152,8 +152,11 @@ def _mock_13f_snapshot(manager_or_cik: str = "mock_manager", ticker: str = "NVDA
         "issuer_name": raw.get("issuer_name"),
         "title_of_class": "COM",
         "cusip": raw.get("cusip"),
-        "value_usd_thousands_raw": round((raw.get("market_value") or 0) / 1000, 2),
+        "reported_value_raw": raw.get("market_value"),
+        "reported_value_unit": "as_reported",
         "value_usd": raw.get("market_value"),
+        "value_unit_confidence": "low",
+        "value_normalization_note": "Mock 13F value preserved as reported.",
         "shares_or_principal_amount": raw.get("shares"),
         "share_type": "SH",
         "put_call": "",
@@ -252,6 +255,14 @@ def _sanitize_sec_13f_cached_payload(cached: dict[str, Any]) -> dict[str, Any]:
     payload["missing_data"] = [item for item in payload.get("missing_data", []) if "sec-api" not in str(item).lower()]
     for holding in payload.get("holdings", []) or []:
         holding["source"] = ["SEC EDGAR"]
+        if "reported_value_raw" not in holding and "value_usd_thousands_raw" in holding:
+            raw_value = holding.get("value_usd_thousands_raw")
+            holding["reported_value_raw"] = raw_value
+            holding["reported_value_unit"] = "as_reported"
+            holding["value_usd"] = raw_value
+            holding["value_unit_confidence"] = "low"
+            holding["value_normalization_note"] = "Legacy cached 13F value was migrated by preserving the reported value because no reliable unit disambiguation reference was available."
+        holding.pop("value_usd_thousands_raw", None)
         if isinstance(holding.get("source_status"), dict):
             holding["source_status"]["provider"] = "SEC EDGAR"
     return payload

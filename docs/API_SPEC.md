@@ -727,6 +727,15 @@ Smart-money derived metrics include `latest_13f_report_date`, `latest_13f_filing
 
 13F source status uses `provider="SEC EDGAR"` for official live or cached data, `freshness_window="quarterly_filing_delay"`, `source_date` as report date when available otherwise filing date, and `fetched_at` as the cache/write or retrieval timestamp.
 
+13F value fields:
+
+- `reported_value_raw` preserves the SEC XML `<value>` as reported.
+- `reported_value_unit` may be `as_reported`, `usd`, `thousands_usd`, or `unknown`.
+- `value_usd` is a best-effort normalized USD value used for `total_reported_value_usd` and `top_holdings_by_value`.
+- `value_unit_confidence` may be `high`, `medium`, or `low`.
+- `value_normalization_note` explains whether the value was preserved as reported, interpreted with a price reference, or interpreted through the explicit legacy override.
+- The backend no longer blindly multiplies every SEC 13F XML value by 1000.
+
 SEC 13F document discovery:
 
 - The submissions API is only used to find manager filing history.

@@ -56,7 +56,11 @@ Raw data:
 - issuer name
 - CUSIP
 - shares
-- market value
+- reported_value_raw
+- reported_value_unit
+- value_usd
+- value_unit_confidence
+- value_normalization_note
 - quarter
 - filing date
 
@@ -79,7 +83,8 @@ Score:
 ```text
 if live/cached SEC 13F holdings exist and target CUSIP is observed: score = 60
 elif live/cached SEC 13F holdings exist but target CUSIP is not mapped: score = 50
-elif fallback or mock 13F is used: score = 40
+elif fallback 13F is used: score = 20
+elif mock 13F is used: score = 40
 elif insufficient data: score = 30
 ```
 
@@ -105,6 +110,14 @@ Source status:
 - source_date: report date when available, otherwise filing date
 - fetched_at: cache/write or retrieval timestamp
 - source_type: `live`, `cached_live`, `mock`, `fallback`, `derived`, or `unknown`
+
+Value normalization:
+
+- SEC 13F XML `<value>` is preserved as `reported_value_raw`.
+- `value_usd` is a best-effort normalized USD value for aggregate metrics and rankings.
+- The system does not blindly multiply every XML value by 1000.
+- If a reliable price reference is available, the parser compares raw value and raw value times 1000 against shares times the reference price and assigns `reported_value_unit` as `usd` or `thousands_usd`.
+- If no reliable price reference is available, the raw value is preserved with `reported_value_unit` set to `as_reported` and confidence below high.
 
 SEC EDGAR discovery:
 

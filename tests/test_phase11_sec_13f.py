@@ -252,12 +252,59 @@ def test_xml_parser_extracts_holdings_and_value_math():
     first = rows[0]
     assert first["issuer_name"] == "NVIDIA CORP"
     assert first["cusip"] == "67066G104"
-    assert first["value_usd_thousands_raw"] == 12345
-    assert first["value_usd"] == 12345000
+    assert first["reported_value_raw"] == 12345
+    assert first["reported_value_unit"] == "as_reported"
+    assert first["value_usd"] == 12345
+    assert first["value_unit_confidence"] == "low"
     assert first["shares_or_principal_amount"] == 1000
     assert first["investment_discretion"] == "SOLE"
     assert first["voting_authority_sole"] == 900
     assert first["source"] == ["SEC EDGAR"]
+
+
+def test_normalize_13f_value_modern_xml_like_raw_usd_with_price_reference():
+    normalized = sec_edgar_13f.normalize_13f_value(21929537965, shares=80664820, ticker="AAPL", price_reference=272)
+    assert normalized["value_usd"] == 21929537965
+    assert normalized["reported_value_unit"] == "usd"
+    assert normalized["value_unit_confidence"] == "high"
+
+
+def test_normalize_13f_value_legacy_thousands_style_with_price_reference():
+    normalized = sec_edgar_13f.normalize_13f_value(250000, shares=1000000, ticker="MOCK", price_reference=250)
+    assert normalized["value_usd"] == 250000000
+    assert normalized["reported_value_unit"] == "thousands_usd"
+    assert normalized["value_unit_confidence"] == "high"
+
+
+def test_normalize_13f_value_without_price_reference_preserves_raw_value():
+    normalized = sec_edgar_13f.normalize_13f_value(250000, shares=1000000)
+    assert normalized["value_usd"] == 250000
+    assert normalized["reported_value_raw"] == 250000
+    assert normalized["reported_value_unit"] == "as_reported"
+    assert normalized["value_unit_confidence"] != "high"
+    assert normalized["value_normalization_note"]
+
+
+def test_berkshire_apple_style_holding_does_not_exceed_one_trillion():
+    xml = """<?xml version="1.0"?>
+    <informationTable xmlns="http://www.sec.gov/edgar/document/thirteenf/informationtable">
+      <infoTable>
+        <nameOfIssuer>APPLE INC</nameOfIssuer>
+        <titleOfClass>COM</titleOfClass>
+        <cusip>037833100</cusip>
+        <value>21929537965</value>
+        <shrsOrPrnAmt>
+          <sshPrnamt>80664820</sshPrnamt>
+          <sshPrnamtType>SH</sshPrnamtType>
+        </shrsOrPrnAmt>
+      </infoTable>
+    </informationTable>
+    """
+    row = sec_edgar_13f.parse_13f_information_table_xml(xml, "0001067983", "0001193125-26-054580", "2026-02-16", "2025-12-31")[0]
+    assert row["issuer_name"] == "APPLE INC"
+    assert row["shares_or_principal_amount"] == 80664820
+    assert row["reported_value_raw"] == 21929537965
+    assert row["value_usd"] < 1_000_000_000_000
 
 
 def test_xml_parser_handles_namespaces():
