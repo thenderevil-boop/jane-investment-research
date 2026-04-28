@@ -27,7 +27,7 @@ Implemented SEC endpoints:
 - `https://data.sec.gov/submissions/CIK##########.json` for recent filing metadata
 - SEC EDGAR Archives filing XML documents for Form 4 transaction details
 
-No API key is required. SEC requests must include a proper `SEC_EDGAR_USER_AGENT`.
+No API key is required. SEC requests must include a proper `SEC_EDGAR_USER_AGENT`. Official SEC EDGAR is the runtime Form 4 provider. `sec-api.io` is no longer a runtime provider for this project. SEC EDGAR uses `SEC_EDGAR_USER_AGENT`, not an API key, and User-Agent values must never be returned by API responses.
 
 Normalized fields include:
 
@@ -194,7 +194,7 @@ Repository behavior:
 
 Every source-aware response can include:
 
-- `source_type`: `live`, `mock`, `fallback`, `derived`, or `unknown`
+- `source_type`: `live`, `cached_live`, `mock`, `fallback`, `derived`, or `unknown`
 - `provider`: data provider or fixture identifier
 - `source_date`: date of the underlying source observation
 - `fetched_at`: cache/write timestamp when available
@@ -243,6 +243,27 @@ Interpretation:
 - `mock` means deterministic fixtures are being used.
 - `fallback` means the system attempted live market data and used mock data after an unavailable fetch.
 - `derived` means the status summarizes multiple component statuses.
+- Mixed live/mock sources use `source_type: "derived"` with a provider such as `mixed_FRED_and_mock_macro` or `mixed_smart_money_sources`; do not use `mixed` as a `source_type`.
+
+## Data Freshness Contract
+
+- Market prices: latest expected US trading day.
+- FRED daily rates: `daily_rate_5_business_days`.
+- FRED monthly macro: `monthly_macro_latest_observation`.
+- Form 4: `form4_recent_180_days`.
+- 13F future: `quarterly_filing_delay`, not daily freshness.
+- Options future: requires an explicit provider-specific timestamp and should not use stale mock data.
+- News/sentiment future: source timestamp and deduplication are required.
+- Mock data is excluded from stale-data counts but must be disclosed as mock.
+
+### Future 13F Freshness Rules
+
+- 13F is quarterly batch data, not daily market data.
+- 13F is delayed and must not use `latest_expected_trading_day`.
+- Future 13F source status should use a freshness window such as `quarterly_filing_delay`.
+- 13F cache TTL should be measured in days, not hours.
+- 13F should be refreshed around expected filing windows, not on every daily report request.
+- 13F remains research evidence only and must not be treated as real-time smart-money confirmation.
 
 Limitations:
 

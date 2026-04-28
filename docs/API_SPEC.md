@@ -211,7 +211,7 @@ All score-like fields follow the shared `ScoreComponent` contract, except `leade
 
 Returns safe provider configuration status for yfinance, FRED, SEC EDGAR, and mock sources. The response does not expose secrets or SEC EDGAR User-Agent values.
 
-`source_type` values may include `live`, `cached_live`, `fallback`, `mock`, and `derived`.
+`source_type` values may include `live`, `cached_live`, `fallback`, `mock`, `derived`, and `unknown`.
 
 ## Phase 8.1 Data Source Visibility
 
@@ -246,6 +246,8 @@ Allowed `source_type` values:
 - `derived`: summary metadata derived from multiple components.
 - `unknown`: source metadata could not be classified.
 
+`source_type` is constrained to `live`, `cached_live`, `mock`, `fallback`, `derived`, or `unknown`. Do not use `mixed` as a `source_type`; mixed inputs should use `source_type="derived"` with `provider` set to a mixed provider string such as `mixed_FRED_and_mock_macro` or `mixed_smart_money_sources`.
+
 Freshness rules:
 
 - Daily market data is fresh when `source_date` matches the latest expected trading day.
@@ -256,6 +258,7 @@ Freshness rules:
 - Mock data is classified as mock reference data and does not count as stale solely because it is not live.
 - Stale applies only to live, fallback, or derived components with outdated `source_date`.
 - Fallback data sets `fallback_used=true` and includes a safe `fallback_reason`.
+- `fallback` means a configured live source could not be used and deterministic mock fallback data was returned with limitations and missing-data disclosure.
 - Missing `source_date` sets `is_fresh=false`, adds `source_date` to `missing_data`, and increments `missing_source_date_components`.
 - Nested live market snapshots under `index_market_data` use the same aggregate market snapshot source date for SPY and QQQ freshness checks.
 - `crisis.source_status` is derived from crisis components with `provider="derived_from_crisis_components"`.
@@ -394,6 +397,8 @@ Missing data is an array of strings under `missing_data`.
 ```
 
 `date` is the report date. `report_generated_at` is the actual generation timestamp. `source_date` remains source-specific on each score, component, candidate, and source-status object.
+
+`source_date` is the date of the underlying observation or filing. `fetched_at` is the cache/write or retrieval timestamp when available. `report_generated_at` is the timestamp for report assembly and must not be substituted for source freshness.
 
 `smart_money_summary` and `smart_money` currently contain the same score object. `smart_money` is the stable frontend-facing field; `smart_money_summary` is retained for backwards compatibility.
 

@@ -54,9 +54,9 @@ def data_health() -> DataHealthResponse:
             "FRED": {
                 "enabled": config.USE_LIVE_MACRO_DATA,
                 "provider": config.MACRO_DATA_PROVIDER,
-                "source_type": "live" if config.USE_LIVE_MACRO_DATA and bool(config.FRED_API_KEY) else "mock",
+                "source_type": "live" if config.USE_LIVE_MACRO_DATA and config.is_fred_api_key_configured() else "mock",
                 "requires_secret": True,
-                "credential_configured": bool(config.FRED_API_KEY),
+                "credential_configured": config.is_fred_api_key_configured(),
             },
             "SEC EDGAR": {
                 "enabled": config.USE_LIVE_SEC_FORM4,

@@ -118,12 +118,13 @@ Derived metrics:
 
 SEC Form 4 code handling:
 
-- `P`: open market or private purchase; count as accumulation.
-- `S`: open market or private disposition; count as disposition.
+- `P`: open market or private purchase; label as accumulation evidence and count as accumulation.
+- `S`: open market or private disposition; label as disposition evidence and count as disposition.
 - `M`: option exercise; do not count as accumulation by default.
 - `A`: grant or award; do not count as accumulation by default.
 - `F`: tax withholding or payment; do not count as bearish disposition by default.
 - `G`: gift; do not count as accumulation or disposition by default.
+- `D`: acquired/disposed ownership-code context; do not treat as a transaction-code accumulation signal.
 - `J`, missing, and unknown codes: classify as other unless later rules add context.
 
 Parsing and output controls:
@@ -135,6 +136,8 @@ Parsing and output controls:
 - Daily report raw Form 4 rows are capped at 25. Derived metrics use all lookback-window rows.
 - Mock fallback Form 4 data is not used to boost the smart-money score.
 - If all live rows are missing transaction codes, label is neutral or insufficient, `transaction_code` is reported as missing data, and Form 4 does not increase the component score.
+- 13F remains mock/delayed evidence unless a future phase explicitly adds a live 13F integration.
+- Form 4, 13F, options, insider activity, and institutional activity are research evidence only and must not be expressed as user trading instructions.
 
 Score:
 

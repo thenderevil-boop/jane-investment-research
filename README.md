@@ -8,6 +8,18 @@ Build a US-market-only daily investment research automation system based on Jane
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
+## Current Implementation Status
+
+`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced to Phase 10.5 / 10.6.
+
+Completed live integrations now documented in this README:
+
+- Phase 8: yfinance market data
+- Phase 9: FRED macro data
+- Phase 10: official SEC EDGAR Form 4
+
+Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
+
 ## Files
 
 ```text
@@ -83,6 +95,23 @@ Frontend:
 Leadership Score tells us what to research.
 Market Timing and Macro Regime tell us whether the current environment is favorable, neutral, fearful, or overheated.
 Neither is a direct investment recommendation.
+
+## Environment Variables Reference
+
+| Variable | Default | Required for | Notes |
+|---|---|---|---|
+| USE_LIVE_MARKET_DATA | false | yfinance live prices | |
+| MARKET_DATA_PROVIDER | yfinance | yfinance live prices | |
+| USE_LIVE_MACRO_DATA | false | FRED live macro | |
+| MACRO_DATA_PROVIDER | fred | FRED live macro | |
+| FRED_API_KEY | none | FRED live macro | secret; never expose |
+| USE_LIVE_SEC_FORM4 | false | SEC EDGAR Form 4 | |
+| SEC_FORM4_PROVIDER | sec_edgar | SEC EDGAR Form 4 | |
+| SEC_EDGAR_USER_AGENT | none | SEC EDGAR Form 4 | required; never expose |
+| SEC_EDGAR_REQUEST_DELAY_SECONDS | 0.2 | SEC EDGAR Form 4 | |
+| SEC_FORM4_CACHE_TTL_HOURS | 24 | SEC EDGAR Form 4 cache | |
+| SEC_FORM4_LOOKBACK_DAYS | 180 | SEC EDGAR Form 4 | |
+| ALLOW_LIVE_FETCH_ON_REPORT_REQUEST | false | quota guard | default should remain false |
 
 ## Windows VSCode Runbook
 

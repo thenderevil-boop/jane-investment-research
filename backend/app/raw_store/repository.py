@@ -458,7 +458,7 @@ def get_macro_snapshot(use_live: bool | None = None, scenario: str = "normal") -
         return _mock_macro_snapshot(scenario)
     if config.MACRO_DATA_PROVIDER != "fred":
         return _mock_macro_snapshot(scenario, f"unsupported macro data provider: {config.MACRO_DATA_PROVIDER}")
-    if not config.FRED_API_KEY:
+    if not config.is_fred_api_key_configured():
         return _mock_macro_snapshot(scenario, "FRED_API_KEY is missing")
     try:
         from backend.app.data_sources.live_macro_fred import fetch_macro_snapshot

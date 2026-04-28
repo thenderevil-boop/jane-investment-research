@@ -23,6 +23,8 @@ The system helps the user answer:
 
 The system must not output direct investment instructions.
 
+Form 4, 13F, options, insider activity, and institutional activity are research evidence only. Do not convert transaction evidence into buy/sell/hold/liquidate/enter/exit/must invest instructions. Form 4 code `P` may be labeled accumulation evidence. Form 4 code `S` may be labeled disposition evidence. Do not describe `P` or `S` as a user trading instruction.
+
 Forbidden language:
 
 - buy
@@ -95,6 +97,13 @@ MVP can run natively on Windows. Avoid Linux-only shell assumptions in app code.
 ## MVP Scope
 
 Build in phases.
+
+Current implementation has reached Phase 10.5 official SEC EDGAR Form 4 integration, with Phase 10.6 hardening in progress. Phase labels in historical docs may be non-contiguous. For current development, prefer these implementation references in order:
+
+1. JSON schemas under `schemas/`
+2. Backend and frontend tests
+3. README current implementation status
+4. AGENTS.md safety rules
 
 ### Phase 1: Mock Daily Research System
 
@@ -218,6 +227,20 @@ Before marking a task complete:
 3. Confirm API response matches schema.
 4. Confirm no output contains direct buy/sell/hold/liquidate language.
 5. Confirm every score contains raw data, source, benchmark, trend, confidence, limitations, and missing data.
+6. Confirm Form 4, 13F, and insider transaction outputs include `not_investment_advice` where applicable.
+7. Confirm transaction and institutional outputs do not contain prohibited trading instruction language.
+8. Confirm fallback mock Form 4 does not boost smart-money score.
+
+## Data Freshness Contract
+
+- Market prices: latest expected US trading day.
+- FRED daily rates: `daily_rate_5_business_days`.
+- FRED monthly macro: `monthly_macro_latest_observation`.
+- Form 4: `form4_recent_180_days`.
+- 13F future: `quarterly_filing_delay`, not daily freshness.
+- Options future: requires an explicit provider-specific timestamp and should not use stale mock data.
+- News/sentiment future: source timestamp and deduplication are required.
+- Mock data is excluded from stale-data counts but must be disclosed as mock.
 
 ## Definition of Done
 

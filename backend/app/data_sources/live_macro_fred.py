@@ -54,7 +54,7 @@ def _valid_observations(payload: dict[str, Any]) -> list[dict[str, Any]]:
 
 def fetch_fred_series(series_id: str, observation_start: str | None = None) -> dict[str, Any]:
     api_key = config.FRED_API_KEY
-    if not api_key:
+    if not config.is_fred_api_key_configured():
         raise FredFetchError("FRED_API_KEY is missing.")
     params = {
         "series_id": series_id,
