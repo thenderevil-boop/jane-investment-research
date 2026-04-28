@@ -727,6 +727,16 @@ Smart-money derived metrics include `latest_13f_report_date`, `latest_13f_filing
 
 13F source status uses `provider="SEC EDGAR"` for official live or cached data, `freshness_window="quarterly_filing_delay"`, `source_date` as report date when available otherwise filing date, and `fetched_at` as the cache/write or retrieval timestamp.
 
+SEC 13F document discovery:
+
+- The submissions API is only used to find manager filing history.
+- Submissions URLs use zero-padded 10-digit CIKs.
+- Archives directory URLs use CIKs without leading zeros and accession numbers without dashes.
+- Archives `index.json` is tried first to find actual filing document names.
+- The HTML fallback is `{accession-number}-index.html`, where the accession filename keeps dashes.
+- Information table XML filenames must come from Archives index discovery. Do not assume `form13fInfoTable.xml`.
+- If the first XML candidate is unavailable or is only cover-page XML, the backend tries the next bounded candidate.
+
 Limitations:
 
 - 13F is delayed quarterly evidence and may lag up to 45 days after quarter end.
@@ -734,4 +744,4 @@ Limitations:
 - 13F should not be interpreted as real-time institutional flow.
 - Manager-name discovery is limited in v1; numeric CIKs are preferred.
 - SEC Form 13F Data Sets can be considered as a future batch optimization but are not required for Phase 11.
-- Fallback mock 13F does not boost smart-money score.
+- Fallback mock 13F does not boost smart-money score and is labeled insufficient data.

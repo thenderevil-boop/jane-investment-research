@@ -57,6 +57,18 @@ def _manager_cache_key(manager_or_cik: str) -> str:
     return "".join(ch if ch.isalnum() else "_" for ch in manager_or_cik.strip().lower()).strip("_") or "unknown_manager"
 
 
+def _not_future_iso_date(value: Any, fallback: str = "2026-04-24") -> str:
+    text = str(value or "").strip()
+    try:
+        parsed = datetime.fromisoformat(text[:10]).date()
+    except ValueError:
+        return fallback
+    today = datetime.now(timezone.utc).date()
+    if parsed > today:
+        return today.isoformat()
+    return parsed.isoformat()
+
+
 def _mock_snapshot(scenario: str = "normal", reason: str | None = None) -> dict[str, Any]:
     snapshot = deepcopy(MARKET_SNAPSHOTS.get(scenario, MARKET_SNAPSHOTS["normal"]))
     snapshot["source_type"] = "fallback" if reason else "mock"
@@ -131,10 +143,11 @@ def _mock_13f_snapshot(manager_or_cik: str = "mock_manager", ticker: str = "NVDA
     fixture = read_company_fundamentals(normalized_ticker)
     raw = deepcopy(fixture.get("smart_money", MOCK_SMART_MONEY_SUMMARY).get("institutional_13f", {}))
     source_type = "fallback" if reason else "mock"
+    safe_filing_date = _not_future_iso_date(raw.get("filing_date"), fallback="2026-04-24")
     holding = {
         "manager_cik": "",
         "accession_number": "mock-13f",
-        "filing_date": raw.get("filing_date", "2026-05-15"),
+        "filing_date": safe_filing_date,
         "report_date": raw.get("quarter", "2026-Q1"),
         "issuer_name": raw.get("issuer_name"),
         "title_of_class": "COM",
@@ -159,7 +172,7 @@ def _mock_13f_snapshot(manager_or_cik: str = "mock_manager", ticker: str = "NVDA
         "filings": [
             {
                 "accession_number": "mock-13f",
-                "filing_date": raw.get("filing_date", "2026-05-15"),
+                "filing_date": safe_filing_date,
                 "report_date": raw.get("quarter", "2026-Q1"),
                 "form": "13F-HR",
                 "primary_document": "mock.xml",
@@ -170,7 +183,7 @@ def _mock_13f_snapshot(manager_or_cik: str = "mock_manager", ticker: str = "NVDA
         "source_type": source_type,
         "provider": "mock",
         "source": ["phase1_mock_dataset"],
-        "source_date": raw.get("filing_date", "2026-05-15"),
+        "source_date": safe_filing_date,
         "limitations": [
             "Mock 13F fixture is used when live SEC 13F is disabled or unavailable.",
             "Fallback mock 13F does not boost smart-money score.",

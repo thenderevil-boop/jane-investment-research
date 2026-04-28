@@ -148,7 +148,7 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
             score = 40
         institutional_support_label = "institutional_evidence_observed"
     elif fallback_mock_13f:
-        score = 40
+        score = 20
         institutional_support_label = "insufficient_data"
     elif source_type == "mock":
         score = 40
@@ -444,14 +444,30 @@ def evaluate_smart_money(data: dict[str, Any]) -> ScoreObject:
     if source_status:
         institutional_status = data.get("institutional_13f_source_status") or institutional.raw_data.get("source_status") or {}
         form4_status = data.get("form4_source_status") or insider.raw_data.get("source_status") or {}
-        source_dates = [item.get("source_date") for item in [institutional_status, form4_status] if item.get("source_date")]
+        source_dates = [
+            item.get("source_date")
+            for item in [institutional_status, form4_status]
+            if item.get("source_date") and item.get("source_type") in {"live", "cached_live"}
+        ]
+        fallback_used = any(
+            item.get("fallback_used") or item.get("source_type") == "fallback"
+            for item in [institutional_status, form4_status]
+            if item
+        )
+        fallback_reasons = [
+            str(item.get("fallback_reason"))
+            for item in [institutional_status, form4_status]
+            if item.get("fallback_reason")
+        ]
         result.source_status = build_source_status(
             {
                 "source_type": "derived",
                 "provider": "mixed_smart_money_sources",
-                "source_date": max(source_dates, default=source_status.get("source_date", result.source_date)),
+                "source_date": max(source_dates, default=result.source_date),
                 "fetched_at": source_status.get("fetched_at"),
                 "is_fresh": all(item.get("is_fresh", True) for item in [institutional_status, form4_status] if item),
+                "fallback_used": fallback_used,
+                "fallback_reason": "; ".join(fallback_reasons) if fallback_reasons else None,
                 "limitations": result.limitations,
                 "missing_data": result.missing_data,
             }

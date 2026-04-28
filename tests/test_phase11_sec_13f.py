@@ -20,11 +20,14 @@ def workspace_tmp_dir() -> Path:
 
 
 class FakeResponse:
-    def __init__(self, payload=None, text: str = ""):
+    def __init__(self, payload=None, text: str = "", status_code: int = 200):
         self._payload = payload
         self.text = text
+        self.status_code = status_code
 
     def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(f"{self.status_code} error")
         return None
 
     def json(self):
@@ -107,6 +110,22 @@ def test_cik_normalization_for_manager_cik():
     assert sec_edgar_13f.get_cik_for_manager("1067983") == "0001067983"
 
 
+def test_build_submissions_url_zero_pads_cik_to_10_digits():
+    assert sec_edgar_13f.build_submissions_url("1067983") == "https://data.sec.gov/submissions/CIK0001067983.json"
+
+
+def test_build_archives_directory_url_strips_cik_zeros_and_accession_dashes():
+    assert sec_edgar_13f.build_archives_directory_url("0001067983", "0001067983-26-000011") == "https://www.sec.gov/Archives/edgar/data/1067983/000106798326000011/"
+
+
+def test_build_archives_index_json_url_uses_directory_url():
+    assert sec_edgar_13f.build_archives_index_json_url("0001067983", "0001067983-26-000011") == "https://www.sec.gov/Archives/edgar/data/1067983/000106798326000011/index.json"
+
+
+def test_build_archives_index_html_url_keeps_dashes_in_filename():
+    assert sec_edgar_13f.build_archives_index_html_url("0001067983", "0001067983-26-000011") == "https://www.sec.gov/Archives/edgar/data/1067983/000106798326000011/0001067983-26-000011-index.html"
+
+
 def test_mocked_submissions_parsing_finds_13f_hr():
     filings = sec_edgar_13f.find_recent_13f_filings({"filings": {"recent": {**SUBMISSIONS["filings"]["recent"], "form": ["13F-HR"]}}})
     assert filings[0]["form"] == "13F-HR"
@@ -128,11 +147,104 @@ def test_information_table_discovery_finds_xml_document(monkeypatch):
     monkeypatch.setattr(config, "SEC_EDGAR_REQUEST_DELAY_SECONDS", 0)
 
     def fake_get(url, headers, timeout):
-        return FakeResponse(text='<a href="/Archives/edgar/data/1067983/000106798326000011/form13fInfoTable.xml">xml</a>')
+        assert url.endswith("index.json")
+        return FakeResponse(
+            {
+                "directory": {
+                    "item": [
+                        {"name": "primary_doc.xml", "type": "XML"},
+                        {"name": "infotable.xml", "type": "INFORMATION TABLE"},
+                    ]
+                }
+            }
+        )
 
     monkeypatch.setattr(sec_edgar_13f.httpx, "get", fake_get)
-    docs = sec_edgar_13f.discover_13f_information_table_documents("0001067983", "0001067983-26-000011", "primary.htm")
-    assert docs[0] == "form13fInfoTable.xml"
+    docs = sec_edgar_13f.discover_13f_information_table_documents("0001067983", "0001067983-26-000011")
+    assert docs[0].endswith("/infotable.xml")
+
+
+def test_index_json_discovery_ranks_information_table_above_cover_xml(monkeypatch):
+    monkeypatch.setattr(config, "SEC_EDGAR_USER_AGENT", "Test test@example.com")
+    monkeypatch.setattr(config, "SEC_EDGAR_REQUEST_DELAY_SECONDS", 0)
+
+    def fake_get(url, headers, timeout):
+        return FakeResponse(
+            {
+                "directory": {
+                    "item": [
+                        {"name": "primary_doc.xml", "type": "XML"},
+                        {"name": "form13f.xml", "type": "XML"},
+                        {"name": "random.xml", "type": "XML"},
+                        {"name": "abc-informationtable.xml", "type": "XML"},
+                    ]
+                }
+            }
+        )
+
+    monkeypatch.setattr(sec_edgar_13f.httpx, "get", fake_get)
+    docs = sec_edgar_13f.discover_13f_information_table_documents("0001067983", "0001067983-26-000011")
+    assert docs[0].endswith("/abc-informationtable.xml")
+    assert not any(doc.endswith("/primary_doc.xml") or doc.endswith("/form13f.xml") for doc in docs)
+
+
+def test_index_json_discovery_excludes_xsl_and_html_files(monkeypatch):
+    monkeypatch.setattr(config, "SEC_EDGAR_USER_AGENT", "Test test@example.com")
+    monkeypatch.setattr(config, "SEC_EDGAR_REQUEST_DELAY_SECONDS", 0)
+
+    def fake_get(url, headers, timeout):
+        return FakeResponse({"directory": {"item": [{"name": "xslForm13F.xsl"}, {"name": "doc-index.html"}, {"name": "real13f.xml"}]}})
+
+    monkeypatch.setattr(sec_edgar_13f.httpx, "get", fake_get)
+    docs = sec_edgar_13f.discover_13f_information_table_documents("0001067983", "0001067983-26-000011")
+    assert docs == ["https://www.sec.gov/Archives/edgar/data/1067983/000106798326000011/real13f.xml"]
+
+
+def test_candidate_fetch_continues_after_first_candidate_404(monkeypatch):
+    candidates = [
+        "https://www.sec.gov/Archives/edgar/data/1067983/000106798326000011/missing-info.xml",
+        "https://www.sec.gov/Archives/edgar/data/1067983/000106798326000011/actual-info.xml",
+    ]
+    monkeypatch.setattr(sec_edgar_13f, "discover_13f_information_table_documents", lambda cik, accession: candidates)
+
+    def fake_fetch(url):
+        if "missing" in url:
+            raise RuntimeError("404 error")
+        return INFO_XML
+
+    monkeypatch.setattr(sec_edgar_13f, "fetch_13f_information_table_xml", fake_fetch)
+    xml, url = sec_edgar_13f.fetch_first_valid_13f_information_table_xml("0001067983", "0001067983-26-000011")
+    assert xml == INFO_XML
+    assert url.endswith("actual-info.xml")
+
+
+def test_index_html_fallback_discovers_information_table_when_json_unavailable(monkeypatch):
+    monkeypatch.setattr(config, "SEC_EDGAR_USER_AGENT", "Test test@example.com")
+    monkeypatch.setattr(config, "SEC_EDGAR_REQUEST_DELAY_SECONDS", 0)
+
+    def fake_get(url, headers, timeout):
+        if url.endswith("index.json"):
+            return FakeResponse(status_code=404)
+        return FakeResponse(
+            text="""
+            <table>
+              <tr><td><a href="/Archives/edgar/data/1067983/000106798326000011/info_q1.xml">info_q1.xml</a></td><td>INFORMATION TABLE</td></tr>
+            </table>
+            """
+        )
+
+    monkeypatch.setattr(sec_edgar_13f.httpx, "get", fake_get)
+    docs = sec_edgar_13f.discover_13f_information_table_documents("0001067983", "0001067983-26-000011")
+    assert docs[0].endswith("/info_q1.xml")
+
+
+def test_cover_page_xml_is_rejected_if_no_holdings_rows():
+    cover_xml = "<edgarSubmission><formData><coverPage><reportCalendarOrQuarter>03-31-2026</reportCalendarOrQuarter></coverPage></formData></edgarSubmission>"
+    assert sec_edgar_13f.contains_13f_holdings_rows(cover_xml) is False
+
+
+def test_valid_information_table_xml_is_accepted():
+    assert sec_edgar_13f.contains_13f_holdings_rows(INFO_XML) is True
 
 
 def test_xml_parser_extracts_holdings_and_value_math():
@@ -221,8 +333,43 @@ def test_fallback_mock_13f_does_not_boost_smart_money_score():
     fallback = repository._mock_13f_snapshot("0001067983", "NVDA", "SEC unavailable")
     result = evaluate_smart_money({"institutional_13f_snapshot": fallback, "institutional_13f_source_status": fallback["source_status"], "form4_transactions": [], "options_activity": {}})
     institutional = result.derived_metrics["components"]["institutional_support_13f"]
-    assert institutional["score"] == 40
+    assert institutional["score"] <= 20
+    assert institutional["label"] == "insufficient_data"
     assert result.score < 50
+
+
+def test_mock_13f_filing_date_is_not_future_relative_to_report_date():
+    fallback = repository._mock_13f_snapshot("0001067983", "NVDA", "SEC unavailable")
+    assert fallback["source_date"] <= "2026-04-28"
+    assert fallback["filings"][0]["filing_date"] <= "2026-04-28"
+    assert fallback["holdings"][0]["filing_date"] <= "2026-04-28"
+
+
+def test_smart_money_source_date_not_pulled_forward_by_fallback_mock_13f():
+    fallback = repository._mock_13f_snapshot("0001067983", "NVDA", "SEC unavailable")
+    form4_status = {
+        "source_type": "live",
+        "provider": "SEC EDGAR",
+        "source": ["SEC EDGAR"],
+        "source_date": "2026-04-11",
+        "is_fresh": True,
+        "fallback_used": False,
+        "limitations": [],
+        "missing_data": [],
+    }
+    result = evaluate_smart_money(
+        {
+            "institutional_13f_snapshot": fallback,
+            "institutional_13f_source_status": fallback["source_status"],
+            "form4_transactions": [],
+            "form4_source_status": form4_status,
+            "options_activity": {},
+        }
+    )
+    assert result.source_status is not None
+    assert result.source_status.source_date == "2026-04-11"
+    assert result.source_status.fallback_used is True
+    assert "live SEC 13F data" in result.source_status.missing_data
 
 
 def test_13f_source_status_uses_quarterly_filing_delay():

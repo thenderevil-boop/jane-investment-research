@@ -439,7 +439,16 @@ uvicorn backend.app.main:app --reload
 Implemented SEC sources:
 
 - `data.sec.gov/submissions/CIK##########.json` for institutional manager filing discovery.
-- `www.sec.gov/Archives/edgar/data/...` for filing indexes and XML information tables.
+- `www.sec.gov/Archives/edgar/data/...` filing directories for actual document discovery and XML information tables.
+
+SEC 13F URL strategy:
+
+- The submissions API is only used to discover filing history. Its CIK must be zero-padded to 10 digits.
+- The Archives filing path uses CIK without leading zeros and accession numbers without dashes.
+- The Archives `index.json` is tried first to discover the actual information table XML filename.
+- If `index.json` is unavailable, the filing detail HTML page `{accession-number}-index.html` is used as a fallback.
+- The information table filename is not assumed to be `form13fInfoTable.xml`; actual XML filenames are ranked from the filing index.
+- The index HTML filename keeps dashes in the accession number.
 
 13F source status uses `freshness_window="quarterly_filing_delay"`. It does not use market latest-trading-day freshness or Form 4 recency rules. 13F is delayed quarterly evidence, may lag up to 45 days after quarter end, and may not show shorts, many derivatives, or current positions.
 
@@ -448,7 +457,7 @@ Repository behavior:
 - Daily reports are cache-first and do not repeatedly live-fetch SEC 13F unless `ALLOW_LIVE_FETCH_ON_REPORT_REQUEST=true`.
 - Cached live SEC 13F data within `SEC_13F_CACHE_TTL_DAYS` returns `source_type="cached_live"` with `provider="SEC EDGAR"`.
 - Missing `SEC_EDGAR_USER_AGENT` returns fallback mock 13F with `fallback_reason="SEC_EDGAR_USER_AGENT missing"` and never exposes the User-Agent value.
-- Fallback mock 13F does not boost smart-money score.
+- Fallback mock 13F does not boost smart-money score and is labeled insufficient data.
 - Manager-name discovery is limited to a small local mapping in v1; numeric CIKs are preferred.
 - SEC Form 13F Data Sets may be considered later as a batch optimization, but Phase 11 does not depend on them.
 

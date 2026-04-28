@@ -27,6 +27,15 @@ Implemented SEC endpoints:
 - `https://data.sec.gov/submissions/CIK##########.json` for institutional manager filing discovery
 - SEC EDGAR Archives filing indexes and XML information table documents
 
+URL strategy:
+
+- The submissions API is only for filing discovery and requires a 10-digit zero-padded CIK.
+- The Archives filing directory uses CIK without leading zeros and accession numbers without dashes.
+- The Archives `index.json` is the primary source for actual filing document names.
+- If `index.json` is unavailable, `{accession-number}-index.html` is used as the bounded HTML fallback. The accession number keeps dashes in this filename.
+- The XML download URL uses the actual XML filename discovered from `index.json` or the HTML index.
+- The integration must not hardcode `form13fInfoTable.xml`; if a candidate XML returns 404, the next ranked candidate is tried.
+
 No API key is required. SEC requests must include a proper `SEC_EDGAR_USER_AGENT`, and User-Agent values must never be returned by API responses or logs. `sec-api.io` is not a runtime provider.
 
 Normalized holding fields include manager CIK, accession number, filing date, report date, issuer name, title of class, CUSIP, reported value in thousands, computed value in dollars, shares or principal amount, share type, put/call, investment discretion, other manager, voting authority, source status, limitations, and missing data.
@@ -40,7 +49,7 @@ Repository behavior:
 - missing `SEC_EDGAR_USER_AGENT` or fetch failures return cached live data when available, otherwise mock fallback 13F data with `source_type: "fallback"`
 - fallback metadata includes a safe summarized `fallback_reason` and does not expose stack traces or `SEC_EDGAR_USER_AGENT`
 - smart-money engines consume normalized 13F snapshots from the raw store and do not call SEC directly
-- fallback mock 13F does not boost smart-money score
+- fallback mock 13F does not boost smart-money score and is labeled insufficient data
 
 Freshness:
 

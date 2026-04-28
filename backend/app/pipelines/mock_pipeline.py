@@ -136,7 +136,18 @@ def _candidate(ticker: str, theme: str, market_context: dict | None = None) -> S
             "source_type": "derived" if has_mixed_sources else form4_source_type,
             "provider": "mixed_sources" if has_mixed_sources else form4_status.get("provider"),
             "source": sorted(set([*candidate.source, *(form4_status.get("source") or []), *(thirteen_f_status.get("source") or [])])),
-            "source_date": max([item for item in [candidate.source_date, form4_status.get("source_date", ""), thirteen_f_status.get("source_date", "")] if item], default=candidate.source_date),
+            "source_date": max(
+                [
+                    item
+                    for item in [
+                        candidate.source_date,
+                        form4_status.get("source_date", "") if form4_source_type in {"live", "cached_live"} else "",
+                        thirteen_f_status.get("source_date", "") if thirteen_f_source_type in {"live", "cached_live"} else "",
+                    ]
+                    if item
+                ],
+                default=candidate.source_date,
+            ),
             "is_fresh": candidate_is_fresh,
             "limitations": candidate.limitations,
             "missing_data": candidate.missing_data,

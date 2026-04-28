@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import re
 import time
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from typing import Any
+from urllib.parse import urljoin
 from xml.etree import ElementTree as ET
 
 import httpx
@@ -13,7 +13,7 @@ from backend.app import config
 from backend.app.utils.freshness import THIRTEEN_F_FRESHNESS_WINDOW, build_source_status
 
 SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
-SEC_ARCHIVES_URL = "https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_no_dash}/{document}"
+SEC_ARCHIVES_DIRECTORY_URL = "https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_no_dash}/"
 PROVIDER = "SEC EDGAR"
 LIMITATIONS = [
     "13F is delayed quarterly evidence and should not be interpreted as real-time institutional flow.",
@@ -42,14 +42,50 @@ class FilingIndexParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
         self.links: list[str] = []
+        self.documents: list[dict[str, str]] = []
+        self._current_href = ""
+        self._current_cells: list[str] = []
+        self._in_td = False
+        self._cell_text: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag.lower() != "a":
+        lower_tag = tag.lower()
+        if lower_tag == "tr":
+            self._current_href = ""
+            self._current_cells = []
+        if lower_tag == "td":
+            self._in_td = True
+            self._cell_text = []
+        if lower_tag != "a":
             return
         attr_map = {name.lower(): value for name, value in attrs}
         href = attr_map.get("href") or ""
         if href:
             self.links.append(href)
+            self._current_href = href
+
+    def handle_data(self, data: str) -> None:
+        if self._in_td:
+            text = data.strip()
+            if text:
+                self._cell_text.append(text)
+
+    def handle_endtag(self, tag: str) -> None:
+        lower_tag = tag.lower()
+        if lower_tag == "td" and self._in_td:
+            self._current_cells.append(" ".join(self._cell_text).strip())
+            self._in_td = False
+            self._cell_text = []
+        if lower_tag == "tr" and self._current_href:
+            filename = self._current_href.rsplit("/", 1)[-1]
+            self.documents.append(
+                {
+                    "name": filename,
+                    "href": self._current_href,
+                    "type": " ".join(self._current_cells),
+                    "description": " ".join(self._current_cells),
+                }
+            )
 
 
 def _headers() -> dict[str, str]:
@@ -90,6 +126,13 @@ def _cik10(value: Any) -> str:
 
 def _accession_no_dash(accession_number: str) -> str:
     return accession_number.replace("-", "").strip()
+
+
+def _cik_no_leading_zeros(cik: str) -> str:
+    cik10 = _cik10(cik)
+    if not cik10:
+        raise SecEdgar13FFetchError("CIK is required")
+    return str(int(cik10))
 
 
 def _local_name(tag: str) -> str:
@@ -154,7 +197,11 @@ def get_cik_for_manager(manager_name_or_cik: str) -> str:
 
 
 def fetch_manager_submissions(cik: str) -> dict[str, Any]:
-    return _get_json(SEC_SUBMISSIONS_URL.format(cik=_cik10(cik)))
+    return _get_json(build_submissions_url(cik))
+
+
+def build_submissions_url(cik: str) -> str:
+    return SEC_SUBMISSIONS_URL.format(cik=_cik10(cik))
 
 
 def find_recent_13f_filings(submissions: dict[str, Any], lookback_quarters: int = 4) -> list[dict[str, Any]]:
@@ -193,60 +240,159 @@ def find_recent_13f_filings(submissions: dict[str, Any], lookback_quarters: int 
     return filings[: max(1, lookback_quarters)]
 
 
-def build_edgar_archive_url(cik: str, accession_number: str, document_name: str) -> str:
-    return SEC_ARCHIVES_URL.format(
-        cik_int=str(int(_cik10(cik))),
+def build_archives_directory_url(cik: str, accession_number: str) -> str:
+    return SEC_ARCHIVES_DIRECTORY_URL.format(
+        cik_int=_cik_no_leading_zeros(cik),
         accession_no_dash=_accession_no_dash(accession_number),
-        document=document_name,
     )
 
 
-def _index_url(cik: str, accession_number: str) -> str:
-    return build_edgar_archive_url(cik, accession_number, "index.html")
+def build_archives_index_json_url(cik: str, accession_number: str) -> str:
+    return f"{build_archives_directory_url(cik, accession_number)}index.json"
 
 
-def _candidate_document_names(primary_document: str) -> list[str]:
-    names = [
-        "form13fInfoTable.xml",
-        "form13fInfoTable.XML",
-        "infotable.xml",
-        "infoTable.xml",
-        "primary_doc.xml",
-        primary_document,
-    ]
-    return [name for index, name in enumerate(names) if name and name not in names[:index]]
+def build_archives_index_html_url(cik: str, accession_number: str) -> str:
+    return f"{build_archives_directory_url(cik, accession_number)}{accession_number}-index.html"
 
 
-def discover_13f_information_table_documents(cik: str, accession_number: str, primary_document: str) -> list[str]:
-    candidates = _candidate_document_names(primary_document)
+def build_edgar_archive_url(cik: str, accession_number: str, document_name: str) -> str:
+    return urljoin(build_archives_directory_url(cik, accession_number), document_name)
+
+
+def _document_name(document: dict[str, Any]) -> str:
+    return str(document.get("name") or document.get("href") or "").rsplit("/", 1)[-1]
+
+
+def _is_excluded_document(document: dict[str, Any]) -> bool:
+    name = _document_name(document).lower()
+    if not name:
+        return True
+    if name.endswith((".htm", ".html", ".xsl")):
+        return True
+    if name in {"primary_doc.xml", "form13f.xml"}:
+        return True
+    if name.endswith(".txt"):
+        return True
+    return False
+
+
+def _candidate_rank(document: dict[str, Any]) -> int | None:
+    if _is_excluded_document(document):
+        return None
+    name = _document_name(document).lower()
+    doc_type = str(document.get("type") or "").lower()
+    description = str(document.get("description") or "").lower()
+    combined = f"{name} {doc_type} {description}"
+    if not name.endswith(".xml"):
+        return None
+    if "infotable" in name or "informationtable" in name or "form13finfotable" in name:
+        return 0
+    if "information table" in combined:
+        return 1
+    if "13f" in name:
+        return 2
+    if "primary_doc" not in name and "form13f" not in name:
+        return 5
+    return None
+
+
+def _ordered_candidate_urls(cik: str, accession_number: str, documents: list[dict[str, Any]]) -> list[str]:
+    ranked: list[tuple[int, int, str]] = []
+    directory_url = build_archives_directory_url(cik, accession_number)
+    for index, document in enumerate(documents):
+        rank = _candidate_rank(document)
+        if rank is None:
+            continue
+        href = str(document.get("href") or document.get("name") or "")
+        url = href if href.startswith("http") else urljoin(directory_url, href.rsplit("/", 1)[-1])
+        ranked.append((rank, index, url))
+    urls: list[str] = []
+    for _rank, _index, url in sorted(ranked, key=lambda item: (item[0], item[1])):
+        if url not in urls:
+            urls.append(url)
+    return urls[:5]
+
+
+def _documents_from_index_json(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    directory = payload.get("directory", {}) if isinstance(payload, dict) else {}
+    items = directory.get("item") or payload.get("item") or []
+    documents: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        documents.append(
+            {
+                "name": str(item.get("name") or ""),
+                "href": str(item.get("href") or item.get("name") or ""),
+                "type": str(item.get("type") or ""),
+                "description": str(item.get("description") or ""),
+            }
+        )
+    return documents
+
+
+def discover_13f_information_table_documents(cik: str, accession_number: str) -> list[str]:
+    json_error = ""
     try:
-        index_text = _get_text(_index_url(cik, accession_number))
-    except Exception:
-        index_text = ""
-    if index_text:
+        documents = _documents_from_index_json(_get_json(build_archives_index_json_url(cik, accession_number)))
+        candidates = _ordered_candidate_urls(cik, accession_number, documents)
+        if candidates:
+            return candidates
+    except Exception as exc:
+        json_error = str(exc).splitlines()[0][:120]
+    try:
+        index_text = _get_text(build_archives_index_html_url(cik, accession_number))
         parser = FilingIndexParser()
         parser.feed(index_text)
-        for href in parser.links[:100]:
-            document = href.rsplit("/", 1)[-1]
-            normalized = document.lower()
-            if normalized.endswith(".xml") and (
-                "infotable" in normalized
-                or "form13f" in normalized
-                or re.search(r"(^|[-_])info", normalized)
-            ):
-                candidates.insert(0, document)
-            elif normalized.endswith(".xml"):
-                candidates.append(document)
-    documents: list[str] = []
-    for name in candidates:
-        document = name.rsplit("/", 1)[-1]
-        if document and document not in documents and document.lower() != str(primary_document).lower():
-            documents.append(document)
-    return documents[:10]
+        candidates = _ordered_candidate_urls(cik, accession_number, parser.documents)
+        if candidates:
+            return candidates
+    except Exception as exc:
+        html_error = str(exc).splitlines()[0][:120]
+        reason = "; ".join(item for item in [json_error, html_error] if item)
+        raise SecEdgar13FFetchError(f"No 13F information table candidates found: {reason or 'Archives indexes unavailable'}") from exc
+    raise SecEdgar13FFetchError(f"No 13F information table candidates found: {json_error or 'Archives index had no XML candidates'}")
 
 
 def fetch_13f_information_table_xml(url: str) -> str:
     return _get_text(url)
+
+
+def _holding_row_has_required_evidence(row: ET.Element) -> bool:
+    issuer_name = _text(row, ["nameOfIssuer"]) or _text(row, ["issuer_name"])
+    cusip = _text(row, ["cusip"]) or _text(row, ["CUSIP"])
+    value = _text(row, ["value"]) or _text(row, ["value_usd_thousands_raw"])
+    shares = _text(row, ["shrsOrPrnAmt", "sshPrnamt"]) or _text(row, ["shares_or_principal_amount"])
+    return bool((issuer_name or cusip) and value and shares)
+
+
+def contains_13f_holdings_rows(xml_text: str) -> bool:
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError as exc:
+        raise SecEdgar13FFetchError("Malformed 13F information table XML") from exc
+    for element in root.iter():
+        if _local_name(element.tag).lower() in {"infotable", "informationtable"} and _holding_row_has_required_evidence(element):
+            return True
+    return False
+
+
+def fetch_first_valid_13f_information_table_xml(cik: str, accession_number: str) -> tuple[str, str]:
+    candidates = discover_13f_information_table_documents(cik, accession_number)
+    failures: list[str] = []
+    for url in candidates:
+        try:
+            xml_text = fetch_13f_information_table_xml(url)
+        except Exception as exc:
+            failures.append(f"{url.rsplit('/', 1)[-1]}: {str(exc).splitlines()[0][:80]}")
+            continue
+        try:
+            if contains_13f_holdings_rows(xml_text):
+                return xml_text, url
+            failures.append(f"{url.rsplit('/', 1)[-1]}: cover page XML")
+        except SecEdgar13FFetchError as exc:
+            failures.append(f"{url.rsplit('/', 1)[-1]}: {str(exc)}")
+    raise SecEdgar13FFetchError(f"No valid 13F information table XML found after trying candidates: {'; '.join(failures)}")
 
 
 def parse_13f_information_table_xml(
@@ -265,10 +411,10 @@ def parse_13f_information_table_xml(
     for info_table in root.iter():
         if _local_name(info_table.tag).lower() != "infotable":
             continue
+        if not _holding_row_has_required_evidence(info_table):
+            continue
         issuer_name = _text(info_table, ["nameOfIssuer"])
         cusip = _text(info_table, ["cusip"])
-        if not issuer_name and not cusip:
-            continue
         raw_value = _as_float(_text(info_table, ["value"]))
         shares = _as_float(_text(info_table, ["shrsOrPrnAmt", "sshPrnamt"]))
         row = {
@@ -334,34 +480,25 @@ def fetch_13f_holdings_for_manager(manager_name_or_cik: str, lookback_quarters: 
     missing_data: list[str] = []
     limitations = list(LIMITATIONS)
     for filing in filings:
-        documents = discover_13f_information_table_documents(manager_cik, filing["accession_number"], filing.get("primary_document", ""))
-        if not documents:
-            missing_data.append(f"13F information table XML for {filing['accession_number']}")
+        try:
+            xml_text, url = fetch_first_valid_13f_information_table_xml(manager_cik, filing["accession_number"])
+            rows = parse_13f_information_table_xml(
+                xml_text,
+                manager_cik,
+                filing["accession_number"],
+                filing.get("filing_date", ""),
+                filing.get("report_date", ""),
+            )
+        except SecEdgar13FFetchError as exc:
+            missing_data.append(f"parseable 13F information table XML for {filing['accession_number']}: {str(exc)}")
             continue
-        parsed_for_filing = False
-        for document in documents:
-            url = build_edgar_archive_url(manager_cik, filing["accession_number"], document)
-            try:
-                rows = parse_13f_information_table_xml(
-                    fetch_13f_information_table_xml(url),
-                    manager_cik,
-                    filing["accession_number"],
-                    filing.get("filing_date", ""),
-                    filing.get("report_date", ""),
-                )
-            except SecEdgar13FFetchError:
-                continue
-            for row in rows:
-                row["source_status"] = build_source_status(
-                    {**row["source_status"], "fetched_at": fetched_at},
-                    freshness_window=THIRTEEN_F_FRESHNESS_WINDOW,
-                ).model_dump(mode="json")
-            holdings.extend(rows)
-            parsed_for_filing = True
-            metadata.append({**filing, "information_table_document": document})
-            break
-        if not parsed_for_filing:
-            missing_data.append(f"parseable 13F information table XML for {filing['accession_number']}")
+        for row in rows:
+            row["source_status"] = build_source_status(
+                {**row["source_status"], "fetched_at": fetched_at},
+                freshness_window=THIRTEEN_F_FRESHNESS_WINDOW,
+            ).model_dump(mode="json")
+        holdings.extend(rows)
+        metadata.append({**filing, "information_table_document": url.rsplit("/", 1)[-1], "information_table_url": url})
     holdings = dedupe_holdings(holdings)
     source_date = max((item.get("report_date") or item.get("filing_date") or "" for item in metadata), default="")
     payload = {

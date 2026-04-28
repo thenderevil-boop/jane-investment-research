@@ -106,6 +106,15 @@ Source status:
 - fetched_at: cache/write or retrieval timestamp
 - source_type: `live`, `cached_live`, `mock`, `fallback`, `derived`, or `unknown`
 
+SEC EDGAR discovery:
+
+- Use `data.sec.gov/submissions/CIK##########.json` only for manager filing discovery.
+- Use SEC Archives `index.json` or `{accession-number}-index.html` to discover the actual information table XML filename.
+- Submissions CIKs are zero-padded to 10 digits.
+- Archives paths strip CIK leading zeros and remove accession dashes.
+- The HTML index filename keeps accession dashes.
+- Do not hardcode `form13fInfoTable.xml`.
+
 ## Form 4 Insider Signal
 
 Raw data:
