@@ -117,7 +117,9 @@ Neither is a direct investment recommendation.
 | SEC_13F_CACHE_TTL_DAYS | 7 | SEC EDGAR 13F cache | TTL is days, not hours |
 | SEC_13F_LOOKBACK_QUARTERS | 4 | SEC EDGAR 13F | |
 | SEC_13F_TARGET_MANAGERS | none | SEC EDGAR 13F | optional comma-separated manager names or CIKs |
+| SEC_13F_TARGET_CUSIPS | none | SEC EDGAR 13F | optional comma-separated target CUSIPs; highest confidence target matching |
 | SEC_13F_TARGET_TICKERS | none | SEC EDGAR 13F | optional comma-separated tickers for future mapping support |
+| SEC_13F_TARGET_ISSUERS | none | SEC EDGAR 13F | optional comma-separated issuer-name fallback targets; low confidence |
 | SEC_13F_ASSUME_VALUE_THOUSANDS | false | SEC EDGAR 13F | legacy fallback only; modern XML values are preserved unless disambiguated |
 | ALLOW_LIVE_FETCH_ON_REPORT_REQUEST | false | quota guard | default should remain false |
 
@@ -460,6 +462,14 @@ SEC 13F URL strategy:
 - The backend no longer blindly multiplies every SEC 13F XML value by 1000. When a reliable price reference is not available, modern XML values are preserved as reported with `reported_value_unit="as_reported"`.
 - If a reliable price reference is available, the parser can choose between `reported_value_unit="usd"` and `reported_value_unit="thousands_usd"` based on which interpretation is closer to shares times the reference price.
 - `value_unit_confidence` and `value_normalization_note` explain the normalization decision. `SEC_13F_ASSUME_VALUE_THOUSANDS=true` is only a legacy override and is false by default.
+
+13F aggregation and target matching:
+
+- Daily reports aggregate row-level 13F holdings by CUSIP when available. If CUSIP is missing, issuer name plus title of class is used as a lower-stability grouping key.
+- The same issuer may appear under multiple CUSIPs or share classes, so similar issuer names are not blindly merged.
+- Portfolio summaries use normalized `value_usd` for `total_reported_value_usd`, top holdings, and portfolio weights.
+- Target matching is highest confidence by exact CUSIP. Ticker matching uses only a small local ticker-to-CUSIP fixture and does not call external CUSIP APIs. Issuer-name matching is low confidence and disclosed as a limitation.
+- QoQ comparison reflects reported quarterly 13F changes only. It is not real-time institutional flow.
 
 Repository behavior:
 

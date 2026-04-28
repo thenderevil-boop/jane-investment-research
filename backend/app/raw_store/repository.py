@@ -10,6 +10,8 @@ from backend.app import config
 from backend.app.data_sources.mock_crisis import MOCK_CRISIS_SCENARIOS
 from backend.app.data_sources.mock_data import MARKET_SNAPSHOTS, MOCK_SMART_MONEY_SUMMARY, STOCK_FIXTURES, THEMES
 from backend.app.data_sources.mock_macro import MOCK_MACRO_SCENARIOS
+from backend.app.engines.sec_13f_aggregation import aggregate_13f_holdings, compare_13f_quarter_over_quarter, summarize_13f_portfolio
+from backend.app.engines.sec_13f_target_matching import match_13f_targets, normalize_target_security_map
 from backend.app.features.market_features import build_market_snapshot_features
 from backend.app.utils.freshness import (
     DAILY_RATE_FRESHNESS_WINDOW,
@@ -860,6 +862,115 @@ def get_sec_13f_holdings(
         return payload
 
 
+def _sec_13f_derived_provider(snapshot: dict[str, Any]) -> str:
+    status = snapshot.get("source_status") if isinstance(snapshot.get("source_status"), dict) else {}
+    source_type = status.get("source_type") or snapshot.get("source_type")
+    provider = status.get("provider") or snapshot.get("provider")
+    if source_type in {"live", "cached_live"} and provider == "SEC EDGAR":
+        return "derived_from_SEC_EDGAR_13F"
+    return "derived_from_mock_13f"
+
+
+def _sec_13f_derived_status(snapshot: dict[str, Any], summary: dict[str, Any]) -> dict[str, Any]:
+    underlying_status = snapshot.get("source_status") if isinstance(snapshot.get("source_status"), dict) else {}
+    provider = _sec_13f_derived_provider(snapshot)
+    limitations = sorted(set([*summary.get("limitations", []), *snapshot.get("limitations", []), *underlying_status.get("limitations", [])]))
+    missing_data = sorted(set([*summary.get("missing_data", []), *snapshot.get("missing_data", []), *underlying_status.get("missing_data", [])]))
+    return build_source_status(
+        {
+            "source_type": "derived",
+            "provider": provider,
+            "source_date": summary.get("latest_report_date") or snapshot.get("source_date") or underlying_status.get("source_date") or "",
+            "fetched_at": snapshot.get("cached_at") or snapshot.get("fetched_at") or underlying_status.get("fetched_at"),
+            "is_fresh": underlying_status.get("is_fresh") if isinstance(underlying_status.get("is_fresh"), bool) else None,
+            "fallback_used": bool(snapshot.get("fallback_used") or underlying_status.get("fallback_used")),
+            "fallback_reason": snapshot.get("fallback_reason") or underlying_status.get("fallback_reason"),
+            "limitations": limitations,
+            "missing_data": missing_data,
+        },
+        freshness_window=THIRTEEN_F_FRESHNESS_WINDOW,
+    ).model_dump(mode="json")
+
+
+def get_sec_13f_summary(
+    manager_or_cik: str,
+    lookback_quarters: int | None = None,
+    *,
+    allow_live_fetch: bool = True,
+    ticker: str = "NVDA",
+) -> dict[str, Any]:
+    snapshot = get_sec_13f_holdings(manager_or_cik, lookback_quarters, allow_live_fetch=allow_live_fetch, ticker=ticker)
+    summary = summarize_13f_portfolio(snapshot.get("holdings", []) or [])
+    summary["source_status"] = _sec_13f_derived_status(snapshot, summary)
+    summary["source_type"] = "derived"
+    summary["provider"] = summary["source_status"]["provider"]
+    summary["underlying_source_status"] = snapshot.get("source_status")
+    summary["underlying_source_type"] = snapshot.get("source_type")
+    summary["fallback_used"] = summary["source_status"].get("fallback_used", False)
+    return summary
+
+
+def get_sec_13f_target_matches(
+    manager_or_cik: str,
+    targets: dict[str, Any] | None = None,
+    *,
+    allow_live_fetch: bool = True,
+    ticker: str = "NVDA",
+) -> dict[str, Any]:
+    summary = get_sec_13f_summary(manager_or_cik, allow_live_fetch=allow_live_fetch, ticker=ticker)
+    target_map = normalize_target_security_map(targets or {"ticker": ticker})
+    matches = match_13f_targets(summary.get("grouped_holdings", []), target_map)
+    return {
+        **matches,
+        "source_status": summary.get("source_status"),
+        "missing_data": sorted(set([*target_map.get("missing_data", []), *matches.get("missing_data", [])])),
+        "limitations": sorted(set([*summary.get("limitations", []), *matches.get("limitations", [])])),
+    }
+
+
+def _holdings_by_latest_two_periods(holdings: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+    periods = sorted({str(row.get("report_date") or "") for row in holdings if row.get("report_date")}, reverse=True)
+    if len(periods) < 2:
+        return [], [], ["prior SEC 13F quarter unavailable"]
+    current_period, prior_period = periods[0], periods[1]
+    current = [row for row in holdings if str(row.get("report_date") or "") == current_period]
+    prior = [row for row in holdings if str(row.get("report_date") or "") == prior_period]
+    return current, prior, []
+
+
+def get_sec_13f_qoq_comparison(
+    manager_or_cik: str,
+    *,
+    allow_live_fetch: bool = True,
+    ticker: str = "NVDA",
+) -> dict[str, Any]:
+    snapshot = get_sec_13f_holdings(manager_or_cik, allow_live_fetch=allow_live_fetch, ticker=ticker)
+    holdings = snapshot.get("holdings", []) or []
+    current_rows, prior_rows, missing_data = _holdings_by_latest_two_periods(holdings)
+    current_grouped = aggregate_13f_holdings(current_rows).get("grouped_holdings", []) if current_rows else []
+    prior_grouped = aggregate_13f_holdings(prior_rows).get("grouped_holdings", []) if prior_rows else []
+    qoq_changes = compare_13f_quarter_over_quarter(current_grouped, prior_grouped) if current_grouped and prior_grouped else []
+    source_status = build_source_status(
+        {
+            "source_type": "derived",
+            "provider": _sec_13f_derived_provider(snapshot),
+            "source_date": max((item.get("current_report_date") for item in qoq_changes if item.get("current_report_date")), default=snapshot.get("source_date", "")),
+            "fetched_at": snapshot.get("cached_at") or snapshot.get("fetched_at"),
+            "fallback_used": bool(snapshot.get("fallback_used")),
+            "fallback_reason": snapshot.get("fallback_reason"),
+            "limitations": ["QoQ 13F comparison reflects reported quarterly change only and is not real-time activity."],
+            "missing_data": missing_data,
+        },
+        freshness_window=THIRTEEN_F_FRESHNESS_WINDOW,
+    ).model_dump(mode="json")
+    return {
+        "qoq_changes": qoq_changes,
+        "source_status": source_status,
+        "limitations": source_status.get("limitations", []),
+        "missing_data": missing_data,
+    }
+
+
 def _target_13f_managers(fixture_summary: dict[str, Any]) -> list[str]:
     configured = [item.strip() for item in config.SEC_13F_TARGET_MANAGERS.split(",") if item.strip()]
     if configured:
@@ -883,12 +994,24 @@ def read_sec_filings(ticker: str = "NVDA", *, allow_live_fetch: bool | None = No
         for manager in managers[:5]
     ]
     primary_13f_snapshot = thirteen_f_snapshots[0] if thirteen_f_snapshots else _mock_13f_snapshot("mock_manager", ticker)
+    primary_manager = managers[0] if managers else "mock_manager"
+    target_map = {
+        "ticker": ticker,
+        "cusip": institutional_fixture.get("cusip"),
+        "issuer_name": institutional_fixture.get("issuer_name"),
+    }
+    thirteen_f_summary = get_sec_13f_summary(primary_manager, allow_live_fetch=resolved_allow_live, ticker=ticker)
+    thirteen_f_matches = get_sec_13f_target_matches(primary_manager, target_map, allow_live_fetch=resolved_allow_live, ticker=ticker)
+    thirteen_f_qoq = get_sec_13f_qoq_comparison(primary_manager, allow_live_fetch=resolved_allow_live, ticker=ticker)
     return deepcopy(
         {
             "institutional_13f": smart_money.get("institutional_13f", {}),
             "institutional_13f_snapshot": primary_13f_snapshot,
             "institutional_13f_snapshots": thirteen_f_snapshots,
             "institutional_13f_source_status": primary_13f_snapshot.get("source_status"),
+            "institutional_13f_summary": thirteen_f_summary,
+            "institutional_13f_target_matches": thirteen_f_matches,
+            "institutional_13f_qoq_comparison": thirteen_f_qoq,
             "form4_transactions": form4_snapshot.get("transactions", []),
             "form4_source_status": form4_snapshot.get("source_status"),
             "form4_snapshot": form4_snapshot,

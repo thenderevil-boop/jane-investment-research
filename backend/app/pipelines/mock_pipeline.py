@@ -103,6 +103,18 @@ def _candidate(ticker: str, theme: str, market_context: dict | None = None) -> S
             )
         ),
     )
+    thirteen_f_raw = smart_money.raw_data.get("institutional_13f", {})
+    candidate.institutional_13f = {
+        "portfolio_summary": thirteen_f_raw.get("portfolio_summary"),
+        "target_matches": thirteen_f_raw.get("target_matches", []),
+        "top_holdings_by_value": (thirteen_f_raw.get("top_holdings_by_value") or [])[:5],
+        "limitations": [
+            "13F is delayed quarterly evidence.",
+            "13F may lag up to 45 days after quarter end.",
+            "13F may not show shorts, many derivatives, or current positions.",
+            "Issuer-name matches are low confidence unless CUSIP or local ticker mapping confirms.",
+        ],
+    }
     form4_status = sec_filings.get("form4_source_status", {})
     thirteen_f_status = sec_filings.get("institutional_13f_source_status", {})
     form4_source_type = form4_status.get("source_type", "mock")

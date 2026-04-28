@@ -7,6 +7,8 @@ import pytest
 
 from backend.app import config
 from backend.app.data_sources import sec_edgar_13f
+from backend.app.engines.sec_13f_aggregation import aggregate_13f_holdings, compare_13f_quarter_over_quarter, summarize_13f_portfolio
+from backend.app.engines.sec_13f_target_matching import match_13f_targets, normalize_target_security_map
 from backend.app.engines.smart_money_engine import evaluate_smart_money
 from backend.app.raw_store import repository
 from backend.app.schemas.common import DataSourceStatus
@@ -86,6 +88,55 @@ INFO_XML = """<?xml version="1.0"?>
 """
 
 PRIOR_XML = INFO_XML.replace("<value>12345</value>", "<value>10000</value>").replace("<sshPrnamt>1000</sshPrnamt>", "<sshPrnamt>800</sshPrnamt>", 1)
+
+
+def holding_row(
+    issuer_name: str,
+    cusip: str,
+    value_usd: float,
+    shares: float,
+    *,
+    report_date: str = "2026-03-31",
+    filing_date: str = "2026-05-15",
+    manager_cik: str = "0001067983",
+    title_of_class: str = "COM",
+    confidence: str = "high",
+    other_manager: str = "",
+) -> dict:
+    return {
+        "manager_cik": manager_cik,
+        "accession_number": f"{manager_cik}-{report_date}",
+        "filing_date": filing_date,
+        "report_date": report_date,
+        "issuer_name": issuer_name,
+        "title_of_class": title_of_class,
+        "cusip": cusip,
+        "reported_value_raw": value_usd,
+        "reported_value_unit": "as_reported",
+        "value_usd": value_usd,
+        "value_unit_confidence": confidence,
+        "value_normalization_note": "fixture value",
+        "shares_or_principal_amount": shares,
+        "share_type": "SH",
+        "put_call": "",
+        "investment_discretion": "SOLE",
+        "other_manager": other_manager,
+        "voting_authority_sole": 10,
+        "voting_authority_shared": 2,
+        "voting_authority_none": 1,
+        "source": ["SEC EDGAR"],
+        "source_status": {
+            "source_type": "live",
+            "provider": "SEC EDGAR",
+            "source_date": report_date,
+            "fetched_at": f"{filing_date}T00:00:00+00:00",
+            "is_fresh": True,
+            "freshness_window": "quarterly_filing_delay",
+            "fallback_used": False,
+            "limitations": [],
+            "missing_data": [],
+        },
+    }
 
 
 def live_13f_payload() -> dict:
@@ -305,6 +356,147 @@ def test_berkshire_apple_style_holding_does_not_exceed_one_trillion():
     assert row["shares_or_principal_amount"] == 80664820
     assert row["reported_value_raw"] == 21929537965
     assert row["value_usd"] < 1_000_000_000_000
+
+
+def test_aggregate_13f_holdings_groups_by_cusip_and_sums_values_and_shares():
+    rows = [
+        holding_row("NVIDIA CORP", "67066G104", 100, 10, other_manager="1"),
+        holding_row("NVIDIA CORP", "67066G104", 150, 15, other_manager="2"),
+    ]
+    grouped = aggregate_13f_holdings(rows)["grouped_holdings"]
+    assert len(grouped) == 1
+    assert grouped[0]["cusip"] == "67066G104"
+    assert grouped[0]["total_value_usd"] == 250
+    assert grouped[0]["total_shares_or_principal_amount"] == 25
+    assert grouped[0]["manager_count_observed"] == 1
+
+
+def test_aggregation_does_not_merge_different_cusips_for_similar_issuer_names():
+    rows = [
+        holding_row("ALPHABET INC", "02079K305", 100, 10, title_of_class="CL A"),
+        holding_row("ALPHABET INC", "02079K107", 200, 20, title_of_class="CL C"),
+    ]
+    grouped = aggregate_13f_holdings(rows)["grouped_holdings"]
+    assert len(grouped) == 2
+    assert {item["cusip"] for item in grouped} == {"02079K305", "02079K107"}
+
+
+def test_aggregation_preserves_low_confidence_and_dedupes_identical_rows():
+    low = holding_row("APPLE INC", "037833100", 300, 30, confidence="low")
+    high = holding_row("APPLE INC", "037833100", 100, 10, confidence="high", other_manager="1")
+    grouped = aggregate_13f_holdings([low, low.copy(), high])["grouped_holdings"]
+    assert len(grouped) == 1
+    assert grouped[0]["row_count"] == 2
+    assert grouped[0]["total_value_usd"] == 400
+    assert grouped[0]["value_unit_confidence_summary"] == "low"
+
+
+def test_portfolio_summary_totals_top_holdings_and_weights():
+    rows = [
+        holding_row("NVIDIA CORP", "67066G104", 300, 30),
+        holding_row("APPLE INC", "037833100", 100, 10),
+    ]
+    summary = summarize_13f_portfolio(rows)
+    assert summary["total_reported_value_usd"] == 400
+    assert summary["top_holdings_by_value"][0]["issuer_name"] == "NVIDIA CORP"
+    assert summary["top_holdings_by_value"][0]["portfolio_weight_pct"] == 75
+    assert summary["source_status"]["source_type"] == "derived"
+    assert summary["source_status"]["provider"] == "derived_from_SEC_EDGAR_13F"
+
+
+def test_target_cusip_exact_match_returns_high_confidence():
+    summary = summarize_13f_portfolio([holding_row("NVIDIA CORP", "67066G104", 300, 30)])
+    target_map = normalize_target_security_map({"cusips": "67066G104"})
+    matches = match_13f_targets(summary["grouped_holdings"], target_map)["target_matches"]
+    assert matches[0]["matched"] is True
+    assert matches[0]["match_confidence"] == "high"
+    assert matches[0]["matched_cusip"] == "67066G104"
+
+
+def test_target_issuer_name_match_returns_low_confidence_and_limitation():
+    summary = summarize_13f_portfolio([holding_row("NVIDIA CORP", "67066G104", 300, 30)])
+    target_map = normalize_target_security_map({"issuers": "nvidia"})
+    matches = match_13f_targets(summary["grouped_holdings"], target_map)["target_matches"]
+    assert matches[0]["matched"] is True
+    assert matches[0]["match_confidence"] == "low"
+    assert matches[0]["limitations"]
+
+
+def test_no_target_config_returns_empty_matches_and_missing_data(monkeypatch):
+    monkeypatch.setattr(config, "SEC_13F_TARGET_CUSIPS", "")
+    monkeypatch.setattr(config, "SEC_13F_TARGET_TICKERS", "")
+    monkeypatch.setattr(config, "SEC_13F_TARGET_ISSUERS", "")
+    target_map = normalize_target_security_map({})
+    matches = match_13f_targets([], target_map)
+    assert matches["target_matches"] == []
+    assert "SEC 13F target map is not configured." in matches["missing_data"]
+
+
+def test_qoq_comparison_detects_increased_decreased_and_new_reported_positions():
+    current = aggregate_13f_holdings(
+        [
+            holding_row("NVIDIA CORP", "67066G104", 300, 30, report_date="2026-03-31"),
+            holding_row("APPLE INC", "037833100", 50, 5, report_date="2026-03-31"),
+            holding_row("TESLA INC", "88160R101", 20, 2, report_date="2026-03-31"),
+        ]
+    )["grouped_holdings"]
+    prior = aggregate_13f_holdings(
+        [
+            holding_row("NVIDIA CORP", "67066G104", 100, 10, report_date="2025-12-31"),
+            holding_row("APPLE INC", "037833100", 100, 10, report_date="2025-12-31"),
+        ]
+    )["grouped_holdings"]
+    changes = {item["cusip"]: item for item in compare_13f_quarter_over_quarter(current, prior)}
+    assert changes["67066G104"]["change_label"] == "institutional_position_increased"
+    assert changes["037833100"]["change_label"] == "institutional_position_decreased"
+    assert changes["88160R101"]["change_label"] == "new_13f_reported_position"
+
+
+def test_qoq_comparison_missing_prior_quarter_repository_result(monkeypatch):
+    cache_dir = workspace_tmp_dir()
+    monkeypatch.setattr(config, "USE_LIVE_SEC_13F", True)
+    monkeypatch.setattr(config, "SEC_13F_CACHE_DIR", cache_dir)
+    repository.write_sec_13f_data("0001067983", {**live_13f_payload(), "holdings": [holding_row("NVIDIA CORP", "67066G104", 300, 30)]})
+    result = repository.get_sec_13f_qoq_comparison("0001067983", allow_live_fetch=False)
+    assert result["qoq_changes"] == []
+    assert "prior SEC 13F quarter unavailable" in result["missing_data"]
+
+
+def test_repository_13f_summary_and_target_matches_are_derived(monkeypatch):
+    cache_dir = workspace_tmp_dir()
+    monkeypatch.setattr(config, "USE_LIVE_SEC_13F", True)
+    monkeypatch.setattr(config, "SEC_13F_CACHE_DIR", cache_dir)
+    repository.write_sec_13f_data("0001067983", {**live_13f_payload(), "holdings": [holding_row("NVIDIA CORP", "67066G104", 300, 30)]})
+    summary = repository.get_sec_13f_summary("0001067983", allow_live_fetch=False)
+    matches = repository.get_sec_13f_target_matches("0001067983", {"cusips": "67066G104"}, allow_live_fetch=False)
+    assert summary["source_status"]["source_type"] == "derived"
+    assert summary["source_status"]["provider"] == "derived_from_SEC_EDGAR_13F"
+    assert matches["target_matches"][0]["matched"] is True
+
+
+def test_smart_money_uses_aggregated_13f_summary_and_target_match():
+    snapshot = {**live_13f_payload(), "holdings": [holding_row("NVIDIA CORP", "67066G104", 300, 30)]}
+    snapshot["source_status"] = repository.build_source_status(snapshot, freshness_window="quarterly_filing_delay").model_dump(mode="json")
+    summary = summarize_13f_portfolio(snapshot["holdings"])
+    target_matches = match_13f_targets(summary["grouped_holdings"], normalize_target_security_map({"cusips": "67066G104"}))
+    result = evaluate_smart_money(
+        {
+            "institutional_13f": {"cusip": "67066G104"},
+            "institutional_13f_snapshot": snapshot,
+            "institutional_13f_source_status": snapshot["source_status"],
+            "institutional_13f_summary": summary,
+            "institutional_13f_target_matches": target_matches,
+            "form4_transactions": [],
+            "options_activity": {},
+        }
+    )
+    institutional = result.derived_metrics["components"]["institutional_support_13f"]
+    assert institutional["score"] <= 60
+    assert institutional["label"] == "institutional_target_match_observed"
+    assert institutional["derived_metrics"]["grouped_holding_count"] == 1
+    assert institutional["derived_metrics"]["target_match_count"] == 1
+    assert result.raw_data["institutional_13f"]["portfolio_summary"]
+    assert result.raw_data["institutional_13f"]["target_matches"]
 
 
 def test_xml_parser_handles_namespaces():

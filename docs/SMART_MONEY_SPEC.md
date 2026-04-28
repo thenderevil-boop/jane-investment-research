@@ -119,6 +119,17 @@ Value normalization:
 - If a reliable price reference is available, the parser compares raw value and raw value times 1000 against shares times the reference price and assigns `reported_value_unit` as `usd` or `thousands_usd`.
 - If no reliable price reference is available, the raw value is preserved with `reported_value_unit` set to `as_reported` and confidence below high.
 
+Aggregation and target matching:
+
+- Row-level 13F holdings are aggregated by CUSIP when available.
+- If CUSIP is missing, normalized issuer name plus title of class is used as the fallback grouping key.
+- The same issuer can appear under multiple CUSIPs or classes, so issuer-name similarity alone must not merge securities.
+- Target matching is highest confidence by exact CUSIP.
+- Ticker matching requires a local ticker-to-CUSIP fixture and must not call external CUSIP APIs.
+- Issuer-name matching is low confidence and must disclose that limitation.
+- QoQ comparison is by CUSIP and reflects reported quarterly 13F changes only.
+- Fallback or mock 13F does not boost the smart-money score.
+
 SEC EDGAR discovery:
 
 - Use `data.sec.gov/submissions/CIK##########.json` only for manager filing discovery.

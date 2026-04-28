@@ -48,6 +48,17 @@ Normalized holding fields include manager CIK, accession number, filing date, re
 - If a reliable price reference is available, the parser compares raw value and raw value times 1000 against shares times the reference price, then chooses `reported_value_unit: "usd"` or `reported_value_unit: "thousands_usd"` accordingly.
 - `SEC_13F_ASSUME_VALUE_THOUSANDS=false` by default. Setting it true is a legacy override and should be used only when the source context requires that assumption.
 
+Aggregation and target matching:
+
+- 13F row-level holdings are aggregated by CUSIP when available.
+- If CUSIP is missing, the fallback grouping key is normalized issuer name plus title of class.
+- Different CUSIPs are not merged solely because issuer names look similar.
+- Portfolio totals and top-holding rankings use normalized `value_usd`, not `reported_value_raw`, unless `value_usd` is unavailable.
+- `SEC_13F_TARGET_CUSIPS` is the preferred target configuration and produces high-confidence exact matches.
+- `SEC_13F_TARGET_TICKERS` can match only through a local ticker-to-CUSIP fixture. The system must not call external CUSIP APIs or scrape mappings.
+- `SEC_13F_TARGET_ISSUERS` is a low-confidence issuer-name fallback and must carry a limitation.
+- QoQ comparison is by CUSIP and reflects reported quarterly 13F changes only. It does not imply real-time activity.
+
 Repository behavior:
 
 - live SEC 13F fetches are made only through `backend.app.raw_store.repository`

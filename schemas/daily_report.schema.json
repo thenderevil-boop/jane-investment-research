@@ -73,6 +73,19 @@
             }
           ],
           "default": null
+        },
+        "institutional_13f": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Institutional 13F"
         }
       },
       "required": [

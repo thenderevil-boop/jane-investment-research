@@ -65,6 +65,7 @@ export type StockCandidate = {
   limitations: string[];
   missing_data: string[];
   source_status?: DataSourceStatus | null;
+  institutional_13f?: Record<string, unknown> | null;
 };
 
 export type RiskAllocation = {

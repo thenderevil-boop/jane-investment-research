@@ -736,6 +736,24 @@ Smart-money derived metrics include `latest_13f_report_date`, `latest_13f_filing
 - `value_normalization_note` explains whether the value was preserved as reported, interpreted with a price reference, or interpreted through the explicit legacy override.
 - The backend no longer blindly multiplies every SEC 13F XML value by 1000.
 
+13F aggregation fields are additive and schema-stable. `smart_money_summary.raw_data.institutional_13f` may include:
+
+- `portfolio_summary`
+- `top_holdings_by_value`
+- `target_matches`
+- `qoq_changes`
+- `value_confidence_breakdown`
+
+`portfolio_summary` groups holdings by CUSIP when available. If CUSIP is missing, issuer name plus title of class is used as a fallback grouping key. Different CUSIPs are not merged solely because issuer names are similar.
+
+Target matching:
+
+- CUSIP exact match is high confidence.
+- Ticker matching requires a local ticker-to-CUSIP mapping and does not call external CUSIP APIs.
+- Issuer-name matching is low confidence and includes a limitation.
+
+QoQ comparison is by CUSIP and reflects reported quarterly changes only. It must not be interpreted as real-time institutional flow.
+
 SEC 13F document discovery:
 
 - The submissions API is only used to find manager filing history.

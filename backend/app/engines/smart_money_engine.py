@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from backend.app.data_sources.mock_data import MOCK_SOURCE, MOCK_SOURCE_DATE
+from backend.app.engines.sec_13f_aggregation import aggregate_13f_holdings, compare_13f_quarter_over_quarter, summarize_13f_portfolio
+from backend.app.engines.sec_13f_target_matching import match_13f_targets, normalize_target_security_map
 from backend.app.schemas.common import ScoreObject
 from backend.app.utils.freshness import build_source_status
 
@@ -120,16 +122,34 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
         for holding in holdings_for_metrics
         if target_cusip and str(holding.get("cusip") or "").strip().upper() == target_cusip
     ]
-    sorted_holdings = sorted(
+    portfolio_summary = data.get("institutional_13f_summary") or summarize_13f_portfolio(holdings_for_metrics)
+    grouped_holdings = portfolio_summary.get("grouped_holdings", []) or []
+    sorted_holdings = portfolio_summary.get("top_holdings_by_value") or sorted(
         holdings_for_metrics,
         key=lambda item: item.get("value_usd") or 0,
         reverse=True,
-    )
-    total_value = sum(item.get("value_usd") or 0 for item in holdings_for_metrics)
+    )[:10]
+    total_value = portfolio_summary.get("total_reported_value_usd")
+    if total_value is None:
+        total_value = sum(item.get("value_usd") or 0 for item in holdings_for_metrics)
+    target_payload = data.get("institutional_13f_target_matches") or {}
+    if target_payload:
+        target_matches = target_payload.get("target_matches", []) or []
+    elif target_cusip:
+        target_matches = match_13f_targets(grouped_holdings, normalize_target_security_map({"cusip": target_cusip})).get("target_matches", [])
+    else:
+        target_matches = []
+    component_source_status = portfolio_summary.get("source_status") or source_status
+    matched_targets = [item for item in target_matches if item.get("matched")]
+    high_or_medium_matches = [
+        item
+        for item in matched_targets
+        if item.get("match_confidence") in {"high", "medium"}
+    ]
     filing_dates = [filing.get("filing_date", "") for snapshot in deduped_snapshots for filing in snapshot.get("filings", []) or [] if filing.get("filing_date")]
     report_dates = [filing.get("report_date", "") for snapshot in deduped_snapshots for filing in snapshot.get("filings", []) or [] if filing.get("report_date")]
-    latest_filing_date = max(filing_dates, default=source_snapshot.get("source_date", ""))
-    latest_report_date = max(report_dates, default=source_snapshot.get("source_date", ""))
+    latest_filing_date = portfolio_summary.get("latest_filing_date") or max(filing_dates, default=source_snapshot.get("source_date", ""))
+    latest_report_date = portfolio_summary.get("latest_report_date") or max(report_dates, default=source_snapshot.get("source_date", ""))
     by_cusip_period: dict[str, list[dict[str, Any]]] = {}
     for holding in holdings_for_metrics:
         if not holding.get("cusip"):
@@ -142,11 +162,19 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
         prior_value = ordered[1].get("shares_or_principal_amount") or 0
         if prior_value:
             quarter_change = round((latest_value - prior_value) / prior_value * 100, 2)
+    qoq_payload = data.get("institutional_13f_qoq_comparison") or {}
+    qoq_changes = qoq_payload.get("qoq_changes", []) or []
+    if not qoq_changes:
+        periods = sorted({str(row.get("report_date") or "") for row in holdings_for_metrics if row.get("report_date")}, reverse=True)
+        if len(periods) >= 2:
+            current_grouped = aggregate_13f_holdings([row for row in holdings_for_metrics if row.get("report_date") == periods[0]]).get("grouped_holdings", [])
+            prior_grouped = aggregate_13f_holdings([row for row in holdings_for_metrics if row.get("report_date") == periods[1]]).get("grouped_holdings", [])
+            qoq_changes = compare_13f_quarter_over_quarter(current_grouped, prior_grouped)
     if live_holdings:
-        score = 60 if target_cusip_holdings else 50
+        score = 60 if high_or_medium_matches or target_cusip_holdings else 50
         if quarter_change is not None and quarter_change < -10:
             score = 40
-        institutional_support_label = "institutional_evidence_observed"
+        institutional_support_label = "institutional_target_match_observed" if high_or_medium_matches or target_cusip_holdings else "institutional_evidence_observed"
     elif fallback_mock_13f:
         score = 20
         institutional_support_label = "insufficient_data"
@@ -169,18 +197,29 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
             institutional_support_label,
             {
                 "holdings": holdings_for_metrics,
+                "portfolio_summary": {key: value for key, value in portfolio_summary.items() if key != "grouped_holdings"},
                 "top_holdings_by_value": sorted_holdings[:10],
+                "target_matches": target_matches,
+                "qoq_changes": qoq_changes,
+                "value_confidence_breakdown": portfolio_summary.get("value_confidence_breakdown", {}),
                 "target_cusip_holdings": target_cusip_holdings,
                 "target_ticker_holdings": [],
-                "source_status": source_status,
+                "source_status": component_source_status,
                 "delayed_institutional_support": True,
                 "is_real_time_signal": False,
+                "limitations": [*THIRTEEN_F_LIMITATIONS, *source_snapshot.get("limitations", [])],
+                "missing_data": sorted(set([*missing, *source_snapshot.get("missing_data", []), *portfolio_summary.get("missing_data", []), *target_payload.get("missing_data", []), *qoq_payload.get("missing_data", [])])),
             },
             {
                 "latest_13f_report_date": latest_report_date,
                 "latest_13f_filing_date": latest_filing_date,
+                "grouped_holding_count": portfolio_summary.get("holding_count_grouped", len(grouped_holdings)),
                 "total_reported_value_usd": total_value,
                 "holding_count": len(holdings_for_metrics),
+                "top_holding_names": [item.get("issuer_name") for item in sorted_holdings[:10] if item.get("issuer_name")],
+                "target_match_count": len(matched_targets),
+                "high_confidence_target_match_count": len([item for item in matched_targets if item.get("match_confidence") == "high"]),
+                "qoq_change_count": len(qoq_changes),
                 "target_ticker_holdings": [],
                 "target_cusip_holdings": target_cusip_holdings,
                 "top_holdings_by_value": sorted_holdings[:10],
@@ -195,10 +234,10 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
             },
             {"institutional_support": "observed" if live_holdings else "limited"},
             [*THIRTEEN_F_LIMITATIONS, *source_snapshot.get("limitations", [])],
-            sorted(set([*missing, *source_snapshot.get("missing_data", [])])),
+            sorted(set([*missing, *source_snapshot.get("missing_data", []), *portfolio_summary.get("missing_data", []), *target_payload.get("missing_data", []), *qoq_payload.get("missing_data", [])])),
             source=source_status.get("source") or source_snapshot.get("source") or MOCK_SOURCE,
             source_date=source_status.get("source_date") or latest_report_date or latest_filing_date or MOCK_SOURCE_DATE,
-            source_status=source_status,
+            source_status=component_source_status,
         )
     missing = [field for field in ["quarter", "filing_date"] if not raw.get(field)]
     holder_count_change = raw.get("holder_count_change", 0)

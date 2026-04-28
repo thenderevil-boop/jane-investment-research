@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from backend.app.schemas.common import DataSourceStatus
@@ -21,3 +23,4 @@ class StockCandidate(BaseModel):
     limitations: list[str]
     missing_data: list[str]
     source_status: DataSourceStatus | None = None
+    institutional_13f: dict[str, Any] | None = None
