@@ -1,4 +1,4 @@
-export type SourceType = 'live' | 'mock' | 'fallback' | 'derived' | 'unknown';
+export type SourceType = 'live' | 'cached_live' | 'mock' | 'fallback' | 'derived' | 'unknown';
 
 export type DataSourceStatus = {
   source_type: SourceType;

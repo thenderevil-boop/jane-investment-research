@@ -28,4 +28,13 @@ describe('DataSourceBadge', () => {
   it('renders Fallback', () => {
     expect(renderToStaticMarkup(<DataSourceBadge status={{ ...baseStatus, source_type: 'fallback', fallback_used: true }} />)).toContain('Fallback');
   });
+
+  it('exposes FRED and derived FRED providers in the title', () => {
+    const fred = renderToStaticMarkup(<DataSourceBadge status={{ ...baseStatus, provider: 'FRED', freshness_window: 'daily_rate_5_business_days' }} />);
+    const derived = renderToStaticMarkup(<DataSourceBadge status={{ ...baseStatus, source_type: 'derived', provider: 'derived_from_FRED', freshness_window: 'derived_from_FRED' }} />);
+    expect(fred).toContain('Live FRED');
+    expect(fred).toContain('daily_rate_5_business_days');
+    expect(derived).toContain('Derived FRED');
+    expect(derived).toContain('derived_from_FRED');
+  });
 });

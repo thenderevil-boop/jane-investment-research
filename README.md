@@ -261,6 +261,7 @@ Daily report, stock analysis, and raw-data responses now expose additive source 
 `source_type` meanings:
 
 - `live`: repository-backed live market price data
+- `cached_live`: cached repository-backed live data within the configured cache window
 - `mock`: deterministic fixture data
 - `fallback`: mock data used after live market price data was unavailable
 - `derived`: summary across multiple components
@@ -333,6 +334,46 @@ Still mock in Phase 9:
 If `USE_LIVE_MACRO_DATA=true` but `FRED_API_KEY` is missing, FRED is unavailable, or the provider is unsupported, the raw store returns deterministic mock fallback macro data with `source_type="fallback"`. FRED release schedules can lag the current date, so live macro components include release-delay limitations and may require human verification.
 
 Phase 9.1 keeps `/api/daily-report/latest` compact: FRED raw payloads include latest/previous values and bounded recent observations instead of full historical series. The report `date` is the current report date, `report_generated_at` is the actual generation timestamp, and each data source keeps its own `source_date`.
+
+## Phase 10 Live SEC Form 4 Insider Transactions
+
+SEC Form 4 insider transactions can now be enabled through the repository-backed SEC EDGAR adapter. Mock Form 4 remains the default.
+
+Keep mock Form 4 mode:
+
+```powershell
+cd D:\jane-investment-research
+.\.venv\Scripts\Activate.ps1
+$env:USE_LIVE_SEC_FORM4="false"
+uvicorn backend.app.main:app --reload
+```
+
+Enable live SEC Form 4:
+
+```powershell
+cd D:\jane-investment-research
+.\.venv\Scripts\Activate.ps1
+$env:USE_LIVE_SEC_FORM4="true"
+$env:SEC_FORM4_PROVIDER="sec_edgar"
+$env:SEC_EDGAR_USER_AGENT="Your Name your.email@example.com"
+uvicorn backend.app.main:app --reload
+```
+
+`SEC_EDGAR_USER_AGENT` is required for official SEC EDGAR public endpoints. No API key is required. If the User-Agent is missing or a fetch fails, the raw store returns deterministic mock fallback Form 4 data with `source_type="fallback"` and a safe `fallback_reason`. User-Agent values are never returned by API responses.
+
+Phase 10 only connects SEC Form 4 insider transactions. 13F, options, news, YouTube, and live theme APIs remain mock or manually verified placeholders.
+
+Form 4 transaction-code handling:
+
+- `P` is counted as insider accumulation.
+- `S` is counted as insider disposition.
+- `M`, `A`, `F`, `G`, `J`, and unknown or missing codes are not counted as accumulation by default.
+- Official SEC EDGAR mode parses Form 4 XML transaction rows from the SEC Archives.
+- Form 4 freshness uses `form4_recent_180_days` based on latest filing date.
+- Duplicate transaction rows are removed by ticker, accession number, insider name, transaction date, code, security title, shares, price, and ownership type.
+- Daily report raw Form 4 transactions are capped at the latest 25 rows while summary metrics use all rows in the lookback window.
+- Mock fallback Form 4 data is not used to boost smart-money score.
+- Form 4 output is research evidence only and is not a trading instruction.
 
 ## Project Guardrails
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +14,7 @@ from backend.app.features.market_features import build_market_snapshot_features
 from backend.app.utils.freshness import (
     DAILY_RATE_FRESHNESS_WINDOW,
     DERIVED_FRED_FRESHNESS_WINDOW,
+    FORM4_FRESHNESS_WINDOW,
     MONTHLY_MACRO_FRESHNESS_WINDOW,
     build_source_status,
 )
@@ -31,6 +32,12 @@ def _cache_dir() -> Path:
 
 def _macro_cache_dir() -> Path:
     path = config.MACRO_DATA_CACHE_DIR
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _sec_cache_dir() -> Path:
+    path = config.SEC_FORM4_CACHE_DIR
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -73,6 +80,41 @@ def _mock_macro_snapshot(scenario: str = "normal", reason: str | None = None) ->
     return snapshot
 
 
+def _mock_form4_snapshot(ticker: str = "NVDA", reason: str | None = None) -> dict[str, Any]:
+    normalized_ticker = ticker.strip().upper()
+    fixture = read_company_fundamentals(normalized_ticker)
+    transactions = deepcopy(fixture.get("smart_money", MOCK_SMART_MONEY_SUMMARY).get("form4_transactions", []))
+    source_date = max((item.get("filing_date", "") for item in transactions), default="2026-04-24")
+    source_type = "fallback" if reason else "mock"
+    limitations = ["Mock Form 4 fixture is used when live SEC Form 4 is disabled or unavailable."]
+    missing_data = ["live SEC Form 4 data"]
+    payload: dict[str, Any] = {
+        "ticker": normalized_ticker,
+        "lookback_days": 180,
+        "transactions": transactions,
+        "source_type": source_type,
+        "provider": "mock",
+        "source": ["phase1_mock_dataset"],
+        "source_date": source_date,
+        "limitations": limitations,
+        "missing_data": missing_data,
+    }
+    if reason:
+        payload["fallback_used"] = True
+        payload["fallback_reason"] = reason
+        payload["limitations"].append("Live SEC Form 4 data unavailable; mock fallback used.")
+    payload["source_status"] = build_source_status(payload, freshness_window=FORM4_FRESHNESS_WINDOW).model_dump(mode="json")
+    for transaction in payload["transactions"]:
+        transaction.setdefault("ticker", normalized_ticker)
+        transaction.setdefault("transaction_category", transaction.get("transaction_type", "other"))
+        transaction.setdefault("source", ["phase1_mock_dataset"])
+        transaction.setdefault("source_date", transaction.get("filing_date", source_date))
+        transaction.setdefault("limitations", [])
+        transaction.setdefault("missing_data", [])
+        transaction["source_status"] = payload["source_status"]
+    return payload
+
+
 def write_market_data(ticker: str, data: dict[str, Any]) -> dict[str, Any]:
     normalized_ticker = ticker.strip().upper()
     payload = deepcopy(data)
@@ -87,6 +129,106 @@ def write_macro_data(data: dict[str, Any]) -> dict[str, Any]:
     payload = deepcopy(data)
     payload["cached_at"] = datetime.now(timezone.utc).isoformat()
     target = _macro_cache_dir() / "latest.json"
+    target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    return payload
+
+
+def read_sec_form4_data(ticker: str) -> dict[str, Any] | None:
+    target = _sec_cache_dir() / f"{_cache_key(ticker)}_form4.json"
+    if not target.exists():
+        return None
+    return json.loads(target.read_text(encoding="utf-8"))
+
+
+def _cached_sec_form4_if_fresh(ticker: str) -> dict[str, Any] | None:
+    cached = read_sec_form4_data(ticker)
+    if not cached:
+        return None
+    cached_at = cached.get("cached_at") or cached.get("fetched_at")
+    try:
+        cached_dt = datetime.fromisoformat(str(cached_at).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if datetime.now(timezone.utc) - cached_dt.astimezone(timezone.utc) > timedelta(hours=config.SEC_FORM4_CACHE_TTL_HOURS):
+        return None
+    payload = _sanitize_sec_edgar_cached_payload(cached)
+    payload["source_type"] = "cached_live"
+    payload["provider"] = "SEC EDGAR"
+    payload["source"] = ["SEC EDGAR"]
+    payload["source_status"] = build_source_status(
+        {
+            **payload,
+            "source_type": "cached_live",
+            "provider": "SEC EDGAR",
+            "fallback_used": False,
+        },
+        freshness_window=FORM4_FRESHNESS_WINDOW,
+    ).model_dump(mode="json")
+    for transaction in payload.get("transactions", []) or []:
+        transaction["source_status"] = payload["source_status"]
+    return payload
+
+
+def _cached_sec_form4_after_failure(ticker: str, reason: str) -> dict[str, Any] | None:
+    cached = read_sec_form4_data(ticker)
+    if not cached:
+        return None
+    payload = _sanitize_sec_edgar_cached_payload(cached)
+    payload["source_type"] = "cached_live"
+    payload["provider"] = "SEC EDGAR"
+    payload["source"] = ["SEC EDGAR"]
+    payload.setdefault("limitations", []).append("Live SEC EDGAR fetch failed; cached Form 4 data used.")
+    payload["source_status"] = build_source_status(
+        {
+            **payload,
+            "source_type": "cached_live",
+            "provider": "SEC EDGAR",
+            "fallback_used": True,
+            "fallback_reason": reason,
+            "limitations": payload.get("limitations", []),
+        },
+        freshness_window=FORM4_FRESHNESS_WINDOW,
+    ).model_dump(mode="json")
+    for transaction in payload.get("transactions", []) or []:
+        transaction["source_status"] = payload["source_status"]
+    return payload
+
+
+def _sanitize_sec_edgar_cached_payload(cached: dict[str, Any]) -> dict[str, Any]:
+    payload = deepcopy(cached)
+
+    def clean_list(values: Any) -> list[Any]:
+        return [item for item in list(values or []) if "sec-api" not in str(item).lower()]
+
+    payload["provider"] = "SEC EDGAR"
+    payload["source"] = ["SEC EDGAR"]
+    payload["limitations"] = clean_list(payload.get("limitations"))
+    payload["missing_data"] = clean_list(payload.get("missing_data"))
+    status = payload.get("source_status")
+    if isinstance(status, dict):
+        status["provider"] = "SEC EDGAR"
+        status["source_type"] = "live"
+        status["limitations"] = clean_list(status.get("limitations"))
+        status["missing_data"] = clean_list(status.get("missing_data"))
+    for transaction in payload.get("transactions", []) or []:
+        transaction["source"] = ["SEC EDGAR"]
+        transaction["limitations"] = clean_list(transaction.get("limitations"))
+        transaction["missing_data"] = clean_list(transaction.get("missing_data"))
+        if isinstance(transaction.get("source_status"), dict):
+            transaction["source_status"]["provider"] = "SEC EDGAR"
+            transaction["source_status"]["limitations"] = clean_list(transaction["source_status"].get("limitations"))
+            transaction["source_status"]["missing_data"] = clean_list(transaction["source_status"].get("missing_data"))
+    return payload
+
+
+def write_sec_form4_data(ticker: str, data: dict[str, Any]) -> dict[str, Any]:
+    normalized_ticker = ticker.strip().upper()
+    payload = deepcopy(data)
+    payload["ticker"] = normalized_ticker
+    payload["provider"] = "SEC EDGAR"
+    payload["source"] = ["SEC EDGAR"]
+    payload["cached_at"] = datetime.now(timezone.utc).isoformat()
+    target = _sec_cache_dir() / f"{_cache_key(normalized_ticker)}_form4.json"
     target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     return payload
 
@@ -451,13 +593,64 @@ def read_company_fundamentals(ticker: str = "NVDA") -> dict[str, Any]:
     return deepcopy(fixture)
 
 
-def read_sec_filings(ticker: str = "NVDA") -> dict[str, Any]:
+def get_sec_form4_transactions(
+    ticker: str,
+    lookback_days: int | None = None,
+    *,
+    allow_live_fetch: bool = True,
+) -> dict[str, Any]:
+    normalized_ticker = ticker.strip().upper()
+    resolved_lookback_days = lookback_days or config.SEC_FORM4_LOOKBACK_DAYS
+    if not config.USE_LIVE_SEC_FORM4:
+        payload = _mock_form4_snapshot(normalized_ticker)
+        payload["lookback_days"] = resolved_lookback_days
+        return payload
+    cached = _cached_sec_form4_if_fresh(normalized_ticker)
+    if cached:
+        cached["lookback_days"] = resolved_lookback_days
+        return cached
+    if config.SEC_FORM4_PROVIDER != "sec_edgar":
+        payload = _mock_form4_snapshot(normalized_ticker, f"unsupported SEC Form 4 provider: {config.SEC_FORM4_PROVIDER}")
+        payload["lookback_days"] = resolved_lookback_days
+        return payload
+    if not config.SEC_EDGAR_USER_AGENT:
+        payload = _mock_form4_snapshot(normalized_ticker, "SEC_EDGAR_USER_AGENT missing")
+        payload["lookback_days"] = resolved_lookback_days
+        return payload
+    if not allow_live_fetch:
+        payload = _mock_form4_snapshot(normalized_ticker, "live SEC EDGAR fetch disabled for report request")
+        payload["lookback_days"] = resolved_lookback_days
+        return payload
+    try:
+        from backend.app.data_sources.sec_edgar_form4 import fetch_insider_transactions
+
+        snapshot = fetch_insider_transactions(normalized_ticker, lookback_days=resolved_lookback_days)
+        snapshot["source_status"] = build_source_status(snapshot, freshness_window=FORM4_FRESHNESS_WINDOW).model_dump(mode="json")
+        return write_sec_form4_data(normalized_ticker, snapshot)
+    except Exception as exc:
+        safe_reason = str(exc).splitlines()[0][:180] or "live SEC Form 4 fetch failed"
+        cached_after_failure = _cached_sec_form4_after_failure(normalized_ticker, safe_reason)
+        if cached_after_failure:
+            cached_after_failure["lookback_days"] = resolved_lookback_days
+            return cached_after_failure
+        payload = _mock_form4_snapshot(normalized_ticker, safe_reason)
+        payload["lookback_days"] = resolved_lookback_days
+        return payload
+
+
+def read_sec_filings(ticker: str = "NVDA", *, allow_live_fetch: bool | None = None) -> dict[str, Any]:
     fixture = read_company_fundamentals(ticker)
     smart_money = fixture.get("smart_money", MOCK_SMART_MONEY_SUMMARY)
+    form4_snapshot = get_sec_form4_transactions(
+        ticker,
+        allow_live_fetch=config.ALLOW_LIVE_FETCH_ON_REPORT_REQUEST if allow_live_fetch is None else allow_live_fetch,
+    )
     return deepcopy(
         {
             "institutional_13f": smart_money.get("institutional_13f", {}),
-            "form4_transactions": smart_money.get("form4_transactions", []),
+            "form4_transactions": form4_snapshot.get("transactions", []),
+            "form4_source_status": form4_snapshot.get("source_status"),
+            "form4_snapshot": form4_snapshot,
             "crisis_scenarios": MOCK_CRISIS_SCENARIOS,
         }
     )

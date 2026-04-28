@@ -5,6 +5,7 @@ from typing import Any
 from backend.app.data_sources.mock_macro import MOCK_MACRO_SOURCE, MOCK_MACRO_SOURCE_DATE
 from backend.app.features.macro_features import build_macro_components
 from backend.app.schemas.macro_regime import MacroRegimeOutput
+from backend.app.utils.freshness import build_source_status
 
 LIMITATION = "Phase 5 deterministic mock macro regime engine; no live source connection."
 REQUIRED_FIELDS = [
@@ -78,6 +79,34 @@ def evaluate_macro_regime(data: dict[str, Any]) -> MacroRegimeOutput:
     missing = sorted(set(_missing_required(data) + [item for component in components for item in component.missing_data]))
     label, score = _classify(data)
     confidence = 0.35 if label == "insufficient_data" else round(sum(component.confidence for component in components) / len(components), 2)
+    source = data.get("source", MOCK_MACRO_SOURCE)
+    if isinstance(source, str):
+        source = [source]
+    source_date = data.get("source_date", MOCK_MACRO_SOURCE_DATE)
+    limitations = list(data.get("limitations", [LIMITATION]))
+    if data.get("source_type") == "live":
+        limitations = sorted(
+            set(
+                [
+                    *limitations,
+                    "FRED-backed macro fields are live; ISM, DXY, gold, oil, Fear & Greed, and equity context remain mock in Phase 9.",
+                ]
+            )
+        )
+    source_status = build_source_status(
+        {
+            "source_type": "derived" if data.get("source_type") == "live" else data.get("source_type", "mock"),
+            "provider": "mixed_FRED_and_mock_macro" if data.get("source_type") == "live" else data.get("provider", "phase5_mock_macro_dataset"),
+            "source_date": source_date,
+            "fetched_at": data.get("fetched_at"),
+            "is_fresh": data.get("source_status", {}).get("is_fresh") if isinstance(data.get("source_status"), dict) else None,
+            "fallback_used": data.get("fallback_used"),
+            "fallback_reason": data.get("fallback_reason"),
+            "limitations": limitations,
+            "missing_data": data.get("missing_data", []),
+        },
+        freshness_window=data.get("source_status", {}).get("freshness_window", "macro_release_schedule") if isinstance(data.get("source_status"), dict) else "macro_release_schedule",
+    )
     return MacroRegimeOutput(
         score=score,
         label=label,
@@ -101,10 +130,11 @@ def evaluate_macro_regime(data: dict[str, Any]) -> MacroRegimeOutput:
             "fed_policy": data.get("fed_policy_trend"),
             "equities": data.get("equity_trend"),
         },
-        source=MOCK_MACRO_SOURCE,
-        source_date=MOCK_MACRO_SOURCE_DATE,
+        source=source,
+        source_date=source_date,
         confidence=confidence,
         components=components,
-        limitations=[LIMITATION],
+        limitations=limitations,
         missing_data=missing,
+        source_status=source_status,
     )

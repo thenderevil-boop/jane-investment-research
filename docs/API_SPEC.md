@@ -36,6 +36,13 @@ Environment-controlled live macro behavior:
 - `USE_LIVE_MACRO_DATA=true` with `FRED_API_KEY` attempts repository-backed FRED fetches for selected macro fields.
 - Missing `FRED_API_KEY`, unsupported provider, or FRED fetch failure falls back to mock macro data with `source_type="fallback"`.
 
+Environment-controlled live SEC Form 4 behavior:
+
+- `USE_LIVE_SEC_FORM4=false` by default keeps insider Form 4 data on deterministic mock fixtures.
+- `USE_LIVE_SEC_FORM4=true` with `SEC_FORM4_PROVIDER=sec_edgar` and `SEC_EDGAR_USER_AGENT` attempts repository-backed official SEC EDGAR fetches for Form 4 insider transactions.
+- Missing required credentials or fetch failures fall back to mock Form 4 data with `source_type="fallback"`.
+- `SEC_EDGAR_USER_AGENT` is never exposed in API responses.
+
 Response shape:
 
 ```json
@@ -173,6 +180,7 @@ Response:
 ```
 
 This endpoint returns mock company fixture snapshots plus the repository market price snapshot. In Phase 8, market price snapshots may be live when `USE_LIVE_MARKET_DATA=true`; company fundamentals remain mock-only.
+In Phase 10.5, `raw_data.sec_form4_snapshot` may contain SEC EDGAR-backed Form 4 transactions when `USE_LIVE_SEC_FORM4=true` and `SEC_EDGAR_USER_AGENT` is configured.
 
 ### GET /api/signals/{ticker}
 
@@ -198,6 +206,12 @@ Response:
 ```
 
 All score-like fields follow the shared `ScoreComponent` contract, except `leadership_score`, which includes the 20-criterion leadership detail.
+
+### GET /api/data-health
+
+Returns safe provider configuration status for yfinance, FRED, SEC EDGAR, and mock sources. The response does not expose secrets or SEC EDGAR User-Agent values.
+
+`source_type` values may include `live`, `cached_live`, `fallback`, `mock`, and `derived`.
 
 ## Phase 8.1 Data Source Visibility
 
@@ -226,6 +240,7 @@ Phase 8.1 adds non-breaking metadata fields:
 Allowed `source_type` values:
 
 - `live`: repository-backed live market price data.
+- `cached_live`: cached repository-backed live data that remains within the configured cache freshness window.
 - `mock`: deterministic mock fixture data.
 - `fallback`: mock data used because a live market price fetch was unavailable.
 - `derived`: summary metadata derived from multiple components.
@@ -596,3 +611,83 @@ Phase 9.2 monthly FRED freshness:
 - Monthly series (`FEDFUNDS`, `CPIAUCSL`, `PPIACO`, and `UNRATE`) are evaluated using observation-month freshness rather than latest-trading-day freshness.
 - A March 2026 monthly observation can be fresh in an April 27, 2026 report because the observation date is the measured month, while release schedules can lag.
 - Every live FRED component source status should propagate the macro snapshot `fetched_at` timestamp when available.
+
+## Phase 10.5 Official SEC EDGAR Form 4
+
+Phase 10.5 uses official SEC EDGAR Form 4 insider transactions behind the raw-store boundary. Public response schemas remain stable; live, cached, fallback, mock, and mixed state is exposed through existing `source_status`, `raw_data`, `limitations`, `missing_data`, and `data_quality` fields.
+
+PowerShell:
+
+```powershell
+$env:USE_LIVE_SEC_FORM4="true"
+$env:SEC_FORM4_PROVIDER="sec_edgar"
+$env:SEC_EDGAR_USER_AGENT="Your Name your.email@example.com"
+uvicorn backend.app.main:app --reload
+```
+
+`SEC_EDGAR_USER_AGENT` is required by official SEC endpoints. No API key is required.
+
+Live SEC-backed fields in `smart_money_summary.raw_data.form4.transactions`:
+
+- `ticker`
+- `cik`
+- `accession_number`
+- `filing_date`
+- `transaction_date`
+- `insider_name`
+- `role`
+- `is_director`
+- `is_officer`
+- `officer_title`
+- `security_title`
+- `transaction_code`
+- `transaction_category`
+- `shares`
+- `price`
+- `acquired_disposed_code`
+- `value`
+- `ownership_type`
+- `direct_or_indirect_ownership`
+- `source`
+- `source_date`
+- `source_status`
+
+Smart-money derived metrics include:
+
+- `net_insider_accumulation_value_180d`
+- `total_transactions_180d`
+- `accumulation_count_180d`
+- `disposition_count_180d`
+- `officer_accumulation_count`
+- `director_accumulation_count`
+- `founder_or_ceo_accumulation`
+- `largest_accumulation_value`
+- `latest_transaction_date`
+- `latest_filing_date`
+
+Transaction-code treatment:
+
+- `P` counts as insider accumulation.
+- `S` counts as insider disposition.
+- `M` is option exercise, `A` is award, `F` is tax withholding, `G` is gift, and `J` or unknown/missing codes are other.
+- Only `P` counts toward accumulation. Only `S` counts toward disposition.
+
+Parsing and quality controls:
+
+- Official SEC EDGAR mode uses `company_tickers.json` for ticker-to-CIK mapping, company submissions JSON for recent Form 4 filing metadata, and SEC Archives XML documents for transaction rows.
+- XML parsing reads `nonDerivativeTable.nonDerivativeTransaction` and `derivativeTable.derivativeTransaction`.
+- Holdings-only rows are not emitted as transactions.
+- Duplicate rows are removed using ticker, CIK, accession number, insider name, transaction date, transaction code, security title, shares, price, ownership type, and acquired/disposed code.
+- Form 4 source status uses `freshness_window="form4_recent_180_days"` based on latest filing date within the 180-day lookback by default.
+- Cached live EDGAR data within `SEC_FORM4_CACHE_TTL_HOURS` returns `source_type="cached_live"` and `provider="SEC EDGAR"`.
+- Daily report raw Form 4 transactions are capped at the latest 25 rows. Derived summary metrics use all rows in the lookback window.
+- Mock fallback Form 4 data is not used to boost the smart-money score.
+- If all live Form 4 rows are missing transaction codes, `transaction_code` appears in `missing_data` and the Form 4 component does not boost the smart-money score.
+
+Still mock after Phase 10:
+
+- 13F institutional data
+- options activity
+- news, YouTube, and live theme evidence
+
+If SEC EDGAR is unavailable or `SEC_EDGAR_USER_AGENT` is missing, API responses mark the Form 4 component with `source_type="fallback"`, include a safe `fallback_reason`, and use deterministic mock fallback transactions unless usable cached live data is available. Form 4 evidence is research context only and is not a trading instruction.

@@ -6,7 +6,7 @@ from backend.app.engines.market_timing_engine import evaluate_market_timing
 from backend.app.engines.overheat_engine import evaluate_overheat
 from backend.app.engines.smart_money_engine import evaluate_smart_money
 from backend.app.pipelines.mock_pipeline import _enrich_source_status, score_object
-from backend.app.raw_store.repository import read_market_data
+from backend.app.raw_store.repository import read_market_data, read_sec_filings
 from backend.app.schemas.stock_analysis import AnalyzeStockRequest, AnalyzeStockResponse
 from backend.app.utils.freshness import build_source_status, summarize_data_quality
 
@@ -14,6 +14,8 @@ from backend.app.utils.freshness import build_source_status, summarize_data_qual
 def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     fixture = STOCK_FIXTURES.get(request.ticker, DEFAULT_STOCK)
     market_context = read_market_data()
+    sec_filings = read_sec_filings(request.ticker)
+    smart_money_data = {**fixture["smart_money"], **sec_filings}
     engine_context = {
         **fixture,
         **market_context,
@@ -23,7 +25,8 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     missing_data = list(fixture["missing_data"])
     if market_context.get("source_type") != "live":
         missing_data.append("live price history")
-    missing_data.append("live SEC filing details")
+    if sec_filings.get("form4_source_status", {}).get("source_type") != "live":
+        missing_data.append("live SEC filing details")
 
     response = AnalyzeStockResponse(
         ticker=request.ticker,
@@ -39,7 +42,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         leadership_score=evaluate_leadership({"ticker": request.ticker, **fixture}),
         market_timing_context=evaluate_market_timing(engine_context),
         overheat_risk=evaluate_overheat(engine_context),
-        smart_money=evaluate_smart_money(fixture["smart_money"]),
+        smart_money=evaluate_smart_money(smart_money_data),
         financial_quality=score_object(
             "financial_quality_score",
             min(100, 50 + fixture["free_cash_flow_margin_pct"] - max(0, fixture["net_debt_to_ebitda"]) * 5),
@@ -86,7 +89,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     statuses.append(response.source_status)
     response.data_quality = summarize_data_quality(statuses)
     if response.data_quality.fallback_components:
-        response.human_verification_queue.append("Review fallback market data status because live price data was unavailable.")
+        response.human_verification_queue.append("Review fallback source status because one or more live data sources were unavailable.")
     if response.data_quality.stale_components:
         response.human_verification_queue.append("Review stale live or derived data source status before interpreting scores.")
     if response.data_quality.missing_source_date_components:

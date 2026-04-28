@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
@@ -16,6 +18,12 @@ from backend.app.schemas.daily_report import DailyResearchReport
 from backend.app.utils.forbidden_language import detect_forbidden_language
 
 client = TestClient(app)
+
+
+def workspace_tmp_dir() -> Path:
+    path = Path("backend/raw_store/cache/test_phase8") / uuid4().hex
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 class FakeHistory:
@@ -94,8 +102,8 @@ def test_live_market_adapter_normalizes_mocked_yfinance_response(monkeypatch):
     assert payload["missing_data"] == []
 
 
-def test_live_fetch_failure_falls_back_to_mock_data(monkeypatch, tmp_path):
-    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", tmp_path)
+def test_live_fetch_failure_falls_back_to_mock_data(monkeypatch):
+    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", workspace_tmp_dir())
 
     def fail_fetch(*_args, **_kwargs):
         raise RuntimeError("network unavailable")
@@ -109,8 +117,9 @@ def test_live_fetch_failure_falls_back_to_mock_data(monkeypatch, tmp_path):
     assert payload["source_status"]["fallback_used"] is True
 
 
-def test_repository_returns_live_source_type_when_fetch_succeeds(monkeypatch, tmp_path):
-    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", tmp_path)
+def test_repository_returns_live_source_type_when_fetch_succeeds(monkeypatch):
+    cache_dir = workspace_tmp_dir()
+    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", cache_dir)
     closes = [100 + index for index in range(80)]
     vix_closes = [28, 32, 34, *([22] * 77)]
 
@@ -124,7 +133,7 @@ def test_repository_returns_live_source_type_when_fetch_succeeds(monkeypatch, tm
     assert payload["source_type"] == "live"
     assert payload["source"] == ["yfinance"]
     assert payload["latest_close"] == 179
-    assert (tmp_path / "SPY.json").exists()
+    assert (cache_dir / "SPY.json").exists()
 
 
 def test_market_features_calculate_drawdown_correctly():

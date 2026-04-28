@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class DataSourceStatus(BaseModel):
-    source_type: Literal["live", "mock", "fallback", "derived", "unknown"] = "unknown"
+    source_type: Literal["live", "cached_live", "mock", "fallback", "derived", "unknown"] = "unknown"
     provider: str = "unknown"
     source_date: str = ""
     fetched_at: str | None = None

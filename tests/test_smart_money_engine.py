@@ -84,6 +84,7 @@ def test_insider_net_buying_equivalent_accumulation_is_positive() -> None:
                 {
                     "insider_name": "Mock CEO",
                     "role": "Founder CEO",
+                    "transaction_code": "P",
                     "transaction_type": "accumulation",
                     "shares": 1000,
                     "price": 100.0,
@@ -94,6 +95,7 @@ def test_insider_net_buying_equivalent_accumulation_is_positive() -> None:
                 {
                     "insider_name": "Mock Director",
                     "role": "Director",
+                    "transaction_code": "P",
                     "transaction_type": "accumulation",
                     "shares": 500,
                     "price": 101.0,
@@ -118,6 +120,7 @@ def test_insider_selling_equivalent_disposition_is_risk_signal() -> None:
                 {
                     "insider_name": "Mock Officer A",
                     "role": "Officer",
+                    "transaction_code": "S",
                     "transaction_type": "disposition",
                     "shares": 1200,
                     "price": 90.0,
@@ -128,6 +131,7 @@ def test_insider_selling_equivalent_disposition_is_risk_signal() -> None:
                 {
                     "insider_name": "Mock Officer B",
                     "role": "Officer",
+                    "transaction_code": "S",
                     "transaction_type": "disposition",
                     "shares": 800,
                     "price": 91.0,
@@ -140,7 +144,7 @@ def test_insider_selling_equivalent_disposition_is_risk_signal() -> None:
     )
     payload = result.model_dump()
     assert result.score == 20
-    assert result.label == "risk_warning"
+    assert result.label == "insider_distribution_risk"
     assert payload["derived_metrics"]["disposition_count_180d"] == 2
     assert_no_prohibited_language(payload)
 
@@ -181,6 +185,7 @@ def test_final_smart_money_score_weights_components() -> None:
                 {
                     "insider_name": "Mock CEO",
                     "role": "Founder CEO",
+                    "transaction_code": "P",
                     "transaction_type": "accumulation",
                     "shares": 100,
                     "price": 50.0,

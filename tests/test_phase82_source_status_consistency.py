@@ -91,6 +91,7 @@ def test_smart_money_labels_no_longer_use_positive_signal_language():
                 {
                     "insider_name": "Mock CEO",
                     "role": "Founder CEO",
+                    "transaction_code": "P",
                     "transaction_type": "accumulation",
                     "shares": 100,
                     "price": 50.0,
@@ -129,4 +130,3 @@ def test_phase82_forbidden_language_guard_still_passes():
     payload = client.get("/api/daily-report/latest").json()
     assert detect_forbidden_language(payload) == []
     assert detect_forbidden_language(build_daily_report().model_dump(mode="json")) == []
-

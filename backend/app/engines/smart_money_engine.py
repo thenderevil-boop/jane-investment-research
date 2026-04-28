@@ -4,6 +4,7 @@ from typing import Any
 
 from backend.app.data_sources.mock_data import MOCK_SOURCE, MOCK_SOURCE_DATE
 from backend.app.schemas.common import ScoreObject
+from backend.app.utils.freshness import build_source_status
 
 BASE_LIMITATION = "Phase 4 deterministic mock smart money engine; no live source connection."
 THIRTEEN_F_LIMITATIONS = [
@@ -13,6 +14,7 @@ THIRTEEN_F_LIMITATIONS = [
     "13F alone is delayed institutional support evidence, not a real-time signal.",
 ]
 OPTIONS_LIMITATION = "Options activity is ambiguous and may reflect hedging, speculation, or spread trades."
+FORM4_TRANSACTION_ROW_CAP = 25
 
 
 def _confidence(missing_data: list[str]) -> float:
@@ -41,9 +43,9 @@ def _institutional_label(score: float) -> str:
 def _insider_label(score: float) -> str:
     if score >= 70:
         return "insider_accumulation_observed"
-    if score >= 40:
-        return "smart_money_neutral"
-    return "risk_warning"
+    if score < 40:
+        return "insider_distribution_risk"
+    return "insider_activity_neutral"
 
 
 def _options_label(score: float) -> str:
@@ -64,9 +66,12 @@ def _score_object(
     trend: dict[str, Any],
     limitations: list[str] | None = None,
     missing_data: list[str] | None = None,
+    source: list[str] | None = None,
+    source_date: str | None = None,
+    source_status: dict[str, Any] | None = None,
 ) -> ScoreObject:
     missing = missing_data or []
-    return ScoreObject(
+    result = ScoreObject(
         name=name,
         score=round(score, 2),
         label=label,
@@ -74,12 +79,15 @@ def _score_object(
         derived_metrics=derived_metrics,
         benchmark=benchmark,
         trend=trend,
-        source=MOCK_SOURCE,
-        source_date=MOCK_SOURCE_DATE,
+        source=source or MOCK_SOURCE,
+        source_date=source_date or MOCK_SOURCE_DATE,
         confidence=_confidence(missing),
         limitations=limitations or [BASE_LIMITATION],
         missing_data=missing,
     )
+    if source_status:
+        result.source_status = build_source_status(source_status, freshness_window=source_status.get("freshness_window", "latest_expected_trading_day"))
+    return result
 
 
 def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
@@ -132,17 +140,43 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
 
 def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
     transactions = data.get("form4_transactions", [])
-    accumulation_count = sum(1 for item in transactions if item.get("transaction_type") == "accumulation")
-    disposition_count = sum(1 for item in transactions if item.get("transaction_type") == "disposition")
-    accumulation_value = sum(item.get("value", 0) for item in transactions if item.get("transaction_type") == "accumulation")
-    disposition_value = sum(item.get("value", 0) for item in transactions if item.get("transaction_type") == "disposition")
+    source_status = data.get("form4_source_status") or data.get("source_status") or {}
+    source = source_status.get("source") or (["SEC EDGAR"] if source_status.get("provider") == "SEC EDGAR" else MOCK_SOURCE)
+    source_date = source_status.get("source_date") or max((item.get("filing_date", "") for item in transactions), default=MOCK_SOURCE_DATE)
+    fallback_mock_form4 = source_status.get("source_type") == "fallback" and source_status.get("provider") == "mock"
+
+    def category(item: dict[str, Any]) -> str:
+        return str(item.get("transaction_category") or item.get("transaction_type") or "other")
+
+    def code(item: dict[str, Any]) -> str:
+        return str(item.get("transaction_code") or "").strip().upper()
+
+    accumulation_items = [item for item in transactions if category(item) == "accumulation" and code(item) == "P"]
+    disposition_items = [item for item in transactions if category(item) == "disposition" and code(item) == "S"]
+    accumulation_count = len(accumulation_items)
+    disposition_count = len(disposition_items)
+    accumulation_value = sum(item.get("value", 0) or 0 for item in accumulation_items)
+    disposition_value = sum(item.get("value", 0) or 0 for item in disposition_items)
     net_value = accumulation_value - disposition_value
+    officer_accumulation_count = sum(1 for item in accumulation_items if item.get("is_officer") or "officer" in str(item.get("role", "")).lower())
+    director_accumulation_count = sum(1 for item in accumulation_items if item.get("is_director") or "director" in str(item.get("role", "")).lower())
     founder_or_ceo_accumulation = any(
-        item.get("transaction_type") == "accumulation" and item.get("role") in {"CEO", "Founder", "Founder CEO"}
-        for item in transactions
+        "founder" in f"{item.get('role', '')} {item.get('officer_title', '')}".lower()
+        or "ceo" in f"{item.get('role', '')} {item.get('officer_title', '')}".lower()
+        for item in accumulation_items
     )
+    largest_accumulation_value = max((item.get("value", 0) or 0 for item in accumulation_items), default=0)
+    latest_transaction_date = max((item.get("transaction_date", "") for item in transactions), default="")
+    latest_filing_date = max((item.get("filing_date", "") for item in transactions), default="")
     missing = [] if transactions else ["form4_transactions"]
-    if accumulation_count >= 2 and disposition_count == 0:
+    all_transaction_codes_missing = bool(transactions) and all(not code(item) for item in transactions)
+    if all_transaction_codes_missing:
+        missing.append("transaction_code")
+    if fallback_mock_form4:
+        score = 50
+    elif all_transaction_codes_missing:
+        score = 50
+    elif accumulation_count >= 2 and disposition_count == 0:
         score = 100
     elif founder_or_ceo_accumulation and net_value > 0:
         score = 90
@@ -152,21 +186,59 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
         score = 20
     else:
         score = 50
+    limitations = [
+        "Form 4 interpretation is limited by transaction-code context, compensation plans, indirect ownership, and reporting timing.",
+        "Only code P is counted as insider accumulation; code S is counted as disposition.",
+        "Codes M, A, F, G, D, V, J, and unknown codes are not counted as accumulation by default.",
+    ]
+    if all_transaction_codes_missing:
+        limitations.append("All live Form 4 rows are missing transaction codes, so Form 4 does not boost the smart-money score.")
+    if fallback_mock_form4:
+        limitations.append("Mock fallback Form 4 data is not used to boost smart-money score.")
+    for item in transactions:
+        for limitation in item.get("limitations", []) or []:
+            if limitation not in limitations:
+                limitations.append(limitation)
+    if source_status.get("source_type") in {"mock", "fallback"} and BASE_LIMITATION not in limitations:
+        limitations.append(BASE_LIMITATION)
     return _score_object(
         "insider_form4_signal_score",
         score,
-        _insider_label(score),
-        {"transactions": transactions},
+        "insufficient_data" if not transactions else "insider_activity_neutral" if (all_transaction_codes_missing or fallback_mock_form4) else _insider_label(score),
+        {
+            "transactions": sorted(
+                transactions,
+                key=lambda item: (str(item.get("filing_date") or ""), str(item.get("transaction_date") or "")),
+                reverse=True,
+            )[:FORM4_TRANSACTION_ROW_CAP],
+            "transaction_row_cap": FORM4_TRANSACTION_ROW_CAP,
+            "provider": source_status.get("provider", "phase1_mock_dataset"),
+            "source_status": source_status,
+        },
         {
             "net_insider_accumulation_value_180d": net_value,
+            "total_transactions_180d": len(transactions),
             "accumulation_count_180d": accumulation_count,
             "disposition_count_180d": disposition_count,
+            "officer_accumulation_count": officer_accumulation_count,
+            "director_accumulation_count": director_accumulation_count,
             "founder_or_ceo_accumulation": founder_or_ceo_accumulation,
+            "largest_accumulation_value": largest_accumulation_value,
+            "latest_transaction_date": latest_transaction_date,
+            "latest_filing_date": latest_filing_date,
         },
-        {"multiple_officer_activity_count": 2, "positive_net_value": 0},
-        {"insider_activity": "up" if score >= 70 else "down" if score == 20 else "stable"},
-        [BASE_LIMITATION],
+        {
+            "multiple_officer_activity_count": 2,
+            "positive_net_value": 0,
+            "accumulation_code": "P",
+            "disposition_code": "S",
+        },
+        {"insider_activity": "neutral" if fallback_mock_form4 else "accumulation_observed" if score >= 70 else "distribution_risk" if score == 20 else "neutral"},
+        limitations,
         missing,
+        source=source if isinstance(source, list) else [str(source)],
+        source_date=source_date,
+        source_status=source_status,
     )
 
 
@@ -227,7 +299,8 @@ def evaluate_smart_money(data: dict[str, Any]) -> ScoreObject:
         + options.score * weights["options_abnormal_activity_score"]
     )
     missing = sorted(set(institutional.missing_data + insider.missing_data + options.missing_data))
-    return ScoreObject(
+    source_status = data.get("form4_source_status") or insider.raw_data.get("source_status")
+    result = ScoreObject(
         name="smart_money_score",
         score=round(final_score, 2),
         max_score=100,
@@ -254,6 +327,19 @@ def evaluate_smart_money(data: dict[str, Any]) -> ScoreObject:
         source=MOCK_SOURCE,
         source_date=MOCK_SOURCE_DATE,
         confidence=round((institutional.confidence + insider.confidence + options.confidence) / 3, 2),
-        limitations=[BASE_LIMITATION, *THIRTEEN_F_LIMITATIONS, OPTIONS_LIMITATION],
+        limitations=sorted(set([BASE_LIMITATION, *THIRTEEN_F_LIMITATIONS, OPTIONS_LIMITATION, *insider.limitations])),
         missing_data=missing,
     )
+    if source_status:
+        result.source_status = build_source_status(
+            {
+                "source_type": "derived",
+                "provider": "mixed_smart_money_sources",
+                "source_date": source_status.get("source_date", result.source_date),
+                "fetched_at": source_status.get("fetched_at"),
+                "is_fresh": source_status.get("is_fresh", True),
+                "limitations": result.limitations,
+                "missing_data": result.missing_data,
+            }
+        )
+    return result

@@ -9,8 +9,9 @@ function labelFor(status?: DataSourceStatus | null) {
   if (!status.source_date) return 'Missing source date';
   if (status.fallback_used || status.source_type === 'fallback') return 'Fallback';
   if (!status.is_fresh) return status.source_type === 'mock' ? 'Mock' : 'Stale';
-  if (status.source_type === 'live') return 'Live';
-  if (status.source_type === 'derived') return 'Derived';
+  if (status.source_type === 'cached_live') return 'Cached Live';
+  if (status.source_type === 'live') return status.provider === 'FRED' ? 'Live FRED' : 'Live';
+  if (status.source_type === 'derived') return status.provider === 'derived_from_FRED' ? 'Derived FRED' : 'Derived';
   if (status.source_type === 'mock') return 'Mock';
   return 'Unknown';
 }
@@ -24,8 +25,9 @@ function variantFor(status?: DataSourceStatus | null) {
 
 export default function DataSourceBadge({ status }: Props) {
   const provider = status?.provider && status.provider !== 'unknown' ? ` from ${status.provider}` : '';
+  const freshnessWindow = status?.freshness_window ? `; ${status.freshness_window}` : '';
   return (
-    <span className={`dataSourceBadge ${variantFor(status)}`} title={`${labelFor(status)}${provider}`}>
+    <span className={`dataSourceBadge ${variantFor(status)}`} title={`${labelFor(status)}${provider}${freshnessWindow}`}>
       {labelFor(status)}
     </span>
   );

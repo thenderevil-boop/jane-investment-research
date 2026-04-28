@@ -55,6 +55,7 @@
           "default": "unknown",
           "enum": [
             "live",
+            "cached_live",
             "mock",
             "fallback",
             "derived",

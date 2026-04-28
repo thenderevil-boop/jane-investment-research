@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
@@ -14,8 +16,14 @@ from backend.app.utils.forbidden_language import detect_forbidden_language
 client = TestClient(app)
 
 
-def test_live_source_status(monkeypatch, tmp_path):
-    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", tmp_path)
+def workspace_tmp_dir() -> Path:
+    path = Path("backend/raw_store/cache/test_phase81") / uuid4().hex
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def test_live_source_status(monkeypatch):
+    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", workspace_tmp_dir())
 
     def fake_fetch(ticker: str, period: str = "1y", interval: str = "1d"):
         return {

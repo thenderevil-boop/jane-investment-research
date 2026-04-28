@@ -19,6 +19,7 @@ export default function DataQualitySummary({ summary, latestSourceDate }: Props)
     summary.mock_components > 0 || summary.fallback_components > 0
       ? 'Some components still use mock or fallback data. Review source details before interpreting scores.'
       : '';
+  const details = summary.limitations.length ? summary.limitations.join(' ') : warning;
   return (
     <section className="dataQualitySummary" aria-label="Data quality summary">
       <div className="summaryMain">
@@ -47,7 +48,7 @@ export default function DataQualitySummary({ summary, latestSourceDate }: Props)
         <div><dt>Missing date</dt><dd>{summary.missing_source_date_components ?? 0}</dd></div>
         <div><dt>Latest source date</dt><dd>{latestSourceDate || 'N/A'}</dd></div>
       </dl>
-      {warning && <p className="sourceWarning">{warning}</p>}
+      {details && <p className="sourceWarning">{details}</p>}
     </section>
   );
 }

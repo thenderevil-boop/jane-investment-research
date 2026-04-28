@@ -9,6 +9,7 @@ DAILY_MARKET_FRESHNESS_WINDOW = "latest_expected_trading_day"
 DAILY_RATE_FRESHNESS_WINDOW = "daily_rate_5_business_days"
 MONTHLY_MACRO_FRESHNESS_WINDOW = "monthly_macro_latest_observation"
 DERIVED_FRED_FRESHNESS_WINDOW = "derived_from_FRED"
+FORM4_FRESHNESS_WINDOW = "form4_recent_180_days"
 MOCK_LIMITATION = "Mock data is a non-live research reference and is excluded from stale-data counts."
 FALLBACK_LIMITATION = "Live market data unavailable; mock fallback used."
 MONTHLY_FRED_LIMITATION = "Monthly FRED series are evaluated using observation-month freshness, not latest trading-day freshness."
@@ -33,8 +34,22 @@ def parse_source_date(value: Any) -> date | None:
             return None
 
 
-def _latest_expected_trading_day(as_of: date | None = None) -> date:
-    current = as_of or datetime.now(timezone.utc).date()
+def _previous_business_day(current: date) -> date:
+    previous = current - timedelta(days=1)
+    while previous.weekday() >= 5:
+        previous -= timedelta(days=1)
+    return previous
+
+
+def _latest_expected_trading_day(as_of: date | datetime | None = None) -> date:
+    raw_as_of = as_of or datetime.now(timezone.utc)
+    if isinstance(raw_as_of, datetime):
+        current = raw_as_of.astimezone(timezone.utc).date() if raw_as_of.tzinfo else raw_as_of.date()
+        utc_hour = raw_as_of.astimezone(timezone.utc).hour if raw_as_of.tzinfo else raw_as_of.hour
+        if current.weekday() < 5 and utc_hour < 20:
+            return _previous_business_day(current)
+    else:
+        current = raw_as_of
     if current.weekday() == 5:
         return current - timedelta(days=1)
     if current.weekday() == 6:
@@ -42,7 +57,7 @@ def _latest_expected_trading_day(as_of: date | None = None) -> date:
     return current
 
 
-def is_daily_market_data_fresh(source_date: Any, as_of: date | None = None) -> bool:
+def is_daily_market_data_fresh(source_date: Any, as_of: date | datetime | None = None) -> bool:
     parsed = parse_source_date(source_date)
     if parsed is None:
         return False
@@ -78,7 +93,17 @@ def is_monthly_macro_data_fresh(source_date: Any, as_of: date | None = None) -> 
     return parsed >= current - timedelta(days=70)
 
 
-def is_source_fresh_for_window(source_date: Any, freshness_window: str, as_of: date | None = None) -> bool:
+def is_form4_data_fresh(source_date: Any, lookback_days: int = 180, as_of: date | None = None) -> bool:
+    parsed = parse_source_date(source_date)
+    if parsed is None:
+        return False
+    current = as_of or datetime.now(timezone.utc).date()
+    return parsed >= current - timedelta(days=lookback_days)
+
+
+def is_source_fresh_for_window(source_date: Any, freshness_window: str, as_of: date | datetime | None = None) -> bool:
+    if freshness_window == FORM4_FRESHNESS_WINDOW:
+        return is_form4_data_fresh(source_date, as_of=as_of)
     if freshness_window == DAILY_RATE_FRESHNESS_WINDOW:
         return is_daily_rate_data_fresh(source_date, as_of=as_of)
     if freshness_window == MONTHLY_MACRO_FRESHNESS_WINDOW:
@@ -110,7 +135,7 @@ def _provider(payload: dict[str, Any], source_type: str) -> str:
 
 def _status_type(payload: dict[str, Any]) -> str:
     raw_type = str(payload.get("source_type") or "").lower()
-    if raw_type in {"live", "mock", "fallback", "derived"}:
+    if raw_type in {"live", "cached_live", "mock", "fallback", "derived"}:
         return raw_type
     if payload.get("fallback_used") or payload.get("fallback_reason") or payload.get("error") or payload.get("live_market_data_error"):
         return "fallback"
@@ -153,7 +178,7 @@ def build_source_status(
         status_missing.append("source_date")
     if resolved_type == "mock" and MOCK_LIMITATION not in status_limitations:
         status_limitations.append(MOCK_LIMITATION)
-    if resolved_fallback and FALLBACK_LIMITATION not in status_limitations:
+    if resolved_type == "fallback" and resolved_fallback and FALLBACK_LIMITATION not in status_limitations:
         status_limitations.append(FALLBACK_LIMITATION)
     explicit_is_fresh = data.get("is_fresh")
     if isinstance(explicit_is_fresh, bool):
@@ -179,11 +204,11 @@ def build_source_status(
 
 
 def summarize_data_quality(statuses: list[DataSourceStatus]) -> DataQualitySummary:
-    live = sum(1 for item in statuses if item.source_type == "live")
+    live = sum(1 for item in statuses if item.source_type in {"live", "cached_live"})
     mock = sum(1 for item in statuses if item.source_type == "mock")
     fallback = sum(1 for item in statuses if item.source_type == "fallback" or item.fallback_used)
     missing_source_date = sum(1 for item in statuses if not parse_source_date(item.source_date))
-    stale = sum(1 for item in statuses if item.source_type in {"live", "fallback", "derived"} and parse_source_date(item.source_date) and not item.is_fresh)
+    stale = sum(1 for item in statuses if item.source_type in {"live", "cached_live", "fallback", "derived"} and parse_source_date(item.source_date) and not item.is_fresh)
     total = max(1, len(statuses))
     if fallback:
         mode = "live_with_fallback"

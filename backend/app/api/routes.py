@@ -2,16 +2,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
+from backend.app import config
 from backend.app.data_sources.mock_data import DEFAULT_STOCK, MOCK_SOURCE, MOCK_SOURCE_DATE, STOCK_FIXTURES
 from backend.app.middleware.safety_filter import SafetyViolationError, check_safety
 from backend.app.pipelines.mock_pipeline import build_daily_report
-from backend.app.raw_store.repository import get_market_data
+from backend.app.raw_store.repository import get_market_data, read_sec_filings
 from backend.app.reports.stock_analysis import analyze_stock
 from backend.app.schemas.daily_report import DailyResearchReport
 from backend.app.schemas.health import HealthResponse
 from backend.app.schemas.macro_regime import MacroRegimeOutput
 from backend.app.schemas.stock_analysis import AnalyzeStockRequest, AnalyzeStockResponse
-from backend.app.schemas.supplemental import RawDataResponse, ThemesLatestResponse, TickerSignalsResponse
+from backend.app.schemas.supplemental import DataHealthResponse, RawDataResponse, ThemesLatestResponse, TickerSignalsResponse
 from backend.app.utils.freshness import build_source_status
 
 router = APIRouter(prefix="/api")
@@ -38,6 +39,47 @@ def _ensure_safe_response(model):
 @router.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse()
+
+
+@router.get("/data-health", response_model=DataHealthResponse)
+def data_health() -> DataHealthResponse:
+    return DataHealthResponse(
+        providers={
+            "yfinance": {
+                "enabled": config.USE_LIVE_MARKET_DATA,
+                "provider": config.MARKET_DATA_PROVIDER,
+                "source_type": "live" if config.USE_LIVE_MARKET_DATA else "mock",
+                "requires_secret": False,
+            },
+            "FRED": {
+                "enabled": config.USE_LIVE_MACRO_DATA,
+                "provider": config.MACRO_DATA_PROVIDER,
+                "source_type": "live" if config.USE_LIVE_MACRO_DATA and bool(config.FRED_API_KEY) else "mock",
+                "requires_secret": True,
+                "credential_configured": bool(config.FRED_API_KEY),
+            },
+            "SEC EDGAR": {
+                "enabled": config.USE_LIVE_SEC_FORM4,
+                "provider": config.SEC_FORM4_PROVIDER,
+                "source_type": "live" if config.USE_LIVE_SEC_FORM4 and bool(config.SEC_EDGAR_USER_AGENT) else "mock",
+                "requires_secret": False,
+                "user_agent_configured": bool(config.SEC_EDGAR_USER_AGENT),
+                "cache_ttl_hours": config.SEC_FORM4_CACHE_TTL_HOURS,
+                "lookback_days": config.SEC_FORM4_LOOKBACK_DAYS,
+            },
+            "mock sources": {
+                "enabled": True,
+                "provider": "phase1_mock_dataset",
+                "source_type": "mock",
+                "requires_secret": False,
+            },
+        },
+        limitations=[
+            "Provider health is configuration-level and does not expose credentials or SEC EDGAR User-Agent values.",
+            "Daily reports are cache-first for SEC EDGAR Form 4 unless live fetch on report request is explicitly enabled.",
+        ],
+        missing_data=[],
+    )
 
 
 @router.get("/daily-report/latest", response_model=DailyResearchReport)
@@ -80,18 +122,21 @@ def raw_data_by_ticker(ticker: str) -> RawDataResponse:
     normalized_ticker = ticker.strip().upper()
     fixture = STOCK_FIXTURES.get(normalized_ticker, DEFAULT_STOCK)
     market_snapshot = get_market_data(normalized_ticker)
+    sec_filings = read_sec_filings(normalized_ticker)
     source_status = build_source_status(market_snapshot)
+    form4_live = sec_filings.get("form4_source_status", {}).get("source_type") in {"live", "cached_live"}
     return RawDataResponse(
         ticker=normalized_ticker,
         raw_data={
             "company_fixture": fixture,
             "market_price_snapshot": market_snapshot,
-            "note": "Company fixture remains mock-only; market price snapshot may be live when enabled.",
+            "sec_form4_snapshot": sec_filings.get("form4_snapshot", {}),
+            "note": "Company fixture remains mock-only; market price and SEC Form 4 snapshots may be live when enabled.",
         },
         source=MOCK_SOURCE,
         source_date=MOCK_SOURCE_DATE,
-        limitations=["Company fundamentals remain mock fixtures; Phase 8 live integration covers market prices only."],
-        missing_data=["live SEC filings", "live options feed"],
+        limitations=["Company fundamentals remain mock fixtures; live integrations currently cover market prices, FRED macro data, and opt-in SEC Form 4 only."],
+        missing_data=[*([] if form4_live else ["live SEC filings"]), "live options feed"],
         source_status=source_status,
     )
 

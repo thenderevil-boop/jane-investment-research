@@ -2,7 +2,78 @@
 
 ## MVP Rule
 
-Mock fixtures remain the default. Phase 8 added opt-in live market prices, and Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
+Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, and Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
+
+## Phase 10.5 Official SEC EDGAR Form 4
+
+Default:
+
+- `USE_LIVE_SEC_FORM4=false`
+- no SEC request is made
+- repository functions return mock Form 4 snapshots with `source_type: "mock"`
+
+Opt-in:
+
+```powershell
+$env:USE_LIVE_SEC_FORM4="true"
+$env:SEC_FORM4_PROVIDER="sec_edgar"
+$env:SEC_EDGAR_USER_AGENT="Your Name your.email@example.com"
+uvicorn backend.app.main:app --reload
+```
+
+Implemented SEC endpoints:
+
+- `https://www.sec.gov/files/company_tickers.json` for ticker to CIK mapping
+- `https://data.sec.gov/submissions/CIK##########.json` for recent filing metadata
+- SEC EDGAR Archives filing XML documents for Form 4 transaction details
+
+No API key is required. SEC requests must include a proper `SEC_EDGAR_USER_AGENT`.
+
+Normalized fields include:
+
+- ticker, CIK, accession number, filing date, and transaction date
+- insider name, role, director/officer flags, and officer title
+- transaction code and transaction category
+- security title, shares, price, acquired/disposed code, value, ownership type, and direct/indirect ownership code
+- source, source date, source status, limitations, and missing data
+
+SEC EDGAR transaction rows are parsed from `nonDerivativeTable.nonDerivativeTransaction` and `derivativeTable.derivativeTransaction`. Holdings-only rows are not emitted as transactions. When source data does not provide transaction value directly, value is calculated as `shares * price`.
+
+Transaction-code interpretation:
+
+- `P` is counted as insider accumulation.
+- `S` is counted as insider disposition.
+- `M` is option exercise activity and is not counted as accumulation by default.
+- `A` is grant or award activity and is not counted as accumulation by default.
+- `F` is tax withholding activity and is not counted as accumulation by default.
+- `G` is gift activity and is not counted as accumulation or disposition by default.
+- `J`, unknown, and missing codes are classified as other unless later rule revisions add context-specific treatment.
+
+Quality controls:
+
+- Form 4 source freshness uses `freshness_window: "form4_recent_180_days"` and compares the latest filing date to the configured lookback window. It does not use latest expected trading day freshness.
+- Duplicate transaction rows are removed using ticker, CIK, accession number, insider name, transaction date, transaction code, security title, shares, price, ownership type, and acquired/disposed code.
+- Cached live EDGAR data within `SEC_FORM4_CACHE_TTL_HOURS` returns `source_type: "cached_live"` with `provider: "SEC EDGAR"`.
+- Daily report raw Form 4 rows are capped at the latest 25 transactions by filing date and transaction date. Summary metrics still use all rows in the lookback window.
+- Mock fallback Form 4 data is not used to boost smart-money score.
+- If all live rows are missing transaction codes, the smart-money Form 4 component remains neutral or insufficient and reports `transaction_code` in `missing_data`.
+
+Repository behavior:
+
+- live SEC fetches are made only through `backend.app.raw_store.repository`
+- successful snapshots are cached under `backend/raw_store/cache/sec` unless `SEC_FORM4_CACHE_DIR` overrides it
+- daily reports are cache-first and do not perform live EDGAR fetches unless `ALLOW_LIVE_FETCH_ON_REPORT_REQUEST=true`
+- missing `SEC_EDGAR_USER_AGENT` or fetch failures return cached live data when available, otherwise mock fallback Form 4 data with `source_type: "fallback"`
+- fallback metadata includes a safe summarized `fallback_reason` and does not expose stack traces or `SEC_EDGAR_USER_AGENT`
+- smart-money engines consume normalized Form 4 snapshots from the raw store and do not call SEC directly
+- Phase 10.5 does not connect 13F, options, news, YouTube, or live theme APIs
+
+Limitations:
+
+- Form 4 transaction codes require context from compensation plans, ownership type, and reporting notes
+- SEC submissions recent filings pagination is documented as a limitation when not followed
+- awards, option exercises, tax withholding, gifts, and other non-open-market codes are not treated as accumulation by default
+- Form 4 evidence is research context only and is not a trading instruction
 
 ## Phase 9 Live Macro / FRED
 
@@ -45,7 +116,7 @@ Still mock in Phase 9:
 - gold trend
 - oil trend
 - Fear & Greed
-- SEC filings, options, news, YouTube, 13F, Form 4, and theme APIs
+- 13F, options, news, YouTube, and theme APIs
 
 Repository behavior:
 

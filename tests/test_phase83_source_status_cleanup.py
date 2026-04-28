@@ -103,6 +103,7 @@ def test_crisis_aggregate_source_status_is_derived_from_components():
 def test_live_price_and_mock_non_price_data_quality_is_mixed_without_stale_or_missing_dates(monkeypatch):
     monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", workspace_tmp_dir())
     monkeypatch.setattr(config, "USE_LIVE_MACRO_DATA", False)
+    monkeypatch.setattr(config, "USE_LIVE_SEC_FORM4", False)
     current_source_date = date.today().isoformat()
 
     def fake_fetch(ticker: str, period: str = "1y", interval: str = "1d"):

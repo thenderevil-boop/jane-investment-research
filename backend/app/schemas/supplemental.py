@@ -42,3 +42,10 @@ class TickerSignalsResponse(BaseModel):
     limitations: list[str]
     missing_data: list[str]
     not_investment_advice: bool = True
+
+
+class DataHealthResponse(BaseModel):
+    providers: dict[str, dict[str, Any]]
+    limitations: list[str]
+    missing_data: list[str]
+    not_investment_advice: bool = True

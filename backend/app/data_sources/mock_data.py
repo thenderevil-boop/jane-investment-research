@@ -200,6 +200,7 @@ MOCK_SMART_MONEY_SUMMARY = {
         {
             "insider_name": "Mock Director A",
             "role": "Director",
+            "transaction_code": "P",
             "transaction_type": "accumulation",
             "shares": 1200,
             "price": 80.5,
@@ -279,6 +280,7 @@ STOCK_FIXTURES = {
                 {
                     "insider_name": "Mock Officer A",
                     "role": "Officer",
+                    "transaction_code": "P",
                     "transaction_type": "accumulation",
                     "shares": 1500,
                     "price": 860.0,
@@ -289,6 +291,7 @@ STOCK_FIXTURES = {
                 {
                     "insider_name": "Mock Director B",
                     "role": "Director",
+                    "transaction_code": "P",
                     "transaction_type": "accumulation",
                     "shares": 600,
                     "price": 870.0,
@@ -368,6 +371,7 @@ STOCK_FIXTURES = {
                 {
                     "insider_name": "Mock Officer C",
                     "role": "Officer",
+                    "transaction_code": "S",
                     "transaction_type": "disposition",
                     "shares": 8000,
                     "price": 265.0,
@@ -378,6 +382,7 @@ STOCK_FIXTURES = {
                 {
                     "insider_name": "Mock Officer D",
                     "role": "Officer",
+                    "transaction_code": "S",
                     "transaction_type": "disposition",
                     "shares": 5000,
                     "price": 255.0,
