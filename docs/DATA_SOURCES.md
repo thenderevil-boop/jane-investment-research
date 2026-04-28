@@ -125,6 +125,7 @@ Repository behavior:
 - missing API key, unsupported provider, or fetch failures return mock fallback macro data with `source_type: "fallback"`
 - engines consume normalized macro snapshots from the raw store and do not call FRED directly
 - FRED-backed components use `provider: "FRED"` and the yield spread uses `provider: "derived_from_FRED"`
+- Macro snapshots that combine FRED-backed fields with Phase 9 mock-only fields use `source_type: "derived"` and `provider: "mixed_FRED_and_mock_macro"`
 - daily reports expose compact FRED raw summaries, not full historical observation arrays
 
 FRED freshness windows:

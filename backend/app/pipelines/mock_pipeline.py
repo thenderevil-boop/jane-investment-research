@@ -229,7 +229,12 @@ def build_daily_report(
                 *(["live SEC filings"] if sec_filings.get("form4_source_status", {}).get("source_type") not in {"live", "cached_live"} else []),
                 "live options feed",
                 *(["live market prices"] if snapshot.get("source_type") != "live" else []),
-                *(["live FRED macro data"] if macro_snapshot.get("source_type") in {"mock", "fallback"} else []),
+                *(
+                    ["live FRED macro data"]
+                    if macro_snapshot.get("source_type") in {"mock", "fallback"}
+                    and macro_snapshot.get("provider") != "mixed_FRED_and_mock_macro"
+                    else []
+                ),
                 *macro_regime.missing_data,
                 *crisis.missing_data,
                 *risk_allocation.missing_data,
@@ -241,7 +246,7 @@ def build_daily_report(
         set(
             [
                 "Live market price data is enabled for price-derived fields only." if snapshot.get("source_type") == "live" else "Mock-only validation report; live market data APIs are not connected.",
-                "FRED-backed macro data is enabled for selected macro fields only." if macro_snapshot.get("source_type") == "live" else "Mock macro data is used unless USE_LIVE_MACRO_DATA=true and FRED_API_KEY is configured.",
+                "FRED-backed macro data is enabled for selected macro fields only." if macro_snapshot.get("provider") == "mixed_FRED_and_mock_macro" else "Mock macro data is used unless USE_LIVE_MACRO_DATA=true and FRED_API_KEY is configured.",
                 *macro_regime.limitations,
                 *crisis.limitations,
                 *smart_money.limitations,

@@ -482,8 +482,8 @@ def read_macro_data(scenario: str = "normal", use_live: bool | None = None) -> d
     merged["fed_funds_rate"] = indicators.get("fed_funds_rate")
     merged["ten_year_yield"] = indicators.get("ten_year_yield")
     merged["two_year_yield"] = indicators.get("two_year_yield")
-    merged["source_type"] = "live"
-    merged["provider"] = "FRED"
+    merged["source_type"] = "derived"
+    merged["provider"] = "mixed_FRED_and_mock_macro"
     merged["source"] = ["FRED", "phase5_mock_macro_dataset"]
     merged["source_date"] = snapshot.get("source_date", mock_context["source_date"])
     merged["fetched_at"] = snapshot.get("fetched_at")

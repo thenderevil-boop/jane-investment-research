@@ -84,7 +84,8 @@ def evaluate_macro_regime(data: dict[str, Any]) -> MacroRegimeOutput:
         source = [source]
     source_date = data.get("source_date", MOCK_MACRO_SOURCE_DATE)
     limitations = list(data.get("limitations", [LIMITATION]))
-    if data.get("source_type") == "live":
+    is_mixed_fred_macro = data.get("provider") == "mixed_FRED_and_mock_macro"
+    if is_mixed_fred_macro:
         limitations = sorted(
             set(
                 [
@@ -95,8 +96,8 @@ def evaluate_macro_regime(data: dict[str, Any]) -> MacroRegimeOutput:
         )
     source_status = build_source_status(
         {
-            "source_type": "derived" if data.get("source_type") == "live" else data.get("source_type", "mock"),
-            "provider": "mixed_FRED_and_mock_macro" if data.get("source_type") == "live" else data.get("provider", "phase5_mock_macro_dataset"),
+            "source_type": "derived" if is_mixed_fred_macro else data.get("source_type", "mock"),
+            "provider": "mixed_FRED_and_mock_macro" if is_mixed_fred_macro else data.get("provider", "phase5_mock_macro_dataset"),
             "source_date": source_date,
             "fetched_at": data.get("fetched_at"),
             "is_fresh": data.get("source_status", {}).get("is_fresh") if isinstance(data.get("source_status"), dict) else None,

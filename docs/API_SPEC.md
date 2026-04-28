@@ -602,6 +602,7 @@ FRED release schedules may lag the current date. When live macro is enabled, `da
 
 Phase 9.1 cleanup:
 
+- When FRED-backed fields are combined with Phase 9 mock-only macro fields, `macro_regime.raw_data.source_type` is `derived` and `provider` is `mixed_FRED_and_mock_macro`.
 - FRED freshness is series-aware: Treasury yield series use `daily_rate_5_business_days`; monthly macro releases use `monthly_macro_latest_observation`; derived FRED values use `derived_from_FRED`.
 - `/api/daily-report/latest` exposes compact FRED raw-series summaries and does not include full historical FRED observations.
 - `date` reflects the current report date, while `report_generated_at` is the actual report generation timestamp.

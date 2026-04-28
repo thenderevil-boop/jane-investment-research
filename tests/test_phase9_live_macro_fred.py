@@ -118,6 +118,11 @@ def test_live_macro_enabled_routes_fred_data_into_macro_regime(monkeypatch):
     components = {component.name: component for component in report.macro_regime.components}
 
     assert report.macro_regime.raw_data["cpi_yoy"] == 3.0
+    assert report.macro_regime.raw_data["source_type"] == "derived"
+    assert report.macro_regime.raw_data["provider"] == "mixed_FRED_and_mock_macro"
+    assert report.macro_regime.source_status.source_type == "derived"
+    assert report.macro_regime.source_status.provider == "mixed_FRED_and_mock_macro"
+    assert report.macro_regime.source_status.fallback_used is False
     assert components["cpi_yoy"].source_status.source_type == "derived"
     assert components["cpi_yoy"].source_status.provider == "derived_from_FRED"
     assert components["ten_year_minus_two_year_spread_bps"].source_status.source_type == "derived"
@@ -236,6 +241,11 @@ def test_fred_source_status_propagates_snapshot_fetched_at(monkeypatch):
     fetched_at = payload["fetched_at"]
     raw_snapshot = payload["raw_fred_snapshot"]
 
+    assert payload["source_type"] == "derived"
+    assert payload["provider"] == "mixed_FRED_and_mock_macro"
+    assert payload["source_status"]["source_type"] == "derived"
+    assert payload["source_status"]["provider"] == "mixed_FRED_and_mock_macro"
+    assert payload["source_status"]["fallback_used"] is False
     assert fetched_at
     assert payload["component_source_status"]["cpi_yoy"]["fetched_at"] == fetched_at
     for summary in raw_snapshot["raw_series"].values():
