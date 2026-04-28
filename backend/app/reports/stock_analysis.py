@@ -25,8 +25,10 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     missing_data = list(fixture["missing_data"])
     if market_context.get("source_type") != "live":
         missing_data.append("live price history")
-    if sec_filings.get("form4_source_status", {}).get("source_type") != "live":
+    if sec_filings.get("form4_source_status", {}).get("source_type") not in {"live", "cached_live"}:
         missing_data.append("live SEC filing details")
+    if sec_filings.get("institutional_13f_source_status", {}).get("source_type") not in {"live", "cached_live"}:
+        missing_data.append("live SEC 13F data")
 
     response = AnalyzeStockResponse(
         ticker=request.ticker,

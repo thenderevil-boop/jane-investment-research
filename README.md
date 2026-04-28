@@ -17,6 +17,7 @@ Completed live integrations now documented in this README:
 - Phase 8: yfinance market data
 - Phase 9: FRED macro data
 - Phase 10: official SEC EDGAR Form 4
+- Phase 11: official SEC EDGAR 13F
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 
@@ -111,6 +112,12 @@ Neither is a direct investment recommendation.
 | SEC_EDGAR_REQUEST_DELAY_SECONDS | 0.2 | SEC EDGAR Form 4 | |
 | SEC_FORM4_CACHE_TTL_HOURS | 24 | SEC EDGAR Form 4 cache | |
 | SEC_FORM4_LOOKBACK_DAYS | 180 | SEC EDGAR Form 4 | |
+| USE_LIVE_SEC_13F | false | SEC EDGAR 13F | |
+| SEC_13F_PROVIDER | sec_edgar | SEC EDGAR 13F | official SEC EDGAR only |
+| SEC_13F_CACHE_TTL_DAYS | 7 | SEC EDGAR 13F cache | TTL is days, not hours |
+| SEC_13F_LOOKBACK_QUARTERS | 4 | SEC EDGAR 13F | |
+| SEC_13F_TARGET_MANAGERS | none | SEC EDGAR 13F | optional comma-separated manager names or CIKs |
+| SEC_13F_TARGET_TICKERS | none | SEC EDGAR 13F | optional comma-separated tickers for future mapping support |
 | ALLOW_LIVE_FETCH_ON_REPORT_REQUEST | false | quota guard | default should remain false |
 
 ## Windows VSCode Runbook
@@ -390,7 +397,7 @@ uvicorn backend.app.main:app --reload
 
 `SEC_EDGAR_USER_AGENT` is required for official SEC EDGAR public endpoints. No API key is required. If the User-Agent is missing or a fetch fails, the raw store returns deterministic mock fallback Form 4 data with `source_type="fallback"` and a safe `fallback_reason`. User-Agent values are never returned by API responses.
 
-Phase 10 only connects SEC Form 4 insider transactions. 13F, options, news, YouTube, and live theme APIs remain mock or manually verified placeholders.
+Phase 10 only connects SEC Form 4 insider transactions. Phase 11 separately connects SEC 13F institutional holdings. Options, news, YouTube, and live theme APIs remain mock or manually verified placeholders.
 
 Form 4 transaction-code handling:
 
@@ -403,6 +410,47 @@ Form 4 transaction-code handling:
 - Daily report raw Form 4 transactions are capped at the latest 25 rows while summary metrics use all rows in the lookback window.
 - Mock fallback Form 4 data is not used to boost smart-money score.
 - Form 4 output is research evidence only and is not a trading instruction.
+
+## Phase 11 Official SEC EDGAR 13F
+
+SEC 13F institutional holdings can now be enabled through the repository-backed official SEC EDGAR adapter. Mock 13F remains the default.
+
+Keep mock 13F mode:
+
+```powershell
+cd D:\jane-investment-research
+.\.venv\Scripts\Activate.ps1
+$env:USE_LIVE_SEC_13F="false"
+uvicorn backend.app.main:app --reload
+```
+
+Enable live SEC 13F:
+
+```powershell
+cd D:\jane-investment-research
+.\.venv\Scripts\Activate.ps1
+$env:USE_LIVE_SEC_13F="true"
+$env:SEC_13F_PROVIDER="sec_edgar"
+$env:SEC_EDGAR_USER_AGENT="Your Name your.email@example.com"
+$env:SEC_13F_TARGET_MANAGERS="0001067983"
+uvicorn backend.app.main:app --reload
+```
+
+Implemented SEC sources:
+
+- `data.sec.gov/submissions/CIK##########.json` for institutional manager filing discovery.
+- `www.sec.gov/Archives/edgar/data/...` for filing indexes and XML information tables.
+
+13F source status uses `freshness_window="quarterly_filing_delay"`. It does not use market latest-trading-day freshness or Form 4 recency rules. 13F is delayed quarterly evidence, may lag up to 45 days after quarter end, and may not show shorts, many derivatives, or current positions.
+
+Repository behavior:
+
+- Daily reports are cache-first and do not repeatedly live-fetch SEC 13F unless `ALLOW_LIVE_FETCH_ON_REPORT_REQUEST=true`.
+- Cached live SEC 13F data within `SEC_13F_CACHE_TTL_DAYS` returns `source_type="cached_live"` with `provider="SEC EDGAR"`.
+- Missing `SEC_EDGAR_USER_AGENT` returns fallback mock 13F with `fallback_reason="SEC_EDGAR_USER_AGENT missing"` and never exposes the User-Agent value.
+- Fallback mock 13F does not boost smart-money score.
+- Manager-name discovery is limited to a small local mapping in v1; numeric CIKs are preferred.
+- SEC Form 13F Data Sets may be considered later as a batch optimization, but Phase 11 does not depend on them.
 
 ## Project Guardrails
 

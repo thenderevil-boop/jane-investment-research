@@ -110,7 +110,7 @@ def test_smart_money_labels_no_longer_use_positive_signal_language():
     )
     payload = result.model_dump()
 
-    assert result.label == "smart_money_supportive"
+    assert result.label == "smart_money_mixed"
     assert "positive_signal" not in str(payload)
     assert "weak_positive_signal" not in str(payload)
     assert "negative_signal" not in str(payload)

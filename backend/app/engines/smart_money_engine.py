@@ -34,10 +34,10 @@ def _aggregate_label(score: float) -> str:
 
 def _institutional_label(score: float) -> str:
     if score >= 60:
-        return "institutional_supportive"
+        return "institutional_evidence_observed"
     if score >= 40:
-        return "smart_money_neutral"
-    return "risk_warning"
+        return "institutional_evidence_limited"
+    return "insufficient_data"
 
 
 def _insider_label(score: float) -> str:
@@ -92,6 +92,114 @@ def _score_object(
 
 def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
     raw = data.get("institutional_13f", {})
+    snapshots = list(data.get("institutional_13f_snapshots") or [])
+    if data.get("institutional_13f_snapshot"):
+        snapshots = [data["institutional_13f_snapshot"], *snapshots]
+    deduped_snapshots: list[dict[str, Any]] = []
+    seen_snapshot_ids: set[str] = set()
+    for snapshot in snapshots:
+        snapshot_id = f"{snapshot.get('manager')}|{snapshot.get('source_date')}|{snapshot.get('source_type')}"
+        if snapshot_id not in seen_snapshot_ids:
+            seen_snapshot_ids.add(snapshot_id)
+            deduped_snapshots.append(snapshot)
+    live_snapshots = [
+        snapshot
+        for snapshot in deduped_snapshots
+        if snapshot.get("source_type") in {"live", "cached_live"}
+    ]
+    source_snapshot = live_snapshots[0] if live_snapshots else (deduped_snapshots[0] if deduped_snapshots else {})
+    source_status = data.get("institutional_13f_source_status") or source_snapshot.get("source_status") or {}
+    source_type = source_status.get("source_type") or source_snapshot.get("source_type")
+    fallback_mock_13f = source_type == "fallback" and source_status.get("provider", source_snapshot.get("provider")) == "mock"
+    target_cusip = str(raw.get("cusip") or "").strip().upper()
+    all_holdings = [holding for snapshot in deduped_snapshots for holding in snapshot.get("holdings", []) or []]
+    live_holdings = [holding for snapshot in live_snapshots for holding in snapshot.get("holdings", []) or []]
+    holdings_for_metrics = live_holdings if live_holdings else all_holdings
+    target_cusip_holdings = [
+        holding
+        for holding in holdings_for_metrics
+        if target_cusip and str(holding.get("cusip") or "").strip().upper() == target_cusip
+    ]
+    sorted_holdings = sorted(
+        holdings_for_metrics,
+        key=lambda item: item.get("value_usd") or 0,
+        reverse=True,
+    )
+    total_value = sum(item.get("value_usd") or 0 for item in holdings_for_metrics)
+    filing_dates = [filing.get("filing_date", "") for snapshot in deduped_snapshots for filing in snapshot.get("filings", []) or [] if filing.get("filing_date")]
+    report_dates = [filing.get("report_date", "") for snapshot in deduped_snapshots for filing in snapshot.get("filings", []) or [] if filing.get("report_date")]
+    latest_filing_date = max(filing_dates, default=source_snapshot.get("source_date", ""))
+    latest_report_date = max(report_dates, default=source_snapshot.get("source_date", ""))
+    by_cusip_period: dict[str, list[dict[str, Any]]] = {}
+    for holding in holdings_for_metrics:
+        if not holding.get("cusip"):
+            continue
+        by_cusip_period.setdefault(str(holding.get("cusip")).upper(), []).append(holding)
+    quarter_change = None
+    if target_cusip and len(by_cusip_period.get(target_cusip, [])) >= 2:
+        ordered = sorted(by_cusip_period[target_cusip], key=lambda item: (item.get("report_date") or "", item.get("filing_date") or ""), reverse=True)
+        latest_value = ordered[0].get("shares_or_principal_amount") or 0
+        prior_value = ordered[1].get("shares_or_principal_amount") or 0
+        if prior_value:
+            quarter_change = round((latest_value - prior_value) / prior_value * 100, 2)
+    if live_holdings:
+        score = 60 if target_cusip_holdings else 50
+        if quarter_change is not None and quarter_change < -10:
+            score = 40
+        institutional_support_label = "institutional_evidence_observed"
+    elif fallback_mock_13f:
+        score = 40
+        institutional_support_label = "insufficient_data"
+    elif source_type == "mock":
+        score = 40
+        institutional_support_label = "institutional_evidence_limited"
+    else:
+        score = 30
+        institutional_support_label = "insufficient_data"
+    if holdings_for_metrics:
+        missing = []
+    else:
+        missing = ["13f_holdings"]
+    if fallback_mock_13f:
+        missing.append("live SEC 13F data")
+    if live_holdings or deduped_snapshots:
+        return _score_object(
+            "institutional_support_13f_score",
+            score,
+            institutional_support_label,
+            {
+                "holdings": holdings_for_metrics,
+                "top_holdings_by_value": sorted_holdings[:10],
+                "target_cusip_holdings": target_cusip_holdings,
+                "target_ticker_holdings": [],
+                "source_status": source_status,
+                "delayed_institutional_support": True,
+                "is_real_time_signal": False,
+            },
+            {
+                "latest_13f_report_date": latest_report_date,
+                "latest_13f_filing_date": latest_filing_date,
+                "total_reported_value_usd": total_value,
+                "holding_count": len(holdings_for_metrics),
+                "target_ticker_holdings": [],
+                "target_cusip_holdings": target_cusip_holdings,
+                "top_holdings_by_value": sorted_holdings[:10],
+                "quarter_over_quarter_position_change": quarter_change,
+                "manager_count_observed": len(deduped_snapshots),
+                "institutional_support_label": institutional_support_label,
+                "is_real_time_signal": False,
+            },
+            {
+                "freshness_window": "quarterly_filing_delay",
+                "maximum_score_from_delayed_13f_only": 60,
+            },
+            {"institutional_support": "observed" if live_holdings else "limited"},
+            [*THIRTEEN_F_LIMITATIONS, *source_snapshot.get("limitations", [])],
+            sorted(set([*missing, *source_snapshot.get("missing_data", [])])),
+            source=source_status.get("source") or source_snapshot.get("source") or MOCK_SOURCE,
+            source_date=source_status.get("source_date") or latest_report_date or latest_filing_date or MOCK_SOURCE_DATE,
+            source_status=source_status,
+        )
     missing = [field for field in ["quarter", "filing_date"] if not raw.get(field)]
     holder_count_change = raw.get("holder_count_change", 0)
     position_change_pct = raw.get("quarterly_position_change_pct", 0)
@@ -104,6 +212,8 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
     elif major_reduction or position_change_pct <= -10:
         score = 20
     else:
+        score = 40
+    if score > 40:
         score = 40
     return _score_object(
         "institutional_support_13f_score",
@@ -126,6 +236,7 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
             "quarterly_position_change_pct": position_change_pct,
             "institutional_ownership_proxy": raw.get("institutional_ownership_proxy"),
             "is_real_time_signal": False,
+            "institutional_support_label": _institutional_label(score),
         },
         {
             "peer_average_institutional_ownership": raw.get("peer_average_institutional_ownership"),
@@ -133,7 +244,7 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
             "sector_median_institutional_ownership": raw.get("sector_median_institutional_ownership"),
         },
         {"institutional_support": "up" if score >= 60 else "down" if score == 20 else "stable"},
-        THIRTEEN_F_LIMITATIONS,
+        [*THIRTEEN_F_LIMITATIONS, "Mock 13F fixture is not used to boost smart-money score."],
         missing,
     )
 
@@ -299,7 +410,7 @@ def evaluate_smart_money(data: dict[str, Any]) -> ScoreObject:
         + options.score * weights["options_abnormal_activity_score"]
     )
     missing = sorted(set(institutional.missing_data + insider.missing_data + options.missing_data))
-    source_status = data.get("form4_source_status") or insider.raw_data.get("source_status")
+    source_status = data.get("form4_source_status") or insider.raw_data.get("source_status") or data.get("institutional_13f_source_status")
     result = ScoreObject(
         name="smart_money_score",
         score=round(final_score, 2),
@@ -331,13 +442,16 @@ def evaluate_smart_money(data: dict[str, Any]) -> ScoreObject:
         missing_data=missing,
     )
     if source_status:
+        institutional_status = data.get("institutional_13f_source_status") or institutional.raw_data.get("source_status") or {}
+        form4_status = data.get("form4_source_status") or insider.raw_data.get("source_status") or {}
+        source_dates = [item.get("source_date") for item in [institutional_status, form4_status] if item.get("source_date")]
         result.source_status = build_source_status(
             {
                 "source_type": "derived",
                 "provider": "mixed_smart_money_sources",
-                "source_date": source_status.get("source_date", result.source_date),
+                "source_date": max(source_dates, default=source_status.get("source_date", result.source_date)),
                 "fetched_at": source_status.get("fetched_at"),
-                "is_fresh": source_status.get("is_fresh", True),
+                "is_fresh": all(item.get("is_fresh", True) for item in [institutional_status, form4_status] if item),
                 "limitations": result.limitations,
                 "missing_data": result.missing_data,
             }

@@ -43,6 +43,13 @@ Environment-controlled live SEC Form 4 behavior:
 - Missing required credentials or fetch failures fall back to mock Form 4 data with `source_type="fallback"`.
 - `SEC_EDGAR_USER_AGENT` is never exposed in API responses.
 
+Environment-controlled live SEC 13F behavior:
+
+- `USE_LIVE_SEC_13F=false` by default keeps institutional 13F data on deterministic mock fixtures.
+- `USE_LIVE_SEC_13F=true` with `SEC_13F_PROVIDER=sec_edgar`, `SEC_EDGAR_USER_AGENT`, and configured target managers attempts repository-backed official SEC EDGAR 13F fetches.
+- Missing required SEC User-Agent or fetch failures fall back to mock 13F data with `source_type="fallback"` unless usable cached live SEC 13F data exists.
+- 13F uses `freshness_window="quarterly_filing_delay"` and is delayed quarterly evidence, not real-time institutional flow.
+
 Response shape:
 
 ```json
@@ -181,6 +188,7 @@ Response:
 
 This endpoint returns mock company fixture snapshots plus the repository market price snapshot. In Phase 8, market price snapshots may be live when `USE_LIVE_MARKET_DATA=true`; company fundamentals remain mock-only.
 In Phase 10.5, `raw_data.sec_form4_snapshot` may contain SEC EDGAR-backed Form 4 transactions when `USE_LIVE_SEC_FORM4=true` and `SEC_EDGAR_USER_AGENT` is configured.
+In Phase 11, `raw_data.sec_13f_snapshot` may contain SEC EDGAR-backed 13F holdings when `USE_LIVE_SEC_13F=true`, `SEC_EDGAR_USER_AGENT` is configured, and manager CIKs or supported manager names are configured.
 
 ### GET /api/signals/{ticker}
 
@@ -255,6 +263,7 @@ Freshness rules:
 - FRED monthly macro series use `freshness_window="monthly_macro_latest_observation"`.
 - FRED-derived fields use `freshness_window="derived_from_FRED"` and inherit freshness from their input series. If an input series is stale, the derived field is stale and includes the stale input in `missing_data`.
 - For monthly FRED series, `source_date` is the observation month being measured, not the report generation date or the FRED release timestamp. The MVP treats monthly observations within 70 calendar days of report generation as fresh to account for normal release delay.
+- 13F source status uses `freshness_window="quarterly_filing_delay"`. `source_date` is the filing report date when available, otherwise filing date. `fetched_at` is the cache/write or retrieval timestamp. `report_generated_at` remains the daily report assembly timestamp and must not be used as the 13F source date.
 - Mock data is classified as mock reference data and does not count as stale solely because it is not live.
 - Stale applies only to live, fallback, or derived components with outdated `source_date`.
 - Fallback data sets `fallback_used=true` and includes a safe `fallback_reason`.
@@ -697,3 +706,32 @@ Still mock after Phase 10:
 - news, YouTube, and live theme evidence
 
 If SEC EDGAR is unavailable or `SEC_EDGAR_USER_AGENT` is missing, API responses mark the Form 4 component with `source_type="fallback"`, include a safe `fallback_reason`, and use deterministic mock fallback transactions unless usable cached live data is available. Form 4 evidence is research context only and is not a trading instruction.
+
+## Phase 11 Official SEC EDGAR 13F
+
+Phase 11 uses official SEC EDGAR 13F institutional holdings behind the raw-store boundary. Public response schemas remain stable; live, cached, fallback, mock, and mixed state is exposed through existing `source_status`, `raw_data`, `limitations`, `missing_data`, and `data_quality` fields.
+
+PowerShell:
+
+```powershell
+$env:USE_LIVE_SEC_13F="true"
+$env:SEC_13F_PROVIDER="sec_edgar"
+$env:SEC_EDGAR_USER_AGENT="Your Name your.email@example.com"
+$env:SEC_13F_TARGET_MANAGERS="0001067983"
+uvicorn backend.app.main:app --reload
+```
+
+Live SEC-backed fields in `smart_money_summary.raw_data.institutional_13f` may include `holdings`, `top_holdings_by_value`, `target_cusip_holdings`, `target_ticker_holdings`, `source_status`, `delayed_institutional_support`, and `is_real_time_signal`.
+
+Smart-money derived metrics include `latest_13f_report_date`, `latest_13f_filing_date`, `total_reported_value_usd`, `holding_count`, `target_ticker_holdings`, `target_cusip_holdings`, `top_holdings_by_value`, `quarter_over_quarter_position_change`, `manager_count_observed`, and `institutional_support_label`.
+
+13F source status uses `provider="SEC EDGAR"` for official live or cached data, `freshness_window="quarterly_filing_delay"`, `source_date` as report date when available otherwise filing date, and `fetched_at` as the cache/write or retrieval timestamp.
+
+Limitations:
+
+- 13F is delayed quarterly evidence and may lag up to 45 days after quarter end.
+- 13F may not show shorts, many derivatives, or current positions.
+- 13F should not be interpreted as real-time institutional flow.
+- Manager-name discovery is limited in v1; numeric CIKs are preferred.
+- SEC Form 13F Data Sets can be considered as a future batch optimization but are not required for Phase 11.
+- Fallback mock 13F does not boost smart-money score.

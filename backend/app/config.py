@@ -32,4 +32,13 @@ SEC_FORM4_CACHE_DIR = Path(os.getenv("SEC_FORM4_CACHE_DIR", "backend/raw_store/c
 SEC_EDGAR_REQUEST_DELAY_SECONDS = float(os.getenv("SEC_EDGAR_REQUEST_DELAY_SECONDS", "0.2") or "0.2")
 SEC_FORM4_CACHE_TTL_HOURS = float(os.getenv("SEC_FORM4_CACHE_TTL_HOURS", "24") or "24")
 SEC_FORM4_LOOKBACK_DAYS = int(os.getenv("SEC_FORM4_LOOKBACK_DAYS", "180") or "180")
+
+USE_LIVE_SEC_13F = _env_bool("USE_LIVE_SEC_13F", False)
+SEC_13F_PROVIDER = os.getenv("SEC_13F_PROVIDER", "sec_edgar").strip().lower() or "sec_edgar"
+SEC_13F_CACHE_DIR = Path(os.getenv("SEC_13F_CACHE_DIR", "backend/raw_store/cache/sec_13f"))
+SEC_13F_CACHE_TTL_DAYS = float(os.getenv("SEC_13F_CACHE_TTL_DAYS", "7") or "7")
+SEC_13F_LOOKBACK_QUARTERS = int(os.getenv("SEC_13F_LOOKBACK_QUARTERS", "4") or "4")
+SEC_13F_TARGET_MANAGERS = os.getenv("SEC_13F_TARGET_MANAGERS", "").strip()
+SEC_13F_TARGET_TICKERS = os.getenv("SEC_13F_TARGET_TICKERS", "").strip()
+
 ALLOW_LIVE_FETCH_ON_REPORT_REQUEST = _env_bool("ALLOW_LIVE_FETCH_ON_REPORT_REQUEST", False)

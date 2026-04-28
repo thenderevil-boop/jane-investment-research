@@ -2,7 +2,61 @@
 
 ## MVP Rule
 
-Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, and Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
+Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions, and Phase 11 adds opt-in official SEC EDGAR 13F institutional holdings. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
+
+## Phase 11 Official SEC EDGAR 13F
+
+Default:
+
+- `USE_LIVE_SEC_13F=false`
+- no SEC 13F request is made
+- repository functions return mock 13F snapshots with `source_type: "mock"`
+
+Opt-in:
+
+```powershell
+$env:USE_LIVE_SEC_13F="true"
+$env:SEC_13F_PROVIDER="sec_edgar"
+$env:SEC_EDGAR_USER_AGENT="Your Name your.email@example.com"
+$env:SEC_13F_TARGET_MANAGERS="0001067983"
+uvicorn backend.app.main:app --reload
+```
+
+Implemented SEC endpoints:
+
+- `https://data.sec.gov/submissions/CIK##########.json` for institutional manager filing discovery
+- SEC EDGAR Archives filing indexes and XML information table documents
+
+No API key is required. SEC requests must include a proper `SEC_EDGAR_USER_AGENT`, and User-Agent values must never be returned by API responses or logs. `sec-api.io` is not a runtime provider.
+
+Normalized holding fields include manager CIK, accession number, filing date, report date, issuer name, title of class, CUSIP, reported value in thousands, computed value in dollars, shares or principal amount, share type, put/call, investment discretion, other manager, voting authority, source status, limitations, and missing data.
+
+Repository behavior:
+
+- live SEC 13F fetches are made only through `backend.app.raw_store.repository`
+- successful snapshots are cached under `backend/raw_store/cache/sec_13f` unless `SEC_13F_CACHE_DIR` overrides it
+- cached live EDGAR data within `SEC_13F_CACHE_TTL_DAYS` returns `source_type: "cached_live"` with `provider: "SEC EDGAR"`
+- daily reports are cache-first and do not perform live SEC 13F fetches unless `ALLOW_LIVE_FETCH_ON_REPORT_REQUEST=true`
+- missing `SEC_EDGAR_USER_AGENT` or fetch failures return cached live data when available, otherwise mock fallback 13F data with `source_type: "fallback"`
+- fallback metadata includes a safe summarized `fallback_reason` and does not expose stack traces or `SEC_EDGAR_USER_AGENT`
+- smart-money engines consume normalized 13F snapshots from the raw store and do not call SEC directly
+- fallback mock 13F does not boost smart-money score
+
+Freshness:
+
+- 13F source status uses `freshness_window: "quarterly_filing_delay"`
+- `source_date` is the filing report date when available, otherwise filing date
+- `fetched_at` is the cache/write or retrieval timestamp
+- `report_generated_at` is only the daily report assembly timestamp
+- 13F does not use `latest_expected_trading_day` or `form4_recent_180_days`
+
+Limitations:
+
+- 13F is delayed quarterly evidence and should not be interpreted as real-time institutional flow
+- 13F may lag up to 45 days after quarter end
+- 13F may not show shorts, many derivatives, or current positions
+- manager-name discovery is limited to a small local mapping in v1; numeric CIKs are preferred
+- SEC Form 13F Data Sets can be considered as a future batch optimization but are not required for Phase 11
 
 ## Phase 10.5 Official SEC EDGAR Form 4
 
@@ -251,16 +305,16 @@ Interpretation:
 - FRED daily rates: `daily_rate_5_business_days`.
 - FRED monthly macro: `monthly_macro_latest_observation`.
 - Form 4: `form4_recent_180_days`.
-- 13F future: `quarterly_filing_delay`, not daily freshness.
+- 13F: `quarterly_filing_delay`, not daily freshness.
 - Options future: requires an explicit provider-specific timestamp and should not use stale mock data.
 - News/sentiment future: source timestamp and deduplication are required.
 - Mock data is excluded from stale-data counts but must be disclosed as mock.
 
-### Future 13F Freshness Rules
+### 13F Freshness Rules
 
 - 13F is quarterly batch data, not daily market data.
 - 13F is delayed and must not use `latest_expected_trading_day`.
-- Future 13F source status should use a freshness window such as `quarterly_filing_delay`.
+- 13F source status uses `quarterly_filing_delay`.
 - 13F cache TTL should be measured in days, not hours.
 - 13F should be refreshed around expected filing windows, not on every daily report request.
 - 13F remains research evidence only and must not be treated as real-time smart-money confirmation.

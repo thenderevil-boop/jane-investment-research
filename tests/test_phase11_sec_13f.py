@@ -1,0 +1,261 @@
+from __future__ import annotations
+
+from pathlib import Path
+from uuid import uuid4
+
+import pytest
+
+from backend.app import config
+from backend.app.data_sources import sec_edgar_13f
+from backend.app.engines.smart_money_engine import evaluate_smart_money
+from backend.app.raw_store import repository
+from backend.app.schemas.common import DataSourceStatus
+from backend.app.utils.forbidden_language import detect_forbidden_language
+
+
+def workspace_tmp_dir() -> Path:
+    path = Path("backend/raw_store/cache/test_phase11") / uuid4().hex
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+class FakeResponse:
+    def __init__(self, payload=None, text: str = ""):
+        self._payload = payload
+        self.text = text
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self._payload
+
+
+SUBMISSIONS = {
+    "filings": {
+        "recent": {
+            "form": ["13F-HR", "8-K", "13F-HR", "13F-HR/A"],
+            "accessionNumber": ["0001067983-26-000010", "x", "0001067983-26-000005", "0001067983-26-000011"],
+            "filingDate": ["2026-05-15", "2026-05-10", "2026-02-14", "2026-05-20"],
+            "reportDate": ["2026-03-31", "2026-03-31", "2025-12-31", "2026-03-31"],
+            "primaryDocument": ["primary.htm", "x.htm", "old.htm", "amend.htm"],
+        }
+    }
+}
+
+INFO_XML = """<?xml version="1.0"?>
+<informationTable xmlns="http://www.sec.gov/edgar/document/thirteenf/informationtable">
+  <infoTable>
+    <nameOfIssuer>NVIDIA CORP</nameOfIssuer>
+    <titleOfClass>COM</titleOfClass>
+    <cusip>67066G104</cusip>
+    <value>12345</value>
+    <shrsOrPrnAmt>
+      <sshPrnamt>1000</sshPrnamt>
+      <sshPrnamtType>SH</sshPrnamtType>
+    </shrsOrPrnAmt>
+    <investmentDiscretion>SOLE</investmentDiscretion>
+    <votingAuthority>
+      <Sole>900</Sole>
+      <Shared>50</Shared>
+      <None>50</None>
+    </votingAuthority>
+  </infoTable>
+  <infoTable>
+    <nameOfIssuer>APPLE INC</nameOfIssuer>
+    <titleOfClass>COM</titleOfClass>
+    <cusip>037833100</cusip>
+    <value>20000</value>
+    <shrsOrPrnAmt>
+      <sshPrnamt>2000</sshPrnamt>
+      <sshPrnamtType>SH</sshPrnamtType>
+    </shrsOrPrnAmt>
+    <putCall>CALL</putCall>
+    <investmentDiscretion>DFND</investmentDiscretion>
+    <otherManager>1</otherManager>
+    <votingAuthority>
+      <Sole>1800</Sole>
+      <Shared>100</Shared>
+      <None>100</None>
+    </votingAuthority>
+  </infoTable>
+</informationTable>
+"""
+
+PRIOR_XML = INFO_XML.replace("<value>12345</value>", "<value>10000</value>").replace("<sshPrnamt>1000</sshPrnamt>", "<sshPrnamt>800</sshPrnamt>", 1)
+
+
+def live_13f_payload() -> dict:
+    holdings = sec_edgar_13f.parse_13f_information_table_xml(INFO_XML, "0001067983", "0001067983-26-000011", "2026-05-20", "2026-03-31")
+    return {
+        "manager": "0001067983",
+        "manager_cik": "0001067983",
+        "lookback_quarters": 4,
+        "filings": [{"accession_number": "0001067983-26-000011", "filing_date": "2026-05-20", "report_date": "2026-03-31", "form": "13F-HR/A"}],
+        "holdings": holdings,
+        "source_type": "live",
+        "provider": "SEC EDGAR",
+        "source": ["SEC EDGAR"],
+        "source_date": "2026-03-31",
+        "fetched_at": "2026-05-20T00:00:00+00:00",
+        "limitations": [],
+        "missing_data": [],
+    }
+
+
+def test_cik_normalization_for_manager_cik():
+    assert sec_edgar_13f.get_cik_for_manager("1067983") == "0001067983"
+
+
+def test_mocked_submissions_parsing_finds_13f_hr():
+    filings = sec_edgar_13f.find_recent_13f_filings({"filings": {"recent": {**SUBMISSIONS["filings"]["recent"], "form": ["13F-HR"]}}})
+    assert filings[0]["form"] == "13F-HR"
+
+
+def test_mocked_submissions_parsing_handles_amendment_preference():
+    filings = sec_edgar_13f.find_recent_13f_filings(SUBMISSIONS)
+    assert filings[0]["form"] == "13F-HR/A"
+    assert filings[0]["accession_number"] == "0001067983-26-000011"
+
+
+def test_archive_url_builder_removes_dashes_and_cik_zeros():
+    url = sec_edgar_13f.build_edgar_archive_url("0001067983", "0001067983-26-000011", "form13fInfoTable.xml")
+    assert url == "https://www.sec.gov/Archives/edgar/data/1067983/000106798326000011/form13fInfoTable.xml"
+
+
+def test_information_table_discovery_finds_xml_document(monkeypatch):
+    monkeypatch.setattr(config, "SEC_EDGAR_USER_AGENT", "Test test@example.com")
+    monkeypatch.setattr(config, "SEC_EDGAR_REQUEST_DELAY_SECONDS", 0)
+
+    def fake_get(url, headers, timeout):
+        return FakeResponse(text='<a href="/Archives/edgar/data/1067983/000106798326000011/form13fInfoTable.xml">xml</a>')
+
+    monkeypatch.setattr(sec_edgar_13f.httpx, "get", fake_get)
+    docs = sec_edgar_13f.discover_13f_information_table_documents("0001067983", "0001067983-26-000011", "primary.htm")
+    assert docs[0] == "form13fInfoTable.xml"
+
+
+def test_xml_parser_extracts_holdings_and_value_math():
+    rows = sec_edgar_13f.parse_13f_information_table_xml(INFO_XML, "0001067983", "0001067983-26-000011", "2026-05-20", "2026-03-31")
+    first = rows[0]
+    assert first["issuer_name"] == "NVIDIA CORP"
+    assert first["cusip"] == "67066G104"
+    assert first["value_usd_thousands_raw"] == 12345
+    assert first["value_usd"] == 12345000
+    assert first["shares_or_principal_amount"] == 1000
+    assert first["investment_discretion"] == "SOLE"
+    assert first["voting_authority_sole"] == 900
+    assert first["source"] == ["SEC EDGAR"]
+
+
+def test_xml_parser_handles_namespaces():
+    rows = sec_edgar_13f.parse_13f_information_table_xml(INFO_XML, "1067983", "a", "2026-05-20", "2026-03-31")
+    assert len(rows) == 2
+
+
+def test_missing_or_malformed_xml_returns_insufficient_data_not_crash(monkeypatch):
+    monkeypatch.setattr(config, "USE_LIVE_SEC_13F", True)
+    monkeypatch.setattr(config, "SEC_13F_PROVIDER", "sec_edgar")
+    monkeypatch.setattr(config, "SEC_EDGAR_USER_AGENT", "Test test@example.com")
+    monkeypatch.setattr(config, "SEC_13F_CACHE_DIR", workspace_tmp_dir())
+
+    def fail_fetch(_manager, lookback_quarters=4):
+        raise sec_edgar_13f.SecEdgar13FFetchError("Malformed 13F information table XML")
+
+    monkeypatch.setattr(sec_edgar_13f, "fetch_13f_holdings_for_manager", fail_fetch)
+    payload = repository.get_sec_13f_holdings("0001067983")
+    result = evaluate_smart_money({"institutional_13f_snapshot": payload, "institutional_13f_source_status": payload["source_status"], "form4_transactions": [], "options_activity": {}})
+    assert payload["source_type"] == "fallback"
+    assert result.derived_metrics["components"]["institutional_support_13f"]["label"] in {"insufficient_data", "institutional_evidence_limited"}
+
+
+def test_cache_first_repository_returns_cached_live_when_valid(monkeypatch):
+    cache_dir = workspace_tmp_dir()
+    monkeypatch.setattr(config, "USE_LIVE_SEC_13F", True)
+    monkeypatch.setattr(config, "SEC_13F_CACHE_DIR", cache_dir)
+    repository.write_sec_13f_data("0001067983", live_13f_payload())
+    payload = repository.get_sec_13f_holdings("0001067983", allow_live_fetch=False)
+    assert payload["source_type"] == "cached_live"
+    assert payload["provider"] == "SEC EDGAR"
+
+
+def test_missing_sec_edgar_user_agent_returns_fallback(monkeypatch):
+    monkeypatch.setattr(config, "USE_LIVE_SEC_13F", True)
+    monkeypatch.setattr(config, "SEC_EDGAR_USER_AGENT", "")
+    monkeypatch.setattr(config, "SEC_13F_CACHE_DIR", workspace_tmp_dir())
+    payload = repository.get_sec_13f_holdings("0001067983")
+    assert payload["source_type"] == "fallback"
+    assert payload["source_status"]["fallback_reason"] == "SEC_EDGAR_USER_AGENT missing"
+
+
+def test_edgar_fetch_failure_uses_cached_live_if_available(monkeypatch):
+    cache_dir = workspace_tmp_dir()
+    monkeypatch.setattr(config, "USE_LIVE_SEC_13F", True)
+    monkeypatch.setattr(config, "SEC_EDGAR_USER_AGENT", "Test test@example.com")
+    monkeypatch.setattr(config, "SEC_13F_CACHE_DIR", cache_dir)
+    repository.write_sec_13f_data("0001067983", live_13f_payload())
+
+    def fail_fetch(_manager, lookback_quarters=4):
+        raise RuntimeError("sec unavailable")
+
+    monkeypatch.setattr(sec_edgar_13f, "fetch_13f_holdings_for_manager", fail_fetch)
+    payload = repository.get_sec_13f_holdings("0001067983")
+    assert payload["source_type"] == "cached_live"
+
+
+def test_edgar_fetch_failure_with_no_cache_returns_fallback_mock(monkeypatch):
+    monkeypatch.setattr(config, "USE_LIVE_SEC_13F", True)
+    monkeypatch.setattr(config, "SEC_EDGAR_USER_AGENT", "Test test@example.com")
+    monkeypatch.setattr(config, "SEC_13F_CACHE_DIR", workspace_tmp_dir())
+
+    def fail_fetch(_manager, lookback_quarters=4):
+        raise RuntimeError("sec unavailable")
+
+    monkeypatch.setattr(sec_edgar_13f, "fetch_13f_holdings_for_manager", fail_fetch)
+    payload = repository.get_sec_13f_holdings("0001067983")
+    assert payload["source_type"] == "fallback"
+    assert payload["provider"] == "mock"
+
+
+def test_fallback_mock_13f_does_not_boost_smart_money_score():
+    fallback = repository._mock_13f_snapshot("0001067983", "NVDA", "SEC unavailable")
+    result = evaluate_smart_money({"institutional_13f_snapshot": fallback, "institutional_13f_source_status": fallback["source_status"], "form4_transactions": [], "options_activity": {}})
+    institutional = result.derived_metrics["components"]["institutional_support_13f"]
+    assert institutional["score"] == 40
+    assert result.score < 50
+
+
+def test_13f_source_status_uses_quarterly_filing_delay():
+    payload = live_13f_payload()
+    payload["source_status"] = repository.build_source_status(payload, freshness_window="quarterly_filing_delay").model_dump(mode="json")
+    assert payload["source_status"]["freshness_window"] == "quarterly_filing_delay"
+    assert payload["source_status"]["freshness_window"] != "latest_expected_trading_day"
+
+
+def test_qoq_comparison_when_prior_quarter_same_cusip_exists():
+    latest = sec_edgar_13f.parse_13f_information_table_xml(INFO_XML, "0001067983", "new", "2026-05-20", "2026-03-31")
+    prior = sec_edgar_13f.parse_13f_information_table_xml(PRIOR_XML, "0001067983", "old", "2026-02-14", "2025-12-31")
+    snapshot = {**live_13f_payload(), "holdings": [*latest, *prior], "source_status": {"source_type": "live", "provider": "SEC EDGAR", "source_date": "2026-03-31"}}
+    result = evaluate_smart_money({"institutional_13f": {"cusip": "67066G104"}, "institutional_13f_snapshot": snapshot, "institutional_13f_source_status": snapshot["source_status"], "form4_transactions": [], "options_activity": {}})
+    institutional = result.derived_metrics["components"]["institutional_support_13f"]
+    assert institutional["derived_metrics"]["quarter_over_quarter_position_change"] == 25.0
+
+
+def test_mixed_smart_money_sources_with_13f_form4_options():
+    payload = live_13f_payload()
+    payload["source_status"] = {"source_type": "live", "provider": "SEC EDGAR", "source_date": "2026-03-31", "is_fresh": True}
+    result = evaluate_smart_money({"institutional_13f_snapshot": payload, "institutional_13f_source_status": payload["source_status"], "form4_transactions": [], "options_activity": {}})
+    assert result.source_status is not None
+    assert result.source_status.source_type == "derived"
+    assert result.source_status.provider == "mixed_smart_money_sources"
+
+
+def test_source_type_enum_rejects_unexpected_values():
+    with pytest.raises(Exception):
+        DataSourceStatus(source_type="mixed")
+
+
+def test_phase11_forbidden_language_guard_still_passes():
+    payload = live_13f_payload()
+    result = evaluate_smart_money({"institutional_13f_snapshot": payload, "institutional_13f_source_status": {"source_type": "live", "provider": "SEC EDGAR", "source_date": "2026-03-31"}, "form4_transactions": [], "options_activity": {}})
+    assert detect_forbidden_language(result.model_dump(mode="json")) == []

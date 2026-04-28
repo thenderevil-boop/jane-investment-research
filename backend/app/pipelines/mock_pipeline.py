@@ -96,41 +96,52 @@ def _candidate(ticker: str, theme: str, market_context: dict | None = None) -> S
                 *overheat.missing_data,
             }
             - (
-                {"live SEC Form 4 data", "live SEC filings"}
+                {"live SEC Form 4 data", "live SEC 13F data", "live SEC filings"}
                 if sec_filings.get("form4_source_status", {}).get("source_type") in {"live", "cached_live"}
+                and sec_filings.get("institutional_13f_source_status", {}).get("source_type") in {"live", "cached_live"}
                 else set()
             )
         ),
     )
     form4_status = sec_filings.get("form4_source_status", {})
+    thirteen_f_status = sec_filings.get("institutional_13f_source_status", {})
     form4_source_type = form4_status.get("source_type", "mock")
+    thirteen_f_source_type = thirteen_f_status.get("source_type", "mock")
     component_source_types = {
         item
         for item in [
             market_context.get("source_type") if market_context else None,
             form4_source_type,
+            thirteen_f_source_type,
             "mock",
         ]
         if item
     }
     has_mixed_sources = len(component_source_types) > 1
-    candidate_fallback_used = (market_context.get("fallback_used") if market_context else False) or form4_status.get("fallback_used", False) or form4_source_type == "fallback"
+    candidate_fallback_used = (
+        (market_context.get("fallback_used") if market_context else False)
+        or form4_status.get("fallback_used", False)
+        or thirteen_f_status.get("fallback_used", False)
+        or form4_source_type == "fallback"
+        or thirteen_f_source_type == "fallback"
+    )
     market_status = (market_context or {}).get("source_status") or {}
     candidate_is_fresh = (
         (form4_status.get("is_fresh", True) is not False)
+        and (thirteen_f_status.get("is_fresh", True) is not False)
         and (market_status.get("is_fresh", True) is not False)
     )
     candidate.source_status = build_source_status(
         {
             "source_type": "derived" if has_mixed_sources else form4_source_type,
             "provider": "mixed_sources" if has_mixed_sources else form4_status.get("provider"),
-            "source": sorted(set([*candidate.source, *(form4_status.get("source") or [])])),
-            "source_date": max([item for item in [candidate.source_date, form4_status.get("source_date", "")] if item], default=candidate.source_date),
+            "source": sorted(set([*candidate.source, *(form4_status.get("source") or []), *(thirteen_f_status.get("source") or [])])),
+            "source_date": max([item for item in [candidate.source_date, form4_status.get("source_date", ""), thirteen_f_status.get("source_date", "")] if item], default=candidate.source_date),
             "is_fresh": candidate_is_fresh,
             "limitations": candidate.limitations,
             "missing_data": candidate.missing_data,
             "fallback_used": candidate_fallback_used,
-            "fallback_reason": (market_context.get("fallback_reason") if market_context else None) or form4_status.get("fallback_reason"),
+            "fallback_reason": (market_context.get("fallback_reason") if market_context else None) or form4_status.get("fallback_reason") or thirteen_f_status.get("fallback_reason"),
         }
     )
     return candidate
@@ -227,6 +238,7 @@ def build_daily_report(
         set(
             [
                 *(["live SEC filings"] if sec_filings.get("form4_source_status", {}).get("source_type") not in {"live", "cached_live"} else []),
+                *(["live SEC 13F data"] if sec_filings.get("institutional_13f_source_status", {}).get("source_type") not in {"live", "cached_live"} else []),
                 "live options feed",
                 *(["live market prices"] if snapshot.get("source_type") != "live" else []),
                 *(

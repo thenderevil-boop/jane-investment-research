@@ -16,6 +16,7 @@ from backend.app.utils.freshness import (
     DERIVED_FRED_FRESHNESS_WINDOW,
     FORM4_FRESHNESS_WINDOW,
     MONTHLY_MACRO_FRESHNESS_WINDOW,
+    THIRTEEN_F_FRESHNESS_WINDOW,
     build_source_status,
 )
 
@@ -42,8 +43,18 @@ def _sec_cache_dir() -> Path:
     return path
 
 
+def _sec_13f_cache_dir() -> Path:
+    path = config.SEC_13F_CACHE_DIR
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def _cache_key(ticker: str) -> str:
     return ticker.replace("^", "index_").replace("/", "_").upper()
+
+
+def _manager_cache_key(manager_or_cik: str) -> str:
+    return "".join(ch if ch.isalnum() else "_" for ch in manager_or_cik.strip().lower()).strip("_") or "unknown_manager"
 
 
 def _mock_snapshot(scenario: str = "normal", reason: str | None = None) -> dict[str, Any]:
@@ -115,6 +126,68 @@ def _mock_form4_snapshot(ticker: str = "NVDA", reason: str | None = None) -> dic
     return payload
 
 
+def _mock_13f_snapshot(manager_or_cik: str = "mock_manager", ticker: str = "NVDA", reason: str | None = None) -> dict[str, Any]:
+    normalized_ticker = ticker.strip().upper()
+    fixture = read_company_fundamentals(normalized_ticker)
+    raw = deepcopy(fixture.get("smart_money", MOCK_SMART_MONEY_SUMMARY).get("institutional_13f", {}))
+    source_type = "fallback" if reason else "mock"
+    holding = {
+        "manager_cik": "",
+        "accession_number": "mock-13f",
+        "filing_date": raw.get("filing_date", "2026-05-15"),
+        "report_date": raw.get("quarter", "2026-Q1"),
+        "issuer_name": raw.get("issuer_name"),
+        "title_of_class": "COM",
+        "cusip": raw.get("cusip"),
+        "value_usd_thousands_raw": round((raw.get("market_value") or 0) / 1000, 2),
+        "value_usd": raw.get("market_value"),
+        "shares_or_principal_amount": raw.get("shares"),
+        "share_type": "SH",
+        "put_call": "",
+        "investment_discretion": "",
+        "other_manager": "",
+        "voting_authority_sole": None,
+        "voting_authority_shared": None,
+        "voting_authority_none": None,
+        "source": ["phase1_mock_dataset"],
+        "source_status": {},
+    }
+    payload: dict[str, Any] = {
+        "manager": manager_or_cik,
+        "manager_cik": "",
+        "lookback_quarters": config.SEC_13F_LOOKBACK_QUARTERS,
+        "filings": [
+            {
+                "accession_number": "mock-13f",
+                "filing_date": raw.get("filing_date", "2026-05-15"),
+                "report_date": raw.get("quarter", "2026-Q1"),
+                "form": "13F-HR",
+                "primary_document": "mock.xml",
+            }
+        ],
+        "holdings": [holding],
+        "fixture_summary": raw,
+        "source_type": source_type,
+        "provider": "mock",
+        "source": ["phase1_mock_dataset"],
+        "source_date": raw.get("filing_date", "2026-05-15"),
+        "limitations": [
+            "Mock 13F fixture is used when live SEC 13F is disabled or unavailable.",
+            "Fallback mock 13F does not boost smart-money score.",
+            "13F is delayed quarterly evidence and should not be interpreted as real-time institutional flow.",
+        ],
+        "missing_data": ["live SEC 13F data"],
+    }
+    if reason:
+        payload["fallback_used"] = True
+        payload["fallback_reason"] = reason
+        payload["limitations"].append("Live SEC 13F data unavailable; mock fallback used.")
+    payload["source_status"] = build_source_status(payload, freshness_window=THIRTEEN_F_FRESHNESS_WINDOW).model_dump(mode="json")
+    for row in payload["holdings"]:
+        row["source_status"] = payload["source_status"]
+    return payload
+
+
 def write_market_data(ticker: str, data: dict[str, Any]) -> dict[str, Any]:
     normalized_ticker = ticker.strip().upper()
     payload = deepcopy(data)
@@ -138,6 +211,86 @@ def read_sec_form4_data(ticker: str) -> dict[str, Any] | None:
     if not target.exists():
         return None
     return json.loads(target.read_text(encoding="utf-8"))
+
+
+def read_sec_13f_data(manager_or_cik: str) -> dict[str, Any] | None:
+    target = _sec_13f_cache_dir() / f"{_manager_cache_key(manager_or_cik)}_13f.json"
+    if not target.exists():
+        return None
+    return json.loads(target.read_text(encoding="utf-8"))
+
+
+def write_sec_13f_data(manager_or_cik: str, data: dict[str, Any]) -> dict[str, Any]:
+    payload = deepcopy(data)
+    payload["manager"] = manager_or_cik
+    payload["provider"] = "SEC EDGAR"
+    payload["source"] = ["SEC EDGAR"]
+    payload["cached_at"] = datetime.now(timezone.utc).isoformat()
+    target = _sec_13f_cache_dir() / f"{_manager_cache_key(manager_or_cik)}_13f.json"
+    target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    return payload
+
+
+def _sanitize_sec_13f_cached_payload(cached: dict[str, Any]) -> dict[str, Any]:
+    payload = deepcopy(cached)
+    payload["provider"] = "SEC EDGAR"
+    payload["source"] = ["SEC EDGAR"]
+    payload["limitations"] = [item for item in payload.get("limitations", []) if "sec-api" not in str(item).lower()]
+    payload["missing_data"] = [item for item in payload.get("missing_data", []) if "sec-api" not in str(item).lower()]
+    for holding in payload.get("holdings", []) or []:
+        holding["source"] = ["SEC EDGAR"]
+        if isinstance(holding.get("source_status"), dict):
+            holding["source_status"]["provider"] = "SEC EDGAR"
+    return payload
+
+
+def _cached_sec_13f_if_fresh(manager_or_cik: str) -> dict[str, Any] | None:
+    cached = read_sec_13f_data(manager_or_cik)
+    if not cached:
+        return None
+    cached_at = cached.get("cached_at") or cached.get("fetched_at")
+    try:
+        cached_dt = datetime.fromisoformat(str(cached_at).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if datetime.now(timezone.utc) - cached_dt.astimezone(timezone.utc) > timedelta(days=config.SEC_13F_CACHE_TTL_DAYS):
+        return None
+    payload = _sanitize_sec_13f_cached_payload(cached)
+    payload["source_type"] = "cached_live"
+    payload["provider"] = "SEC EDGAR"
+    payload["source"] = ["SEC EDGAR"]
+    payload["source_status"] = build_source_status(
+        {**payload, "source_type": "cached_live", "provider": "SEC EDGAR", "fallback_used": False},
+        freshness_window=THIRTEEN_F_FRESHNESS_WINDOW,
+    ).model_dump(mode="json")
+    for holding in payload.get("holdings", []) or []:
+        holding["source_status"] = payload["source_status"]
+    return payload
+
+
+def _cached_sec_13f_after_failure(manager_or_cik: str, reason: str) -> dict[str, Any] | None:
+    cached = read_sec_13f_data(manager_or_cik)
+    if not cached:
+        return None
+    payload = _sanitize_sec_13f_cached_payload(cached)
+    payload["source_type"] = "cached_live"
+    payload["provider"] = "SEC EDGAR"
+    payload["source"] = ["SEC EDGAR"]
+    payload.setdefault("limitations", []).append("Live SEC EDGAR fetch failed; cached 13F data used.")
+    payload["source_status"] = build_source_status(
+        {
+            **payload,
+            "source_type": "cached_live",
+            "provider": "SEC EDGAR",
+            "fallback_used": True,
+            "fallback_reason": reason,
+            "limitations": payload.get("limitations", []),
+        },
+        freshness_window=THIRTEEN_F_FRESHNESS_WINDOW,
+    ).model_dump(mode="json")
+    for holding in payload.get("holdings", []) or []:
+        holding["source_status"] = payload["source_status"]
+    return payload
 
 
 def _cached_sec_form4_if_fresh(ticker: str) -> dict[str, Any] | None:
@@ -638,16 +791,80 @@ def get_sec_form4_transactions(
         return payload
 
 
+def get_sec_13f_holdings(
+    manager_or_cik: str,
+    lookback_quarters: int | None = None,
+    *,
+    allow_live_fetch: bool = True,
+    ticker: str = "NVDA",
+) -> dict[str, Any]:
+    resolved_lookback_quarters = lookback_quarters or config.SEC_13F_LOOKBACK_QUARTERS
+    if not config.USE_LIVE_SEC_13F:
+        payload = _mock_13f_snapshot(manager_or_cik, ticker)
+        payload["lookback_quarters"] = resolved_lookback_quarters
+        return payload
+    cached = _cached_sec_13f_if_fresh(manager_or_cik)
+    if cached:
+        cached["lookback_quarters"] = resolved_lookback_quarters
+        return cached
+    if config.SEC_13F_PROVIDER != "sec_edgar":
+        payload = _mock_13f_snapshot(manager_or_cik, ticker, f"unsupported SEC 13F provider: {config.SEC_13F_PROVIDER}")
+        payload["lookback_quarters"] = resolved_lookback_quarters
+        return payload
+    if not config.SEC_EDGAR_USER_AGENT:
+        payload = _mock_13f_snapshot(manager_or_cik, ticker, "SEC_EDGAR_USER_AGENT missing")
+        payload["lookback_quarters"] = resolved_lookback_quarters
+        return payload
+    if not allow_live_fetch:
+        payload = _mock_13f_snapshot(manager_or_cik, ticker, "live SEC EDGAR 13F fetch disabled for report request")
+        payload["lookback_quarters"] = resolved_lookback_quarters
+        return payload
+    try:
+        from backend.app.data_sources.sec_edgar_13f import fetch_13f_holdings_for_manager
+
+        snapshot = fetch_13f_holdings_for_manager(manager_or_cik, lookback_quarters=resolved_lookback_quarters)
+        snapshot["source_status"] = build_source_status(snapshot, freshness_window=THIRTEEN_F_FRESHNESS_WINDOW).model_dump(mode="json")
+        return write_sec_13f_data(manager_or_cik, snapshot)
+    except Exception as exc:
+        safe_reason = str(exc).splitlines()[0][:180] or "live SEC 13F fetch failed"
+        cached_after_failure = _cached_sec_13f_after_failure(manager_or_cik, safe_reason)
+        if cached_after_failure:
+            cached_after_failure["lookback_quarters"] = resolved_lookback_quarters
+            return cached_after_failure
+        payload = _mock_13f_snapshot(manager_or_cik, ticker, safe_reason)
+        payload["lookback_quarters"] = resolved_lookback_quarters
+        return payload
+
+
+def _target_13f_managers(fixture_summary: dict[str, Any]) -> list[str]:
+    configured = [item.strip() for item in config.SEC_13F_TARGET_MANAGERS.split(",") if item.strip()]
+    if configured:
+        return configured
+    fixture_manager = str(fixture_summary.get("institution_name") or "").strip()
+    return [fixture_manager or "mock_manager"]
+
+
 def read_sec_filings(ticker: str = "NVDA", *, allow_live_fetch: bool | None = None) -> dict[str, Any]:
     fixture = read_company_fundamentals(ticker)
     smart_money = fixture.get("smart_money", MOCK_SMART_MONEY_SUMMARY)
+    institutional_fixture = smart_money.get("institutional_13f", {})
+    resolved_allow_live = config.ALLOW_LIVE_FETCH_ON_REPORT_REQUEST if allow_live_fetch is None else allow_live_fetch
     form4_snapshot = get_sec_form4_transactions(
         ticker,
-        allow_live_fetch=config.ALLOW_LIVE_FETCH_ON_REPORT_REQUEST if allow_live_fetch is None else allow_live_fetch,
+        allow_live_fetch=resolved_allow_live,
     )
+    managers = _target_13f_managers(institutional_fixture)
+    thirteen_f_snapshots = [
+        get_sec_13f_holdings(manager, allow_live_fetch=resolved_allow_live, ticker=ticker)
+        for manager in managers[:5]
+    ]
+    primary_13f_snapshot = thirteen_f_snapshots[0] if thirteen_f_snapshots else _mock_13f_snapshot("mock_manager", ticker)
     return deepcopy(
         {
             "institutional_13f": smart_money.get("institutional_13f", {}),
+            "institutional_13f_snapshot": primary_13f_snapshot,
+            "institutional_13f_snapshots": thirteen_f_snapshots,
+            "institutional_13f_source_status": primary_13f_snapshot.get("source_status"),
             "form4_transactions": form4_snapshot.get("transactions", []),
             "form4_source_status": form4_snapshot.get("source_status"),
             "form4_snapshot": form4_snapshot,

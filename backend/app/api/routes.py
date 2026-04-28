@@ -67,6 +67,16 @@ def data_health() -> DataHealthResponse:
                 "cache_ttl_hours": config.SEC_FORM4_CACHE_TTL_HOURS,
                 "lookback_days": config.SEC_FORM4_LOOKBACK_DAYS,
             },
+            "SEC EDGAR 13F": {
+                "enabled": config.USE_LIVE_SEC_13F,
+                "provider": config.SEC_13F_PROVIDER,
+                "source_type": "live" if config.USE_LIVE_SEC_13F and bool(config.SEC_EDGAR_USER_AGENT) else "mock",
+                "requires_secret": False,
+                "user_agent_configured": bool(config.SEC_EDGAR_USER_AGENT),
+                "cache_ttl_days": config.SEC_13F_CACHE_TTL_DAYS,
+                "lookback_quarters": config.SEC_13F_LOOKBACK_QUARTERS,
+                "freshness_window": "quarterly_filing_delay",
+            },
             "mock sources": {
                 "enabled": True,
                 "provider": "phase1_mock_dataset",
@@ -76,7 +86,7 @@ def data_health() -> DataHealthResponse:
         },
         limitations=[
             "Provider health is configuration-level and does not expose credentials or SEC EDGAR User-Agent values.",
-            "Daily reports are cache-first for SEC EDGAR Form 4 unless live fetch on report request is explicitly enabled.",
+            "Daily reports are cache-first for SEC EDGAR Form 4 and 13F unless live fetch on report request is explicitly enabled.",
         ],
         missing_data=[],
     )
@@ -125,18 +135,20 @@ def raw_data_by_ticker(ticker: str) -> RawDataResponse:
     sec_filings = read_sec_filings(normalized_ticker)
     source_status = build_source_status(market_snapshot)
     form4_live = sec_filings.get("form4_source_status", {}).get("source_type") in {"live", "cached_live"}
+    thirteen_f_live = sec_filings.get("institutional_13f_source_status", {}).get("source_type") in {"live", "cached_live"}
     return RawDataResponse(
         ticker=normalized_ticker,
         raw_data={
             "company_fixture": fixture,
             "market_price_snapshot": market_snapshot,
             "sec_form4_snapshot": sec_filings.get("form4_snapshot", {}),
-            "note": "Company fixture remains mock-only; market price and SEC Form 4 snapshots may be live when enabled.",
+            "sec_13f_snapshot": sec_filings.get("institutional_13f_snapshot", {}),
+            "note": "Company fixture remains mock-only; market price, SEC Form 4, and SEC 13F snapshots may be live when enabled.",
         },
         source=MOCK_SOURCE,
         source_date=MOCK_SOURCE_DATE,
-        limitations=["Company fundamentals remain mock fixtures; live integrations currently cover market prices, FRED macro data, and opt-in SEC Form 4 only."],
-        missing_data=[*([] if form4_live else ["live SEC filings"]), "live options feed"],
+        limitations=["Company fundamentals remain mock fixtures; live integrations currently cover market prices, FRED macro data, opt-in SEC Form 4, and opt-in SEC 13F."],
+        missing_data=[*([] if form4_live and thirteen_f_live else ["live SEC filings"]), "live options feed"],
         source_status=source_status,
     )
 

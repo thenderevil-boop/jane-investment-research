@@ -36,7 +36,7 @@ needs_human_verification
 
 ## Important 13F Rule
 
-13F is delayed institutional support data.
+13F is delayed institutional holdings evidence.
 
 It must not be treated as real-time trading data.
 
@@ -46,6 +46,7 @@ Required limitations for every 13F output:
 - 13F generally discloses long positions in covered securities.
 - 13F may not show shorts, derivatives, or current positions.
 - Do not use 13F alone as a trading signal.
+- Fallback mock 13F does not boost smart-money score.
 
 ## 13F Institutional Support
 
@@ -76,11 +77,34 @@ Benchmark:
 Score:
 
 ```text
-if position trend > peer benchmark and holder count increases: score = 100
-elif either trend or holder count is positive: score = 60
-elif major holders reduce materially: score = 20
-else: score = 40
+if live/cached SEC 13F holdings exist and target CUSIP is observed: score = 60
+elif live/cached SEC 13F holdings exist but target CUSIP is not mapped: score = 50
+elif fallback or mock 13F is used: score = 40
+elif insufficient data: score = 30
 ```
+
+Live SEC 13F derived metrics:
+
+```text
+latest_13f_report_date
+latest_13f_filing_date
+total_reported_value_usd
+holding_count
+target_ticker_holdings
+target_cusip_holdings
+top_holdings_by_value
+quarter_over_quarter_position_change
+manager_count_observed
+institutional_support_label
+```
+
+Source status:
+
+- provider: `SEC EDGAR`
+- freshness_window: `quarterly_filing_delay`
+- source_date: report date when available, otherwise filing date
+- fetched_at: cache/write or retrieval timestamp
+- source_type: `live`, `cached_live`, `mock`, `fallback`, `derived`, or `unknown`
 
 ## Form 4 Insider Signal
 
@@ -136,7 +160,7 @@ Parsing and output controls:
 - Daily report raw Form 4 rows are capped at 25. Derived metrics use all lookback-window rows.
 - Mock fallback Form 4 data is not used to boost the smart-money score.
 - If all live rows are missing transaction codes, label is neutral or insufficient, `transaction_code` is reported as missing data, and Form 4 does not increase the component score.
-- 13F remains mock/delayed evidence unless a future phase explicitly adds a live 13F integration.
+- 13F is official SEC EDGAR-backed when `USE_LIVE_SEC_13F=true`, `SEC_EDGAR_USER_AGENT` is configured, and manager CIKs or supported local manager names are configured.
 - Form 4, 13F, options, insider activity, and institutional activity are research evidence only and must not be expressed as user trading instructions.
 
 Score:

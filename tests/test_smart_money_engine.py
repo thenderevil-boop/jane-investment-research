@@ -68,11 +68,13 @@ def test_13f_delay_limitation_and_required_dates() -> None:
         }
     )
     payload = result.model_dump()
-    assert result.score == 100
+    assert result.score == 40
     assert payload["raw_data"]["quarter"] == "2026-Q1"
     assert payload["raw_data"]["filing_date"] == "2026-05-15"
     assert payload["derived_metrics"]["is_real_time_signal"] is False
+    assert payload["derived_metrics"]["institutional_support_label"] == "institutional_evidence_limited"
     assert any("45 days" in item for item in payload["limitations"])
+    assert any("not used to boost" in item for item in payload["limitations"])
     assert_score_contract(payload)
     assert_no_prohibited_language(payload)
 
@@ -203,8 +205,8 @@ def test_final_smart_money_score_weights_components() -> None:
         }
     )
     payload = result.model_dump()
-    assert result.score == 90.5
-    assert result.label == "smart_money_supportive"
+    assert result.score == 72.5
+    assert result.label == "smart_money_mixed"
     assert set(payload["derived_metrics"]["components"]) == {
         "institutional_support_13f",
         "insider_form4_signal",
