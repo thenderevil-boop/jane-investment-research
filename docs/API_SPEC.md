@@ -38,7 +38,10 @@ Environment-controlled live macro behavior:
 
 - `USE_LIVE_MACRO_DATA=false` by default keeps macro data on deterministic mock fixtures.
 - `USE_LIVE_MACRO_DATA=true` with `FRED_API_KEY` attempts repository-backed FRED fetches for selected macro fields.
-- Missing `FRED_API_KEY`, unsupported provider, or FRED fetch failure falls back to mock macro data with `source_type="fallback"`.
+- FRED transient 5xx/timeout failures are retried with a bounded adapter budget.
+- If a FRED live refresh fails and fresh cached-live FRED data exists, the macro report uses cached-live data before mock fallback.
+- Missing `FRED_API_KEY`, unsupported provider, or FRED fetch failure without usable cached-live data falls back to mock macro data with `source_type="fallback"`.
+- FRED fallback reasons are sanitized and must not expose `FRED_API_KEY` or tokenized FRED request URLs.
 
 Environment-controlled live SEC Form 4 behavior:
 

@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
+import httpx
 from fastapi.testclient import TestClient
 
 from backend.app import config
@@ -300,6 +301,7 @@ def test_data_quality_does_not_mark_valid_fred_macro_stale(monkeypatch):
 def test_missing_fred_api_key_falls_back_to_mock_macro(monkeypatch):
     monkeypatch.setattr(config, "USE_LIVE_MACRO_DATA", True)
     monkeypatch.setattr(config, "FRED_API_KEY", "")
+    monkeypatch.setattr(config, "MACRO_DATA_CACHE_DIR", workspace_tmp_dir())
 
     payload = repository.read_macro_data(use_live=True)
 
@@ -312,6 +314,7 @@ def test_missing_fred_api_key_falls_back_to_mock_macro(monkeypatch):
 def test_fred_fetch_failure_falls_back_to_mock_and_marks_fallback(monkeypatch):
     monkeypatch.setattr(config, "USE_LIVE_MACRO_DATA", True)
     monkeypatch.setattr(config, "FRED_API_KEY", "test-key")
+    monkeypatch.setattr(config, "MACRO_DATA_CACHE_DIR", workspace_tmp_dir())
 
     def fail_fetch():
         raise RuntimeError("fred unavailable")
@@ -322,6 +325,77 @@ def test_fred_fetch_failure_falls_back_to_mock_and_marks_fallback(monkeypatch):
     assert payload["source_type"] == "fallback"
     assert payload["source_status"]["source_type"] == "fallback"
     assert "fred unavailable" in payload["source_status"]["fallback_reason"]
+
+
+def test_fred_fallback_reason_redacts_api_key_and_url(monkeypatch):
+    fixture_key = "redaction-fixture-key-123"
+    monkeypatch.setattr(config, "USE_LIVE_MACRO_DATA", True)
+    monkeypatch.setattr(config, "MACRO_DATA_PROVIDER", "fred")
+    monkeypatch.setattr(config, "FRED_API_KEY", fixture_key)
+    monkeypatch.setattr(config, "MACRO_DATA_CACHE_DIR", workspace_tmp_dir())
+
+    def fail_fetch():
+        raise RuntimeError(
+            "Server error for url https://api.stlouisfed.org/fred/series/observations"
+            f"?series_id=DGS10&api_key={fixture_key}&file_type=json"
+        )
+
+    monkeypatch.setattr(live_macro_fred, "fetch_macro_snapshot", fail_fetch)
+    payload = repository.read_macro_data(use_live=True)
+    payload_text = str(payload)
+
+    assert payload["source_type"] == "fallback"
+    assert fixture_key not in payload_text
+    assert "api_key" not in payload["source_status"]["fallback_reason"].lower()
+    assert "stlouisfed.org" not in payload["source_status"]["fallback_reason"].lower()
+
+
+def test_fred_fetch_failure_prefers_fresh_cached_live_macro(monkeypatch):
+    install_fake_fred(monkeypatch)
+    monkeypatch.setattr(config, "USE_LIVE_MACRO_DATA", True)
+    monkeypatch.setattr(config, "MACRO_DATA_PROVIDER", "fred")
+    monkeypatch.setattr(config, "MACRO_DATA_CACHE_DIR", workspace_tmp_dir())
+    live_snapshot = live_macro_fred.fetch_macro_snapshot()
+    repository.write_macro_data(live_snapshot)
+
+    def fail_fetch():
+        raise RuntimeError("fred unavailable")
+
+    monkeypatch.setattr(live_macro_fred, "fetch_macro_snapshot", fail_fetch)
+    payload = repository.read_macro_data(use_live=True)
+
+    assert payload["source_type"] == "derived"
+    assert payload["provider"] == "mixed_FRED_and_mock_macro"
+    assert payload["raw_fred_snapshot"]["source_type"] == "cached_live"
+    assert payload["raw_fred_snapshot"]["source_status"]["fallback_used"] is True
+    assert payload["source_status"]["fallback_reason"] == "fred unavailable"
+    assert payload["component_source_status"]["fed_funds_rate"]["source_type"] == "cached_live"
+    assert payload["component_source_status"]["ten_year_yield"]["source_type"] == "cached_live"
+    assert "live FRED macro data" not in payload["missing_data"]
+
+
+def test_fred_adapter_retries_transient_500(monkeypatch):
+    rows = daily_rows([4.1, 4.2, 4.3])
+    request = httpx.Request("GET", live_macro_fred.FRED_BASE_URL)
+    calls = {"count": 0}
+
+    def fake_get(_url: str, params: dict, timeout: int):
+        assert timeout == 20
+        assert params["api_key"] == "test-key"
+        calls["count"] += 1
+        if calls["count"] == 1:
+            response = httpx.Response(500, request=request)
+            raise httpx.HTTPStatusError("Server error", request=request, response=response)
+        return FakeResponse(rows)
+
+    monkeypatch.setattr(config, "FRED_API_KEY", "test-key")
+    monkeypatch.setattr(live_macro_fred.httpx, "get", fake_get)
+
+    payload = live_macro_fred.fetch_fred_series("DGS10")
+
+    assert calls["count"] == 2
+    assert payload["source_type"] == "live"
+    assert payload["latest_value"] == 4.3
 
 
 def test_data_quality_counts_live_macro_components_when_enabled(monkeypatch):

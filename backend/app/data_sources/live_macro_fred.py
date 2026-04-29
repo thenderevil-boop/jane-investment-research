@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -14,6 +15,9 @@ from backend.app.utils.freshness import (
 
 FRED_BASE_URL = "https://api.stlouisfed.org/fred/series/observations"
 LIMITATION = "FRED macro series may be delayed depending on release schedule."
+FRED_REQUEST_TIMEOUT_SECONDS = 20
+FRED_MAX_ATTEMPTS = 2
+TRANSIENT_FRED_STATUS_CODES = {500, 502, 503, 504}
 
 FRED_SERIES = {
     "fed_funds_rate": "FEDFUNDS",
@@ -29,6 +33,37 @@ DAILY_RATE_SERIES = {"DGS10", "DGS2"}
 
 class FredFetchError(RuntimeError):
     """Raised when FRED cannot return normalized macro observations."""
+
+
+def redact_fred_error_text(value: Any) -> str:
+    text = str(value or "")
+    api_key = config.FRED_API_KEY
+    if api_key:
+        text = text.replace(api_key, "[REDACTED]")
+    text = re.sub(r"(?i)(api_key=)[^&\s'\")]+", r"\1[REDACTED]", text)
+    text = re.sub(r"(?i)(api_key%3D)[^&\s'\")]+", r"\1[REDACTED]", text)
+    return text
+
+
+def _safe_fred_error_message(exc: Exception, *, series_id: str, attempts: int) -> str:
+    status_code = getattr(getattr(exc, "response", None), "status_code", None)
+    if status_code:
+        return f"FRED request failed for {series_id} after {attempts} attempts: HTTP {status_code}."
+    if isinstance(exc, httpx.TimeoutException):
+        return f"FRED request timed out for {series_id} after {attempts} attempts."
+    if isinstance(exc, httpx.RequestError):
+        return f"FRED request failed for {series_id} after {attempts} attempts."
+    text = redact_fred_error_text(str(exc).splitlines()[0])[:180]
+    if "api_key" in text.lower() or "stlouisfed.org" in text.lower():
+        return f"FRED request failed for {series_id} after {attempts} attempts."
+    return text or f"FRED request failed for {series_id} after {attempts} attempts."
+
+
+def _is_retryable_fred_error(exc: Exception) -> bool:
+    if isinstance(exc, (httpx.TimeoutException, httpx.NetworkError)):
+        return True
+    status_code = getattr(getattr(exc, "response", None), "status_code", None)
+    return status_code in TRANSIENT_FRED_STATUS_CODES
 
 
 def _as_float(value: Any) -> float | None:
@@ -64,8 +99,18 @@ def fetch_fred_series(series_id: str, observation_start: str | None = None) -> d
     }
     if observation_start:
         params["observation_start"] = observation_start
-    response = httpx.get(FRED_BASE_URL, params=params, timeout=20)
-    response.raise_for_status()
+    last_error: Exception | None = None
+    for attempt in range(1, FRED_MAX_ATTEMPTS + 1):
+        try:
+            response = httpx.get(FRED_BASE_URL, params=params, timeout=FRED_REQUEST_TIMEOUT_SECONDS)
+            response.raise_for_status()
+            break
+        except Exception as exc:
+            last_error = exc
+            if attempt >= FRED_MAX_ATTEMPTS or not _is_retryable_fred_error(exc):
+                raise FredFetchError(_safe_fred_error_message(exc, series_id=series_id, attempts=attempt)) from None
+    else:
+        raise FredFetchError(_safe_fred_error_message(last_error or RuntimeError("unknown FRED error"), series_id=series_id, attempts=FRED_MAX_ATTEMPTS))
     rows = _valid_observations(response.json())
     if not rows:
         raise FredFetchError(f"No usable FRED observations returned for {series_id}.")

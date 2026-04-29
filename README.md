@@ -388,6 +388,13 @@ If `USE_LIVE_MACRO_DATA=true` but `FRED_API_KEY` is missing, FRED is unavailable
 
 Phase 9.1 keeps `/api/daily-report/latest` compact: FRED raw payloads include latest/previous values and bounded recent observations instead of full historical series. The report `date` is the current report date, `report_generated_at` is the actual generation timestamp, and each data source keeps its own `source_date`.
 
+Phase 11.7 hardens FRED failure handling:
+
+- transient FRED 5xx and timeout failures are retried within a bounded adapter budget
+- FRED fallback reasons are sanitized and never include `FRED_API_KEY` or tokenized request URLs
+- if a live refresh fails but fresh cached-live FRED data exists, the report uses that cached-live macro data before considering mock fallback
+- mock fallback is used only when live refresh and usable cached-live data are both unavailable, with `missing_data` disclosing `live FRED macro data`
+
 ## Phase 10 Live SEC Form 4 Insider Transactions
 
 SEC Form 4 insider transactions can now be enabled through the repository-backed SEC EDGAR adapter. Mock Form 4 remains the default.

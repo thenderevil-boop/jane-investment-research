@@ -229,7 +229,10 @@ Repository behavior:
 
 - live FRED fetches are made only through `backend.app.raw_store.repository`
 - successful live macro snapshots are cached under `backend/raw_store/cache/macro` unless `MACRO_DATA_CACHE_DIR` overrides it
-- missing API key, unsupported provider, or fetch failures return mock fallback macro data with `source_type: "fallback"`
+- transient FRED 5xx and timeout failures are retried inside the adapter before the raw store considers fallback
+- if a live FRED refresh fails and fresh cached-live FRED data exists, the raw store returns the cached-live snapshot before mock fallback
+- missing API key, unsupported provider, or fetch failures without usable cached-live data return mock fallback macro data with `source_type: "fallback"`
+- FRED fallback metadata is sanitized and must not expose `FRED_API_KEY` or tokenized FRED request URLs
 - engines consume normalized macro snapshots from the raw store and do not call FRED directly
 - FRED-backed components use `provider: "FRED"` and the yield spread uses `provider: "derived_from_FRED"`
 - Macro snapshots that combine FRED-backed fields with Phase 9 mock-only fields use `source_type: "derived"` and `provider: "mixed_FRED_and_mock_macro"`

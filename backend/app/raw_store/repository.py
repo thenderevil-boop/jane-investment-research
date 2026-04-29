@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
@@ -108,12 +109,25 @@ def _mock_macro_snapshot(scenario: str = "normal", reason: str | None = None) ->
     snapshot.setdefault("limitations", []).append("Mock macro snapshot is used when live macro data is disabled or unavailable.")
     snapshot.setdefault("missing_data", [])
     if reason:
+        reason = _safe_macro_fallback_reason(reason)
         snapshot["fallback_used"] = True
         snapshot["fallback_reason"] = reason
         snapshot["missing_data"].append("live FRED macro data")
         snapshot["limitations"].append("Live macro data unavailable; mock fallback used.")
     snapshot["source_status"] = build_source_status(snapshot, freshness_window="macro_release_schedule").model_dump(mode="json")
     return snapshot
+
+
+def _safe_macro_fallback_reason(reason: Any) -> str:
+    text = str(reason or "").splitlines()[0][:240] or "live FRED macro fetch failed"
+    api_key = config.FRED_API_KEY
+    if api_key:
+        text = text.replace(api_key, "[REDACTED]")
+    text = re.sub(r"(?i)(api_key=)[^&\s'\")]+", r"\1[REDACTED]", text)
+    text = re.sub(r"(?i)(api_key%3D)[^&\s'\")]+", r"\1[REDACTED]", text)
+    if "api_key" in text.lower() or "stlouisfed.org" in text.lower():
+        return "live FRED macro fetch failed"
+    return text[:180]
 
 
 def _mock_form4_snapshot(ticker: str = "NVDA", reason: str | None = None) -> dict[str, Any]:
@@ -232,6 +246,69 @@ def write_macro_data(data: dict[str, Any]) -> dict[str, Any]:
     payload["cached_at"] = datetime.now(timezone.utc).isoformat()
     target = _macro_cache_dir() / "latest.json"
     target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    return payload
+
+
+def read_macro_cache() -> dict[str, Any] | None:
+    target = _macro_cache_dir() / "latest.json"
+    if not target.exists():
+        return None
+    return json.loads(target.read_text(encoding="utf-8"))
+
+
+def _is_cached_macro_snapshot_fresh(cached: dict[str, Any]) -> bool:
+    raw_series = cached.get("raw_series", {}) if isinstance(cached.get("raw_series"), dict) else {}
+    if raw_series:
+        statuses = [
+            payload.get("source_status", {})
+            for payload in raw_series.values()
+            if isinstance(payload, dict)
+        ]
+        if statuses and all(status.get("is_fresh") is True for status in statuses):
+            return True
+    status = build_source_status(
+        {
+            **cached,
+            "source_type": "cached_live",
+            "provider": "FRED",
+            "fallback_used": False,
+            "limitations": cached.get("limitations", []),
+            "missing_data": cached.get("missing_data", []),
+        },
+        freshness_window="macro_release_schedule",
+    ).model_dump(mode="json")
+    return status.get("is_fresh") is not False
+
+
+def _cached_macro_after_failure(reason: str) -> dict[str, Any] | None:
+    cached = read_macro_cache()
+    if not cached:
+        increment_metric("cache_miss_count")
+        return None
+    if not _is_cached_macro_snapshot_fresh(cached):
+        increment_metric("cache_miss_count")
+        return None
+    increment_metric("cache_hit_count")
+    safe_reason = _safe_macro_fallback_reason(reason)
+    payload = deepcopy(cached)
+    payload["source_type"] = "cached_live"
+    payload["provider"] = "FRED"
+    payload["source"] = ["FRED"]
+    payload.setdefault("limitations", []).append("Live FRED macro refresh failed; fresh cached live macro data used.")
+    payload["fallback_used"] = True
+    payload["fallback_reason"] = safe_reason
+    payload["source_status"] = build_source_status(
+        {
+            **payload,
+            "source_type": "cached_live",
+            "provider": "FRED",
+            "fallback_used": True,
+            "fallback_reason": safe_reason,
+            "limitations": payload.get("limitations", []),
+            "missing_data": payload.get("missing_data", []),
+        },
+        freshness_window="macro_release_schedule",
+    ).model_dump(mode="json")
     return payload
 
 
@@ -571,6 +648,8 @@ def _compact_fred_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
             "source_date": snapshot.get("source_date", ""),
             "fetched_at": snapshot.get("fetched_at"),
             "is_fresh": is_fresh,
+            "fallback_used": bool(snapshot.get("fallback_used")),
+            "fallback_reason": snapshot.get("fallback_reason"),
             "limitations": snapshot.get("limitations", []),
             "missing_data": snapshot.get("missing_data", []),
         },
@@ -760,13 +839,16 @@ def get_macro_snapshot(use_live: bool | None = None, scenario: str = "normal") -
         snapshot["source_status"] = build_source_status(snapshot, freshness_window="macro_release_schedule").model_dump(mode="json")
         return write_macro_data(snapshot)
     except Exception as exc:
-        safe_reason = str(exc).splitlines()[0][:180] or "live FRED macro fetch failed"
+        safe_reason = _safe_macro_fallback_reason(exc)
+        cached_after_failure = _cached_macro_after_failure(safe_reason)
+        if cached_after_failure:
+            return cached_after_failure
         return _mock_macro_snapshot(scenario, safe_reason)
 
 
 def read_macro_data(scenario: str = "normal", use_live: bool | None = None) -> dict[str, Any]:
     snapshot = get_macro_snapshot(use_live=use_live, scenario=scenario)
-    if snapshot.get("source_type") != "live":
+    if snapshot.get("source_type") not in {"live", "cached_live"}:
         return snapshot
 
     mock_context = _mock_macro_snapshot(scenario)
@@ -792,14 +874,15 @@ def read_macro_data(scenario: str = "normal", use_live: bool | None = None) -> d
     merged["missing_data"] = sorted(set(snapshot.get("missing_data", [])))
     raw_series = snapshot.get("raw_series", {}) or {}
     fetched_at = snapshot.get("fetched_at")
+    fred_source_type = snapshot.get("source_type", "live")
     fred_limitations = snapshot.get("limitations", [])
     fred_missing = snapshot.get("missing_data", [])
-    fed_status = _fred_component_status(raw_series.get("fed_funds_rate", {}), fetched_at=fetched_at)
-    ten_year_status = _fred_component_status(raw_series.get("ten_year_yield", {}), fetched_at=fetched_at)
-    two_year_status = _fred_component_status(raw_series.get("two_year_yield", {}), fetched_at=fetched_at)
-    cpi_status = _fred_component_status(raw_series.get("cpi", {}), fetched_at=fetched_at)
-    ppi_status = _fred_component_status(raw_series.get("ppi", {}), fetched_at=fetched_at)
-    unemployment_status = _fred_component_status(raw_series.get("unemployment_rate", {}), fetched_at=fetched_at)
+    fed_status = _fred_component_status(raw_series.get("fed_funds_rate", {}), source_type=fred_source_type, fetched_at=fetched_at)
+    ten_year_status = _fred_component_status(raw_series.get("ten_year_yield", {}), source_type=fred_source_type, fetched_at=fetched_at)
+    two_year_status = _fred_component_status(raw_series.get("two_year_yield", {}), source_type=fred_source_type, fetched_at=fetched_at)
+    cpi_status = _fred_component_status(raw_series.get("cpi", {}), source_type=fred_source_type, fetched_at=fetched_at)
+    ppi_status = _fred_component_status(raw_series.get("ppi", {}), source_type=fred_source_type, fetched_at=fetched_at)
+    unemployment_status = _fred_component_status(raw_series.get("unemployment_rate", {}), source_type=fred_source_type, fetched_at=fetched_at)
     spread_status = _derived_fred_status(
         [("DGS10", ten_year_status), ("DGS2", two_year_status)],
         source=["DGS10", "DGS2"],
@@ -872,6 +955,8 @@ def read_macro_data(scenario: str = "normal", use_live: bool | None = None) -> d
                 status.get("is_fresh")
                 for status in [fed_status, ten_year_status, two_year_status, cpi_status, ppi_status, unemployment_status]
             ),
+            "fallback_used": bool(snapshot.get("fallback_used")),
+            "fallback_reason": snapshot.get("fallback_reason"),
             "limitations": merged["limitations"],
             "missing_data": merged["missing_data"],
         },
