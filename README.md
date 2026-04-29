@@ -121,6 +121,7 @@ Neither is a direct investment recommendation.
 | SEC_13F_TARGET_TICKERS | none | SEC EDGAR 13F | optional comma-separated tickers for future mapping support |
 | SEC_13F_TARGET_ISSUERS | none | SEC EDGAR 13F | optional comma-separated issuer-name fallback targets; low confidence |
 | SEC_13F_ASSUME_VALUE_THOUSANDS | false | SEC EDGAR 13F | legacy fallback only; modern XML values are preserved unless disambiguated |
+| INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT | false | daily report output | include full 13F row list only under `raw_data_full` when explicitly enabled |
 | ALLOW_LIVE_FETCH_ON_REPORT_REQUEST | false | quota guard | default should remain false |
 
 ## Windows VSCode Runbook
@@ -470,6 +471,8 @@ SEC 13F URL strategy:
 - Portfolio summaries use normalized `value_usd` for `total_reported_value_usd`, top holdings, and portfolio weights.
 - Target matching is highest confidence by exact CUSIP. Ticker matching uses only a small local ticker-to-CUSIP fixture and does not call external CUSIP APIs. Issuer-name matching is low confidence and disclosed as a limitation.
 - QoQ comparison reflects reported quarterly 13F changes only. It is not real-time institutional flow.
+- Daily report smart-money output is compact by default: it includes portfolio summary, top holdings, target matches, capped QoQ changes, source status, limitations, and missing data. Full 13F rows are omitted unless `INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT=true`, in which case they appear under `raw_data_full`.
+- `qoq_changes` is capped in the daily report and includes `qoq_changes_count_total` plus `qoq_changes_limit`.
 
 Repository behavior:
 

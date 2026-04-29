@@ -58,6 +58,9 @@ Aggregation and target matching:
 - `SEC_13F_TARGET_TICKERS` can match only through a local ticker-to-CUSIP fixture. The system must not call external CUSIP APIs or scrape mappings.
 - `SEC_13F_TARGET_ISSUERS` is a low-confidence issuer-name fallback and must carry a limitation.
 - QoQ comparison is by CUSIP and reflects reported quarterly 13F changes only. It does not imply real-time activity.
+- Daily report output omits full row-level 13F data by default and keeps only portfolio summary, top holdings, target matches, capped QoQ changes, source status, limitations, and missing data.
+- Full 13F rows appear only under `raw_data_full.holdings` when `INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT=true`.
+- Capped QoQ output reports both `qoq_changes_count_total` and `qoq_changes_limit`.
 
 Repository behavior:
 

@@ -129,6 +129,9 @@ Aggregation and target matching:
 - Issuer-name matching is low confidence and must disclose that limitation.
 - QoQ comparison is by CUSIP and reflects reported quarterly 13F changes only.
 - Fallback or mock 13F does not boost the smart-money score.
+- Daily report raw data is compact by default and excludes the full 13F row list.
+- Full 13F rows are included only when `INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT=true`, under `raw_data_full.holdings`.
+- `qoq_changes` is capped and accompanied by `qoq_changes_count_total` and `qoq_changes_limit`.
 
 SEC EDGAR discovery:
 

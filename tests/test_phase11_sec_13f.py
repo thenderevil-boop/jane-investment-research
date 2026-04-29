@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 from uuid import uuid4
 
@@ -10,6 +11,7 @@ from backend.app.data_sources import sec_edgar_13f
 from backend.app.engines.sec_13f_aggregation import aggregate_13f_holdings, compare_13f_quarter_over_quarter, summarize_13f_portfolio
 from backend.app.engines.sec_13f_target_matching import match_13f_targets, normalize_target_security_map
 from backend.app.engines.smart_money_engine import evaluate_smart_money
+from backend.app.pipelines import mock_pipeline
 from backend.app.raw_store import repository
 from backend.app.schemas.common import DataSourceStatus
 from backend.app.utils.forbidden_language import detect_forbidden_language
@@ -499,6 +501,131 @@ def test_smart_money_uses_aggregated_13f_summary_and_target_match():
     assert result.raw_data["institutional_13f"]["target_matches"]
 
 
+def test_daily_report_13f_raw_data_excludes_full_holdings_by_default(monkeypatch):
+    monkeypatch.setattr(config, "INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT", False)
+    snapshot = {**live_13f_payload(), "holdings": [holding_row("NVIDIA CORP", "67066G104", 300, 30)]}
+    snapshot["source_status"] = repository.build_source_status(snapshot, freshness_window="quarterly_filing_delay").model_dump(mode="json")
+    summary = summarize_13f_portfolio(snapshot["holdings"])
+    target_matches = match_13f_targets(summary["grouped_holdings"], normalize_target_security_map({"cusips": "67066G104"}))
+    result = evaluate_smart_money(
+        {
+            "institutional_13f": {"cusip": "67066G104"},
+            "institutional_13f_snapshot": snapshot,
+            "institutional_13f_source_status": snapshot["source_status"],
+            "institutional_13f_summary": summary,
+            "institutional_13f_target_matches": target_matches,
+            "form4_transactions": [],
+            "options_activity": {},
+        }
+    )
+    institutional = result.raw_data["institutional_13f"]
+    assert "holdings" not in institutional
+    assert "raw_data_full" not in institutional
+    assert institutional["portfolio_summary"]
+    assert institutional["top_holdings_by_value"]
+    assert "target_matches" in institutional
+    assert "qoq_changes" in institutional
+
+
+def test_full_13f_holdings_are_included_only_when_config_enabled(monkeypatch):
+    monkeypatch.setattr(config, "INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT", True)
+    snapshot = {**live_13f_payload(), "holdings": [holding_row("NVIDIA CORP", "67066G104", 300, 30)]}
+    snapshot["source_status"] = repository.build_source_status(snapshot, freshness_window="quarterly_filing_delay").model_dump(mode="json")
+    result = evaluate_smart_money(
+        {
+            "institutional_13f": {"cusip": "67066G104"},
+            "institutional_13f_snapshot": snapshot,
+            "institutional_13f_source_status": snapshot["source_status"],
+            "form4_transactions": [],
+            "options_activity": {},
+        }
+    )
+    institutional = result.raw_data["institutional_13f"]
+    assert "holdings" not in institutional
+    assert institutional["raw_data_full"]["holdings"]
+
+
+def test_qoq_changes_are_capped_and_report_total_count(monkeypatch):
+    monkeypatch.setattr(config, "INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT", False)
+    snapshot = {**live_13f_payload(), "holdings": [holding_row("NVIDIA CORP", "67066G104", 300, 30)]}
+    snapshot["source_status"] = repository.build_source_status(snapshot, freshness_window="quarterly_filing_delay").model_dump(mode="json")
+    qoq_changes = [
+        {
+            "cusip": f"000000{i:03d}",
+            "issuer_name": f"Fixture {i}",
+            "current_report_date": "2026-03-31",
+            "prior_report_date": "2025-12-31",
+            "value_change_usd": i,
+            "change_label": "institutional_position_increased",
+        }
+        for i in range(25)
+    ]
+    result = evaluate_smart_money(
+        {
+            "institutional_13f_snapshot": snapshot,
+            "institutional_13f_source_status": snapshot["source_status"],
+            "institutional_13f_qoq_comparison": {"qoq_changes": qoq_changes},
+            "form4_transactions": [],
+            "options_activity": {},
+        }
+    )
+    institutional = result.raw_data["institutional_13f"]
+    assert len(institutional["qoq_changes"]) == 20
+    assert institutional["qoq_changes_count_total"] == 25
+    assert institutional["qoq_changes_limit"] == 20
+    assert institutional["qoq_changes"][0]["value_change_usd"] == 24
+
+
+def test_stale_phase4_smart_money_limitation_text_is_not_present_with_sec_sources():
+    snapshot = {**live_13f_payload(), "holdings": [holding_row("NVIDIA CORP", "67066G104", 300, 30)]}
+    snapshot["source_status"] = repository.build_source_status(snapshot, freshness_window="quarterly_filing_delay").model_dump(mode="json")
+    result = evaluate_smart_money(
+        {
+            "institutional_13f_snapshot": snapshot,
+            "institutional_13f_source_status": snapshot["source_status"],
+            "form4_transactions": [],
+            "form4_source_status": {"source_type": "cached_live", "provider": "SEC EDGAR", "source_date": "2026-04-10", "is_fresh": True, "fallback_used": False},
+            "options_activity": {},
+        }
+    )
+    text = str(result.model_dump(mode="json"))
+    assert "Phase 4 deterministic mock smart money engine; no live source connection." not in text
+    assert result.source_status is not None
+    assert result.source_status.fallback_used is False
+    assert result.source_status.source_type == "derived"
+    assert result.source_status.provider == "mixed_smart_money_sources"
+
+
+def test_daily_report_keeps_compact_13f_summary_fields(monkeypatch):
+    monkeypatch.setattr(config, "INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT", False)
+    snapshot = {**live_13f_payload(), "holdings": [holding_row("NVIDIA CORP", "67066G104", 300, 30)]}
+    snapshot["source_status"] = repository.build_source_status(snapshot, freshness_window="quarterly_filing_delay").model_dump(mode="json")
+    summary = summarize_13f_portfolio(snapshot["holdings"])
+    target_matches = match_13f_targets(summary["grouped_holdings"], normalize_target_security_map({"cusips": "67066G104"}))
+    sec_filings = {
+        "institutional_13f": {"cusip": "67066G104"},
+        "institutional_13f_snapshot": snapshot,
+        "institutional_13f_snapshots": [snapshot],
+        "institutional_13f_source_status": snapshot["source_status"],
+        "institutional_13f_summary": summary,
+        "institutional_13f_target_matches": target_matches,
+        "institutional_13f_qoq_comparison": {"qoq_changes": []},
+        "form4_transactions": [],
+        "form4_source_status": {"source_type": "cached_live", "provider": "SEC EDGAR", "source_date": "2026-04-10", "is_fresh": True, "fallback_used": False},
+        "form4_snapshot": {"limitations": []},
+        "crisis_scenarios": {},
+    }
+    monkeypatch.setattr(mock_pipeline, "read_sec_filings", lambda ticker="NVDA": sec_filings)
+    report = mock_pipeline.build_daily_report()
+    institutional = report.smart_money.raw_data["institutional_13f"]
+    assert "holdings" not in institutional
+    assert "raw_data_full" not in institutional
+    assert institutional["portfolio_summary"]
+    assert institutional["top_holdings_by_value"]
+    assert "target_matches" in institutional
+    assert "qoq_changes" in institutional
+
+
 def test_xml_parser_handles_namespaces():
     rows = sec_edgar_13f.parse_13f_information_table_xml(INFO_XML, "1067983", "a", "2026-05-20", "2026-03-31")
     assert len(rows) == 2
@@ -579,9 +706,10 @@ def test_fallback_mock_13f_does_not_boost_smart_money_score():
 
 def test_mock_13f_filing_date_is_not_future_relative_to_report_date():
     fallback = repository._mock_13f_snapshot("0001067983", "NVDA", "SEC unavailable")
-    assert fallback["source_date"] <= "2026-04-28"
-    assert fallback["filings"][0]["filing_date"] <= "2026-04-28"
-    assert fallback["holdings"][0]["filing_date"] <= "2026-04-28"
+    today = date.today().isoformat()
+    assert fallback["source_date"] <= today
+    assert fallback["filings"][0]["filing_date"] <= today
+    assert fallback["holdings"][0]["filing_date"] <= today
 
 
 def test_smart_money_source_date_not_pulled_forward_by_fallback_mock_13f():

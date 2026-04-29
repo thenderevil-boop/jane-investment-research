@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.app import config
 from backend.app.data_sources.mock_data import MOCK_SOURCE, MOCK_SOURCE_DATE
 from backend.app.engines.sec_13f_aggregation import aggregate_13f_holdings, compare_13f_quarter_over_quarter, summarize_13f_portfolio
 from backend.app.engines.sec_13f_target_matching import match_13f_targets, normalize_target_security_map
 from backend.app.schemas.common import ScoreObject
 from backend.app.utils.freshness import build_source_status
 
-BASE_LIMITATION = "Phase 4 deterministic mock smart money engine; no live source connection."
+BASE_LIMITATION = "Some smart-money subcomponents remain mock; SEC Form 4 and SEC 13F components may use live/cached SEC EDGAR when enabled."
 THIRTEEN_F_LIMITATIONS = [
     "13F may lag up to 45 days after quarter end.",
     "13F generally discloses long positions in covered securities.",
@@ -17,6 +18,15 @@ THIRTEEN_F_LIMITATIONS = [
 ]
 OPTIONS_LIMITATION = "Options activity is ambiguous and may reflect hedging, speculation, or spread trades."
 FORM4_TRANSACTION_ROW_CAP = 25
+THIRTEEN_F_QOQ_CHANGE_CAP = 20
+
+
+def _capped_qoq_changes(qoq_changes: list[dict[str, Any]], limit: int = THIRTEEN_F_QOQ_CHANGE_CAP) -> list[dict[str, Any]]:
+    return sorted(
+        list(qoq_changes or []),
+        key=lambda item: abs(item.get("value_change_usd") or 0),
+        reverse=True,
+    )[:limit]
 
 
 def _confidence(missing_data: list[str]) -> float:
@@ -170,6 +180,8 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
             current_grouped = aggregate_13f_holdings([row for row in holdings_for_metrics if row.get("report_date") == periods[0]]).get("grouped_holdings", [])
             prior_grouped = aggregate_13f_holdings([row for row in holdings_for_metrics if row.get("report_date") == periods[1]]).get("grouped_holdings", [])
             qoq_changes = compare_13f_quarter_over_quarter(current_grouped, prior_grouped)
+    qoq_changes_count_total = len(qoq_changes)
+    qoq_changes_capped = _capped_qoq_changes(qoq_changes)
     if live_holdings:
         score = 60 if high_or_medium_matches or target_cusip_holdings else 50
         if quarter_change is not None and quarter_change < -10:
@@ -191,25 +203,27 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
     if fallback_mock_13f:
         missing.append("live SEC 13F data")
     if live_holdings or deduped_snapshots:
+        institutional_raw_data = {
+            "portfolio_summary": {key: value for key, value in portfolio_summary.items() if key != "grouped_holdings"},
+            "top_holdings_by_value": sorted_holdings[:10],
+            "target_matches": target_matches,
+            "qoq_changes": qoq_changes_capped,
+            "qoq_changes_count_total": qoq_changes_count_total,
+            "qoq_changes_limit": THIRTEEN_F_QOQ_CHANGE_CAP,
+            "value_confidence_breakdown": portfolio_summary.get("value_confidence_breakdown", {}),
+            "source_status": component_source_status,
+            "delayed_institutional_support": True,
+            "is_real_time_signal": False,
+            "limitations": [*THIRTEEN_F_LIMITATIONS, *source_snapshot.get("limitations", [])],
+            "missing_data": sorted(set([*missing, *source_snapshot.get("missing_data", []), *portfolio_summary.get("missing_data", []), *target_payload.get("missing_data", []), *qoq_payload.get("missing_data", [])])),
+        }
+        if config.INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT:
+            institutional_raw_data["raw_data_full"] = {"holdings": holdings_for_metrics}
         return _score_object(
             "institutional_support_13f_score",
             score,
             institutional_support_label,
-            {
-                "holdings": holdings_for_metrics,
-                "portfolio_summary": {key: value for key, value in portfolio_summary.items() if key != "grouped_holdings"},
-                "top_holdings_by_value": sorted_holdings[:10],
-                "target_matches": target_matches,
-                "qoq_changes": qoq_changes,
-                "value_confidence_breakdown": portfolio_summary.get("value_confidence_breakdown", {}),
-                "target_cusip_holdings": target_cusip_holdings,
-                "target_ticker_holdings": [],
-                "source_status": component_source_status,
-                "delayed_institutional_support": True,
-                "is_real_time_signal": False,
-                "limitations": [*THIRTEEN_F_LIMITATIONS, *source_snapshot.get("limitations", [])],
-                "missing_data": sorted(set([*missing, *source_snapshot.get("missing_data", []), *portfolio_summary.get("missing_data", []), *target_payload.get("missing_data", []), *qoq_payload.get("missing_data", [])])),
-            },
+            institutional_raw_data,
             {
                 "latest_13f_report_date": latest_report_date,
                 "latest_13f_filing_date": latest_filing_date,
@@ -219,7 +233,7 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
                 "top_holding_names": [item.get("issuer_name") for item in sorted_holdings[:10] if item.get("issuer_name")],
                 "target_match_count": len(matched_targets),
                 "high_confidence_target_match_count": len([item for item in matched_targets if item.get("match_confidence") == "high"]),
-                "qoq_change_count": len(qoq_changes),
+                "qoq_change_count": qoq_changes_count_total,
                 "target_ticker_holdings": [],
                 "target_cusip_holdings": target_cusip_holdings,
                 "top_holdings_by_value": sorted_holdings[:10],

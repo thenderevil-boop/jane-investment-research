@@ -744,6 +744,13 @@ Smart-money derived metrics include `latest_13f_report_date`, `latest_13f_filing
 - `qoq_changes`
 - `value_confidence_breakdown`
 
+Daily report 13F output is compact by default. Full row-level 13F data is not included under `smart_money_summary.raw_data.institutional_13f` unless `INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT=true`; when enabled, full rows appear under `raw_data_full.holdings`.
+
+`qoq_changes` is capped for daily report readability and includes:
+
+- `qoq_changes_count_total`
+- `qoq_changes_limit`
+
 `portfolio_summary` groups holdings by CUSIP when available. If CUSIP is missing, issuer name plus title of class is used as a fallback grouping key. Different CUSIPs are not merged solely because issuer names are similar.
 
 Target matching:
