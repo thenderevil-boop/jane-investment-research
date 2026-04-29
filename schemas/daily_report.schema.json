@@ -983,6 +983,13 @@
           "title": "Derived From Fred Fields",
           "type": "array"
         },
+        "derived_from_yfinance_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Derived From Yfinance Fields",
+          "type": "array"
+        },
         "derived_macro_fields_count": {
           "title": "Derived Macro Fields Count",
           "type": "integer"
@@ -1013,6 +1020,11 @@
           "title": "Live Macro Fields Count",
           "type": "integer"
         },
+        "live_or_cached_context_score_weight_pct": {
+          "default": 0,
+          "title": "Live Or Cached Context Score Weight Pct",
+          "type": "number"
+        },
         "mock_context_fields": {
           "items": {
             "type": "string"
@@ -1026,6 +1038,18 @@
         },
         "mock_macro_fields_count": {
           "title": "Mock Macro Fields Count",
+          "type": "integer"
+        },
+        "yfinance_backed_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Yfinance Backed Fields",
+          "type": "array"
+        },
+        "yfinance_macro_fields_count": {
+          "default": 0,
+          "title": "Yfinance Macro Fields Count",
           "type": "integer"
         }
       },

@@ -26,12 +26,16 @@ class MacroDataQuality(BaseModel):
     fred_backed_fields: list[str]
     mock_context_fields: list[str]
     derived_from_fred_fields: list[str]
+    yfinance_backed_fields: list[str] = Field(default_factory=list)
+    derived_from_yfinance_fields: list[str] = Field(default_factory=list)
     live_macro_fields_count: int
     mock_macro_fields_count: int
     derived_macro_fields_count: int
+    yfinance_macro_fields_count: int = 0
     has_mock_macro_context: bool
     mock_context_score_weight_pct: float
     fred_backed_score_weight_pct: float
+    live_or_cached_context_score_weight_pct: float = 0
     confidence_adjustment_applied: bool
     limitations: list[str]
 

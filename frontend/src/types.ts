@@ -30,6 +30,10 @@ export type DataQualitySummary = {
     mock_context_fields?: string[];
     fred_backed_fields?: string[];
     derived_from_fred_fields?: string[];
+    yfinance_backed_fields?: string[];
+    derived_from_yfinance_fields?: string[];
+    yfinance_macro_fields_count?: number;
+    market_context_reused_from_daily_market_data?: boolean;
     confidence_adjustment_applied?: boolean;
   } | null;
 };

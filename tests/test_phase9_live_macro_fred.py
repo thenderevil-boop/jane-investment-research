@@ -72,6 +72,8 @@ def install_fake_fred(monkeypatch):
         return FakeResponse(payloads[params["series_id"]])
 
     monkeypatch.setattr(config, "FRED_API_KEY", "test-key")
+    monkeypatch.setattr(config, "USE_LIVE_MARKET_DATA", False)
+    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", workspace_tmp_dir())
     monkeypatch.setattr(live_macro_fred.httpx, "get", fake_get)
 
 
@@ -158,7 +160,7 @@ def test_macro_data_quality_separates_fred_and_mock_context(monkeypatch):
     assert report.macro_regime.source_status.provider == "mixed_FRED_and_mock_macro"
     assert report.macro_regime.source_status.fallback_used is False
     assert "live FRED macro data" not in report.macro_regime.source_status.missing_data
-    assert "ISM, DXY, gold, oil, Fear & Greed, and equity context remain Phase 9 mock context until live providers are added." in report.macro_regime.limitations
+    assert "Fear & Greed and ISM Manufacturing PMI remain mock context until live providers are added." in report.macro_regime.limitations
     assert components["fear_greed"].source_status.source_type == "mock"
     assert components["fear_greed"].source_status.fallback_used is False
 

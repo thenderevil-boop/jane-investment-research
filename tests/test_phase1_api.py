@@ -5,6 +5,7 @@ import re
 
 from fastapi.testclient import TestClient
 
+from backend.app import config
 from backend.app.main import app
 from backend.app.pipelines.mock_pipeline import build_daily_report
 
@@ -113,7 +114,9 @@ def test_us_market_only_validation() -> None:
     assert response.status_code == 422
 
 
-def test_daily_pipeline_scenarios() -> None:
+def test_daily_pipeline_scenarios(monkeypatch) -> None:
+    monkeypatch.setattr(config, "USE_LIVE_MARKET_DATA", False)
+    monkeypatch.setattr(config, "USE_LIVE_MACRO_DATA", False)
     normal = build_daily_report("normal")
     fearful = build_daily_report("fearful")
     overheated = build_daily_report("overheated")

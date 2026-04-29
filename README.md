@@ -403,6 +403,13 @@ Phase 11.8 clarifies mixed macro evidence without adding providers:
 - intentional mock context is not labeled fallback, but it is disclosed and reduces macro confidence when it contributes
 - mixed macro output keeps `source_type="derived"` with `provider="mixed_FRED_and_mock_macro"`; `source_type="mixed"` is not used
 
+Phase 12.1 live-enables low-risk market context through the existing yfinance integration:
+
+- VIX, SPY/QQQ drawdown, SPY/QQQ gain from trough, DXY trend, gold trend, and oil trend can now be live, cached-live, or derived from yfinance-backed market snapshots.
+- Fear & Greed and ISM Manufacturing PMI remain mock context until dedicated providers are added.
+- The macro provider becomes `mixed_FRED_yfinance_and_mock_macro` when FRED, yfinance, and remaining mock context coexist.
+- Yfinance data is suitable for MVP research reference only, and remaining mock context continues to reduce confidence when it contributes materially.
+
 ## Phase 10 Live SEC Form 4 Insider Transactions
 
 SEC Form 4 insider transactions can now be enabled through the repository-backed SEC EDGAR adapter. Mock Form 4 remains the default.

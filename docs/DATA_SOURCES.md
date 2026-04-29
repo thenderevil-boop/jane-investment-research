@@ -236,6 +236,20 @@ Phase 11.8 source clarity:
 - Mixed FRED/mock macro output uses `source_type: "derived"` and `provider: "mixed_FRED_and_mock_macro"`; `source_type: "mixed"` is not valid.
 - FRED API keys and tokenized provider URLs must not appear in logs, snapshots, API responses, exceptions, or fallback reasons.
 
+Phase 12.1 live market context:
+
+- The existing yfinance market-price integration is reused for low-risk macro context.
+- VIX uses `^VIX`.
+- Equity drawdown and gain from trough use `SPY` and `QQQ`.
+- DXY uses `DX-Y.NYB`.
+- Gold uses `GC=F`, with `GLD` as a documented yfinance fallback if the primary symbol is unavailable.
+- Oil uses `CL=F`, with `USO` as a documented yfinance fallback if the primary symbol is unavailable.
+- Fear & Greed and ISM Manufacturing PMI remain mock context until dedicated providers are added.
+- Daily reports reuse already fetched SPY, QQQ, and VIX market data for macro context when available, then use cache/live retrieval for the extra yfinance symbols.
+- Yfinance-derived macro context uses `provider: "derived_from_yfinance"` and `freshness_window: "latest_expected_trading_day"`.
+- If a market-context symbol is unavailable and no fresh cache exists, that field remains mock context with a clear limitation; it must not pretend to be live.
+- When FRED, yfinance, and remaining mock context coexist, the macro provider is `mixed_FRED_yfinance_and_mock_macro` with `source_type: "derived"`.
+
 Repository behavior:
 
 - live FRED fetches are made only through `backend.app.raw_store.repository`

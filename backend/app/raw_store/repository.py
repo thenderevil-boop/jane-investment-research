@@ -12,6 +12,7 @@ from backend.app import config
 from backend.app.data.manager_map import MANAGER_MAP_LIMITATION, get_manager_metadata_by_cik, normalize_cik
 from backend.app.data.price_reference import warm_price_reference_cache as _warm_price_reference_cache
 from backend.app.data.security_map import resolve_security_identifier
+from backend.app.data_sources import market_context
 from backend.app.data_sources.mock_crisis import MOCK_CRISIS_SCENARIOS
 from backend.app.data_sources.mock_data import MARKET_SNAPSHOTS, MOCK_SMART_MONEY_SUMMARY, STOCK_FIXTURES, THEMES
 from backend.app.data_sources.mock_macro import MOCK_MACRO_SCENARIOS
@@ -31,6 +32,8 @@ from backend.app.utils.performance import add_timing, increment_metric
 
 INDEX_SYMBOLS = ["SPY", "QQQ"]
 VIX_SYMBOL = "^VIX"
+MARKET_CONTEXT_PRIMARY_SYMBOLS = {"dxy": "DX-Y.NYB", "gold": "GC=F", "oil": "CL=F"}
+MARKET_CONTEXT_FALLBACK_SYMBOLS = {"gold": "GLD", "oil": "USO"}
 
 
 def _cache_dir() -> Path:
@@ -238,6 +241,37 @@ def write_market_data(ticker: str, data: dict[str, Any]) -> dict[str, Any]:
     payload["cached_at"] = datetime.now(timezone.utc).isoformat()
     target = _cache_dir() / f"{_cache_key(normalized_ticker)}.json"
     target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    return payload
+
+
+def read_market_data_cache(ticker: str) -> dict[str, Any] | None:
+    target = _cache_dir() / f"{_cache_key(ticker)}.json"
+    if not target.exists():
+        return None
+    return json.loads(target.read_text(encoding="utf-8"))
+
+
+def _cached_market_data_if_fresh(ticker: str) -> dict[str, Any] | None:
+    cached = read_market_data_cache(ticker)
+    if not cached:
+        return None
+    status = build_source_status(
+        {
+            **cached,
+            "source_type": "cached_live",
+            "provider": "yfinance",
+            "fallback_used": False,
+            "limitations": cached.get("limitations", []),
+            "missing_data": cached.get("missing_data", []),
+        }
+    ).model_dump(mode="json")
+    if status.get("is_fresh") is False:
+        return None
+    payload = deepcopy(cached)
+    payload["source_type"] = "cached_live"
+    payload["provider"] = "yfinance"
+    payload["source"] = "yfinance"
+    payload["source_status"] = status
     return payload
 
 
@@ -824,6 +858,148 @@ def read_market_data(scenario: str = "normal", use_live: bool | None = None) -> 
     return merged
 
 
+def _market_context_snapshot_for_symbol(
+    symbol: str,
+    *,
+    allow_live_fetch: bool,
+    diagnostics: dict[str, Any],
+) -> dict[str, Any] | None:
+    cached = _cached_market_data_if_fresh(symbol)
+    if cached:
+        diagnostics["market_context_cache_hit_count"] += 1
+        return cached
+    if not allow_live_fetch:
+        diagnostics["market_context_missing_symbols"].append(symbol)
+        return None
+    snapshot = get_market_data(symbol, use_live=True, period="1y", interval="1d")
+    if snapshot.get("source_type") == "live":
+        diagnostics["market_context_live_fetch_count"] += 1
+        return snapshot
+    cached_after_failure = _cached_market_data_if_fresh(symbol)
+    if cached_after_failure:
+        diagnostics["market_context_cache_hit_count"] += 1
+        return cached_after_failure
+    diagnostics["market_context_missing_symbols"].append(symbol)
+    return None
+
+
+def _trend_context_with_optional_fallback(
+    name: str,
+    *,
+    allow_live_fetch: bool,
+    diagnostics: dict[str, Any],
+) -> tuple[str | None, dict[str, Any], dict[str, Any] | None]:
+    primary = MARKET_CONTEXT_PRIMARY_SYMBOLS[name]
+    snapshot = _market_context_snapshot_for_symbol(primary, allow_live_fetch=allow_live_fetch, diagnostics=diagnostics)
+    used_fallback_symbol: str | None = None
+    if not snapshot and name in MARKET_CONTEXT_FALLBACK_SYMBOLS:
+        used_fallback_symbol = MARKET_CONTEXT_FALLBACK_SYMBOLS[name]
+        snapshot = _market_context_snapshot_for_symbol(used_fallback_symbol, allow_live_fetch=allow_live_fetch, diagnostics=diagnostics)
+    if not snapshot:
+        return None, market_context.missing_context_status(f"{name}_trend"), None
+    trend_payload = market_context.classify_trend(snapshot)
+    if used_fallback_symbol:
+        trend_payload["fallback_symbol_used"] = used_fallback_symbol
+        trend_payload["limitations"] = sorted(set([*trend_payload.get("limitations", []), f"{primary} unavailable; {used_fallback_symbol} used as yfinance market-context fallback."]))
+        trend_payload["source_status"] = build_source_status(
+            {
+                **trend_payload,
+                "source_type": "derived",
+                "provider": "derived_from_yfinance",
+                "fallback_used": False,
+                "limitations": trend_payload["limitations"],
+            }
+        ).model_dump(mode="json")
+    return trend_payload.get("trend"), trend_payload["source_status"], trend_payload
+
+
+def get_live_market_context(
+    *,
+    market_snapshot: dict[str, Any] | None = None,
+    allow_live_fetch: bool | None = None,
+) -> dict[str, Any]:
+    resolved_allow_live = config.USE_LIVE_MARKET_DATA if allow_live_fetch is None else allow_live_fetch
+    diagnostics: dict[str, Any] = {
+        "market_context_reused_from_daily_market_data": False,
+        "market_context_cache_hit_count": 0,
+        "market_context_live_fetch_count": 0,
+        "market_context_missing_symbols": [],
+    }
+    fields: dict[str, Any] = {}
+    component_status: dict[str, Any] = {}
+    raw_context: dict[str, Any] = {"diagnostics": diagnostics}
+
+    if market_snapshot and market_snapshot.get("source_type") == "live":
+        diagnostics["market_context_reused_from_daily_market_data"] = True
+        fields.update(
+            {
+                "vix": market_snapshot.get("vix"),
+                "vix_trend": market_snapshot.get("vix_trend"),
+                "vix_recent_spike": market_snapshot.get("vix_recent_spike"),
+                "vix_falling_from_spike": market_snapshot.get("vix_falling_from_spike"),
+                "sp500_drawdown_pct": market_snapshot.get("sp500_drawdown_pct"),
+                "nasdaq_drawdown_pct": market_snapshot.get("nasdaq_drawdown_pct"),
+                "index_gain_from_recent_trough": market_snapshot.get("index_gain_from_recent_trough"),
+            }
+        )
+        aggregate_status = build_source_status(
+            {
+                "source_type": "derived",
+                "provider": "derived_from_yfinance",
+                "source": ["SPY", "QQQ", "^VIX"],
+                "source_date": market_snapshot.get("source_date", ""),
+                "fallback_used": False,
+                "limitations": sorted(set([*market_snapshot.get("limitations", []), market_context.YFINANCE_LIMITATION])),
+                "missing_data": market_snapshot.get("missing_data", []),
+            }
+        ).model_dump(mode="json")
+        component_status.update(
+            {
+                "vix": aggregate_status,
+                "vix_trend": aggregate_status,
+                "equity_drawdown": aggregate_status,
+                "gain_from_recent_trough": aggregate_status,
+            }
+        )
+        raw_context["vix"] = market_snapshot.get("vix_market_data")
+        raw_context["equity"] = market_snapshot.get("index_market_data")
+    else:
+        spy = _market_context_snapshot_for_symbol("SPY", allow_live_fetch=resolved_allow_live, diagnostics=diagnostics)
+        qqq = _market_context_snapshot_for_symbol("QQQ", allow_live_fetch=resolved_allow_live, diagnostics=diagnostics)
+        vix = _market_context_snapshot_for_symbol("^VIX", allow_live_fetch=resolved_allow_live, diagnostics=diagnostics)
+        if vix:
+            vix_payload = market_context.vix_metrics(vix)
+            fields["vix"] = vix_payload.get("latest_value")
+            fields["vix_trend"] = vix_payload.get("trend")
+            fields["vix_recent_spike"] = vix_payload.get("recent_spike")
+            component_status["vix"] = vix_payload["source_status"]
+            component_status["vix_trend"] = vix_payload["source_status"]
+            raw_context["vix"] = vix_payload
+        if spy and qqq:
+            equity_payload = market_context.equity_metrics(spy, qqq)
+            fields["sp500_drawdown_pct"] = equity_payload["index_metrics"]["SPY"].get("drawdown_from_52w_high_pct")
+            fields["nasdaq_drawdown_pct"] = equity_payload["index_metrics"]["QQQ"].get("drawdown_from_52w_high_pct")
+            fields["index_gain_from_recent_trough"] = equity_payload.get("max_gain_from_recent_trough_pct")
+            component_status["equity_drawdown"] = equity_payload["source_status"]
+            component_status["gain_from_recent_trough"] = equity_payload["source_status"]
+            raw_context["equity"] = equity_payload
+
+    for name, field_name in [("dxy", "dxy_trend"), ("gold", "gold_trend"), ("oil", "oil_trend")]:
+        trend, status, payload = _trend_context_with_optional_fallback(name, allow_live_fetch=resolved_allow_live, diagnostics=diagnostics)
+        if trend:
+            fields[field_name] = trend
+            raw_context[name] = payload
+        component_status[field_name] = status
+
+    raw_context["diagnostics"] = diagnostics
+    return {
+        "fields": fields,
+        "component_source_status": component_status,
+        "raw_market_context": raw_context,
+        "diagnostics": diagnostics,
+    }
+
+
 def get_macro_snapshot(use_live: bool | None = None, scenario: str = "normal") -> dict[str, Any]:
     enabled = config.USE_LIVE_MACRO_DATA if use_live is None else use_live
     if not enabled:
@@ -846,28 +1022,54 @@ def get_macro_snapshot(use_live: bool | None = None, scenario: str = "normal") -
         return _mock_macro_snapshot(scenario, safe_reason)
 
 
-def read_macro_data(scenario: str = "normal", use_live: bool | None = None) -> dict[str, Any]:
+def _macro_provider_with_market_context(snapshot: dict[str, Any], component_status: dict[str, Any]) -> str:
+    has_fred = snapshot.get("source_type") in {"live", "cached_live"}
+    has_yfinance = any(
+        isinstance(status, dict) and status.get("provider") in {"yfinance", "derived_from_yfinance"}
+        for status in component_status.values()
+    )
+    has_mock = any(
+        isinstance(status, dict) and status.get("source_type") == "mock"
+        for status in component_status.values()
+    )
+    if has_fred and has_yfinance and has_mock:
+        return "mixed_FRED_yfinance_and_mock_macro"
+    if has_fred and has_yfinance:
+        return "mixed_FRED_and_yfinance_macro"
+    if has_fred:
+        return "mixed_FRED_and_mock_macro"
+    if has_yfinance and has_mock:
+        return "mixed_yfinance_and_mock_macro"
+    return snapshot.get("provider", "phase5_mock_macro_dataset")
+
+
+def read_macro_data(
+    scenario: str = "normal",
+    use_live: bool | None = None,
+    market_context_seed: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     snapshot = get_macro_snapshot(use_live=use_live, scenario=scenario)
     if snapshot.get("source_type") not in {"live", "cached_live"}:
         return snapshot
 
     mock_context = _mock_macro_snapshot(scenario)
+    market_context_snapshot = get_live_market_context(market_snapshot=market_context_seed)
     indicators = snapshot.get("indicators", {})
-    merged = {**mock_context, **indicators}
+    merged = {**mock_context, **indicators, **market_context_snapshot.get("fields", {})}
     merged["fed_funds_rate"] = indicators.get("fed_funds_rate")
     merged["ten_year_yield"] = indicators.get("ten_year_yield")
     merged["two_year_yield"] = indicators.get("two_year_yield")
     merged["source_type"] = "derived"
-    merged["provider"] = "mixed_FRED_and_mock_macro"
-    merged["source"] = ["FRED", "phase5_mock_macro_dataset"]
+    merged["source"] = ["FRED", "yfinance", "phase5_mock_macro_dataset"]
     merged["source_date"] = snapshot.get("source_date", mock_context["source_date"])
     merged["fetched_at"] = snapshot.get("fetched_at")
     merged["raw_fred_snapshot"] = _compact_fred_snapshot(snapshot)
+    merged["raw_market_context"] = market_context_snapshot.get("raw_market_context", {})
     merged["limitations"] = sorted(
         set(
             [
                 *snapshot.get("limitations", []),
-                "ISM Manufacturing PMI, DXY trend, gold trend, oil trend, Fear & Greed, and equity drawdown context remain mock in Phase 9.",
+                "Fear & Greed and ISM Manufacturing PMI remain mock context until live providers are added.",
             ]
         )
     )
@@ -937,19 +1139,20 @@ def read_macro_data(scenario: str = "normal", use_live: bool | None = None) -> d
         "ppi_yoy": ppi_yoy_status,
         "unemployment_rate": unemployment_status,
         "unemployment_trend": unemployment_trend_status,
-        "ism_manufacturing_pmi": mock_status,
-        "dxy_trend": mock_status,
-        "gold_trend": mock_status,
-        "oil_trend": mock_status,
-        "fear_greed": mock_status,
-        "vix": mock_status,
-        "equity_drawdown": mock_status,
-        "gain_from_recent_trough": mock_status,
+        "ism_manufacturing_pmi": {**mock_status, "freshness_window": "phase9_mock_context"},
+        "dxy_trend": market_context_snapshot.get("component_source_status", {}).get("dxy_trend", {**mock_status, "freshness_window": "phase9_mock_context"}),
+        "gold_trend": market_context_snapshot.get("component_source_status", {}).get("gold_trend", {**mock_status, "freshness_window": "phase9_mock_context"}),
+        "oil_trend": market_context_snapshot.get("component_source_status", {}).get("oil_trend", {**mock_status, "freshness_window": "phase9_mock_context"}),
+        "fear_greed": {**mock_status, "freshness_window": "phase9_mock_context"},
+        "vix": market_context_snapshot.get("component_source_status", {}).get("vix", {**mock_status, "freshness_window": "phase9_mock_context"}),
+        "equity_drawdown": market_context_snapshot.get("component_source_status", {}).get("equity_drawdown", {**mock_status, "freshness_window": "phase9_mock_context"}),
+        "gain_from_recent_trough": market_context_snapshot.get("component_source_status", {}).get("gain_from_recent_trough", {**mock_status, "freshness_window": "phase9_mock_context"}),
     }
+    merged["provider"] = _macro_provider_with_market_context(snapshot, merged["component_source_status"])
     merged["source_status"] = build_source_status(
         {
             "source_type": "derived",
-            "provider": "mixed_FRED_and_mock_macro",
+            "provider": merged["provider"],
             "source_date": merged["source_date"],
             "fetched_at": merged.get("fetched_at"),
             "is_fresh": all(

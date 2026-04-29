@@ -298,6 +298,10 @@ Freshness rules:
     "mock_context_fields": [],
     "fred_backed_fields": [],
     "derived_from_fred_fields": [],
+    "yfinance_backed_fields": [],
+    "derived_from_yfinance_fields": [],
+    "yfinance_macro_fields_count": 0,
+    "market_context_reused_from_daily_market_data": true,
     "confidence_adjustment_applied": true
   },
   "limitations": [
@@ -381,6 +385,8 @@ Raw data is always an object under `raw_data`. It contains mock source snapshots
 For live FRED macro data, `/api/daily-report/latest` includes compact `raw_fred_snapshot.raw_series` summaries instead of full historical observations. Each series summary includes `series_id`, `latest_date`, `latest_value`, `previous_value`, a bounded `recent_observations` array, `source_status`, `limitations`, and `missing_data`. Full macro raw-series access is reserved for a future `GET /api/raw-data/macro/{series_id}` endpoint.
 
 `macro_regime` may also include `macro_data_quality`, which separates `fred_backed_fields`, `derived_from_fred_fields`, and `mock_context_fields`. FRED-backed fields are live or cached-live FRED observations; FRED-derived fields are calculations from those observations. ISM, DXY, gold, oil, Fear & Greed, VIX, and equity context remain Phase 9 mock context until providers are added. Intentional mock context is disclosed as `source_type="mock"` and is not treated as fallback. When FRED-backed and mock-context fields are mixed, the macro source status uses `source_type="derived"` and `provider="mixed_FRED_and_mock_macro"`.
+
+Phase 12.1 adds yfinance-backed market context to that same diagnostic object. `macro_data_quality` may include `yfinance_backed_fields`, `derived_from_yfinance_fields`, `yfinance_macro_fields_count`, and `live_or_cached_context_score_weight_pct`. VIX, SPY/QQQ drawdown, SPY/QQQ gain from trough, DXY trend, gold trend, and oil trend may be live/cached/derived from yfinance. Fear & Greed and ISM Manufacturing PMI remain mock context. When FRED, yfinance, and remaining mock context coexist, macro source status uses `source_type="derived"` with `provider="mixed_FRED_yfinance_and_mock_macro"`. `source_type="mixed"` remains invalid.
 
 ### Benchmark
 
@@ -655,6 +661,14 @@ Phase 11.8 macro source clarity:
 - Macro confidence is capped when mock context contributes materially to the score.
 - Mixed macro output must use `source_type="derived"` with `provider="mixed_FRED_and_mock_macro"` and must not use `source_type="mixed"`.
 - API keys and raw provider URLs must never appear in API responses, snapshots, logs, or fallback reasons.
+
+Phase 12.1 live market context:
+
+- VIX, equity drawdown, gain from trough, DXY, gold, and oil can now use existing yfinance market snapshots.
+- `data_quality.macro` includes yfinance-backed and yfinance-derived field lists and counts.
+- Fear & Greed and ISM remain mock context and must not be described as live evidence.
+- Yfinance data is an MVP research reference and may be delayed, adjusted, or incomplete.
+- Remaining mock fields continue to reduce or cap macro confidence according to their score weight.
 
 ## Phase 10.5 Official SEC EDGAR Form 4
 

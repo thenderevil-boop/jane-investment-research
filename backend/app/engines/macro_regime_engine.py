@@ -31,10 +31,20 @@ MOCK_CONTEXT_FIELDS = [
     "equity_drawdown",
     "gain_from_recent_trough",
 ]
+YFINANCE_BACKED_FIELDS = ["vix"]
+DERIVED_FROM_YFINANCE_FIELDS = [
+    "vix_trend",
+    "dxy_trend",
+    "gold_trend",
+    "oil_trend",
+    "equity_drawdown",
+    "gain_from_recent_trough",
+]
 MOCK_CONTEXT_LIMITATION = "This field remains mock context in Phase 9 and is not live market evidence."
+MOCK_CONTEXT_UNAVAILABLE_LIMITATION = "This field remains mock context because live market context was unavailable."
 FRED_CLARITY_LIMITATIONS = [
     "FRED-backed macro fields are live or derived from live/cached FRED data.",
-    "ISM, DXY, gold, oil, Fear & Greed, and equity context remain Phase 9 mock context until live providers are added.",
+    "Fear & Greed and ISM Manufacturing PMI remain mock context until live providers are added.",
     "Macro confidence is adjusted when mock context fields contribute to the score.",
 ]
 REQUIRED_FIELDS = [
@@ -103,9 +113,11 @@ def _classify(data: dict[str, Any]) -> tuple[str, float]:
     return "normal", 55
 
 
-def _component_names_by_source(components: list[Any]) -> tuple[list[str], list[str], list[str]]:
+def _component_names_by_source(components: list[Any]) -> tuple[list[str], list[str], list[str], list[str], list[str]]:
     fred_backed: list[str] = []
     fred_derived: list[str] = []
+    yfinance_backed: list[str] = []
+    yfinance_derived: list[str] = []
     mock_context: list[str] = []
     for component in components:
         status = component.source_status
@@ -114,9 +126,13 @@ def _component_names_by_source(components: list[Any]) -> tuple[list[str], list[s
             fred_backed.append(name)
         elif name in DERIVED_FROM_FRED_FIELDS and status and status.provider == "derived_from_FRED":
             fred_derived.append(name)
+        elif name in YFINANCE_BACKED_FIELDS and status and status.source_type in {"live", "cached_live", "derived"} and status.provider in {"yfinance", "derived_from_yfinance"}:
+            yfinance_backed.append(name)
+        elif name in DERIVED_FROM_YFINANCE_FIELDS and status and status.provider == "derived_from_yfinance":
+            yfinance_derived.append(name)
         elif name in MOCK_CONTEXT_FIELDS or (status and status.source_type == "mock"):
             mock_context.append(name)
-    return sorted(set(fred_backed)), sorted(set(fred_derived)), sorted(set(mock_context))
+    return sorted(set(fred_backed)), sorted(set(fred_derived)), sorted(set(yfinance_backed)), sorted(set(yfinance_derived)), sorted(set(mock_context))
 
 
 def _score_weight_pct(count: int, total: int) -> float:
@@ -126,7 +142,7 @@ def _score_weight_pct(count: int, total: int) -> float:
 
 
 def _build_macro_data_quality(data: dict[str, Any], components: list[Any], limitations: list[str]) -> MacroDataQuality:
-    fred_backed, fred_derived, mock_context = _component_names_by_source(components)
+    fred_backed, fred_derived, yfinance_backed, yfinance_derived, mock_context = _component_names_by_source(components)
     component_status = data.get("component_source_status", {}) if isinstance(data.get("component_source_status"), dict) else {}
     for field in FRED_BACKED_FIELDS:
         status = component_status.get(field, {}) if isinstance(component_status.get(field), dict) else {}
@@ -136,29 +152,45 @@ def _build_macro_data_quality(data: dict[str, Any], components: list[Any], limit
         status = component_status.get(field, {}) if isinstance(component_status.get(field), dict) else {}
         if data.get(field) is not None and (status.get("source_type") == "derived" or status.get("provider") == "derived_from_FRED"):
             fred_derived.append(field)
+    for field in YFINANCE_BACKED_FIELDS:
+        status = component_status.get(field, {}) if isinstance(component_status.get(field), dict) else {}
+        if data.get(field) is not None and status.get("provider") in {"yfinance", "derived_from_yfinance"}:
+            yfinance_backed.append(field)
+    for field in DERIVED_FROM_YFINANCE_FIELDS:
+        status = component_status.get(field, {}) if isinstance(component_status.get(field), dict) else {}
+        value_present = field in {"equity_drawdown", "gain_from_recent_trough"} or data.get(field) is not None
+        if value_present and status.get("provider") == "derived_from_yfinance":
+            yfinance_derived.append(field)
     fred_backed = sorted(set(fred_backed))
     fred_derived = sorted(set(fred_derived))
+    yfinance_backed = sorted(set(yfinance_backed))
+    yfinance_derived = sorted(set(yfinance_derived))
     mock_context = sorted(set(mock_context))
-    total = len(set([*fred_backed, *fred_derived, *mock_context]))
+    total = len(set([*fred_backed, *fred_derived, *yfinance_backed, *yfinance_derived, *mock_context]))
     mock_pct = _score_weight_pct(len(mock_context), total)
     fred_pct = _score_weight_pct(len(fred_backed) + len(fred_derived), total)
+    live_context_pct = _score_weight_pct(len(fred_backed) + len(fred_derived) + len(yfinance_backed) + len(yfinance_derived), total)
     return MacroDataQuality(
         fred_backed_fields=fred_backed,
         mock_context_fields=mock_context,
         derived_from_fred_fields=fred_derived,
-        live_macro_fields_count=len(fred_backed),
+        yfinance_backed_fields=yfinance_backed,
+        derived_from_yfinance_fields=yfinance_derived,
+        live_macro_fields_count=len(fred_backed) + len(yfinance_backed),
         mock_macro_fields_count=len(mock_context),
-        derived_macro_fields_count=len(fred_derived),
+        derived_macro_fields_count=len(fred_derived) + len(yfinance_derived),
+        yfinance_macro_fields_count=len(yfinance_backed) + len(yfinance_derived),
         has_mock_macro_context=bool(mock_context),
         mock_context_score_weight_pct=mock_pct,
         fred_backed_score_weight_pct=fred_pct,
-        confidence_adjustment_applied=bool(mock_context),
+        live_or_cached_context_score_weight_pct=live_context_pct,
+        confidence_adjustment_applied=mock_pct >= 40,
         limitations=sorted(set(limitations)),
     )
 
 
 def _adjust_macro_confidence(confidence: float, macro_data_quality: MacroDataQuality) -> float:
-    if not macro_data_quality.has_mock_macro_context:
+    if not macro_data_quality.confidence_adjustment_applied:
         return confidence
     cap = 0.78
     if macro_data_quality.mock_context_score_weight_pct >= 60:
@@ -175,11 +207,15 @@ def _source_contribution(components: list[Any], macro_data_quality: MacroDataQua
     return {
         "fred_backed_score": score_sum(macro_data_quality.fred_backed_fields),
         "fred_derived_score": score_sum(macro_data_quality.derived_from_fred_fields),
+        "yfinance_backed_score": score_sum(macro_data_quality.yfinance_backed_fields),
+        "yfinance_derived_score": score_sum(macro_data_quality.derived_from_yfinance_fields),
         "mock_context_score": score_sum(macro_data_quality.mock_context_fields),
         "total_score": round(total_score, 2),
         "mock_context_component_names": macro_data_quality.mock_context_fields,
         "fred_component_names": macro_data_quality.fred_backed_fields,
         "derived_from_fred_component_names": macro_data_quality.derived_from_fred_fields,
+        "yfinance_component_names": macro_data_quality.yfinance_backed_fields,
+        "derived_from_yfinance_component_names": macro_data_quality.derived_from_yfinance_fields,
     }
 
 
@@ -194,7 +230,7 @@ def evaluate_macro_regime(data: dict[str, Any]) -> MacroRegimeOutput:
     source_date = data.get("source_date", MOCK_MACRO_SOURCE_DATE)
     limitations = list(data.get("limitations", [LIMITATION]))
     incoming_source_status = data.get("source_status", {}) if isinstance(data.get("source_status"), dict) else {}
-    is_mixed_fred_macro = data.get("provider") == "mixed_FRED_and_mock_macro"
+    is_mixed_fred_macro = str(data.get("provider") or "").startswith("mixed_")
     if is_mixed_fred_macro:
         limitations = sorted(
             set(
@@ -219,7 +255,7 @@ def evaluate_macro_regime(data: dict[str, Any]) -> MacroRegimeOutput:
     source_status = build_source_status(
         {
             "source_type": "derived" if is_mixed_fred_macro else data.get("source_type", "mock"),
-            "provider": "mixed_FRED_and_mock_macro" if is_mixed_fred_macro else data.get("provider", "phase5_mock_macro_dataset"),
+            "provider": data.get("provider", "mixed_FRED_and_mock_macro") if is_mixed_fred_macro else data.get("provider", "phase5_mock_macro_dataset"),
             "source_date": source_date,
             "fetched_at": data.get("fetched_at"),
             "is_fresh": incoming_source_status.get("is_fresh"),

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -32,7 +33,11 @@ def test_pydantic_source_type_rejects_unexpected_value():
 
 def test_mixed_macro_uses_derived_source_type_not_mixed(monkeypatch):
     monkeypatch.setattr(config, "USE_LIVE_MACRO_DATA", True)
+    monkeypatch.setattr(config, "USE_LIVE_MARKET_DATA", False)
     monkeypatch.setattr(config, "MACRO_DATA_PROVIDER", "fred")
+    isolated_market_cache = Path("backend/raw_store/cache/test_phase106") / uuid4().hex
+    isolated_market_cache.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", isolated_market_cache)
 
     snapshot = {
         "source_type": "live",

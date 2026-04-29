@@ -240,7 +240,7 @@ def build_daily_report(
     snapshot = read_market_data(scenario, use_live=use_live_market_data)
     add_timing("market_data_ms", section_started_at)
     section_started_at = time.monotonic()
-    macro_snapshot = read_macro_data(_macro_scenario_name(scenario))
+    macro_snapshot = read_macro_data(_macro_scenario_name(scenario), market_context_seed=snapshot)
     add_timing("macro_ms", section_started_at)
     crisis_snapshot = MOCK_CRISIS_SCENARIOS.get(_crisis_scenario_name(scenario), MOCK_CRISIS_SCENARIOS["normal"])
     macro_regime = evaluate_macro_regime(macro_snapshot)
@@ -330,10 +330,14 @@ def build_daily_report(
             "live_macro_fields_count": macro_regime.macro_data_quality.live_macro_fields_count,
             "derived_macro_fields_count": macro_regime.macro_data_quality.derived_macro_fields_count,
             "mock_macro_fields_count": macro_regime.macro_data_quality.mock_macro_fields_count,
+            "yfinance_macro_fields_count": macro_regime.macro_data_quality.yfinance_macro_fields_count,
             "has_mock_macro_context": macro_regime.macro_data_quality.has_mock_macro_context,
             "mock_context_fields": macro_regime.macro_data_quality.mock_context_fields,
             "fred_backed_fields": macro_regime.macro_data_quality.fred_backed_fields,
             "derived_from_fred_fields": macro_regime.macro_data_quality.derived_from_fred_fields,
+            "yfinance_backed_fields": macro_regime.macro_data_quality.yfinance_backed_fields,
+            "derived_from_yfinance_fields": macro_regime.macro_data_quality.derived_from_yfinance_fields,
+            "market_context_reused_from_daily_market_data": (macro_regime.raw_data.get("raw_market_context") or {}).get("diagnostics", {}).get("market_context_reused_from_daily_market_data"),
             "confidence_adjustment_applied": macro_regime.macro_data_quality.confidence_adjustment_applied,
         }
     if report.data_quality.stale_components:
