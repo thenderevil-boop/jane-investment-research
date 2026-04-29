@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import time
 from datetime import datetime, timezone
 
 from pydantic import BaseModel
 
+from backend.app import config
 from backend.app.data_sources.mock_crisis import MOCK_CRISIS_SCENARIOS
 from backend.app.data_sources.mock_data import MOCK_SMART_MONEY_SUMMARY, MOCK_SOURCE, MOCK_SOURCE_DATE, STOCK_FIXTURES
 from backend.app.engines.crisis_engine import crisis_to_score_object, evaluate_crisis
@@ -19,6 +21,7 @@ from backend.app.schemas.candidate import StockCandidate
 from backend.app.schemas.common import DataSourceStatus, ScoreObject
 from backend.app.schemas.daily_report import DailyResearchReport
 from backend.app.utils.freshness import build_source_status, summarize_data_quality
+from backend.app.utils.performance import add_timing, finalize_performance_context, reset_performance_context
 
 
 def score_object(
@@ -240,23 +243,32 @@ def build_daily_report(
     use_live_market_data: bool | None = None,
     report_clock: datetime | None = None,
 ) -> DailyResearchReport:
+    performance_started_at = reset_performance_context()
+    section_started_at = time.monotonic()
     snapshot = read_market_data(scenario, use_live=use_live_market_data)
+    add_timing("market_data_ms", section_started_at)
+    section_started_at = time.monotonic()
     macro_snapshot = read_macro_data(_macro_scenario_name(scenario))
+    add_timing("macro_ms", section_started_at)
     crisis_snapshot = MOCK_CRISIS_SCENARIOS.get(_crisis_scenario_name(scenario), MOCK_CRISIS_SCENARIOS["normal"])
     macro_regime = evaluate_macro_regime(macro_snapshot)
     crisis = evaluate_crisis(crisis_snapshot)
     market_timing = evaluate_market_timing(snapshot)
     overheat_risk = evaluate_overheat(snapshot)
     sec_filings = read_sec_filings("NVDA")
+    section_started_at = time.monotonic()
     smart_money = evaluate_smart_money({**MOCK_SMART_MONEY_SUMMARY, **sec_filings})
+    add_timing("smart_money_ms", section_started_at)
     future_themes = evaluate_future_industry_radar()
     risk_allocation = evaluate_risk_allocation(macro_regime, market_timing, overheat_risk, crisis, snapshot)
     generated_at = report_clock or datetime.now(timezone.utc)
     today = generated_at.date().isoformat()
+    section_started_at = time.monotonic()
     stock_candidates = [
         _candidate("NVDA", "AI energy infrastructure", snapshot),
         _candidate("TSLA", "humanoid robotics", snapshot),
     ]
+    add_timing("candidate_generation_ms", section_started_at)
     missing_data = sorted(
         set(
             [
@@ -287,6 +299,7 @@ def build_daily_report(
                 *smart_money.limitations,
                 *risk_allocation.limitations,
                 "SEC Form 4 interpretation is limited by transaction-code context and reporting timing.",
+                *(["Daily report fast mode uses fresh cached live data when available."] if config.DAILY_REPORT_FAST_MODE else []),
                 *sec_filings.get("form4_snapshot", {}).get("limitations", []),
                 *(item for theme in future_themes for item in theme.limitations),
             ]
@@ -325,4 +338,6 @@ def build_daily_report(
         report.human_verification_queue.append("Review components with missing source dates before interpreting scores.")
     if report.data_quality.fallback_components:
         report.human_verification_queue.append("Review fallback source status because one or more live data sources were unavailable.")
+    if config.INCLUDE_PERFORMANCE_DIAGNOSTICS:
+        report.performance_diagnostics = finalize_performance_context(performance_started_at)
     return report

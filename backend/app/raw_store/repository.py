@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -21,6 +22,7 @@ from backend.app.utils.freshness import (
     THIRTEEN_F_FRESHNESS_WINDOW,
     build_source_status,
 )
+from backend.app.utils.performance import add_timing, increment_metric
 
 
 INDEX_SYMBOLS = ["SPY", "QQQ"]
@@ -279,14 +281,18 @@ def _sanitize_sec_13f_cached_payload(cached: dict[str, Any]) -> dict[str, Any]:
 def _cached_sec_13f_if_fresh(manager_or_cik: str) -> dict[str, Any] | None:
     cached = read_sec_13f_data(manager_or_cik)
     if not cached:
+        increment_metric("cache_miss_count")
         return None
     cached_at = cached.get("cached_at") or cached.get("fetched_at")
     try:
         cached_dt = datetime.fromisoformat(str(cached_at).replace("Z", "+00:00"))
     except ValueError:
+        increment_metric("cache_miss_count")
         return None
     if datetime.now(timezone.utc) - cached_dt.astimezone(timezone.utc) > timedelta(days=config.SEC_13F_CACHE_TTL_DAYS):
+        increment_metric("cache_miss_count")
         return None
+    increment_metric("cache_hit_count")
     payload = _sanitize_sec_13f_cached_payload(cached)
     payload["source_type"] = "cached_live"
     payload["provider"] = "SEC EDGAR"
@@ -303,7 +309,9 @@ def _cached_sec_13f_if_fresh(manager_or_cik: str) -> dict[str, Any] | None:
 def _cached_sec_13f_after_failure(manager_or_cik: str, reason: str) -> dict[str, Any] | None:
     cached = read_sec_13f_data(manager_or_cik)
     if not cached:
+        increment_metric("cache_miss_count")
         return None
+    increment_metric("cache_hit_count")
     payload = _sanitize_sec_13f_cached_payload(cached)
     payload["source_type"] = "cached_live"
     payload["provider"] = "SEC EDGAR"
@@ -328,14 +336,18 @@ def _cached_sec_13f_after_failure(manager_or_cik: str, reason: str) -> dict[str,
 def _cached_sec_form4_if_fresh(ticker: str) -> dict[str, Any] | None:
     cached = read_sec_form4_data(ticker)
     if not cached:
+        increment_metric("cache_miss_count")
         return None
     cached_at = cached.get("cached_at") or cached.get("fetched_at")
     try:
         cached_dt = datetime.fromisoformat(str(cached_at).replace("Z", "+00:00"))
     except ValueError:
+        increment_metric("cache_miss_count")
         return None
     if datetime.now(timezone.utc) - cached_dt.astimezone(timezone.utc) > timedelta(hours=config.SEC_FORM4_CACHE_TTL_HOURS):
+        increment_metric("cache_miss_count")
         return None
+    increment_metric("cache_hit_count")
     payload = _sanitize_sec_edgar_cached_payload(cached)
     payload["source_type"] = "cached_live"
     payload["provider"] = "SEC EDGAR"
@@ -357,7 +369,9 @@ def _cached_sec_form4_if_fresh(ticker: str) -> dict[str, Any] | None:
 def _cached_sec_form4_after_failure(ticker: str, reason: str) -> dict[str, Any] | None:
     cached = read_sec_form4_data(ticker)
     if not cached:
+        increment_metric("cache_miss_count")
         return None
+    increment_metric("cache_hit_count")
     payload = _sanitize_sec_edgar_cached_payload(cached)
     payload["source_type"] = "cached_live"
     payload["provider"] = "SEC EDGAR"
@@ -785,43 +799,53 @@ def get_sec_form4_transactions(
     *,
     allow_live_fetch: bool = True,
 ) -> dict[str, Any]:
-    normalized_ticker = ticker.strip().upper()
-    resolved_lookback_days = lookback_days or config.SEC_FORM4_LOOKBACK_DAYS
-    if not config.USE_LIVE_SEC_FORM4:
-        payload = _mock_form4_snapshot(normalized_ticker)
-        payload["lookback_days"] = resolved_lookback_days
-        return payload
-    cached = _cached_sec_form4_if_fresh(normalized_ticker)
-    if cached:
-        cached["lookback_days"] = resolved_lookback_days
-        return cached
-    if config.SEC_FORM4_PROVIDER != "sec_edgar":
-        payload = _mock_form4_snapshot(normalized_ticker, f"unsupported SEC Form 4 provider: {config.SEC_FORM4_PROVIDER}")
-        payload["lookback_days"] = resolved_lookback_days
-        return payload
-    if not config.SEC_EDGAR_USER_AGENT:
-        payload = _mock_form4_snapshot(normalized_ticker, "SEC_EDGAR_USER_AGENT missing")
-        payload["lookback_days"] = resolved_lookback_days
-        return payload
-    if not allow_live_fetch:
-        payload = _mock_form4_snapshot(normalized_ticker, "live SEC EDGAR fetch disabled for report request")
-        payload["lookback_days"] = resolved_lookback_days
-        return payload
+    started_at = time.monotonic()
     try:
-        from backend.app.data_sources.sec_edgar_form4 import fetch_insider_transactions
+        normalized_ticker = ticker.strip().upper()
+        resolved_lookback_days = lookback_days or config.SEC_FORM4_LOOKBACK_DAYS
+        if not config.USE_LIVE_SEC_FORM4:
+            payload = _mock_form4_snapshot(normalized_ticker)
+            payload["lookback_days"] = resolved_lookback_days
+            return payload
+        cached = _cached_sec_form4_if_fresh(normalized_ticker)
+        if cached:
+            cached["lookback_days"] = resolved_lookback_days
+            return cached
+        if config.SEC_FORM4_PROVIDER != "sec_edgar":
+            payload = _mock_form4_snapshot(normalized_ticker, f"unsupported SEC Form 4 provider: {config.SEC_FORM4_PROVIDER}")
+            payload["lookback_days"] = resolved_lookback_days
+            return payload
+        if not config.SEC_EDGAR_USER_AGENT:
+            payload = _mock_form4_snapshot(normalized_ticker, "SEC_EDGAR_USER_AGENT missing")
+            payload["lookback_days"] = resolved_lookback_days
+            return payload
+        if not allow_live_fetch:
+            increment_metric("bounded_fetch_skipped_count")
+            payload = _mock_form4_snapshot(normalized_ticker, "live SEC EDGAR fetch disabled for report request")
+            payload["lookback_days"] = resolved_lookback_days
+            return payload
+        try:
+            from backend.app.data_sources.sec_edgar_form4 import fetch_insider_transactions
 
-        snapshot = fetch_insider_transactions(normalized_ticker, lookback_days=resolved_lookback_days)
-        snapshot["source_status"] = build_source_status(snapshot, freshness_window=FORM4_FRESHNESS_WINDOW).model_dump(mode="json")
-        return write_sec_form4_data(normalized_ticker, snapshot)
-    except Exception as exc:
-        safe_reason = str(exc).splitlines()[0][:180] or "live SEC Form 4 fetch failed"
-        cached_after_failure = _cached_sec_form4_after_failure(normalized_ticker, safe_reason)
-        if cached_after_failure:
-            cached_after_failure["lookback_days"] = resolved_lookback_days
-            return cached_after_failure
-        payload = _mock_form4_snapshot(normalized_ticker, safe_reason)
-        payload["lookback_days"] = resolved_lookback_days
-        return payload
+            snapshot = fetch_insider_transactions(normalized_ticker, lookback_days=resolved_lookback_days)
+            if snapshot.get("bounded_fetch_exhausted"):
+                cached_after_budget = _cached_sec_form4_after_failure(normalized_ticker, "SEC Form 4 fetch was bounded for performance.")
+                if cached_after_budget:
+                    cached_after_budget["lookback_days"] = resolved_lookback_days
+                    return cached_after_budget
+            snapshot["source_status"] = build_source_status(snapshot, freshness_window=FORM4_FRESHNESS_WINDOW).model_dump(mode="json")
+            return write_sec_form4_data(normalized_ticker, snapshot)
+        except Exception as exc:
+            safe_reason = str(exc).splitlines()[0][:180] or "live SEC Form 4 fetch failed"
+            cached_after_failure = _cached_sec_form4_after_failure(normalized_ticker, safe_reason)
+            if cached_after_failure:
+                cached_after_failure["lookback_days"] = resolved_lookback_days
+                return cached_after_failure
+            payload = _mock_form4_snapshot(normalized_ticker, safe_reason)
+            payload["lookback_days"] = resolved_lookback_days
+            return payload
+    finally:
+        add_timing("sec_form4_ms", started_at)
 
 
 def get_sec_13f_holdings(
@@ -831,42 +855,47 @@ def get_sec_13f_holdings(
     allow_live_fetch: bool = True,
     ticker: str = "NVDA",
 ) -> dict[str, Any]:
-    resolved_lookback_quarters = lookback_quarters or config.SEC_13F_LOOKBACK_QUARTERS
-    if not config.USE_LIVE_SEC_13F:
-        payload = _mock_13f_snapshot(manager_or_cik, ticker)
-        payload["lookback_quarters"] = resolved_lookback_quarters
-        return payload
-    cached = _cached_sec_13f_if_fresh(manager_or_cik)
-    if cached:
-        cached["lookback_quarters"] = resolved_lookback_quarters
-        return cached
-    if config.SEC_13F_PROVIDER != "sec_edgar":
-        payload = _mock_13f_snapshot(manager_or_cik, ticker, f"unsupported SEC 13F provider: {config.SEC_13F_PROVIDER}")
-        payload["lookback_quarters"] = resolved_lookback_quarters
-        return payload
-    if not config.SEC_EDGAR_USER_AGENT:
-        payload = _mock_13f_snapshot(manager_or_cik, ticker, "SEC_EDGAR_USER_AGENT missing")
-        payload["lookback_quarters"] = resolved_lookback_quarters
-        return payload
-    if not allow_live_fetch:
-        payload = _mock_13f_snapshot(manager_or_cik, ticker, "live SEC EDGAR 13F fetch disabled for report request")
-        payload["lookback_quarters"] = resolved_lookback_quarters
-        return payload
+    started_at = time.monotonic()
     try:
-        from backend.app.data_sources.sec_edgar_13f import fetch_13f_holdings_for_manager
+        resolved_lookback_quarters = lookback_quarters or config.SEC_13F_LOOKBACK_QUARTERS
+        if not config.USE_LIVE_SEC_13F:
+            payload = _mock_13f_snapshot(manager_or_cik, ticker)
+            payload["lookback_quarters"] = resolved_lookback_quarters
+            return payload
+        cached = _cached_sec_13f_if_fresh(manager_or_cik)
+        if cached:
+            cached["lookback_quarters"] = resolved_lookback_quarters
+            return cached
+        if config.SEC_13F_PROVIDER != "sec_edgar":
+            payload = _mock_13f_snapshot(manager_or_cik, ticker, f"unsupported SEC 13F provider: {config.SEC_13F_PROVIDER}")
+            payload["lookback_quarters"] = resolved_lookback_quarters
+            return payload
+        if not config.SEC_EDGAR_USER_AGENT:
+            payload = _mock_13f_snapshot(manager_or_cik, ticker, "SEC_EDGAR_USER_AGENT missing")
+            payload["lookback_quarters"] = resolved_lookback_quarters
+            return payload
+        if not allow_live_fetch:
+            increment_metric("bounded_fetch_skipped_count")
+            payload = _mock_13f_snapshot(manager_or_cik, ticker, "live SEC EDGAR 13F fetch disabled for report request")
+            payload["lookback_quarters"] = resolved_lookback_quarters
+            return payload
+        try:
+            from backend.app.data_sources.sec_edgar_13f import fetch_13f_holdings_for_manager
 
-        snapshot = fetch_13f_holdings_for_manager(manager_or_cik, lookback_quarters=resolved_lookback_quarters)
-        snapshot["source_status"] = build_source_status(snapshot, freshness_window=THIRTEEN_F_FRESHNESS_WINDOW).model_dump(mode="json")
-        return write_sec_13f_data(manager_or_cik, snapshot)
-    except Exception as exc:
-        safe_reason = str(exc).splitlines()[0][:180] or "live SEC 13F fetch failed"
-        cached_after_failure = _cached_sec_13f_after_failure(manager_or_cik, safe_reason)
-        if cached_after_failure:
-            cached_after_failure["lookback_quarters"] = resolved_lookback_quarters
-            return cached_after_failure
-        payload = _mock_13f_snapshot(manager_or_cik, ticker, safe_reason)
-        payload["lookback_quarters"] = resolved_lookback_quarters
-        return payload
+            snapshot = fetch_13f_holdings_for_manager(manager_or_cik, lookback_quarters=resolved_lookback_quarters)
+            snapshot["source_status"] = build_source_status(snapshot, freshness_window=THIRTEEN_F_FRESHNESS_WINDOW).model_dump(mode="json")
+            return write_sec_13f_data(manager_or_cik, snapshot)
+        except Exception as exc:
+            safe_reason = str(exc).splitlines()[0][:180] or "live SEC 13F fetch failed"
+            cached_after_failure = _cached_sec_13f_after_failure(manager_or_cik, safe_reason)
+            if cached_after_failure:
+                cached_after_failure["lookback_quarters"] = resolved_lookback_quarters
+                return cached_after_failure
+            payload = _mock_13f_snapshot(manager_or_cik, ticker, safe_reason)
+            payload["lookback_quarters"] = resolved_lookback_quarters
+            return payload
+    finally:
+        add_timing("sec_13f_ms", started_at)
 
 
 def _sec_13f_derived_provider(snapshot: dict[str, Any]) -> str:

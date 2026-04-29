@@ -29,4 +29,5 @@ class DailyResearchReport(BaseModel):
     missing_data: list[str]
     human_verification_queue: list[str]
     data_quality: DataQualitySummary | None = None
+    performance_diagnostics: dict[str, int | float] | None = None
     not_investment_advice: bool = True

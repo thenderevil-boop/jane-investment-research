@@ -8,6 +8,7 @@ from xml.etree import ElementTree as ET
 import httpx
 
 from backend.app import config
+from backend.app.utils.performance import increment_metric
 from backend.app.utils.freshness import FORM4_FRESHNESS_WINDOW, build_source_status
 
 SEC_COMPANY_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
@@ -37,7 +38,8 @@ def _request_delay() -> None:
 
 def _get_json(url: str) -> dict[str, Any]:
     _request_delay()
-    response = httpx.get(url, headers=_headers(), timeout=20)
+    increment_metric("network_call_count")
+    response = httpx.get(url, headers=_headers(), timeout=config.SEC_FORM4_NETWORK_TIMEOUT_SECONDS)
     response.raise_for_status()
     payload = response.json()
     if not isinstance(payload, dict):
@@ -47,7 +49,8 @@ def _get_json(url: str) -> dict[str, Any]:
 
 def _get_text(url: str) -> str:
     _request_delay()
-    response = httpx.get(url, headers=_headers(), timeout=20)
+    increment_metric("network_call_count")
+    response = httpx.get(url, headers=_headers(), timeout=config.SEC_FORM4_NETWORK_TIMEOUT_SECONDS)
     response.raise_for_status()
     return response.text
 
@@ -284,7 +287,10 @@ def _discover_form4_xml_documents(cik: str, accession_number: str) -> list[str]:
         if lower in {"primary_doc.xml"}:
             continue
         candidates.append(f"{directory_url}{name}")
-    return candidates[:5]
+    limit = max(0, min(5, config.SEC_FORM4_MAX_XML_DISCOVERY_PER_REPORT))
+    if len(candidates) > limit:
+        increment_metric("bounded_fetch_skipped_count", len(candidates) - limit)
+    return candidates[:limit]
 
 
 def fetch_form4_xml(cik: str, accession_number: str, primary_document: str) -> str:
@@ -426,6 +432,7 @@ def parse_form4_xml(xml_text: str, ticker: str, cik: str, accession_number: str,
 
 
 def fetch_insider_transactions(ticker: str, lookback_days: int = 180) -> dict[str, Any]:
+    started_at = time.monotonic()
     normalized_ticker = ticker.strip().upper()
     cik = get_cik_for_ticker(normalized_ticker)
     submissions = fetch_company_submissions(cik)
@@ -434,7 +441,16 @@ def fetch_insider_transactions(ticker: str, lookback_days: int = 180) -> dict[st
     transactions: list[dict[str, Any]] = []
     filing_dates: list[str] = []
     limitations = [LIMITATION, PAGINATION_LIMITATION]
-    for filing in filings:
+    bounded = False
+    selected_filings = filings[: max(0, config.SEC_FORM4_MAX_FILINGS_PER_TICKER)]
+    if len(filings) > len(selected_filings):
+        bounded = True
+        increment_metric("bounded_fetch_skipped_count", len(filings) - len(selected_filings))
+    for filing in selected_filings:
+        if time.monotonic() - started_at > config.SEC_FORM4_TOTAL_BUDGET_SECONDS:
+            bounded = True
+            increment_metric("bounded_fetch_skipped_count")
+            break
         accession_number = filing.get("accession_number", "")
         filing_date = filing.get("filing_date", "")
         primary_document = filing.get("primary_document", "")
@@ -453,6 +469,8 @@ def fetch_insider_transactions(ticker: str, lookback_days: int = 180) -> dict[st
             transactions.append(transaction)
     transactions = dedupe_transactions(transactions)
     source_date = max(filing_dates, default="")
+    if bounded and "SEC Form 4 fetch was bounded for performance." not in limitations:
+        limitations.append("SEC Form 4 fetch was bounded for performance.")
     payload = {
         "ticker": normalized_ticker,
         "cik": cik,
@@ -465,6 +483,7 @@ def fetch_insider_transactions(ticker: str, lookback_days: int = 180) -> dict[st
         "fetched_at": fetched_at,
         "limitations": limitations,
         "missing_data": [] if filings else ["recent SEC Form 4 filings"],
+        "bounded_fetch_exhausted": bounded,
     }
     payload["source_status"] = build_source_status(payload, freshness_window=FORM4_FRESHNESS_WINDOW).model_dump(mode="json")
     return payload

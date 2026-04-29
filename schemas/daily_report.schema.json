@@ -1035,6 +1035,28 @@
       ],
       "default": null
     },
+    "performance_diagnostics": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Performance Diagnostics"
+    },
     "not_investment_advice": {
       "default": true,
       "title": "Not Investment Advice",

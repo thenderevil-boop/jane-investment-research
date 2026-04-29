@@ -60,6 +60,8 @@ Aggregation and target matching:
 - The local security map is not authoritative and is used only for deterministic target matching and value-confidence enrichment.
 - Value confidence may be upgraded when local CUSIP-to-ticker mapping and a cached/reusable price reference are both available.
 - The price-reference layer checks reusable market cache first, then uses a bounded per-ticker adapter instead of refetching for every 13F row.
+- Daily report fast mode uses cached market data for 13F price references unless `ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST=true`.
+- Price-reference summaries distinguish `price_reference_grouped_holding_count`, `price_reference_row_count`, and `price_reference_ticker_count`; `price_reference_used_count` remains a backward-compatible grouped count.
 - If mapped 13F rows cannot obtain a reusable price reference, portfolio summaries include `price reference unavailable for mapped 13F holdings` in `missing_data`.
 - Price references may not match the 13F report date exactly, and confidence is capped conservatively when the reference date differs materially from the 13F report date.
 - QoQ comparison is by CUSIP and reflects reported quarterly 13F changes only. It does not imply real-time activity.
@@ -155,6 +157,8 @@ Repository behavior:
 - daily reports are cache-first and do not perform live EDGAR fetches unless `ALLOW_LIVE_FETCH_ON_REPORT_REQUEST=true`
 - missing `SEC_EDGAR_USER_AGENT` or fetch failures return cached live data when available, otherwise mock fallback Form 4 data with `source_type: "fallback"`
 - if a live SEC EDGAR Form 4 fetch fails after cache-first checks and cached live data is available, the component remains `source_type: "cached_live"` with fallback reason `Live SEC EDGAR Form 4 fetch failed; cached live data used.`
+- Form 4 live fetches are bounded by `SEC_FORM4_MAX_FILINGS_PER_TICKER`, `SEC_FORM4_MAX_XML_DISCOVERY_PER_REPORT`, `SEC_FORM4_NETWORK_TIMEOUT_SECONDS`, and `SEC_FORM4_TOTAL_BUDGET_SECONDS`
+- if Form 4 live fetch budget is exhausted and cached live data exists, the component remains `source_type: "cached_live"` rather than mock fallback
 - fallback metadata includes a safe summarized `fallback_reason` and does not expose stack traces or `SEC_EDGAR_USER_AGENT`
 - smart-money engines consume normalized Form 4 snapshots from the raw store and do not call SEC directly
 - Phase 10.5 does not connect 13F, options, news, YouTube, or live theme APIs
@@ -355,6 +359,14 @@ Interpretation:
 - 13F cache TTL should be measured in days, not hours.
 - 13F should be refreshed around expected filing windows, not on every daily report request.
 - 13F remains research evidence only and must not be treated as real-time smart-money confirmation.
+
+### Daily Report Performance Guardrails
+
+- `DAILY_REPORT_FAST_MODE=true` by default.
+- Fast mode keeps daily reports cache-first and adds the limitation `Daily report fast mode uses fresh cached live data when available.`
+- `ALLOW_LIVE_FETCH_ON_REPORT_REQUEST=true` is still required for report-triggered SEC live refreshes when cache is missing or stale.
+- `ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST=false` by default, so 13F price references use cached market data during daily reports.
+- `INCLUDE_PERFORMANCE_DIAGNOSTICS=false` by default. When enabled, responses include timing and cache/network counters only; diagnostics must not expose secrets, SEC User-Agent values, or tokenized URLs.
 
 Limitations:
 

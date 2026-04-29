@@ -3,10 +3,14 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from time import perf_counter
 
 from backend.app import config
+from backend.app.utils.performance import add_timing, increment_metric
 
 _REFERENCE_CACHE: dict[str, "PriceReference | None"] = {}
+_LIVE_REFERENCE_TICKERS: set[str] = set()
+_BUDGET_STARTED_AT: float | None = None
 
 
 @dataclass(frozen=True)
@@ -47,48 +51,72 @@ def _extract_price(payload: dict) -> tuple[float | None, str]:
 
 
 def get_price_reference(ticker: str, as_of_date: str | None = None) -> PriceReference | None:
-    normalized = str(ticker or "").strip().upper()
-    if not normalized or not config.USE_LIVE_MARKET_DATA:
-        return None
-    cache_key = f"{normalized}|{as_of_date or ''}"
-    if cache_key in _REFERENCE_CACHE:
-        return _REFERENCE_CACHE[cache_key]
-    for path in _candidate_cache_paths(normalized):
-        if not path.exists():
-            continue
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        price, source_date = _extract_price(payload)
-        if price is None or price <= 0:
-            continue
-        reference = PriceReference(
-            ticker=normalized,
-            price=price,
-            source_date=source_date or as_of_date or "",
-            provider=str(payload.get("provider") or "yfinance_cache"),
-            confidence="medium",
-        )
-        _REFERENCE_CACHE[cache_key] = reference
-        return reference
+    started_at = perf_counter()
     try:
-        from backend.app.data_sources.live_market_prices import fetch_ohlcv
-
-        payload = fetch_ohlcv(normalized, period="5d", interval="1d")
-        price, source_date = _extract_price(payload)
-        if price is None or price <= 0:
+        normalized = str(ticker or "").strip().upper()
+        if not normalized or not config.USE_LIVE_MARKET_DATA:
+            return None
+        cache_key = f"{normalized}|{as_of_date or ''}"
+        if cache_key in _REFERENCE_CACHE:
+            increment_metric("cache_hit_count")
+            return _REFERENCE_CACHE[cache_key]
+        for path in _candidate_cache_paths(normalized):
+            if not path.exists():
+                continue
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            price, source_date = _extract_price(payload)
+            if price is None or price <= 0:
+                continue
+            reference = PriceReference(
+                ticker=normalized,
+                price=price,
+                source_date=source_date or as_of_date or "",
+                provider=str(payload.get("provider") or "yfinance_cache"),
+                confidence="medium",
+            )
+            _REFERENCE_CACHE[cache_key] = reference
+            increment_metric("cache_hit_count")
+            return reference
+        increment_metric("cache_miss_count")
+        if not config.ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST:
+            increment_metric("bounded_fetch_skipped_count")
             _REFERENCE_CACHE[cache_key] = None
             return None
-        reference = PriceReference(
-            ticker=normalized,
-            price=price,
-            source_date=source_date or payload.get("source_date") or as_of_date or "",
-            provider=str(payload.get("provider") or "yfinance"),
-            confidence="medium",
-        )
-        _REFERENCE_CACHE[cache_key] = reference
-        return reference
-    except Exception:
-        _REFERENCE_CACHE[cache_key] = None
-        return None
+        global _BUDGET_STARTED_AT
+        if _BUDGET_STARTED_AT is None:
+            _BUDGET_STARTED_AT = perf_counter()
+        if len(_LIVE_REFERENCE_TICKERS) >= config.SEC_13F_PRICE_REFERENCE_MAX_TICKERS:
+            increment_metric("bounded_fetch_skipped_count")
+            _REFERENCE_CACHE[cache_key] = None
+            return None
+        if perf_counter() - _BUDGET_STARTED_AT > config.SEC_13F_PRICE_REFERENCE_TOTAL_BUDGET_SECONDS:
+            increment_metric("bounded_fetch_skipped_count")
+            _REFERENCE_CACHE[cache_key] = None
+            return None
+        _LIVE_REFERENCE_TICKERS.add(normalized)
+        increment_metric("network_call_count")
+        try:
+            from backend.app.data_sources.live_market_prices import fetch_ohlcv
+
+            payload = fetch_ohlcv(normalized, period="5d", interval="1d")
+            price, source_date = _extract_price(payload)
+            if price is None or price <= 0:
+                _REFERENCE_CACHE[cache_key] = None
+                return None
+            reference = PriceReference(
+                ticker=normalized,
+                price=price,
+                source_date=source_date or payload.get("source_date") or as_of_date or "",
+                provider=str(payload.get("provider") or "yfinance"),
+                confidence="medium",
+            )
+            _REFERENCE_CACHE[cache_key] = reference
+            return reference
+        except Exception:
+            _REFERENCE_CACHE[cache_key] = None
+            return None
+    finally:
+        add_timing("sec_13f_price_reference_ms", started_at)

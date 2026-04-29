@@ -131,6 +131,8 @@ Aggregation and target matching:
 - The local security map is not authoritative and is used only for deterministic matching and value-confidence enrichment.
 - Value confidence may be upgraded when local mapping and a cached/reusable price reference are both available.
 - The price-reference layer checks reusable market cache first, then uses a bounded per-ticker adapter instead of refetching for every 13F row.
+- Daily report fast mode uses cached market data for 13F price references unless `ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST=true`.
+- Price-reference summaries distinguish grouped, row, and ticker counts through `price_reference_grouped_holding_count`, `price_reference_row_count`, and `price_reference_ticker_count`; `price_reference_used_count` remains a backward-compatible grouped count.
 - If mapped 13F rows cannot obtain a reusable price reference, the portfolio summary reports `price reference unavailable for mapped 13F holdings` in `missing_data`.
 - Price references may not match the 13F report date exactly, and confidence is capped conservatively when the reference date differs materially from the 13F report date.
 - QoQ comparison is by CUSIP and reflects reported quarterly 13F changes only.
@@ -138,6 +140,7 @@ Aggregation and target matching:
 - Daily report raw data is compact by default and excludes the full 13F row list.
 - Full 13F rows are included only when `INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT=true`, under `raw_data_full.holdings`.
 - `qoq_changes` is capped and accompanied by `qoq_changes_count_total` and `qoq_changes_limit`.
+- Daily report performance guardrails do not change smart-money scoring semantics. `DAILY_REPORT_FAST_MODE=true` keeps SEC and price-reference access cache-first, while optional `performance_diagnostics` reports timing and bounded-fetch counters without secrets.
 
 SEC EDGAR discovery:
 

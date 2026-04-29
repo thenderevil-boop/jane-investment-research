@@ -112,6 +112,10 @@ Neither is a direct investment recommendation.
 | SEC_EDGAR_REQUEST_DELAY_SECONDS | 0.2 | SEC EDGAR Form 4 | |
 | SEC_FORM4_CACHE_TTL_HOURS | 24 | SEC EDGAR Form 4 cache | |
 | SEC_FORM4_LOOKBACK_DAYS | 180 | SEC EDGAR Form 4 | |
+| SEC_FORM4_MAX_FILINGS_PER_TICKER | 10 | SEC EDGAR Form 4 | performance guardrail |
+| SEC_FORM4_MAX_XML_DISCOVERY_PER_REPORT | 20 | SEC EDGAR Form 4 | performance guardrail |
+| SEC_FORM4_NETWORK_TIMEOUT_SECONDS | 10 | SEC EDGAR Form 4 | per-request timeout |
+| SEC_FORM4_TOTAL_BUDGET_SECONDS | 20 | SEC EDGAR Form 4 | per-ticker fetch budget |
 | USE_LIVE_SEC_13F | false | SEC EDGAR 13F | |
 | SEC_13F_PROVIDER | sec_edgar | SEC EDGAR 13F | official SEC EDGAR only |
 | SEC_13F_CACHE_TTL_DAYS | 7 | SEC EDGAR 13F cache | TTL is days, not hours |
@@ -121,7 +125,12 @@ Neither is a direct investment recommendation.
 | SEC_13F_TARGET_TICKERS | none | SEC EDGAR 13F | optional comma-separated tickers for future mapping support |
 | SEC_13F_TARGET_ISSUERS | none | SEC EDGAR 13F | optional comma-separated issuer-name fallback targets; low confidence |
 | SEC_13F_ASSUME_VALUE_THOUSANDS | false | SEC EDGAR 13F | legacy fallback only; modern XML values are preserved unless disambiguated |
+| SEC_13F_PRICE_REFERENCE_MAX_TICKERS | 20 | SEC EDGAR 13F price reference | performance guardrail |
+| SEC_13F_PRICE_REFERENCE_TOTAL_BUDGET_SECONDS | 10 | SEC EDGAR 13F price reference | performance guardrail |
 | INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT | false | daily report output | include full 13F row list only under `raw_data_full` when explicitly enabled |
+| DAILY_REPORT_FAST_MODE | true | daily report output | cache-first report generation |
+| ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST | false | daily report output | use cached market data for 13F price references by default |
+| INCLUDE_PERFORMANCE_DIAGNOSTICS | false | daily report output | optional timing and cache counters |
 | ALLOW_LIVE_FETCH_ON_REPORT_REQUEST | false | quota guard | default should remain false |
 
 ## Windows VSCode Runbook
@@ -403,6 +412,8 @@ uvicorn backend.app.main:app --reload
 
 If a live SEC EDGAR Form 4 fetch fails after cache-first checks but usable cached live data exists, the component remains `source_type="cached_live"` with `provider="SEC EDGAR"` and uses the safe fallback reason `Live SEC EDGAR Form 4 fetch failed; cached live data used.` This cached-live warning is not treated as mock fallback for candidate-level source status.
 
+Form 4 live fetches are bounded by `SEC_FORM4_MAX_FILINGS_PER_TICKER`, `SEC_FORM4_MAX_XML_DISCOVERY_PER_REPORT`, `SEC_FORM4_NETWORK_TIMEOUT_SECONDS`, and `SEC_FORM4_TOTAL_BUDGET_SECONDS`. When a fetch is bounded, responses include `SEC Form 4 fetch was bounded for performance.` and use cached live data when available.
+
 Phase 10 only connects SEC Form 4 insider transactions. Phase 11 separately connects SEC 13F institutional holdings. Options, news, YouTube, and live theme APIs remain mock or manually verified placeholders.
 
 Form 4 transaction-code handling:
@@ -474,6 +485,8 @@ SEC 13F URL strategy:
 - Target matching is highest confidence by exact CUSIP. Ticker matching uses only a small local ticker-to-CUSIP map and does not call external CUSIP APIs. Issuer-name-only matching is low confidence and disclosed as a limitation.
 - The local security map is bounded and not authoritative. It is used only for target matching and value-confidence enrichment.
 - Value confidence may be upgraded when a CUSIP resolves through the local map and a cached/reusable price reference is available. The price-reference layer checks reusable market cache first, then uses a bounded per-ticker adapter instead of refetching for every 13F row.
+- During daily report fast mode, 13F price references use cached market data only unless `ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST=true`.
+- 13F price-reference output distinguishes grouped, row, and ticker counts through `price_reference_grouped_holding_count`, `price_reference_row_count`, and `price_reference_ticker_count`; `price_reference_used_count` remains as a backward-compatible grouped count.
 - If mapped 13F rows cannot obtain a reusable price reference, portfolio summaries include `price reference unavailable for mapped 13F holdings` in `missing_data`.
 - Price references may not match the 13F report date exactly, so confidence is capped conservatively when the reference date differs materially from the 13F report date.
 - QoQ comparison reflects reported quarterly 13F changes only. It is not real-time institutional flow.
@@ -482,12 +495,19 @@ SEC 13F URL strategy:
 
 Repository behavior:
 
+- `DAILY_REPORT_FAST_MODE=true` keeps daily reports cache-first and adds the limitation `Daily report fast mode uses fresh cached live data when available.`
 - Daily reports are cache-first and do not repeatedly live-fetch SEC 13F unless `ALLOW_LIVE_FETCH_ON_REPORT_REQUEST=true`.
 - Cached live SEC 13F data within `SEC_13F_CACHE_TTL_DAYS` returns `source_type="cached_live"` with `provider="SEC EDGAR"`.
 - Missing `SEC_EDGAR_USER_AGENT` returns fallback mock 13F with `fallback_reason="SEC_EDGAR_USER_AGENT missing"` and never exposes the User-Agent value.
 - Fallback mock 13F does not boost smart-money score and is labeled insufficient data.
 - Manager-name discovery is limited to a small local mapping in v1; numeric CIKs are preferred.
 - SEC Form 13F Data Sets may be considered later as a batch optimization, but Phase 11 does not depend on them.
+
+Performance diagnostics:
+
+- `INCLUDE_PERFORMANCE_DIAGNOSTICS=false` by default.
+- When enabled, daily reports include `performance_diagnostics` with total timing, macro/market/SEC/smart-money/candidate timing, network call count, cache hit/miss count, and bounded-fetch skip count.
+- Diagnostics never include secrets, SEC User-Agent values, or tokenized URLs.
 
 ## Project Guardrails
 

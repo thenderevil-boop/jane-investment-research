@@ -412,6 +412,7 @@ def test_price_reference_cache_is_used_for_mapped_holding(monkeypatch):
     cache_dir = workspace_tmp_dir()
     monkeypatch.setattr(config, "USE_LIVE_MARKET_DATA", True)
     monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", cache_dir)
+    monkeypatch.setattr(config, "ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST", True)
     (cache_dir / "AAPL.json").write_text('{"latest_close": 272, "source_date": "2025-12-31", "provider": "yfinance_cache"}', encoding="utf-8")
     price_reference._REFERENCE_CACHE.clear()
     row = sec_edgar_13f.enrich_13f_holding_with_local_context(
@@ -433,6 +434,7 @@ def test_price_reference_live_adapter_is_memoized_not_per_row(monkeypatch):
     cache_dir = workspace_tmp_dir()
     monkeypatch.setattr(config, "USE_LIVE_MARKET_DATA", True)
     monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", cache_dir)
+    monkeypatch.setattr(config, "ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST", True)
     price_reference._REFERENCE_CACHE.clear()
     calls = []
 
@@ -446,6 +448,23 @@ def test_price_reference_live_adapter_is_memoized_not_per_row(monkeypatch):
     assert first is not None
     assert second is first
     assert calls == ["AAPL"]
+
+
+def test_price_reference_does_not_call_adapter_when_disabled(monkeypatch):
+    cache_dir = workspace_tmp_dir()
+    monkeypatch.setattr(config, "USE_LIVE_MARKET_DATA", True)
+    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", cache_dir)
+    monkeypatch.setattr(config, "ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST", False)
+    price_reference._REFERENCE_CACHE.clear()
+    calls = []
+
+    def fake_fetch(ticker, period="5d", interval="1d"):
+        calls.append(ticker)
+        return {"provider": "yfinance", "source_date": "2025-12-31", "rows": [{"date": "2025-12-31", "close": 272}]}
+
+    monkeypatch.setattr("backend.app.data_sources.live_market_prices.fetch_ohlcv", fake_fetch)
+    assert price_reference.get_price_reference("AAPL", "2025-12-31") is None
+    assert calls == []
 
 
 def test_current_price_reference_for_old_report_date_caps_confidence_at_medium(monkeypatch):
@@ -821,6 +840,54 @@ def test_portfolio_summary_missing_price_reference_for_mapped_holdings(monkeypat
     assert "price reference unavailable for mapped 13F holdings" in summary["missing_data"]
 
 
+def test_price_reference_grouped_and_ticker_counts_are_explicit():
+    rows = [
+        {
+            "manager_cik": "0001",
+            "accession_number": "a",
+            "issuer_name": "APPLE INC",
+            "title_of_class": "COM",
+            "cusip": "037833100",
+            "value_usd": 100,
+            "reported_value_raw": 100,
+            "shares_or_principal_amount": 1,
+            "report_date": "2025-12-31",
+            "filing_date": "2026-02-14",
+            "mapped_ticker": "AAPL",
+            "security_map_used": True,
+            "price_reference_used": True,
+            "price_reference": {"ticker": "AAPL", "provider": "yfinance_cache"},
+            "value_unit_confidence": "high",
+            "source": ["SEC EDGAR"],
+            "source_status": {"source_type": "cached_live", "provider": "SEC EDGAR", "source_date": "2025-12-31"},
+        },
+        {
+            "manager_cik": "0001",
+            "accession_number": "b",
+            "issuer_name": "APPLE INC",
+            "title_of_class": "COM",
+            "cusip": "037833100",
+            "value_usd": 200,
+            "reported_value_raw": 200,
+            "shares_or_principal_amount": 2,
+            "report_date": "2025-12-31",
+            "filing_date": "2026-02-14",
+            "mapped_ticker": "AAPL",
+            "security_map_used": True,
+            "price_reference_used": True,
+            "price_reference": {"ticker": "AAPL", "provider": "yfinance_cache"},
+            "value_unit_confidence": "high",
+            "source": ["SEC EDGAR"],
+            "source_status": {"source_type": "cached_live", "provider": "SEC EDGAR", "source_date": "2025-12-31"},
+        },
+    ]
+    summary = summarize_13f_portfolio(rows)
+    assert summary["price_reference_used_count"] == 1
+    assert summary["price_reference_grouped_holding_count"] == 1
+    assert summary["price_reference_ticker_count"] == 1
+    assert summary["price_reference_row_count"] == 2
+
+
 def test_form4_parser_rejects_html_before_xml_parse():
     html = "<html><body><table><tr><td>not xml</td></tr></table></body></html>"
     with pytest.raises(sec_edgar_form4.SecEdgarForm4FetchError):
@@ -843,6 +910,37 @@ def test_form4_fetch_discovers_actual_xml_after_html_primary(monkeypatch):
     assert sec_edgar_form4.fetch_form4_xml("0000000001", "0000000001-26-000001", "primary.html") == valid_xml
 
 
+def test_form4_fetch_respects_max_filings_limit(monkeypatch):
+    monkeypatch.setattr(config, "SEC_FORM4_MAX_FILINGS_PER_TICKER", 2)
+    monkeypatch.setattr(config, "SEC_FORM4_TOTAL_BUDGET_SECONDS", 20)
+    monkeypatch.setattr(sec_edgar_form4, "get_cik_for_ticker", lambda ticker: "0000000001")
+    monkeypatch.setattr(
+        sec_edgar_form4,
+        "fetch_company_submissions",
+        lambda cik: {
+            "filings": {
+                "recent": {
+                    "form": ["4", "4", "4"],
+                    "accessionNumber": ["0000000001-26-000001", "0000000001-26-000002", "0000000001-26-000003"],
+                    "filingDate": ["2026-04-01", "2026-04-02", "2026-04-03"],
+                    "reportDate": ["2026-04-01", "2026-04-02", "2026-04-03"],
+                    "primaryDocument": ["a.xml", "b.xml", "c.xml"],
+                }
+            }
+        },
+    )
+    calls = []
+
+    def fake_fetch_xml(cik, accession_number, primary_document):
+        calls.append(accession_number)
+        return "<ownershipDocument></ownershipDocument>"
+
+    monkeypatch.setattr(sec_edgar_form4, "fetch_form4_xml", fake_fetch_xml)
+    payload = sec_edgar_form4.fetch_insider_transactions("NVDA", lookback_days=180)
+    assert calls == ["0000000001-26-000001", "0000000001-26-000002"]
+    assert "SEC Form 4 fetch was bounded for performance." in payload["limitations"]
+
+
 def test_form4_live_fetch_failure_with_cache_returns_cached_live_reason(monkeypatch):
     cache_dir = workspace_tmp_dir()
     monkeypatch.setattr(config, "USE_LIVE_SEC_FORM4", True)
@@ -862,11 +960,64 @@ def test_form4_live_fetch_failure_with_cache_returns_cached_live_reason(monkeypa
             "missing_data": [],
         },
     )
+    repository.write_sec_form4_data(
+        "TSLA",
+        {
+            "ticker": "TSLA",
+            "transactions": [],
+            "source_type": "live",
+            "provider": "SEC EDGAR",
+            "source": ["SEC EDGAR"],
+            "source_date": "2026-04-01",
+            "limitations": [],
+            "missing_data": [],
+        },
+    )
     monkeypatch.setattr(sec_edgar_form4, "fetch_insider_transactions", lambda ticker, lookback_days=180: (_ for _ in ()).throw(RuntimeError("mismatched tag: line 29, column 16")))
     payload = repository.get_sec_form4_transactions("NVDA")
     assert payload["source_type"] == "cached_live"
     assert payload["provider"] == "SEC EDGAR"
     assert payload["source_status"]["fallback_reason"] == "Live SEC EDGAR Form 4 fetch failed; cached live data used."
+
+
+def test_form4_budget_exhaustion_with_cache_returns_cached_live(monkeypatch):
+    cache_dir = workspace_tmp_dir()
+    monkeypatch.setattr(config, "USE_LIVE_SEC_FORM4", True)
+    monkeypatch.setattr(config, "SEC_FORM4_CACHE_DIR", cache_dir)
+    monkeypatch.setattr(config, "SEC_EDGAR_USER_AGENT", "Test test@example.com")
+    monkeypatch.setattr(config, "SEC_FORM4_CACHE_TTL_HOURS", -1)
+    repository.write_sec_form4_data(
+        "NVDA",
+        {
+            "ticker": "NVDA",
+            "transactions": [],
+            "source_type": "live",
+            "provider": "SEC EDGAR",
+            "source": ["SEC EDGAR"],
+            "source_date": "2026-04-01",
+            "limitations": [],
+            "missing_data": [],
+        },
+    )
+
+    monkeypatch.setattr(
+        sec_edgar_form4,
+        "fetch_insider_transactions",
+        lambda ticker, lookback_days=180: {
+            "ticker": ticker,
+            "transactions": [],
+            "source_type": "live",
+            "provider": "SEC EDGAR",
+            "source": ["SEC EDGAR"],
+            "source_date": "2026-04-01",
+            "limitations": ["SEC Form 4 fetch was bounded for performance."],
+            "missing_data": [],
+            "bounded_fetch_exhausted": True,
+        },
+    )
+    payload = repository.get_sec_form4_transactions("NVDA")
+    assert payload["source_type"] == "cached_live"
+    assert payload["provider"] == "SEC EDGAR"
 
 
 def test_candidate_cached_live_form4_warning_not_candidate_fallback(monkeypatch):
@@ -885,6 +1036,81 @@ def test_candidate_cached_live_form4_warning_not_candidate_fallback(monkeypatch)
     assert candidate.source_status is not None
     assert candidate.source_status.source_type == "derived"
     assert candidate.source_status.fallback_used is False
+
+
+def test_daily_report_cache_first_skips_live_sec_fetches_when_fresh(monkeypatch):
+    form4_cache_dir = workspace_tmp_dir()
+    thirteen_f_cache_dir = workspace_tmp_dir()
+    monkeypatch.setattr(config, "USE_LIVE_SEC_FORM4", True)
+    monkeypatch.setattr(config, "USE_LIVE_SEC_13F", True)
+    monkeypatch.setattr(config, "SEC_FORM4_CACHE_DIR", form4_cache_dir)
+    monkeypatch.setattr(config, "SEC_13F_CACHE_DIR", thirteen_f_cache_dir)
+    monkeypatch.setattr(config, "SEC_13F_TARGET_MANAGERS", "0001067983")
+    monkeypatch.setattr(config, "SEC_EDGAR_USER_AGENT", "Test test@example.com")
+    monkeypatch.setattr(config, "ALLOW_LIVE_FETCH_ON_REPORT_REQUEST", True)
+    monkeypatch.setattr(config, "DAILY_REPORT_FAST_MODE", True)
+    repository.write_sec_form4_data(
+        "NVDA",
+        {
+            "ticker": "NVDA",
+            "transactions": [],
+            "source_type": "live",
+            "provider": "SEC EDGAR",
+            "source": ["SEC EDGAR"],
+            "source_date": "2026-04-01",
+            "limitations": [],
+            "missing_data": [],
+        },
+    )
+    repository.write_sec_form4_data(
+        "TSLA",
+        {
+            "ticker": "TSLA",
+            "transactions": [],
+            "source_type": "live",
+            "provider": "SEC EDGAR",
+            "source": ["SEC EDGAR"],
+            "source_date": "2026-04-01",
+            "limitations": [],
+            "missing_data": [],
+        },
+    )
+    repository.write_sec_13f_data(
+        "0001067983",
+        {
+            "manager": "0001067983",
+            "manager_cik": "0001067983",
+            "holdings": [],
+            "filings": [],
+            "source_type": "live",
+            "provider": "SEC EDGAR",
+            "source": ["SEC EDGAR"],
+            "source_date": "2025-12-31",
+            "limitations": [],
+            "missing_data": [],
+        },
+    )
+    monkeypatch.setattr(sec_edgar_form4, "fetch_insider_transactions", lambda *args, **kwargs: pytest.fail("Form 4 live fetch should not run"))
+    monkeypatch.setattr(sec_edgar_13f, "fetch_13f_holdings_for_manager", lambda *args, **kwargs: pytest.fail("13F live fetch should not run"))
+    report = mock_pipeline.build_daily_report()
+    assert report.smart_money_summary.raw_data["institutional_13f"]["source_status"]["provider"] == "derived_from_SEC_EDGAR_13F"
+
+
+def test_performance_diagnostics_are_omitted_by_default(monkeypatch):
+    monkeypatch.setattr(config, "INCLUDE_PERFORMANCE_DIAGNOSTICS", False)
+    report = mock_pipeline.build_daily_report()
+    assert report.performance_diagnostics is None
+
+
+def test_performance_diagnostics_appear_only_when_enabled(monkeypatch):
+    monkeypatch.setattr(config, "INCLUDE_PERFORMANCE_DIAGNOSTICS", True)
+    report = mock_pipeline.build_daily_report()
+    diagnostics = report.performance_diagnostics
+    assert diagnostics
+    assert "total_ms" in diagnostics
+    assert "network_call_count" in diagnostics
+    assert "User-Agent" not in str(diagnostics)
+    assert "test@example.com" not in str(diagnostics)
 
 
 def test_xml_parser_handles_namespaces():

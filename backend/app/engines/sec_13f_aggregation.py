@@ -133,6 +133,12 @@ def aggregate_13f_holdings(holdings: list[dict[str, Any]]) -> dict[str, Any]:
         ]
         mapped_tickers = {item["ticker"] for item in resolved_rows if item["ticker"]}
         resolved_cusips = {item["cusip"] for item in resolved_rows if item["cusip"]}
+        price_reference_rows = [row for row in group_rows if row.get("price_reference_used")]
+        price_reference_tickers = {
+            _upper((row.get("price_reference") or {}).get("ticker") or row.get("mapped_ticker"))
+            for row in price_reference_rows
+            if _upper((row.get("price_reference") or {}).get("ticker") or row.get("mapped_ticker"))
+        }
         value_notes = sorted({_text(row.get("value_normalization_note")) for row in group_rows if _text(row.get("value_normalization_note"))})
         source_values = sorted({source for row in group_rows for source in row.get("source", []) or []}) or ["SEC EDGAR"]
         provider = "derived_from_SEC_EDGAR_13F" if any("SEC EDGAR" in source for source in source_values) else "derived_from_mock_13f"
@@ -155,7 +161,12 @@ def aggregate_13f_holdings(holdings: list[dict[str, Any]]) -> dict[str, Any]:
                 "total_shares_or_principal_amount": sum(_num(row.get("shares_or_principal_amount")) for row in group_rows),
                 "value_unit_confidence_summary": _confidence_summary([_text(row.get("value_unit_confidence")) for row in group_rows]),
                 "value_normalization_notes": value_notes,
-                "price_reference_used_count": sum(1 for row in group_rows if row.get("price_reference_used")),
+                "price_reference_used_count": 1 if price_reference_rows else 0,
+                "price_reference_grouped_holding_count": 1 if price_reference_rows else 0,
+                "price_reference_row_count": len(price_reference_rows),
+                "price_reference_ticker_count": len(price_reference_tickers),
+                "price_reference_cache_hit_count": sum(1 for row in price_reference_rows if "cache" in _text((row.get("price_reference") or {}).get("provider")).casefold()),
+                "price_reference_live_fetch_count": sum(1 for row in price_reference_rows if "cache" not in _text((row.get("price_reference") or {}).get("provider")).casefold()),
                 "investment_discretion_values": sorted({_text(row.get("investment_discretion")) for row in group_rows if _text(row.get("investment_discretion"))}),
                 "other_manager_values": sorted({_text(row.get("other_manager")) for row in group_rows if _text(row.get("other_manager"))}),
                 "voting_authority_sole": sum(_num(row.get("voting_authority_sole")) for row in group_rows),
@@ -196,9 +207,18 @@ def summarize_13f_portfolio(holdings: list[dict[str, Any]], top_holdings_limit: 
         "low": confidence_values.count("low"),
     }
     mapped_holding_count = sum(1 for item in grouped_holdings if item.get("security_map_used"))
-    price_reference_used_count = sum(int(item.get("price_reference_used_count") or 0) for item in grouped_holdings)
+    price_reference_grouped_holding_count = sum(int(item.get("price_reference_grouped_holding_count") or item.get("price_reference_used_count") or 0) for item in grouped_holdings)
+    price_reference_row_count = sum(int(item.get("price_reference_row_count") or 0) for item in grouped_holdings)
+    price_reference_tickers = {
+        _upper(item.get("mapped_ticker"))
+        for item in grouped_holdings
+        if item.get("price_reference_grouped_holding_count") and _upper(item.get("mapped_ticker"))
+    }
+    price_reference_ticker_count = len(price_reference_tickers)
+    price_reference_cache_hit_count = sum(int(item.get("price_reference_cache_hit_count") or 0) for item in grouped_holdings)
+    price_reference_live_fetch_count = sum(int(item.get("price_reference_live_fetch_count") or 0) for item in grouped_holdings)
     missing_data = list(aggregate.get("missing_data", []))
-    if mapped_holding_count and price_reference_used_count == 0:
+    if mapped_holding_count and price_reference_grouped_holding_count == 0:
         missing_data.append("price reference unavailable for mapped 13F holdings")
     top_holdings: list[dict[str, Any]] = []
     for item in grouped_holdings:
@@ -215,6 +235,11 @@ def summarize_13f_portfolio(holdings: list[dict[str, Any]], top_holdings_limit: 
                 "resolved_cusip": item.get("resolved_cusip"),
                 "security_map_used": item.get("security_map_used"),
                 "price_reference_used_count": item.get("price_reference_used_count"),
+                "price_reference_grouped_holding_count": item.get("price_reference_grouped_holding_count"),
+                "price_reference_ticker_count": item.get("price_reference_ticker_count"),
+                "price_reference_row_count": item.get("price_reference_row_count"),
+                "price_reference_cache_hit_count": item.get("price_reference_cache_hit_count"),
+                "price_reference_live_fetch_count": item.get("price_reference_live_fetch_count"),
                 "total_value_usd": value,
                 "total_shares_or_principal_amount": item.get("total_shares_or_principal_amount"),
                 "portfolio_weight_pct": round(value / total_value * 100, 4) if total_value else None,
@@ -245,7 +270,12 @@ def summarize_13f_portfolio(holdings: list[dict[str, Any]], top_holdings_limit: 
         "value_confidence_breakdown": confidence_breakdown,
         "mapped_holding_count": mapped_holding_count,
         "unmapped_holding_count": len(grouped_holdings) - mapped_holding_count,
-        "price_reference_used_count": price_reference_used_count,
+        "price_reference_used_count": price_reference_grouped_holding_count,
+        "price_reference_grouped_holding_count": price_reference_grouped_holding_count,
+        "price_reference_ticker_count": price_reference_ticker_count,
+        "price_reference_row_count": price_reference_row_count,
+        "price_reference_cache_hit_count": price_reference_cache_hit_count,
+        "price_reference_live_fetch_count": price_reference_live_fetch_count,
         "source_status": source_status,
         "limitations": THIRTEEN_F_LIMITATIONS,
         "missing_data": sorted(set(missing_data)),
