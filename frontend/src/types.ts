@@ -73,16 +73,24 @@ export type Candidate13FSpecificEvidence = {
   position_value_usd?: number | null;
   position_shares_or_principal_amount?: number | null;
   portfolio_weight_pct?: number | null;
+  source_date?: string | null;
+  report_date?: string | null;
+  filing_date?: string | null;
   latest_report_date?: string | null;
   latest_filing_date?: string | null;
   manager_cik?: string | null;
   manager_name?: string | null;
+  manager_metadata_source?: string | null;
+  value_unit_confidence_summary?: string | null;
   interpretation_label?: string | null;
+  interpretation_summary?: string | null;
+  score_contribution_allowed?: boolean | null;
 };
 
 export type Candidate13FPortfolioContext = {
   manager_cik?: string | null;
   manager_name?: string | null;
+  manager_metadata_source?: string | null;
   latest_report_date?: string | null;
   latest_filing_date?: string | null;
   holding_count_grouped?: number | null;

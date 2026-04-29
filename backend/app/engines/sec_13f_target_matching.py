@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from backend.app import config
+from backend.app.data.manager_map import MANAGER_MAP_LIMITATION, get_manager_metadata_by_cik
 from backend.app.data.security_map import (
     find_security_by_issuer_name,
     get_security_by_ticker,
@@ -21,6 +22,10 @@ CANDIDATE_13F_LIMITATIONS = [
     "Local security mapping is bounded and not authoritative.",
 ]
 NO_REPORTED_POSITION_LIMITATION = "No reported 13F position was observed for this candidate in the configured manager portfolio."
+NO_REPORTED_POSITION_SUMMARY = NO_REPORTED_POSITION_LIMITATION
+NOT_NEGATIVE_SIGNAL_LIMITATION = "This is not a negative trading signal; it only means the configured 13F manager did not report this security for the latest available report period."
+REPORTED_POSITION_SUMMARY = "A reported 13F position was observed for this candidate in the configured manager portfolio."
+DELAYED_POSITION_LIMITATION = "13F reflects a delayed quarterly report and may not represent the manager's current position."
 
 
 def _csv(value: Any) -> list[str]:
@@ -189,7 +194,14 @@ def build_candidate_13f_evidence(
     limitations = list(CANDIDATE_13F_LIMITATIONS)
     missing_data = list(summary.get("missing_data", []) or [])
     source_status = summary.get("source_status") or {}
-    manager_name = summary.get("manager_name") or summary.get("manager") or ""
+    manager_cik = _upper(summary.get("manager_cik") or summary.get("manager") or "")
+    manager_metadata = get_manager_metadata_by_cik(manager_cik)
+    manager_name = str(summary.get("manager_name") or "")
+    if not manager_name or manager_name == manager_cik:
+        manager_name = str(manager_metadata.get("manager_name") or manager_cik)
+    manager_metadata_source = str(summary.get("manager_metadata_source") or manager_metadata.get("confidence_source") or "")
+    if manager_metadata_source == "local_static_map":
+        limitations.append(MANAGER_MAP_LIMITATION)
     resolved_ticker = ticker
     resolved_cusip = ""
     resolved_issuer_name = ""
@@ -214,8 +226,10 @@ def build_candidate_13f_evidence(
             match_confidence = "high"
             match_method = "ticker_to_local_cusip"
             interpretation_label = "reported_13f_position_observed"
+            limitations.append(DELAYED_POSITION_LIMITATION)
         else:
             limitations.append(NO_REPORTED_POSITION_LIMITATION)
+            limitations.append(NOT_NEGATIVE_SIGNAL_LIMITATION)
     else:
         missing_data.append("local security mapping unavailable for candidate ticker")
 
@@ -245,8 +259,11 @@ def build_candidate_13f_evidence(
             match_confidence = str(matched_target.get("match_confidence") or "medium")
             match_method = str(matched_target.get("match_method") or "cusip_exact")
             interpretation_label = "reported_13f_position_observed"
+            limitations.append(DELAYED_POSITION_LIMITATION)
             if NO_REPORTED_POSITION_LIMITATION in limitations:
                 limitations.remove(NO_REPORTED_POSITION_LIMITATION)
+            if NOT_NEGATIVE_SIGNAL_LIMITATION in limitations:
+                limitations.remove(NOT_NEGATIVE_SIGNAL_LIMITATION)
 
     if not matched_holding and resolved_issuer_name:
         normalized_resolved_name = normalize_issuer_name(resolved_issuer_name)
@@ -264,10 +281,13 @@ def build_candidate_13f_evidence(
             match_confidence = "low"
             match_method = "issuer_name_string_match"
             interpretation_label = "low_confidence_issuer_name_match"
+            limitations.append(DELAYED_POSITION_LIMITATION)
             if ISSUER_ONLY_LIMITATION not in limitations:
                 limitations.append(ISSUER_ONLY_LIMITATION)
             if NO_REPORTED_POSITION_LIMITATION in limitations:
                 limitations.remove(NO_REPORTED_POSITION_LIMITATION)
+            if NOT_NEGATIVE_SIGNAL_LIMITATION in limitations:
+                limitations.remove(NOT_NEGATIVE_SIGNAL_LIMITATION)
 
     relevant_matches = [
         item
@@ -304,6 +324,26 @@ def build_candidate_13f_evidence(
 
     latest_report_date = summary.get("latest_report_date") or (matched_holding or {}).get("report_date") or ""
     latest_filing_date = summary.get("latest_filing_date") or (matched_holding or {}).get("latest_filing_date") or ""
+    final_label = interpretation_label if grouped_holdings or source_status else "insufficient_13f_data"
+    score_contribution_allowed = bool(
+        matched_in_13f
+        and match_confidence in {"high", "medium"}
+        and (source_status.get("provider") in {"SEC EDGAR", "derived_from_SEC_EDGAR_13F"} or summary.get("provider") == "derived_from_SEC_EDGAR_13F")
+        and (source_status.get("source_type") in {"live", "cached_live", "derived"} or summary.get("underlying_source_type") in {"live", "cached_live"})
+        and source_status.get("freshness_window", "quarterly_filing_delay") == "quarterly_filing_delay"
+        and source_status.get("is_fresh", True) is not False
+    )
+    interpretation_summary = (
+        REPORTED_POSITION_SUMMARY
+        if final_label == "reported_13f_position_observed"
+        else NO_REPORTED_POSITION_SUMMARY
+        if final_label == "no_reported_13f_position_observed"
+        else "Issuer-name-only 13F match is low confidence without CUSIP confirmation."
+        if final_label == "low_confidence_issuer_name_match"
+        else "Candidate-specific 13F evidence is limited because identifier mapping is incomplete."
+        if final_label == "insufficient_identifier_mapping"
+        else "Candidate-specific 13F evidence is unavailable."
+    )
     candidate_specific_evidence = {
         "ticker": ticker,
         "resolved_ticker": resolved_ticker,
@@ -316,15 +356,23 @@ def build_candidate_13f_evidence(
         "position_value_usd": (matched_holding or {}).get("total_value_usd"),
         "position_shares_or_principal_amount": (matched_holding or {}).get("total_shares_or_principal_amount"),
         "portfolio_weight_pct": (matched_holding or {}).get("portfolio_weight_pct"),
+        "source_date": source_status.get("source_date") or latest_report_date or latest_filing_date,
+        "report_date": latest_report_date,
+        "filing_date": latest_filing_date,
         "latest_report_date": latest_report_date,
         "latest_filing_date": latest_filing_date,
-        "manager_cik": summary.get("manager_cik") or "",
+        "manager_cik": manager_cik,
         "manager_name": manager_name,
-        "interpretation_label": interpretation_label if grouped_holdings or source_status else "insufficient_13f_data",
+        "manager_metadata_source": manager_metadata_source,
+        "value_unit_confidence_summary": (matched_holding or {}).get("value_unit_confidence_summary"),
+        "interpretation_label": final_label,
+        "interpretation_summary": interpretation_summary,
+        "score_contribution_allowed": score_contribution_allowed,
     }
     portfolio_context = {
-        "manager_cik": summary.get("manager_cik") or "",
+        "manager_cik": manager_cik,
         "manager_name": manager_name,
+        "manager_metadata_source": manager_metadata_source,
         "latest_report_date": latest_report_date,
         "latest_filing_date": latest_filing_date,
         "holding_count_grouped": summary.get("holding_count_grouped"),

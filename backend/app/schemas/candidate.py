@@ -19,16 +19,24 @@ class Candidate13FSpecificEvidence(BaseModel):
     position_value_usd: float | None = None
     position_shares_or_principal_amount: float | None = None
     portfolio_weight_pct: float | None = None
+    source_date: str | None = None
+    report_date: str | None = None
+    filing_date: str | None = None
     latest_report_date: str | None = None
     latest_filing_date: str | None = None
     manager_cik: str | None = None
     manager_name: str | None = None
+    manager_metadata_source: str | None = None
+    value_unit_confidence_summary: str | None = None
     interpretation_label: str | None = None
+    interpretation_summary: str | None = None
+    score_contribution_allowed: bool | None = None
 
 
 class Candidate13FPortfolioContext(BaseModel):
     manager_cik: str | None = None
     manager_name: str | None = None
+    manager_metadata_source: str | None = None
     latest_report_date: str | None = None
     latest_filing_date: str | None = None
     holding_count_grouped: int | None = None

@@ -60,7 +60,9 @@ Aggregation and target matching:
 - Candidate-level 13F evidence uses the same local map but separates `candidate_specific_evidence` from `portfolio_context`.
 - A manager's top holdings are portfolio context only; they are not support for an unrelated candidate ticker.
 - Candidate support requires a CUSIP-confirmed match. If a mapped candidate CUSIP is absent from the configured manager portfolio, candidate output reports `no_reported_13f_position_observed`.
+- Candidate output includes `interpretation_summary` and `score_contribution_allowed` so unmatched evidence is not confused with candidate-specific support.
 - Candidate `portfolio_context.top_holdings_by_value` is capped by `SEC_13F_CANDIDATE_CONTEXT_TOP_HOLDINGS_LIMIT` and does not include the full holdings list.
+- Manager display names are resolved only through a bounded local manager map. CIK remains the stable identifier, unknown CIKs fall back to the normalized CIK, and the local map is not authoritative.
 - The local security map is not authoritative and is used only for deterministic target matching and value-confidence enrichment.
 - Value confidence may be upgraded when local CUSIP-to-ticker mapping and a cached/reusable price reference are both available.
 - The price-reference layer checks reusable market cache first, then uses a bounded per-ticker adapter instead of refetching for every 13F row.
@@ -102,7 +104,8 @@ Limitations:
 - 13F is delayed quarterly evidence and should not be interpreted as real-time institutional flow
 - 13F may lag up to 45 days after quarter end
 - 13F may not show shorts, many derivatives, or current positions
-- manager-name discovery is limited to a small local mapping in v1; numeric CIKs are preferred
+- manager-name display is limited to a small local mapping in v1; numeric CIKs remain the stable identifiers
+- no reported 13F position observed is not a negative trading signal
 - SEC Form 13F Data Sets can be considered as a future batch optimization but are not required for Phase 11
 
 ## Phase 10.5 Official SEC EDGAR Form 4

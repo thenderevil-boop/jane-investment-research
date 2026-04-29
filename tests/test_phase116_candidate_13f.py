@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from backend.app import config
+from backend.app.data.manager_map import MANAGER_MAP_LIMITATION, get_manager_metadata_by_cik, normalize_cik, resolve_manager_name
 from backend.app.engines.sec_13f_aggregation import summarize_13f_portfolio
 from backend.app.engines.sec_13f_target_matching import build_candidate_13f_evidence, match_13f_targets, normalize_target_security_map
 from backend.app.engines.smart_money_engine import evaluate_smart_money
 from backend.app.pipelines import mock_pipeline
 from backend.app.schemas.common import DataSourceStatus
+from backend.app.utils.forbidden_language import detect_forbidden_language
 
 
 def holding_row(issuer_name: str, cusip: str, value_usd: float, shares: float, *, confidence: str = "high") -> dict:
@@ -76,16 +78,31 @@ def target_matches_for(summary: dict, tickers: str) -> dict:
     return match_13f_targets(summary["grouped_holdings"], normalize_target_security_map({"tickers": tickers}))
 
 
+def test_manager_map_normalizes_resolves_and_discloses_limitation():
+    assert normalize_cik("1067983") == "0001067983"
+    assert resolve_manager_name("0001067983") == "Berkshire Hathaway Inc."
+    assert resolve_manager_name("9999999999") == "9999999999"
+    metadata = get_manager_metadata_by_cik("1067983")
+    assert metadata["confidence_source"] == "local_static_map"
+    assert MANAGER_MAP_LIMITATION in metadata["limitations"]
+
+
 def test_nvda_resolves_but_is_not_matched_when_berkshire_lacks_nvda_cusip():
     summary = berkshire_portfolio_summary()
     evidence = build_candidate_13f_evidence("NVDA", summary, target_matches_for(summary, "NVDA"))
     specific = evidence["candidate_specific_evidence"]
     assert specific["resolved_cusip"] == "67066G104"
+    assert specific["manager_name"] == "Berkshire Hathaway Inc."
     assert specific["matched_in_13f"] is False
     assert specific["match_confidence"] == "none"
     assert specific["interpretation_label"] == "no_reported_13f_position_observed"
+    assert specific["interpretation_summary"] == "No reported 13F position was observed for this candidate in the configured manager portfolio."
+    assert specific["score_contribution_allowed"] is False
     assert specific["position_value_usd"] is None
+    assert evidence["portfolio_context"]["manager_name"] == "Berkshire Hathaway Inc."
     assert "No reported 13F position was observed for this candidate in the configured manager portfolio." in evidence["limitations"]
+    assert "This is not a negative trading signal; it only means the configured 13F manager did not report this security for the latest available report period." in evidence["limitations"]
+    assert detect_forbidden_language(evidence) == []
 
 
 def test_tsla_resolves_but_is_not_matched_when_berkshire_lacks_tsla_cusip():
@@ -93,8 +110,21 @@ def test_tsla_resolves_but_is_not_matched_when_berkshire_lacks_tsla_cusip():
     evidence = build_candidate_13f_evidence("TSLA", summary, target_matches_for(summary, "TSLA"))
     specific = evidence["candidate_specific_evidence"]
     assert specific["resolved_cusip"] == "88160R101"
+    assert specific["manager_name"] == "Berkshire Hathaway Inc."
     assert specific["matched_in_13f"] is False
     assert specific["interpretation_label"] == "no_reported_13f_position_observed"
+    assert specific["interpretation_summary"] == "No reported 13F position was observed for this candidate in the configured manager portfolio."
+    assert specific["score_contribution_allowed"] is False
+
+
+def test_numeric_manager_name_is_polished_from_local_manager_map():
+    summary = berkshire_portfolio_summary()
+    summary["manager_name"] = "0001067983"
+    evidence = build_candidate_13f_evidence("NVDA", summary, target_matches_for(summary, "NVDA"))
+    assert evidence["candidate_specific_evidence"]["manager_name"] == "Berkshire Hathaway Inc."
+    assert evidence["portfolio_context"]["manager_name"] == "Berkshire Hathaway Inc."
+    assert evidence["candidate_specific_evidence"]["manager_metadata_source"] == "local_static_map"
+    assert MANAGER_MAP_LIMITATION in evidence["limitations"]
 
 
 def test_aapl_is_candidate_match_when_portfolio_contains_aapl_cusip():
@@ -107,6 +137,13 @@ def test_aapl_is_candidate_match_when_portfolio_contains_aapl_cusip():
     assert specific["position_value_usd"] == 100_000_000
     assert specific["portfolio_weight_pct"] is not None
     assert specific["interpretation_label"] == "reported_13f_position_observed"
+    assert specific["interpretation_summary"] == "A reported 13F position was observed for this candidate in the configured manager portfolio."
+    assert specific["score_contribution_allowed"] is True
+    assert specific["report_date"] == "2026-03-31"
+    assert specific["filing_date"] == "2026-05-15"
+    assert specific["source_date"] == "2026-03-31"
+    assert specific["value_unit_confidence_summary"] == "high"
+    assert "13F reflects a delayed quarterly report and may not represent the manager's current position." in evidence["limitations"]
 
 
 def test_portfolio_top_holdings_do_not_count_as_unrelated_candidate_support():
@@ -178,6 +215,35 @@ def test_unmatched_candidate_does_not_receive_positive_13f_score_contribution():
     assert institutional["score"] <= 40
     assert institutional["label"] in {"institutional_evidence_limited", "insufficient_data"}
     assert institutional["derived_metrics"]["high_confidence_target_match_count"] == 0
+
+
+def test_matched_live_cached_13f_contributes_limited_support():
+    summary = berkshire_portfolio_summary()
+    result = evaluate_smart_money(
+        {
+            "institutional_13f": {"cusip": "037833100"},
+            "institutional_13f_summary": summary,
+            "institutional_13f_snapshot": {
+                "manager": "0001067983",
+                "manager_cik": "0001067983",
+                "holdings": [row for holding in summary["grouped_holdings"] for row in holding["rows"]],
+                "source_type": "cached_live",
+                "provider": "SEC EDGAR",
+                "source": ["SEC EDGAR"],
+                "source_date": "2026-03-31",
+                "limitations": [],
+                "missing_data": [],
+            },
+            "institutional_13f_source_status": summary["source_status"],
+            "institutional_13f_target_matches": target_matches_for(summary, "AAPL"),
+            "form4_transactions": [],
+            "options_activity": {},
+        }
+    )
+    institutional = result.derived_metrics["components"]["institutional_support_13f"]
+    assert institutional["score"] == 60
+    assert institutional["score"] <= institutional["benchmark"]["maximum_score_from_delayed_13f_only"]
+    assert institutional["derived_metrics"]["high_confidence_target_match_count"] == 1
 
 
 def test_mock_fallback_13f_target_matches_do_not_boost_score():

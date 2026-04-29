@@ -490,6 +490,9 @@ SEC 13F URL strategy:
 - The local security map is bounded and not authoritative. It is used only for target matching and value-confidence enrichment.
 - Candidate-level `institutional_13f` separates `candidate_specific_evidence` from `portfolio_context`. A manager's top holdings are context only and are not support for unrelated candidates.
 - Candidate support requires an exact 13F CUSIP match through the local security map or another CUSIP-confirmed match. Unmatched mapped candidates use `no_reported_13f_position_observed`, not a negative execution signal.
+- Manager display names are resolved from a bounded local manager map when available; CIK remains the stable identifier and the local map is not authoritative.
+- Candidate evidence includes `interpretation_summary` and `score_contribution_allowed` to make clear when candidate-specific 13F evidence can affect the score.
+- A reported 13F position reflects delayed quarterly reporting and may not represent the manager's current position.
 - Candidate `portfolio_context.top_holdings_by_value` is capped by `SEC_13F_CANDIDATE_CONTEXT_TOP_HOLDINGS_LIMIT` and does not include the full holdings list.
 - Value confidence may be upgraded when a CUSIP resolves through the local map and a cached/reusable price reference is available. The price-reference layer checks reusable market cache first, then uses a bounded per-ticker adapter instead of refetching for every 13F row.
 - During daily report fast mode, 13F price references use cached market data only unless `ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST=true`.
@@ -509,7 +512,7 @@ Repository behavior:
 - Cached live SEC 13F data within `SEC_13F_CACHE_TTL_DAYS` returns `source_type="cached_live"` with `provider="SEC EDGAR"`.
 - Missing `SEC_EDGAR_USER_AGENT` returns fallback mock 13F with `fallback_reason="SEC_EDGAR_USER_AGENT missing"` and never exposes the User-Agent value.
 - Fallback mock 13F does not boost smart-money score and is labeled insufficient data.
-- Manager-name discovery is limited to a small local mapping in v1; numeric CIKs are preferred.
+- Manager-name display is limited to a small local mapping in v1; numeric CIKs remain the stable identifiers.
 - SEC Form 13F Data Sets may be considered later as a batch optimization, but Phase 11 does not depend on them.
 
 Performance diagnostics:

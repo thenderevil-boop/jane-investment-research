@@ -102,6 +102,18 @@
           "default": null,
           "title": "Manager Name"
         },
+        "manager_metadata_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manager Metadata Source"
+        },
         "latest_report_date": {
           "anyOf": [
             {
@@ -312,6 +324,42 @@
           "default": null,
           "title": "Portfolio Weight Pct"
         },
+        "source_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Date"
+        },
+        "report_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Report Date"
+        },
+        "filing_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filing Date"
+        },
         "latest_report_date": {
           "anyOf": [
             {
@@ -360,6 +408,30 @@
           "default": null,
           "title": "Manager Name"
         },
+        "manager_metadata_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manager Metadata Source"
+        },
+        "value_unit_confidence_summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value Unit Confidence Summary"
+        },
         "interpretation_label": {
           "anyOf": [
             {
@@ -371,6 +443,30 @@
           ],
           "default": null,
           "title": "Interpretation Label"
+        },
+        "interpretation_summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Interpretation Summary"
+        },
+        "score_contribution_allowed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score Contribution Allowed"
         }
       },
       "title": "Candidate13FSpecificEvidence",

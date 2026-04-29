@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.app import config
+from backend.app.data.manager_map import MANAGER_MAP_LIMITATION, get_manager_metadata_by_cik, normalize_cik
 from backend.app.data.price_reference import warm_price_reference_cache as _warm_price_reference_cache
 from backend.app.data.security_map import resolve_security_identifier
 from backend.app.data_sources.mock_crisis import MOCK_CRISIS_SCENARIOS
@@ -312,7 +313,18 @@ def read_sec_13f_data(manager_or_cik: str) -> dict[str, Any] | None:
 
 def write_sec_13f_data(manager_or_cik: str, data: dict[str, Any]) -> dict[str, Any]:
     payload = deepcopy(data)
+    manager_cik = normalize_cik(str(payload.get("manager_cik") or manager_or_cik))
+    manager_metadata = get_manager_metadata_by_cik(manager_cik)
     payload["manager"] = manager_or_cik
+    payload["manager_cik"] = manager_cik or payload.get("manager_cik", "")
+    if not payload.get("manager_name") or payload.get("manager_name") == manager_or_cik:
+        payload["manager_name"] = manager_metadata.get("manager_name")
+    if manager_metadata.get("confidence_source") == "local_static_map":
+        payload["manager_metadata_source"] = manager_metadata.get("confidence_source")
+        limitations = list(payload.get("limitations", []) or [])
+        if MANAGER_MAP_LIMITATION not in limitations:
+            limitations.append(MANAGER_MAP_LIMITATION)
+        payload["limitations"] = limitations
     payload["provider"] = "SEC EDGAR"
     payload["source"] = ["SEC EDGAR"]
     payload["cached_at"] = datetime.now(timezone.utc).isoformat()
@@ -323,6 +335,17 @@ def write_sec_13f_data(manager_or_cik: str, data: dict[str, Any]) -> dict[str, A
 
 def _sanitize_sec_13f_cached_payload(cached: dict[str, Any]) -> dict[str, Any]:
     payload = deepcopy(cached)
+    manager_cik = normalize_cik(str(payload.get("manager_cik") or payload.get("manager") or ""))
+    manager_metadata = get_manager_metadata_by_cik(manager_cik)
+    payload["manager_cik"] = manager_cik or payload.get("manager_cik", "")
+    if not payload.get("manager_name") or payload.get("manager_name") == payload.get("manager"):
+        payload["manager_name"] = manager_metadata.get("manager_name")
+    if manager_metadata.get("confidence_source") == "local_static_map":
+        payload["manager_metadata_source"] = manager_metadata.get("confidence_source")
+        limitations = list(payload.get("limitations", []) or [])
+        if MANAGER_MAP_LIMITATION not in limitations:
+            limitations.append(MANAGER_MAP_LIMITATION)
+        payload["limitations"] = limitations
     payload["provider"] = "SEC EDGAR"
     payload["source"] = ["SEC EDGAR"]
     payload["limitations"] = [item for item in payload.get("limitations", []) if "sec-api" not in str(item).lower()]
@@ -1007,11 +1030,17 @@ def get_sec_13f_summary(
 ) -> dict[str, Any]:
     snapshot = get_sec_13f_holdings(manager_or_cik, lookback_quarters, allow_live_fetch=allow_live_fetch, ticker=ticker)
     summary = summarize_13f_portfolio(snapshot.get("holdings", []) or [])
+    manager_cik = normalize_cik(str(summary.get("manager_cik") or snapshot.get("manager_cik") or snapshot.get("manager") or manager_or_cik))
+    manager_metadata = get_manager_metadata_by_cik(manager_cik)
     summary["source_status"] = _sec_13f_derived_status(snapshot, summary)
     summary["source_type"] = "derived"
     summary["provider"] = summary["source_status"]["provider"]
     summary["manager"] = snapshot.get("manager") or manager_or_cik
-    summary["manager_name"] = snapshot.get("manager_name") or snapshot.get("manager") or manager_or_cik
+    summary["manager_cik"] = manager_cik or summary.get("manager_cik") or ""
+    summary["manager_name"] = snapshot.get("manager_name") or manager_metadata.get("manager_name") or snapshot.get("manager") or manager_or_cik
+    summary["manager_metadata_source"] = snapshot.get("manager_metadata_source") or manager_metadata.get("confidence_source")
+    if summary.get("manager_metadata_source") == "local_static_map" and MANAGER_MAP_LIMITATION not in summary["limitations"]:
+        summary["limitations"] = [*summary["limitations"], MANAGER_MAP_LIMITATION]
     summary["underlying_source_status"] = snapshot.get("source_status")
     summary["underlying_source_type"] = snapshot.get("source_type")
     summary["fallback_used"] = summary["source_status"].get("fallback_used", False)

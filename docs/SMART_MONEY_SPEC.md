@@ -132,10 +132,13 @@ Aggregation and target matching:
 - Candidate-level 13F output separates `candidate_specific_evidence` from `portfolio_context`.
 - A manager's top holdings are supporting context only and do not count as candidate-specific support unless the candidate CUSIP is present in the holdings.
 - `candidate_specific_evidence.matched_in_13f=true` contributes only when source data is live or cached live, provider is SEC EDGAR-derived, freshness uses `quarterly_filing_delay`, and match confidence is high or medium.
-- `matched_in_13f=false` does not add positive 13F support for that candidate and should use `no_reported_13f_position_observed` when the candidate ticker resolves locally.
+- `matched_in_13f=false` does not add positive 13F support for that candidate, should use `no_reported_13f_position_observed` when the candidate ticker resolves locally, and should set `score_contribution_allowed=false`.
+- `matched_in_13f=true` may set `score_contribution_allowed=true` only when source and confidence guardrails pass; 13F contribution remains bounded by `maximum_score_from_delayed_13f_only`.
 - Issuer-name-only candidate matches use `low_confidence_issuer_name_match` and do not carry high-confidence evidence.
 - Mock or fallback target matches are diagnostics only and do not boost candidate smart-money scoring.
 - Candidate `portfolio_context.top_holdings_by_value` is capped by `SEC_13F_CANDIDATE_CONTEXT_TOP_HOLDINGS_LIMIT`, default 5.
+- Manager names are display metadata resolved from a bounded local manager map when available. CIK remains the stable identifier, and the local map is not authoritative.
+- Candidate summaries must disclose that no reported 13F position observed is not a negative trading signal and that observed 13F positions reflect delayed quarterly reporting rather than current positions.
 - Value confidence may be upgraded when local mapping and a cached/reusable price reference are both available.
 - The price-reference layer checks reusable market cache first, then uses a bounded per-ticker adapter instead of refetching for every 13F row.
 - Daily report fast mode uses cached market data for 13F price references unless `ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST=true`.
