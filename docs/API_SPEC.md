@@ -761,9 +761,9 @@ Target matching:
 - Issuer-name-only string matching remains low confidence and includes a limitation.
 - Target matches may include `match_method`, `resolved_ticker`, `resolved_cusip`, `resolved_issuer_name`, and `local_security_map_used`.
 
-Aggregation and portfolio summary may include `mapped_ticker`, `resolved_cusip`, `security_map_used`, `price_reference_used_count`, `mapped_holding_count`, and `unmapped_holding_count`. The local security map is bounded and not authoritative.
+Aggregation and portfolio summary may include `mapped_ticker`, `resolved_cusip`, `security_map_used`, `price_reference_used_count`, `mapped_holding_count`, and `unmapped_holding_count`. The local security map is bounded and not authoritative. If mapped 13F rows cannot obtain a reusable price reference, portfolio summaries include `price reference unavailable for mapped 13F holdings` in `missing_data`.
 
-Value confidence may be upgraded when local mapping and a cached/reusable price reference are available. Price references may not match the 13F report date exactly.
+Value confidence may be upgraded when local mapping and a cached/reusable price reference are available. The price-reference layer checks reusable market cache first, then uses a bounded per-ticker adapter instead of refetching for every 13F row. Price references may not match the 13F report date exactly, and confidence is capped conservatively when the reference date differs materially from the 13F report date.
 
 QoQ comparison is by CUSIP and reflects reported quarterly changes only. It must not be interpreted as real-time institutional flow.
 

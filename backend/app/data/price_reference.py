@@ -6,6 +6,8 @@ from pathlib import Path
 
 from backend.app import config
 
+_REFERENCE_CACHE: dict[str, "PriceReference | None"] = {}
+
 
 @dataclass(frozen=True)
 class PriceReference:
@@ -48,6 +50,9 @@ def get_price_reference(ticker: str, as_of_date: str | None = None) -> PriceRefe
     normalized = str(ticker or "").strip().upper()
     if not normalized or not config.USE_LIVE_MARKET_DATA:
         return None
+    cache_key = f"{normalized}|{as_of_date or ''}"
+    if cache_key in _REFERENCE_CACHE:
+        return _REFERENCE_CACHE[cache_key]
     for path in _candidate_cache_paths(normalized):
         if not path.exists():
             continue
@@ -58,11 +63,32 @@ def get_price_reference(ticker: str, as_of_date: str | None = None) -> PriceRefe
         price, source_date = _extract_price(payload)
         if price is None or price <= 0:
             continue
-        return PriceReference(
+        reference = PriceReference(
             ticker=normalized,
             price=price,
             source_date=source_date or as_of_date or "",
             provider=str(payload.get("provider") or "yfinance_cache"),
             confidence="medium",
         )
-    return None
+        _REFERENCE_CACHE[cache_key] = reference
+        return reference
+    try:
+        from backend.app.data_sources.live_market_prices import fetch_ohlcv
+
+        payload = fetch_ohlcv(normalized, period="5d", interval="1d")
+        price, source_date = _extract_price(payload)
+        if price is None or price <= 0:
+            _REFERENCE_CACHE[cache_key] = None
+            return None
+        reference = PriceReference(
+            ticker=normalized,
+            price=price,
+            source_date=source_date or payload.get("source_date") or as_of_date or "",
+            provider=str(payload.get("provider") or "yfinance"),
+            confidence="medium",
+        )
+        _REFERENCE_CACHE[cache_key] = reference
+        return reference
+    except Exception:
+        _REFERENCE_CACHE[cache_key] = None
+        return None

@@ -362,14 +362,15 @@ def _cached_sec_form4_after_failure(ticker: str, reason: str) -> dict[str, Any] 
     payload["source_type"] = "cached_live"
     payload["provider"] = "SEC EDGAR"
     payload["source"] = ["SEC EDGAR"]
-    payload.setdefault("limitations", []).append("Live SEC EDGAR fetch failed; cached Form 4 data used.")
+    cache_reason = "Live SEC EDGAR Form 4 fetch failed; cached live data used."
+    payload.setdefault("limitations", []).append(cache_reason)
     payload["source_status"] = build_source_status(
         {
             **payload,
             "source_type": "cached_live",
             "provider": "SEC EDGAR",
             "fallback_used": True,
-            "fallback_reason": reason,
+            "fallback_reason": cache_reason,
             "limitations": payload.get("limitations", []),
         },
         freshness_window=FORM4_FRESHNESS_WINDOW,

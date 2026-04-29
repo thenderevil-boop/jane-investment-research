@@ -8,8 +8,9 @@ import pytest
 
 from backend.app import config
 from backend.app.data import security_map
+from backend.app.data import price_reference
 from backend.app.data.price_reference import PriceReference
-from backend.app.data_sources import sec_edgar_13f
+from backend.app.data_sources import sec_edgar_13f, sec_edgar_form4
 from backend.app.engines.sec_13f_aggregation import aggregate_13f_holdings, compare_13f_quarter_over_quarter, summarize_13f_portfolio
 from backend.app.engines.sec_13f_target_matching import match_13f_targets, normalize_target_security_map
 from backend.app.engines.smart_money_engine import evaluate_smart_money
@@ -407,6 +408,65 @@ def test_parser_notes_local_map_without_price_reference(monkeypatch):
     assert "Local security mapping was available" in row["value_normalization_note"]
 
 
+def test_price_reference_cache_is_used_for_mapped_holding(monkeypatch):
+    cache_dir = workspace_tmp_dir()
+    monkeypatch.setattr(config, "USE_LIVE_MARKET_DATA", True)
+    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", cache_dir)
+    (cache_dir / "AAPL.json").write_text('{"latest_close": 272, "source_date": "2025-12-31", "provider": "yfinance_cache"}', encoding="utf-8")
+    price_reference._REFERENCE_CACHE.clear()
+    row = sec_edgar_13f.enrich_13f_holding_with_local_context(
+        {
+            "issuer_name": "APPLE INC",
+            "cusip": "037833100",
+            "reported_value_raw": 21929537965,
+            "shares_or_principal_amount": 80664820,
+            "report_date": "2025-12-31",
+            "source_status": {"limitations": []},
+        }
+    )
+    assert row["mapped_ticker"] == "AAPL"
+    assert row["price_reference_used"] is True
+    assert row["value_unit_confidence"] == "high"
+
+
+def test_price_reference_live_adapter_is_memoized_not_per_row(monkeypatch):
+    cache_dir = workspace_tmp_dir()
+    monkeypatch.setattr(config, "USE_LIVE_MARKET_DATA", True)
+    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", cache_dir)
+    price_reference._REFERENCE_CACHE.clear()
+    calls = []
+
+    def fake_fetch(ticker, period="5d", interval="1d"):
+        calls.append(ticker)
+        return {"provider": "yfinance", "source_date": "2025-12-31", "rows": [{"date": "2025-12-31", "close": 272}]}
+
+    monkeypatch.setattr("backend.app.data_sources.live_market_prices.fetch_ohlcv", fake_fetch)
+    first = price_reference.get_price_reference("AAPL", "2025-12-31")
+    second = price_reference.get_price_reference("AAPL", "2025-12-31")
+    assert first is not None
+    assert second is first
+    assert calls == ["AAPL"]
+
+
+def test_current_price_reference_for_old_report_date_caps_confidence_at_medium(monkeypatch):
+    monkeypatch.setattr(sec_edgar_13f, "get_price_reference", lambda ticker, as_of_date=None: PriceReference(ticker=ticker, price=240, source_date="2026-04-29", provider="mock_price_reference", confidence="medium"))
+    xml = """<?xml version="1.0"?>
+    <informationTable xmlns="http://www.sec.gov/edgar/document/thirteenf/informationtable">
+      <infoTable>
+        <nameOfIssuer>APPLE INC</nameOfIssuer>
+        <titleOfClass>COM</titleOfClass>
+        <cusip>037833100</cusip>
+        <value>21929537965</value>
+        <shrsOrPrnAmt><sshPrnamt>80664820</sshPrnamt><sshPrnamtType>SH</sshPrnamtType></shrsOrPrnAmt>
+      </infoTable>
+    </informationTable>
+    """
+    row = sec_edgar_13f.parse_13f_information_table_xml(xml, "0001067983", "a", "2026-02-16", "2025-12-31")[0]
+    assert row["price_reference_used"] is True
+    assert row["value_unit_confidence"] == "medium"
+    assert "Confidence capped at medium" in row["value_normalization_note"]
+
+
 def test_berkshire_apple_style_holding_does_not_exceed_one_trillion():
     xml = """<?xml version="1.0"?>
     <informationTable xmlns="http://www.sec.gov/edgar/document/thirteenf/informationtable">
@@ -750,6 +810,81 @@ def test_daily_report_keeps_compact_13f_summary_fields(monkeypatch):
     assert institutional["top_holdings_by_value"]
     assert "target_matches" in institutional
     assert "qoq_changes" in institutional
+
+
+def test_portfolio_summary_missing_price_reference_for_mapped_holdings(monkeypatch):
+    monkeypatch.setattr(sec_edgar_13f, "get_price_reference", lambda ticker, as_of_date=None: None)
+    rows = sec_edgar_13f.parse_13f_information_table_xml(INFO_XML, "0001067983", "a", "2026-05-20", "2026-03-31")
+    summary = summarize_13f_portfolio(rows)
+    assert summary["mapped_holding_count"] > 0
+    assert summary["price_reference_used_count"] == 0
+    assert "price reference unavailable for mapped 13F holdings" in summary["missing_data"]
+
+
+def test_form4_parser_rejects_html_before_xml_parse():
+    html = "<html><body><table><tr><td>not xml</td></tr></table></body></html>"
+    with pytest.raises(sec_edgar_form4.SecEdgarForm4FetchError):
+        sec_edgar_form4.parse_form4_xml(html, "NVDA", "0000000000", "a", "2026-04-01")
+
+
+def test_form4_fetch_discovers_actual_xml_after_html_primary(monkeypatch):
+    monkeypatch.setattr(config, "SEC_EDGAR_USER_AGENT", "Test test@example.com")
+    monkeypatch.setattr(config, "SEC_EDGAR_REQUEST_DELAY_SECONDS", 0)
+    valid_xml = """<ownershipDocument><issuer><issuerCik>0000000000</issuerCik><issuerName>NVIDIA</issuerName><issuerTradingSymbol>NVDA</issuerTradingSymbol></issuer><reportingOwner><reportingOwnerId><rptOwnerName>Owner</rptOwnerName></reportingOwnerId><reportingOwnerRelationship><isDirector>1</isDirector></reportingOwnerRelationship></reportingOwner></ownershipDocument>"""
+
+    def fake_get(url, headers, timeout):
+        if url.endswith("index.json"):
+            return FakeResponse({"directory": {"item": [{"name": "primary.html"}, {"name": "form4.xml"}]}})
+        if url.endswith("primary.html"):
+            return FakeResponse(text="<html><body>index</body></html>")
+        return FakeResponse(text=valid_xml)
+
+    monkeypatch.setattr(sec_edgar_form4.httpx, "get", fake_get)
+    assert sec_edgar_form4.fetch_form4_xml("0000000001", "0000000001-26-000001", "primary.html") == valid_xml
+
+
+def test_form4_live_fetch_failure_with_cache_returns_cached_live_reason(monkeypatch):
+    cache_dir = workspace_tmp_dir()
+    monkeypatch.setattr(config, "USE_LIVE_SEC_FORM4", True)
+    monkeypatch.setattr(config, "SEC_FORM4_CACHE_DIR", cache_dir)
+    monkeypatch.setattr(config, "SEC_EDGAR_USER_AGENT", "Test test@example.com")
+    monkeypatch.setattr(config, "SEC_FORM4_CACHE_TTL_HOURS", -1)
+    repository.write_sec_form4_data(
+        "NVDA",
+        {
+            "ticker": "NVDA",
+            "transactions": [],
+            "source_type": "live",
+            "provider": "SEC EDGAR",
+            "source": ["SEC EDGAR"],
+            "source_date": "2026-04-01",
+            "limitations": [],
+            "missing_data": [],
+        },
+    )
+    monkeypatch.setattr(sec_edgar_form4, "fetch_insider_transactions", lambda ticker, lookback_days=180: (_ for _ in ()).throw(RuntimeError("mismatched tag: line 29, column 16")))
+    payload = repository.get_sec_form4_transactions("NVDA")
+    assert payload["source_type"] == "cached_live"
+    assert payload["provider"] == "SEC EDGAR"
+    assert payload["source_status"]["fallback_reason"] == "Live SEC EDGAR Form 4 fetch failed; cached live data used."
+
+
+def test_candidate_cached_live_form4_warning_not_candidate_fallback(monkeypatch):
+    sec_filings = {
+        "institutional_13f": {},
+        "institutional_13f_snapshot": {},
+        "institutional_13f_snapshots": [],
+        "institutional_13f_source_status": {"source_type": "cached_live", "provider": "SEC EDGAR", "source_date": "2026-03-31", "is_fresh": True, "fallback_used": False},
+        "form4_transactions": [],
+        "form4_source_status": {"source_type": "cached_live", "provider": "SEC EDGAR", "source_date": "2026-04-01", "is_fresh": True, "fallback_used": True, "fallback_reason": "Live SEC EDGAR Form 4 fetch failed; cached live data used."},
+        "form4_snapshot": {"limitations": []},
+        "crisis_scenarios": {},
+    }
+    monkeypatch.setattr(mock_pipeline, "read_sec_filings", lambda ticker="NVDA": sec_filings)
+    candidate = mock_pipeline._candidate("NVDA", "AI energy infrastructure", {"source_type": "live", "source": ["yfinance"], "source_date": "2026-04-29", "source_status": {"is_fresh": True}})
+    assert candidate.source_status is not None
+    assert candidate.source_status.source_type == "derived"
+    assert candidate.source_status.fallback_used is False
 
 
 def test_xml_parser_handles_namespaces():

@@ -134,8 +134,6 @@ def _candidate(ticker: str, theme: str, market_context: dict | None = None) -> S
     has_mixed_sources = len(component_source_types) > 1
     candidate_fallback_used = (
         (market_context.get("fallback_used") if market_context else False)
-        or form4_status.get("fallback_used", False)
-        or thirteen_f_status.get("fallback_used", False)
         or form4_source_type == "fallback"
         or thirteen_f_source_type == "fallback"
     )

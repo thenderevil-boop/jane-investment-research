@@ -401,6 +401,8 @@ uvicorn backend.app.main:app --reload
 
 `SEC_EDGAR_USER_AGENT` is required for official SEC EDGAR public endpoints. No API key is required. If the User-Agent is missing or a fetch fails, the raw store returns deterministic mock fallback Form 4 data with `source_type="fallback"` and a safe `fallback_reason`. User-Agent values are never returned by API responses.
 
+If a live SEC EDGAR Form 4 fetch fails after cache-first checks but usable cached live data exists, the component remains `source_type="cached_live"` with `provider="SEC EDGAR"` and uses the safe fallback reason `Live SEC EDGAR Form 4 fetch failed; cached live data used.` This cached-live warning is not treated as mock fallback for candidate-level source status.
+
 Phase 10 only connects SEC Form 4 insider transactions. Phase 11 separately connects SEC 13F institutional holdings. Options, news, YouTube, and live theme APIs remain mock or manually verified placeholders.
 
 Form 4 transaction-code handling:
@@ -471,7 +473,9 @@ SEC 13F URL strategy:
 - Portfolio summaries use normalized `value_usd` for `total_reported_value_usd`, top holdings, and portfolio weights.
 - Target matching is highest confidence by exact CUSIP. Ticker matching uses only a small local ticker-to-CUSIP map and does not call external CUSIP APIs. Issuer-name-only matching is low confidence and disclosed as a limitation.
 - The local security map is bounded and not authoritative. It is used only for target matching and value-confidence enrichment.
-- Value confidence may be upgraded when a CUSIP resolves through the local map and a cached/reusable price reference is available. Price references may not match the 13F report date exactly.
+- Value confidence may be upgraded when a CUSIP resolves through the local map and a cached/reusable price reference is available. The price-reference layer checks reusable market cache first, then uses a bounded per-ticker adapter instead of refetching for every 13F row.
+- If mapped 13F rows cannot obtain a reusable price reference, portfolio summaries include `price reference unavailable for mapped 13F holdings` in `missing_data`.
+- Price references may not match the 13F report date exactly, so confidence is capped conservatively when the reference date differs materially from the 13F report date.
 - QoQ comparison reflects reported quarterly 13F changes only. It is not real-time institutional flow.
 - Daily report smart-money output is compact by default: it includes portfolio summary, top holdings, target matches, capped QoQ changes, source status, limitations, and missing data. Full 13F rows are omitted unless `INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT=true`, in which case they appear under `raw_data_full`.
 - `qoq_changes` is capped in the daily report and includes `qoq_changes_count_total` plus `qoq_changes_limit`.

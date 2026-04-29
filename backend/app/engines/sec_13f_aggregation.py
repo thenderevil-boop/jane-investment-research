@@ -197,6 +197,9 @@ def summarize_13f_portfolio(holdings: list[dict[str, Any]], top_holdings_limit: 
     }
     mapped_holding_count = sum(1 for item in grouped_holdings if item.get("security_map_used"))
     price_reference_used_count = sum(int(item.get("price_reference_used_count") or 0) for item in grouped_holdings)
+    missing_data = list(aggregate.get("missing_data", []))
+    if mapped_holding_count and price_reference_used_count == 0:
+        missing_data.append("price reference unavailable for mapped 13F holdings")
     top_holdings: list[dict[str, Any]] = []
     for item in grouped_holdings:
         value = item.get("total_value_usd") or 0
@@ -245,7 +248,7 @@ def summarize_13f_portfolio(holdings: list[dict[str, Any]], top_holdings_limit: 
         "price_reference_used_count": price_reference_used_count,
         "source_status": source_status,
         "limitations": THIRTEEN_F_LIMITATIONS,
-        "missing_data": aggregate.get("missing_data", []),
+        "missing_data": sorted(set(missing_data)),
         "grouped_holdings": grouped_holdings,
     }
 

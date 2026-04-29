@@ -13,6 +13,7 @@ from backend.app.utils.freshness import FORM4_FRESHNESS_WINDOW, build_source_sta
 SEC_COMPANY_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
 SEC_ARCHIVES_URL = "https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_no_dash}/{document}"
+SEC_ARCHIVES_DIRECTORY_URL = "https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_no_dash}/"
 PROVIDER = "SEC EDGAR"
 LIMITATION = "Form 4 transaction codes require context; only code P is counted as accumulation and only code S is counted as disposition."
 PAGINATION_LIMITATION = "SEC submissions recent filings pagination is not followed in this MVP unless already present in the recent filings payload."
@@ -241,13 +242,78 @@ def build_edgar_archive_url(cik: str, accession_number: str, primary_document: s
     )
 
 
+def build_archives_directory_url(cik: str, accession_number: str) -> str:
+    cik_int = str(int(_cik10(cik)))
+    return SEC_ARCHIVES_DIRECTORY_URL.format(cik_int=cik_int, accession_no_dash=_accession_no_dash(accession_number))
+
+
+def build_archives_index_json_url(cik: str, accession_number: str) -> str:
+    return f"{build_archives_directory_url(cik, accession_number)}index.json"
+
+
+def _looks_like_html(text: str) -> bool:
+    sample = text[:500].lower()
+    return "<html" in sample or "<!doctype html" in sample or "<table" in sample
+
+
+def _is_form4_xml(text: str) -> bool:
+    if _looks_like_html(text):
+        return False
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return False
+    return _local_name(root.tag) == "ownershipDocument"
+
+
+def _discover_form4_xml_documents(cik: str, accession_number: str) -> list[str]:
+    try:
+        payload = _get_json(build_archives_index_json_url(cik, accession_number))
+    except Exception:
+        return []
+    items = payload.get("directory", {}).get("item") or []
+    candidates: list[str] = []
+    directory_url = build_archives_directory_url(cik, accession_number)
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "")
+        lower = name.lower()
+        if not lower.endswith(".xml") or lower.endswith(".xsl"):
+            continue
+        if lower in {"primary_doc.xml"}:
+            continue
+        candidates.append(f"{directory_url}{name}")
+    return candidates[:5]
+
+
 def fetch_form4_xml(cik: str, accession_number: str, primary_document: str) -> str:
     if not primary_document:
         raise SecEdgarForm4FetchError("Form 4 primary document is missing")
-    return _get_text(build_edgar_archive_url(cik, accession_number, primary_document))
+    failures: list[str] = []
+    primary_url = build_edgar_archive_url(cik, accession_number, primary_document)
+    try:
+        text = _get_text(primary_url)
+        if _is_form4_xml(text):
+            return text
+        failures.append(f"{primary_document}: not Form 4 XML")
+    except Exception as exc:
+        failures.append(f"{primary_document}: {str(exc).splitlines()[0][:80]}")
+    for url in _discover_form4_xml_documents(cik, accession_number):
+        document = url.rsplit("/", 1)[-1]
+        try:
+            text = _get_text(url)
+            if _is_form4_xml(text):
+                return text
+            failures.append(f"{document}: not Form 4 XML")
+        except Exception as exc:
+            failures.append(f"{document}: {str(exc).splitlines()[0][:80]}")
+    raise SecEdgarForm4FetchError(f"No valid Form 4 XML document found: {'; '.join(failures)}")
 
 
 def parse_form4_xml(xml_text: str, ticker: str, cik: str, accession_number: str, filing_date: str) -> list[dict[str, Any]]:
+    if not _is_form4_xml(xml_text):
+        raise SecEdgarForm4FetchError("Fetched document is not a valid Form 4 ownershipDocument XML")
     root = ET.fromstring(xml_text)
     issuer = _child(root, "issuer")
     owner = _child(root, "reportingOwner")

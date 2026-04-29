@@ -248,6 +248,13 @@ def enrich_13f_holding_with_local_context(holding: dict[str, Any]) -> dict[str, 
     shares = row.get("shares_or_principal_amount")
     price = price_reference.price if price_reference else None
     value_fields = normalize_13f_value(raw_value, shares=shares, ticker=mapped_ticker, price_reference=price, security_map_used=bool(security))
+    if price_reference and value_fields.get("value_unit_confidence") == "high":
+        expected_value = float(shares or 0) * float(price_reference.price)
+        chosen_value = float(value_fields.get("value_usd") or 0)
+        tolerance = abs(chosen_value - expected_value) / expected_value if expected_value else 1
+        if price_reference.source_date and row.get("report_date") and price_reference.source_date != row.get("report_date") and tolerance > 0.01:
+            value_fields["value_unit_confidence"] = "medium"
+            value_fields["value_normalization_note"] = f"{value_fields.get('value_normalization_note')} Confidence capped at medium because the price reference date differs from the 13F report date."
     row.update(
         {
             "mapped_ticker": mapped_ticker,
