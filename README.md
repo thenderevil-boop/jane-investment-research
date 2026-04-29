@@ -469,7 +469,9 @@ SEC 13F URL strategy:
 - Daily reports aggregate row-level 13F holdings by CUSIP when available. If CUSIP is missing, issuer name plus title of class is used as a lower-stability grouping key.
 - The same issuer may appear under multiple CUSIPs or share classes, so similar issuer names are not blindly merged.
 - Portfolio summaries use normalized `value_usd` for `total_reported_value_usd`, top holdings, and portfolio weights.
-- Target matching is highest confidence by exact CUSIP. Ticker matching uses only a small local ticker-to-CUSIP fixture and does not call external CUSIP APIs. Issuer-name matching is low confidence and disclosed as a limitation.
+- Target matching is highest confidence by exact CUSIP. Ticker matching uses only a small local ticker-to-CUSIP map and does not call external CUSIP APIs. Issuer-name-only matching is low confidence and disclosed as a limitation.
+- The local security map is bounded and not authoritative. It is used only for target matching and value-confidence enrichment.
+- Value confidence may be upgraded when a CUSIP resolves through the local map and a cached/reusable price reference is available. Price references may not match the 13F report date exactly.
 - QoQ comparison reflects reported quarterly 13F changes only. It is not real-time institutional flow.
 - Daily report smart-money output is compact by default: it includes portfolio summary, top holdings, target matches, capped QoQ changes, source status, limitations, and missing data. Full 13F rows are omitted unless `INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT=true`, in which case they appear under `raw_data_full`.
 - `qoq_changes` is capped in the daily report and includes `qoq_changes_count_total` plus `qoq_changes_limit`.

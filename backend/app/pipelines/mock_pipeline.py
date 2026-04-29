@@ -112,7 +112,9 @@ def _candidate(ticker: str, theme: str, market_context: dict | None = None) -> S
             "13F is delayed quarterly evidence.",
             "13F may lag up to 45 days after quarter end.",
             "13F may not show shorts, many derivatives, or current positions.",
+            "Local security mapping is bounded and not authoritative.",
             "Issuer-name matches are low confidence unless CUSIP or local ticker mapping confirms.",
+            *(["Price reference may not match the 13F report date exactly."] if thirteen_f_raw.get("portfolio_summary", {}).get("price_reference_used_count") else []),
         ],
     }
     form4_status = sec_filings.get("form4_source_status", {})

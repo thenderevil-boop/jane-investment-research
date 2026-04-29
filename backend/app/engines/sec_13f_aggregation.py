@@ -4,6 +4,7 @@ from copy import deepcopy
 from datetime import date
 from typing import Any
 
+from backend.app.data.security_map import resolve_security_identifier
 from backend.app.utils.freshness import THIRTEEN_F_FRESHNESS_WINDOW, build_source_status
 
 THIRTEEN_F_LIMITATIONS = [
@@ -122,6 +123,16 @@ def aggregate_13f_holdings(holdings: list[dict[str, Any]]) -> dict[str, Any]:
     for key, group_rows in grouped.items():
         sorted_rows = sorted(group_rows, key=lambda item: (_text(item.get("report_date")), _text(item.get("filing_date"))), reverse=True)
         first = sorted_rows[0]
+        resolved_rows = [
+            {
+                "ticker": row.get("mapped_ticker") or (resolve_security_identifier(cusip=row.get("cusip"), issuer_name=row.get("issuer_name")).get("security") or {}).get("ticker", ""),
+                "cusip": row.get("resolved_cusip") or (resolve_security_identifier(cusip=row.get("cusip"), issuer_name=row.get("issuer_name")).get("security") or {}).get("cusip", ""),
+                "security_map_used": bool(row.get("security_map_used")) or bool(resolve_security_identifier(cusip=row.get("cusip"), issuer_name=row.get("issuer_name")).get("security")),
+            }
+            for row in group_rows
+        ]
+        mapped_tickers = {item["ticker"] for item in resolved_rows if item["ticker"]}
+        resolved_cusips = {item["cusip"] for item in resolved_rows if item["cusip"]}
         value_notes = sorted({_text(row.get("value_normalization_note")) for row in group_rows if _text(row.get("value_normalization_note"))})
         source_values = sorted({source for row in group_rows for source in row.get("source", []) or []}) or ["SEC EDGAR"]
         provider = "derived_from_SEC_EDGAR_13F" if any("SEC EDGAR" in source for source in source_values) else "derived_from_mock_13f"
@@ -132,6 +143,9 @@ def aggregate_13f_holdings(holdings: list[dict[str, Any]]) -> dict[str, Any]:
                 "cusip": _upper(first.get("cusip")),
                 "issuer_name": first.get("issuer_name"),
                 "title_of_class": first.get("title_of_class"),
+                "mapped_ticker": next(iter(mapped_tickers)) if len(mapped_tickers) == 1 else "",
+                "resolved_cusip": next(iter(resolved_cusips)) if len(resolved_cusips) == 1 else _upper(first.get("cusip")),
+                "security_map_used": any(item["security_map_used"] for item in resolved_rows),
                 "report_date": max((_text(row.get("report_date")) for row in group_rows), default=""),
                 "latest_filing_date": max((_text(row.get("filing_date")) for row in group_rows), default=""),
                 "manager_cik": first.get("manager_cik"),
@@ -141,6 +155,7 @@ def aggregate_13f_holdings(holdings: list[dict[str, Any]]) -> dict[str, Any]:
                 "total_shares_or_principal_amount": sum(_num(row.get("shares_or_principal_amount")) for row in group_rows),
                 "value_unit_confidence_summary": _confidence_summary([_text(row.get("value_unit_confidence")) for row in group_rows]),
                 "value_normalization_notes": value_notes,
+                "price_reference_used_count": sum(1 for row in group_rows if row.get("price_reference_used")),
                 "investment_discretion_values": sorted({_text(row.get("investment_discretion")) for row in group_rows if _text(row.get("investment_discretion"))}),
                 "other_manager_values": sorted({_text(row.get("other_manager")) for row in group_rows if _text(row.get("other_manager"))}),
                 "voting_authority_sole": sum(_num(row.get("voting_authority_sole")) for row in group_rows),
@@ -180,6 +195,8 @@ def summarize_13f_portfolio(holdings: list[dict[str, Any]], top_holdings_limit: 
         "medium": confidence_values.count("medium"),
         "low": confidence_values.count("low"),
     }
+    mapped_holding_count = sum(1 for item in grouped_holdings if item.get("security_map_used"))
+    price_reference_used_count = sum(int(item.get("price_reference_used_count") or 0) for item in grouped_holdings)
     top_holdings: list[dict[str, Any]] = []
     for item in grouped_holdings:
         value = item.get("total_value_usd") or 0
@@ -191,6 +208,10 @@ def summarize_13f_portfolio(holdings: list[dict[str, Any]], top_holdings_limit: 
                 "issuer_name": item.get("issuer_name"),
                 "cusip": item.get("cusip"),
                 "title_of_class": item.get("title_of_class"),
+                "mapped_ticker": item.get("mapped_ticker"),
+                "resolved_cusip": item.get("resolved_cusip"),
+                "security_map_used": item.get("security_map_used"),
+                "price_reference_used_count": item.get("price_reference_used_count"),
                 "total_value_usd": value,
                 "total_shares_or_principal_amount": item.get("total_shares_or_principal_amount"),
                 "portfolio_weight_pct": round(value / total_value * 100, 4) if total_value else None,
@@ -219,6 +240,9 @@ def summarize_13f_portfolio(holdings: list[dict[str, Any]], top_holdings_limit: 
         "top_holdings_by_value": top_holdings,
         "top_holdings_limit": top_holdings_limit,
         "value_confidence_breakdown": confidence_breakdown,
+        "mapped_holding_count": mapped_holding_count,
+        "unmapped_holding_count": len(grouped_holdings) - mapped_holding_count,
+        "price_reference_used_count": price_reference_used_count,
         "source_status": source_status,
         "limitations": THIRTEEN_F_LIMITATIONS,
         "missing_data": aggregate.get("missing_data", []),

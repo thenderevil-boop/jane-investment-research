@@ -156,6 +156,8 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
         for item in matched_targets
         if item.get("match_confidence") in {"high", "medium"}
     ]
+    high_confidence_matches = [item for item in matched_targets if item.get("match_confidence") == "high"]
+    medium_confidence_matches = [item for item in matched_targets if item.get("match_confidence") == "medium"]
     filing_dates = [filing.get("filing_date", "") for snapshot in deduped_snapshots for filing in snapshot.get("filings", []) or [] if filing.get("filing_date")]
     report_dates = [filing.get("report_date", "") for snapshot in deduped_snapshots for filing in snapshot.get("filings", []) or [] if filing.get("report_date")]
     latest_filing_date = portfolio_summary.get("latest_filing_date") or max(filing_dates, default=source_snapshot.get("source_date", ""))
@@ -183,7 +185,7 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
     qoq_changes_count_total = len(qoq_changes)
     qoq_changes_capped = _capped_qoq_changes(qoq_changes)
     if live_holdings:
-        score = 60 if high_or_medium_matches or target_cusip_holdings else 50
+        score = 60 if high_confidence_matches or target_cusip_holdings else 55 if medium_confidence_matches else 50
         if quarter_change is not None and quarter_change < -10:
             score = 40
         institutional_support_label = "institutional_target_match_observed" if high_or_medium_matches or target_cusip_holdings else "institutional_evidence_observed"
@@ -232,7 +234,8 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
                 "holding_count": len(holdings_for_metrics),
                 "top_holding_names": [item.get("issuer_name") for item in sorted_holdings[:10] if item.get("issuer_name")],
                 "target_match_count": len(matched_targets),
-                "high_confidence_target_match_count": len([item for item in matched_targets if item.get("match_confidence") == "high"]),
+                "high_confidence_target_match_count": len(high_confidence_matches),
+                "medium_confidence_target_match_count": len(medium_confidence_matches),
                 "qoq_change_count": qoq_changes_count_total,
                 "target_ticker_holdings": [],
                 "target_cusip_holdings": target_cusip_holdings,

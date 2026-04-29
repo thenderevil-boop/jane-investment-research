@@ -10,6 +10,8 @@ from xml.etree import ElementTree as ET
 import httpx
 
 from backend.app import config
+from backend.app.data.price_reference import get_price_reference
+from backend.app.data.security_map import resolve_security_identifier
 from backend.app.utils.freshness import THIRTEEN_F_FRESHNESS_WINDOW, build_source_status
 
 SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
@@ -185,6 +187,7 @@ def normalize_13f_value(
     shares: float | int | None = None,
     ticker: str | None = None,
     price_reference: float | int | None = None,
+    security_map_used: bool = False,
 ) -> dict[str, Any]:
     if raw_value is None:
         return {
@@ -199,20 +202,24 @@ def normalize_13f_value(
         expected_value = float(shares) * float(price_reference)
         raw_delta = abs(raw - expected_value)
         thousands_delta = abs(raw * 1000 - expected_value)
+        chosen_delta = min(raw_delta, thousands_delta)
+        tolerance = chosen_delta / expected_value if expected_value else 1
+        confidence = "high" if tolerance <= 0.25 else "medium" if tolerance <= 0.50 else "low"
+        note_suffix = " Local security map and price reference were used. Price reference may not match the 13F report date exactly."
         if thousands_delta < raw_delta:
             return {
                 "reported_value_raw": raw,
                 "reported_value_unit": "thousands_usd",
                 "value_usd": raw * 1000,
-                "value_unit_confidence": "high",
-                "value_normalization_note": "13F XML value interpreted as thousands of USD because that is closer to shares times the available price reference.",
+                "value_unit_confidence": confidence,
+                "value_normalization_note": f"13F XML value interpreted as thousands of USD because that is closer to shares times the available price reference.{note_suffix}",
             }
         return {
             "reported_value_raw": raw,
             "reported_value_unit": "usd",
             "value_usd": raw,
-            "value_unit_confidence": "high",
-            "value_normalization_note": "13F XML value interpreted as USD because that is closer to shares times the available price reference.",
+            "value_unit_confidence": confidence,
+            "value_normalization_note": f"13F XML value interpreted as USD because that is closer to shares times the available price reference.{note_suffix}",
         }
     if config.SEC_13F_ASSUME_VALUE_THOUSANDS:
         return {
@@ -227,8 +234,37 @@ def normalize_13f_value(
         "reported_value_unit": "as_reported",
         "value_usd": raw,
         "value_unit_confidence": "low",
-        "value_normalization_note": "13F XML value preserved as reported because no reliable unit disambiguation reference was available.",
+        "value_normalization_note": "Local security mapping was available, but no reliable price reference was available." if security_map_used else "13F XML value preserved as reported because no reliable unit disambiguation reference was available.",
     }
+
+
+def enrich_13f_holding_with_local_context(holding: dict[str, Any]) -> dict[str, Any]:
+    row = dict(holding)
+    resolved = resolve_security_identifier(cusip=row.get("cusip"), issuer_name=row.get("issuer_name"))
+    security = resolved.get("security") or {}
+    mapped_ticker = security.get("ticker", "")
+    price_reference = get_price_reference(mapped_ticker, as_of_date=row.get("report_date")) if mapped_ticker else None
+    raw_value = row.get("reported_value_raw")
+    shares = row.get("shares_or_principal_amount")
+    price = price_reference.price if price_reference else None
+    value_fields = normalize_13f_value(raw_value, shares=shares, ticker=mapped_ticker, price_reference=price, security_map_used=bool(security))
+    row.update(
+        {
+            "mapped_ticker": mapped_ticker,
+            "resolved_cusip": security.get("cusip", ""),
+            "resolved_issuer_name": security.get("issuer_name", ""),
+            "security_map_used": bool(security),
+            "price_reference_used": price_reference is not None,
+            "price_reference": price_reference.model_dump() if price_reference else None,
+            **value_fields,
+        }
+    )
+    if price_reference and isinstance(row.get("source_status"), dict):
+        limitations = list(row["source_status"].get("limitations", []) or [])
+        if "Price reference may not match the 13F report date exactly." not in limitations:
+            limitations.append("Price reference may not match the 13F report date exactly.")
+        row["source_status"]["limitations"] = limitations
+    return row
 
 
 def _filing_key(filing: dict[str, Any]) -> tuple[str, str]:
@@ -498,7 +534,7 @@ def parse_13f_information_table_xml(
                 "missing_data": [],
             },
         }
-        rows.append(row)
+        rows.append(enrich_13f_holding_with_local_context(row))
     return rows
 
 

@@ -7,6 +7,8 @@ from uuid import uuid4
 import pytest
 
 from backend.app import config
+from backend.app.data import security_map
+from backend.app.data.price_reference import PriceReference
 from backend.app.data_sources import sec_edgar_13f
 from backend.app.engines.sec_13f_aggregation import aggregate_13f_holdings, compare_13f_quarter_over_quarter, summarize_13f_portfolio
 from backend.app.engines.sec_13f_target_matching import match_13f_targets, normalize_target_security_map
@@ -157,6 +159,22 @@ def live_13f_payload() -> dict:
         "limitations": [],
         "missing_data": [],
     }
+
+
+def test_security_map_normalizes_ticker_and_cusip():
+    assert security_map.normalize_ticker(" nvda ") == "NVDA"
+    assert security_map.normalize_cusip(" 037833100 ") == "037833100"
+
+
+def test_security_map_resolves_ticker_cusip_and_issuer_alias():
+    assert security_map.get_security_by_ticker("NVDA")["cusip"] == "67066G104"
+    assert security_map.get_security_by_cusip("037833100")["ticker"] == "AAPL"
+    assert security_map.find_security_by_issuer_name("NVIDIA CORPORATION")["ticker"] == "NVDA"
+
+
+def test_security_map_unknown_and_ambiguous_issuer_do_not_resolve():
+    assert security_map.find_security_by_issuer_name("NVIDIA INTERNATIONAL") is None
+    assert security_map.find_security_by_issuer_name("ALPHABET INC") is None
 
 
 def test_cik_normalization_for_manager_cik():
@@ -338,6 +356,57 @@ def test_normalize_13f_value_without_price_reference_preserves_raw_value():
     assert normalized["value_normalization_note"]
 
 
+def test_normalize_13f_value_price_reference_sets_medium_and_low_confidence():
+    medium = sec_edgar_13f.normalize_13f_value(140, shares=1, price_reference=100)
+    low = sec_edgar_13f.normalize_13f_value(200, shares=1, price_reference=100)
+    assert medium["reported_value_unit"] == "usd"
+    assert medium["value_unit_confidence"] == "medium"
+    assert low["reported_value_unit"] == "usd"
+    assert low["value_unit_confidence"] == "low"
+
+
+def test_parser_uses_local_map_and_price_reference_for_raw_usd(monkeypatch):
+    monkeypatch.setattr(sec_edgar_13f, "get_price_reference", lambda ticker, as_of_date=None: PriceReference(ticker=ticker, price=272, source_date="2025-12-31", provider="mock_price_reference", confidence="high"))
+    xml = """<?xml version="1.0"?>
+    <informationTable xmlns="http://www.sec.gov/edgar/document/thirteenf/informationtable">
+      <infoTable>
+        <nameOfIssuer>APPLE INC</nameOfIssuer>
+        <titleOfClass>COM</titleOfClass>
+        <cusip>037833100</cusip>
+        <value>21929537965</value>
+        <shrsOrPrnAmt><sshPrnamt>80664820</sshPrnamt><sshPrnamtType>SH</sshPrnamtType></shrsOrPrnAmt>
+      </infoTable>
+    </informationTable>
+    """
+    row = sec_edgar_13f.parse_13f_information_table_xml(xml, "0001067983", "a", "2026-02-16", "2025-12-31")[0]
+    assert row["mapped_ticker"] == "AAPL"
+    assert row["security_map_used"] is True
+    assert row["price_reference_used"] is True
+    assert row["reported_value_unit"] == "usd"
+    assert row["value_unit_confidence"] == "high"
+    assert row["value_usd"] < 1_000_000_000_000
+
+
+def test_parser_uses_price_reference_for_thousands_usd(monkeypatch):
+    monkeypatch.setattr(sec_edgar_13f, "get_price_reference", lambda ticker, as_of_date=None: PriceReference(ticker=ticker, price=250, source_date="2026-03-31", provider="mock_price_reference", confidence="high"))
+    xml = INFO_XML.replace("<value>12345</value>", "<value>250</value>").replace("<sshPrnamt>1000</sshPrnamt>", "<sshPrnamt>1000</sshPrnamt>", 1)
+    row = sec_edgar_13f.parse_13f_information_table_xml(xml, "0001067983", "a", "2026-05-20", "2026-03-31")[0]
+    assert row["mapped_ticker"] == "NVDA"
+    assert row["reported_value_unit"] == "thousands_usd"
+    assert row["value_usd"] == 250000
+    assert row["value_unit_confidence"] == "high"
+
+
+def test_parser_notes_local_map_without_price_reference(monkeypatch):
+    monkeypatch.setattr(sec_edgar_13f, "get_price_reference", lambda ticker, as_of_date=None: None)
+    row = sec_edgar_13f.parse_13f_information_table_xml(INFO_XML, "0001067983", "a", "2026-05-20", "2026-03-31")[0]
+    assert row["mapped_ticker"] == "NVDA"
+    assert row["security_map_used"] is True
+    assert row["price_reference_used"] is False
+    assert row["reported_value_unit"] == "as_reported"
+    assert "Local security mapping was available" in row["value_normalization_note"]
+
+
 def test_berkshire_apple_style_holding_does_not_exceed_one_trillion():
     xml = """<?xml version="1.0"?>
     <informationTable xmlns="http://www.sec.gov/edgar/document/thirteenf/informationtable">
@@ -395,13 +464,19 @@ def test_aggregation_preserves_low_confidence_and_dedupes_identical_rows():
 
 def test_portfolio_summary_totals_top_holdings_and_weights():
     rows = [
-        holding_row("NVIDIA CORP", "67066G104", 300, 30),
-        holding_row("APPLE INC", "037833100", 100, 10),
+        {**holding_row("NVIDIA CORP", "67066G104", 300, 30), "value_unit_confidence": "high", "price_reference_used": True},
+        {**holding_row("APPLE INC", "037833100", 100, 10), "value_unit_confidence": "medium"},
+        holding_row("UNKNOWN CORP", "999999999", 50, 5, confidence="low"),
     ]
     summary = summarize_13f_portfolio(rows)
-    assert summary["total_reported_value_usd"] == 400
+    assert summary["total_reported_value_usd"] == 450
     assert summary["top_holdings_by_value"][0]["issuer_name"] == "NVIDIA CORP"
-    assert summary["top_holdings_by_value"][0]["portfolio_weight_pct"] == 75
+    assert summary["top_holdings_by_value"][0]["mapped_ticker"] == "NVDA"
+    assert summary["top_holdings_by_value"][0]["portfolio_weight_pct"] == 66.6667
+    assert summary["value_confidence_breakdown"] == {"high": 1, "medium": 1, "low": 1}
+    assert summary["mapped_holding_count"] == 2
+    assert summary["unmapped_holding_count"] == 1
+    assert summary["price_reference_used_count"] == 1
     assert summary["source_status"]["source_type"] == "derived"
     assert summary["source_status"]["provider"] == "derived_from_SEC_EDGAR_13F"
 
@@ -412,15 +487,40 @@ def test_target_cusip_exact_match_returns_high_confidence():
     matches = match_13f_targets(summary["grouped_holdings"], target_map)["target_matches"]
     assert matches[0]["matched"] is True
     assert matches[0]["match_confidence"] == "high"
+    assert matches[0]["match_method"] == "cusip_exact"
     assert matches[0]["matched_cusip"] == "67066G104"
 
 
-def test_target_issuer_name_match_returns_low_confidence_and_limitation():
+def test_target_ticker_resolves_to_local_cusip_and_high_confidence_match():
     summary = summarize_13f_portfolio([holding_row("NVIDIA CORP", "67066G104", 300, 30)])
-    target_map = normalize_target_security_map({"issuers": "nvidia"})
+    target_map = normalize_target_security_map({"tickers": "NVDA"})
+    matches = match_13f_targets(summary["grouped_holdings"], target_map)["target_matches"]
+    assert matches[0]["matched"] is True
+    assert matches[0]["match_confidence"] == "high"
+    assert matches[0]["match_method"] == "ticker_to_local_cusip"
+    assert matches[0]["resolved_cusip"] == "67066G104"
+    assert matches[0]["resolved_ticker"] == "NVDA"
+    assert matches[0]["local_security_map_used"] is True
+
+
+def test_target_issuer_alias_resolves_to_local_cusip_with_medium_confidence():
+    summary = summarize_13f_portfolio([holding_row("NVIDIA CORP", "67066G104", 300, 30)])
+    target_map = normalize_target_security_map({"issuers": "NVIDIA CORPORATION"})
+    matches = match_13f_targets(summary["grouped_holdings"], target_map)["target_matches"]
+    assert matches[0]["matched"] is True
+    assert matches[0]["match_confidence"] == "medium"
+    assert matches[0]["match_method"] == "issuer_alias_to_local_cusip"
+    assert matches[0]["resolved_cusip"] == "67066G104"
+
+
+def test_target_raw_issuer_name_only_match_returns_low_confidence_and_limitation():
+    row = holding_row("PRIVATE FIXTURE SECURITY", "", 300, 30)
+    summary = summarize_13f_portfolio([row])
+    target_map = normalize_target_security_map({"issuers": "PRIVATE FIXTURE SECURITY"})
     matches = match_13f_targets(summary["grouped_holdings"], target_map)["target_matches"]
     assert matches[0]["matched"] is True
     assert matches[0]["match_confidence"] == "low"
+    assert matches[0]["match_method"] == "issuer_name_string_match"
     assert matches[0]["limitations"]
 
 
@@ -499,6 +599,32 @@ def test_smart_money_uses_aggregated_13f_summary_and_target_match():
     assert institutional["derived_metrics"]["target_match_count"] == 1
     assert result.raw_data["institutional_13f"]["portfolio_summary"]
     assert result.raw_data["institutional_13f"]["target_matches"]
+
+
+def test_nvda_and_tsla_target_matching_high_confidence_when_cusip_exists():
+    summary = summarize_13f_portfolio(
+        [
+            holding_row("NVIDIA CORP", "67066G104", 300, 30),
+            holding_row("TESLA INC", "88160R101", 200, 20),
+        ]
+    )
+    matches = match_13f_targets(summary["grouped_holdings"], normalize_target_security_map({"tickers": "NVDA,TSLA"}))["target_matches"]
+    by_ticker = {item["target_value"]: item for item in matches}
+    assert by_ticker["NVDA"]["matched"] is True
+    assert by_ticker["NVDA"]["match_method"] == "ticker_to_local_cusip"
+    assert by_ticker["NVDA"]["match_confidence"] == "high"
+    assert by_ticker["TSLA"]["matched"] is True
+    assert by_ticker["TSLA"]["resolved_cusip"] == "88160R101"
+
+
+def test_unmatched_ticker_targets_keep_resolved_cusip_from_local_map():
+    summary = summarize_13f_portfolio([holding_row("APPLE INC", "037833100", 300, 30)])
+    matches = match_13f_targets(summary["grouped_holdings"], normalize_target_security_map({"tickers": "NVDA,TSLA"}))["target_matches"]
+    by_ticker = {item["target_value"]: item for item in matches}
+    assert by_ticker["NVDA"]["matched"] is False
+    assert by_ticker["NVDA"]["resolved_cusip"] == "67066G104"
+    assert by_ticker["TSLA"]["matched"] is False
+    assert by_ticker["TSLA"]["resolved_cusip"] == "88160R101"
 
 
 def test_daily_report_13f_raw_data_excludes_full_holdings_by_default(monkeypatch):

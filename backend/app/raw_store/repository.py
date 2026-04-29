@@ -265,6 +265,12 @@ def _sanitize_sec_13f_cached_payload(cached: dict[str, Any]) -> dict[str, Any]:
             holding["value_unit_confidence"] = "low"
             holding["value_normalization_note"] = "Legacy cached 13F value was migrated by preserving the reported value because no reliable unit disambiguation reference was available."
         holding.pop("value_usd_thousands_raw", None)
+        try:
+            from backend.app.data_sources.sec_edgar_13f import enrich_13f_holding_with_local_context
+
+            holding.update(enrich_13f_holding_with_local_context(holding))
+        except Exception:
+            pass
         if isinstance(holding.get("source_status"), dict):
             holding["source_status"]["provider"] = "SEC EDGAR"
     return payload

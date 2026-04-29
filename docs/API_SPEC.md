@@ -756,8 +756,14 @@ Daily report 13F output is compact by default. Full row-level 13F data is not in
 Target matching:
 
 - CUSIP exact match is high confidence.
-- Ticker matching requires a local ticker-to-CUSIP mapping and does not call external CUSIP APIs.
-- Issuer-name matching is low confidence and includes a limitation.
+- Ticker matching requires the local ticker-to-CUSIP map and does not call external CUSIP APIs.
+- Exact issuer aliases in the local map may resolve to CUSIP with medium confidence.
+- Issuer-name-only string matching remains low confidence and includes a limitation.
+- Target matches may include `match_method`, `resolved_ticker`, `resolved_cusip`, `resolved_issuer_name`, and `local_security_map_used`.
+
+Aggregation and portfolio summary may include `mapped_ticker`, `resolved_cusip`, `security_map_used`, `price_reference_used_count`, `mapped_holding_count`, and `unmapped_holding_count`. The local security map is bounded and not authoritative.
+
+Value confidence may be upgraded when local mapping and a cached/reusable price reference are available. Price references may not match the 13F report date exactly.
 
 QoQ comparison is by CUSIP and reflects reported quarterly changes only. It must not be interpreted as real-time institutional flow.
 

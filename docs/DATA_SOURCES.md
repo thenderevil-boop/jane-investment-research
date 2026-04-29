@@ -55,8 +55,11 @@ Aggregation and target matching:
 - Different CUSIPs are not merged solely because issuer names look similar.
 - Portfolio totals and top-holding rankings use normalized `value_usd`, not `reported_value_raw`, unless `value_usd` is unavailable.
 - `SEC_13F_TARGET_CUSIPS` is the preferred target configuration and produces high-confidence exact matches.
-- `SEC_13F_TARGET_TICKERS` can match only through a local ticker-to-CUSIP fixture. The system must not call external CUSIP APIs or scrape mappings.
-- `SEC_13F_TARGET_ISSUERS` is a low-confidence issuer-name fallback and must carry a limitation.
+- `SEC_13F_TARGET_TICKERS` can match only through the bounded local ticker-to-CUSIP map. The system must not call external CUSIP APIs or scrape mappings.
+- `SEC_13F_TARGET_ISSUERS` can resolve through exact local aliases. Issuer-name-only matching without CUSIP confirmation remains low confidence and must carry a limitation.
+- The local security map is not authoritative and is used only for deterministic target matching and value-confidence enrichment.
+- Value confidence may be upgraded when local CUSIP-to-ticker mapping and a cached/reusable price reference are both available.
+- Price references may not match the 13F report date exactly.
 - QoQ comparison is by CUSIP and reflects reported quarterly 13F changes only. It does not imply real-time activity.
 - Daily report output omits full row-level 13F data by default and keeps only portfolio summary, top holdings, target matches, capped QoQ changes, source status, limitations, and missing data.
 - Full 13F rows appear only under `raw_data_full.holdings` when `INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT=true`.

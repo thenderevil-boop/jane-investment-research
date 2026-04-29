@@ -125,8 +125,12 @@ Aggregation and target matching:
 - If CUSIP is missing, normalized issuer name plus title of class is used as the fallback grouping key.
 - The same issuer can appear under multiple CUSIPs or classes, so issuer-name similarity alone must not merge securities.
 - Target matching is highest confidence by exact CUSIP.
-- Ticker matching requires a local ticker-to-CUSIP fixture and must not call external CUSIP APIs.
-- Issuer-name matching is low confidence and must disclose that limitation.
+- Ticker matching requires the bounded local ticker-to-CUSIP map and must not call external CUSIP APIs.
+- Exact issuer aliases in the local map may resolve to CUSIP with medium confidence.
+- Issuer-name-only matching is low confidence and must disclose that limitation.
+- The local security map is not authoritative and is used only for deterministic matching and value-confidence enrichment.
+- Value confidence may be upgraded when local mapping and a cached/reusable price reference are both available.
+- Price references may not match the 13F report date exactly.
 - QoQ comparison is by CUSIP and reflects reported quarterly 13F changes only.
 - Fallback or mock 13F does not boost the smart-money score.
 - Daily report raw data is compact by default and excludes the full 13F row list.
