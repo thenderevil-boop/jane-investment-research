@@ -123,6 +123,7 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
     source_status = data.get("institutional_13f_source_status") or source_snapshot.get("source_status") or {}
     source_type = source_status.get("source_type") or source_snapshot.get("source_type")
     fallback_mock_13f = source_type == "fallback" and source_status.get("provider", source_snapshot.get("provider")) == "mock"
+    mock_sourced_13f = source_type in {"mock", "fallback"} and source_status.get("provider", source_snapshot.get("provider")) == "mock"
     target_cusip = str(raw.get("cusip") or "").strip().upper()
     all_holdings = [holding for snapshot in deduped_snapshots for holding in snapshot.get("holdings", []) or []]
     live_holdings = [holding for snapshot in live_snapshots for holding in snapshot.get("holdings", []) or []]
@@ -156,8 +157,10 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
         for item in matched_targets
         if item.get("match_confidence") in {"high", "medium"}
     ]
-    high_confidence_matches = [item for item in matched_targets if item.get("match_confidence") == "high"]
-    medium_confidence_matches = [item for item in matched_targets if item.get("match_confidence") == "medium"]
+    evidence_matches = [] if mock_sourced_13f else matched_targets
+    high_or_medium_evidence_matches = [] if mock_sourced_13f else high_or_medium_matches
+    high_confidence_matches = [item for item in evidence_matches if item.get("match_confidence") == "high"]
+    medium_confidence_matches = [item for item in evidence_matches if item.get("match_confidence") == "medium"]
     filing_dates = [filing.get("filing_date", "") for snapshot in deduped_snapshots for filing in snapshot.get("filings", []) or [] if filing.get("filing_date")]
     report_dates = [filing.get("report_date", "") for snapshot in deduped_snapshots for filing in snapshot.get("filings", []) or [] if filing.get("report_date")]
     latest_filing_date = portfolio_summary.get("latest_filing_date") or max(filing_dates, default=source_snapshot.get("source_date", ""))
@@ -188,7 +191,7 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
         score = 60 if high_confidence_matches or target_cusip_holdings else 55 if medium_confidence_matches else 50
         if quarter_change is not None and quarter_change < -10:
             score = 40
-        institutional_support_label = "institutional_target_match_observed" if high_or_medium_matches or target_cusip_holdings else "institutional_evidence_observed"
+        institutional_support_label = "institutional_target_match_observed" if high_or_medium_evidence_matches or target_cusip_holdings else "institutional_evidence_observed"
     elif fallback_mock_13f:
         score = 20
         institutional_support_label = "insufficient_data"
@@ -204,7 +207,12 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
         missing = ["13f_holdings"]
     if fallback_mock_13f:
         missing.append("live SEC 13F data")
+    elif source_type == "mock":
+        missing.append("live SEC 13F data")
     if live_holdings or deduped_snapshots:
+        limitations = [*THIRTEEN_F_LIMITATIONS, *source_snapshot.get("limitations", [])]
+        if mock_sourced_13f:
+            limitations.append("Mock 13F target matches are diagnostics only and do not count as live institutional evidence.")
         institutional_raw_data = {
             "portfolio_summary": {key: value for key, value in portfolio_summary.items() if key != "grouped_holdings"},
             "top_holdings_by_value": sorted_holdings[:10],
@@ -216,7 +224,7 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
             "source_status": component_source_status,
             "delayed_institutional_support": True,
             "is_real_time_signal": False,
-            "limitations": [*THIRTEEN_F_LIMITATIONS, *source_snapshot.get("limitations", [])],
+            "limitations": limitations,
             "missing_data": sorted(set([*missing, *source_snapshot.get("missing_data", []), *portfolio_summary.get("missing_data", []), *target_payload.get("missing_data", []), *qoq_payload.get("missing_data", [])])),
         }
         if config.INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT:
@@ -233,7 +241,8 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
                 "total_reported_value_usd": total_value,
                 "holding_count": len(holdings_for_metrics),
                 "top_holding_names": [item.get("issuer_name") for item in sorted_holdings[:10] if item.get("issuer_name")],
-                "target_match_count": len(matched_targets),
+                "target_match_count": len(evidence_matches),
+                "diagnostic_target_match_count": len(matched_targets),
                 "high_confidence_target_match_count": len(high_confidence_matches),
                 "medium_confidence_target_match_count": len(medium_confidence_matches),
                 "qoq_change_count": qoq_changes_count_total,
@@ -250,7 +259,7 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
                 "maximum_score_from_delayed_13f_only": 60,
             },
             {"institutional_support": "observed" if live_holdings else "limited"},
-            [*THIRTEEN_F_LIMITATIONS, *source_snapshot.get("limitations", [])],
+            limitations,
             sorted(set([*missing, *source_snapshot.get("missing_data", []), *portfolio_summary.get("missing_data", []), *target_payload.get("missing_data", []), *qoq_payload.get("missing_data", [])])),
             source=source_status.get("source") or source_snapshot.get("source") or MOCK_SOURCE,
             source_date=source_status.get("source_date") or latest_report_date or latest_filing_date or MOCK_SOURCE_DATE,

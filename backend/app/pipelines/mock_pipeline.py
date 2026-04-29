@@ -76,6 +76,23 @@ def _candidate(ticker: str, theme: str, market_context: dict | None = None) -> S
     leadership_percent = leadership.score / leadership.max_score * 100
     risk_score = round(overheat.score * 0.60 + max(0, 100 - leadership_percent) * 0.40, 2)
     confidence = round((leadership.confidence + smart_money.confidence + market_timing.confidence + overheat.confidence) / 4, 2)
+    form4_status = sec_filings.get("form4_source_status", {})
+    thirteen_f_status = sec_filings.get("institutional_13f_source_status", {})
+    form4_source_type = form4_status.get("source_type", "mock")
+    thirteen_f_source_type = thirteen_f_status.get("source_type", "mock")
+    missing_items = {
+        *fixture.get("missing_data", []),
+        *leadership.missing_data,
+        *smart_money.missing_data,
+        *market_timing.missing_data,
+        *overheat.missing_data,
+    }
+    if form4_source_type in {"live", "cached_live"}:
+        missing_items.discard("live SEC Form 4 data")
+        missing_items.discard("live SEC filings")
+    if thirteen_f_source_type in {"live", "cached_live"}:
+        missing_items.discard("live SEC 13F data")
+        missing_items.discard("live SEC filings")
     candidate = StockCandidate(
         ticker=ticker,
         company_name=fixture["company_name"],
@@ -90,21 +107,7 @@ def _candidate(ticker: str, theme: str, market_context: dict | None = None) -> S
         source_date=source_date,
         confidence=confidence,
         limitations=sorted({*leadership.limitations, *smart_money.limitations, *market_timing.limitations, *overheat.limitations}),
-        missing_data=sorted(
-            {
-                *fixture.get("missing_data", []),
-                *leadership.missing_data,
-                *smart_money.missing_data,
-                *market_timing.missing_data,
-                *overheat.missing_data,
-            }
-            - (
-                {"live SEC Form 4 data", "live SEC 13F data", "live SEC filings"}
-                if sec_filings.get("form4_source_status", {}).get("source_type") in {"live", "cached_live"}
-                and sec_filings.get("institutional_13f_source_status", {}).get("source_type") in {"live", "cached_live"}
-                else set()
-            )
-        ),
+        missing_data=sorted(missing_items),
     )
     thirteen_f_raw = smart_money.raw_data.get("institutional_13f", {})
     candidate.institutional_13f = {
@@ -120,10 +123,6 @@ def _candidate(ticker: str, theme: str, market_context: dict | None = None) -> S
             *(["Price reference may not match the 13F report date exactly."] if thirteen_f_raw.get("portfolio_summary", {}).get("price_reference_used_count") else []),
         ],
     }
-    form4_status = sec_filings.get("form4_source_status", {})
-    thirteen_f_status = sec_filings.get("institutional_13f_source_status", {})
-    form4_source_type = form4_status.get("source_type", "mock")
-    thirteen_f_source_type = thirteen_f_status.get("source_type", "mock")
     component_source_types = {
         item
         for item in [

@@ -73,19 +73,6 @@
             }
           ],
           "default": null
-        },
-        "institutional_13f": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Institutional 13F"
         }
       },
       "required": [
@@ -165,6 +152,92 @@
         "missing_data"
       ],
       "title": "CrisisOutput",
+      "type": "object"
+    },
+    "DailyReportMetadata": {
+      "properties": {
+        "read_mode": {
+          "default": "snapshot_first",
+          "title": "Read Mode",
+          "type": "string"
+        },
+        "snapshot_used": {
+          "default": false,
+          "title": "Snapshot Used",
+          "type": "boolean"
+        },
+        "snapshot_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Snapshot Id"
+        },
+        "snapshot_generated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Snapshot Generated At"
+        },
+        "snapshot_is_fresh": {
+          "default": false,
+          "title": "Snapshot Is Fresh",
+          "type": "boolean"
+        },
+        "batch_refresh_status": {
+          "default": "unknown",
+          "title": "Batch Refresh Status",
+          "type": "string"
+        },
+        "batch_refresh_started_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Batch Refresh Started At"
+        },
+        "batch_refresh_completed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Batch Refresh Completed At"
+        },
+        "batch_duration_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Batch Duration Ms"
+        }
+      },
+      "title": "DailyReportMetadata",
       "type": "object"
     },
     "DataQualitySummary": {
@@ -922,6 +995,19 @@
             }
           ],
           "default": null
+        },
+        "institutional_13f": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Institutional 13F"
         }
       },
       "required": [
@@ -1028,6 +1114,28 @@
       "anyOf": [
         {
           "$ref": "#/$defs/DataQualitySummary"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "source_status": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "daily_report_metadata": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DailyReportMetadata"
         },
         {
           "type": "null"

@@ -26,6 +26,10 @@ Response:
 
 Returns latest daily research report.
 
+Phase 11.5 defaults this endpoint to `DAILY_REPORT_READ_MODE=snapshot_first`. When a fresh daily snapshot exists in raw store, the endpoint returns that snapshot without refreshing live providers. The top-level `source_status` uses schema-compatible `source_type="derived"` and `provider="daily_report_snapshot"` to identify snapshot-served reports. If the snapshot is missing or stale, the endpoint computes the report only when `DAILY_BATCH_ALLOW_LIVE_FETCH=true`; otherwise it returns a safe 503 payload with `not_investment_advice=true`.
+
+Phase 11.5a adds `daily_report_metadata` to `/api/daily-report/latest` responses and stale-snapshot 503 details. Metadata includes `read_mode`, `snapshot_used`, `snapshot_id`, `snapshot_generated_at`, `snapshot_is_fresh`, `batch_refresh_status`, `batch_refresh_started_at`, `batch_refresh_completed_at`, and `batch_duration_ms`. The endpoint must not silently recompute without this metadata.
+
 Optional query parameter:
 
 - `use_live_market_data`: boolean. Defaults to environment configuration. When `true`, the backend attempts repository-backed yfinance OHLCV fetches for market price fields and falls back to mock market data if the fetch fails.
@@ -766,6 +770,24 @@ Aggregation and portfolio summary may include `mapped_ticker`, `resolved_cusip`,
 Value confidence may be upgraded when local mapping and a cached/reusable price reference are available. The price-reference layer checks reusable market cache first, then uses a bounded per-ticker adapter instead of refetching for every 13F row. During daily report fast mode, price references use cached market data only unless `ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST=true`. Optional bounded cache warmup can be enabled with `PRICE_REFERENCE_CACHE_WARMUP_ON_REPORT=true`, startup warmup, or `POST /api/price-reference/warmup`; warmup is ticker-level, deduplicated, capped, and writes reusable market cache entries. Price-reference summaries may include `price_reference_grouped_holding_count`, `price_reference_row_count`, `price_reference_ticker_count`, `price_reference_cache_hit_count`, `price_reference_live_fetch_count`, `price_reference_unavailable_tickers`, and `price_reference_mode`; `price_reference_used_count` remains a backward-compatible grouped count. Price references may not match the 13F report date exactly, and confidence is capped conservatively when the reference date differs materially from the 13F report date.
 
 `POST /api/price-reference/warmup` accepts `tickers`, optional `max_tickers`, and optional `allow_live_fetch`. The response includes warmup counts and `not_investment_advice=true`. The endpoint must not expose secrets and must not call CUSIP mapping APIs.
+
+`POST /api/jobs/daily-research-refresh` runs the Phase 11.5 daily batch snapshot pipeline. The same workflow is available through `python -m backend.app.jobs.daily_research_refresh` from the repository root. The batch refreshes or reuses existing yfinance, FRED, SEC Form 4, and SEC 13F caches, warms mapped 13F price references when `DAILY_BATCH_PRICE_REFERENCE_WARMUP=true`, computes the daily report after warmup, and writes `daily_report_snapshot/latest.json` under raw store. It does not add providers, expose secrets, or change scoring semantics.
+
+After successful mapped 13F price-reference warmup, snapshot 13F portfolio summaries should show `price_reference_used_count > 0`, `price_reference_cache_hit_count > 0` or `price_reference_live_fetch_count > 0`, a `value_confidence_breakdown` that is not all low, and `price_reference_mode` of `batch_warmed` or `cache_with_bounded_warmup`.
+
+Phase 11.5b tightens snapshot SEC 13F source selection and price-reference mode semantics:
+
+- When `USE_LIVE_SEC_13F=true` and `SEC_13F_TARGET_MANAGERS` is configured, fresh cached/live SEC EDGAR 13F is preferred over mock 13F fixtures during batch snapshot computation.
+- When cached/live SEC EDGAR 13F is used, `institutional_13f.portfolio_summary.provider` must be `derived_from_SEC_EDGAR_13F`, `underlying_source_type` must be `cached_live` or `live`, and `missing_data` must not include `live SEC 13F data`.
+- `price_reference_mode="batch_warmed"` is valid only when `price_reference_used_count > 0` and either `price_reference_cache_hit_count > 0` or `price_reference_live_fetch_count > 0`; failed warmup attempts use `batch_warmup_failed` or cache-only semantics.
+- Mock 13F target matches are diagnostics only, do not count toward high-confidence target-match evidence, and do not boost the institutional support score.
+
+Phase 11.5 config:
+
+- `DAILY_REPORT_READ_MODE=snapshot_first`
+- `DAILY_BATCH_ALLOW_LIVE_FETCH=true`
+- `DAILY_BATCH_PRICE_REFERENCE_WARMUP=true`
+- `DAILY_BATCH_MAX_RUNTIME_SECONDS=180`
 
 Daily report performance fields are omitted by default. When `INCLUDE_PERFORMANCE_DIAGNOSTICS=true`, responses may include `performance_diagnostics` with `total_ms`, `macro_ms`, `market_data_ms`, `sec_form4_ms`, `sec_13f_ms`, `sec_13f_price_reference_ms`, `smart_money_ms`, `candidate_generation_ms`, `network_call_count`, `cache_hit_count`, `cache_miss_count`, and `bounded_fetch_skipped_count`. Diagnostics must not include secrets, SEC User-Agent values, or tokenized URLs.
 

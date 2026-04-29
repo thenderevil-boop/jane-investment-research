@@ -23,6 +23,18 @@ export type DataQualitySummary = {
   limitations: string[];
 };
 
+export type DailyReportMetadata = {
+  read_mode: string;
+  snapshot_used: boolean;
+  snapshot_id?: string | null;
+  snapshot_generated_at?: string | null;
+  snapshot_is_fresh: boolean;
+  batch_refresh_status: string;
+  batch_refresh_started_at?: string | null;
+  batch_refresh_completed_at?: string | null;
+  batch_duration_ms?: number | null;
+};
+
 export type ScoreLike = {
   name?: string;
   title?: string;
@@ -111,6 +123,8 @@ export type DailyReport = {
   missing_data?: string[];
   human_verification_queue?: string[];
   data_quality?: DataQualitySummary | null;
+  source_status?: DataSourceStatus | null;
+  daily_report_metadata?: DailyReportMetadata | null;
   not_investment_advice?: boolean;
 };
 

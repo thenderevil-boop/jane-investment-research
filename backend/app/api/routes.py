@@ -4,11 +4,18 @@ from fastapi import APIRouter, Body, HTTPException, Query
 
 from backend.app import config
 from backend.app.data_sources.mock_data import DEFAULT_STOCK, MOCK_SOURCE, MOCK_SOURCE_DATE, STOCK_FIXTURES
+from backend.app.jobs.daily_research_refresh import refresh_daily_research_snapshot
 from backend.app.middleware.safety_filter import SafetyViolationError, check_safety
 from backend.app.pipelines.mock_pipeline import build_daily_report
-from backend.app.raw_store.repository import get_market_data, read_sec_filings, warm_price_reference_cache
+from backend.app.raw_store.repository import (
+    get_market_data,
+    is_daily_report_snapshot_fresh,
+    read_daily_report_snapshot,
+    read_sec_filings,
+    warm_price_reference_cache,
+)
 from backend.app.reports.stock_analysis import analyze_stock
-from backend.app.schemas.daily_report import DailyResearchReport
+from backend.app.schemas.daily_report import DailyReportMetadata, DailyResearchReport
 from backend.app.schemas.health import HealthResponse
 from backend.app.schemas.macro_regime import MacroRegimeOutput
 from backend.app.schemas.stock_analysis import AnalyzeStockRequest, AnalyzeStockResponse
@@ -34,6 +41,26 @@ def _ensure_safe_response(model):
             },
         ) from exc
     return model
+
+
+def _metadata_from_snapshot(snapshot: dict | None, *, snapshot_used: bool, snapshot_is_fresh: bool, status: str) -> DailyReportMetadata:
+    existing = snapshot.get("daily_report_metadata") if isinstance(snapshot, dict) and isinstance(snapshot.get("daily_report_metadata"), dict) else {}
+    return DailyReportMetadata(
+        read_mode=config.DAILY_REPORT_READ_MODE,
+        snapshot_used=snapshot_used,
+        snapshot_id=(snapshot or {}).get("snapshot_id") or existing.get("snapshot_id"),
+        snapshot_generated_at=(snapshot or {}).get("report_generated_at") or existing.get("snapshot_generated_at"),
+        snapshot_is_fresh=snapshot_is_fresh,
+        batch_refresh_status=(existing.get("batch_refresh_status") if snapshot_used else None) or status,
+        batch_refresh_started_at=existing.get("batch_refresh_started_at"),
+        batch_refresh_completed_at=existing.get("batch_refresh_completed_at") or (snapshot or {}).get("cached_at"),
+        batch_duration_ms=existing.get("batch_duration_ms"),
+    )
+
+
+def _with_daily_report_metadata(report: DailyResearchReport, metadata: DailyReportMetadata) -> DailyResearchReport:
+    report.daily_report_metadata = metadata
+    return report
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -94,9 +121,62 @@ def data_health() -> DataHealthResponse:
 
 @router.get("/daily-report/latest", response_model=DailyResearchReport)
 def latest_daily_report(use_live_market_data: bool | None = Query(default=None)) -> DailyResearchReport:
+    if use_live_market_data is None and config.DAILY_REPORT_READ_MODE == "snapshot_first":
+        snapshot = read_daily_report_snapshot()
+        snapshot_fresh = is_daily_report_snapshot_fresh(snapshot)
+        if snapshot_fresh:
+            return _ensure_safe_response(
+                _with_daily_report_metadata(
+                    DailyResearchReport.model_validate(snapshot),
+                    _metadata_from_snapshot(snapshot, snapshot_used=True, snapshot_is_fresh=True, status="completed"),
+                )
+            )
+        if not config.DAILY_BATCH_ALLOW_LIVE_FETCH:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "error": "daily_report_snapshot_missing_or_stale",
+                    "not_investment_advice": True,
+                    "daily_report_metadata": _metadata_from_snapshot(
+                        snapshot,
+                        snapshot_used=False,
+                        snapshot_is_fresh=False,
+                        status="fallback_compute_disabled",
+                    ).model_dump(mode="json"),
+                },
+            )
+        report = build_daily_report()
+        return _ensure_safe_response(
+            _with_daily_report_metadata(
+                report,
+                _metadata_from_snapshot(
+                    snapshot,
+                    snapshot_used=False,
+                    snapshot_is_fresh=False,
+                    status="computed_without_fresh_snapshot",
+                ),
+            )
+        )
     if use_live_market_data is None:
-        return _ensure_safe_response(build_daily_report())
-    return _ensure_safe_response(build_daily_report(use_live_market_data=use_live_market_data))
+        report = build_daily_report()
+        return _ensure_safe_response(
+            _with_daily_report_metadata(
+                report,
+                DailyReportMetadata(read_mode=config.DAILY_REPORT_READ_MODE, snapshot_used=False, batch_refresh_status="computed_without_snapshot_mode"),
+            )
+        )
+    report = build_daily_report(use_live_market_data=use_live_market_data)
+    return _ensure_safe_response(
+        _with_daily_report_metadata(
+            report,
+            DailyReportMetadata(read_mode="explicit_query", snapshot_used=False, batch_refresh_status="computed_from_explicit_query"),
+        )
+    )
+
+
+@router.post("/jobs/daily-research-refresh")
+def daily_research_refresh_job() -> dict:
+    return refresh_daily_research_snapshot()
 
 
 @router.post("/price-reference/warmup")
@@ -114,6 +194,19 @@ def price_reference_warmup(payload: dict = Body(default_factory=dict)) -> dict:
 
 @router.get("/daily-report/{report_date}", response_model=DailyResearchReport)
 def daily_report_by_date(report_date: str) -> DailyResearchReport:
+    snapshot = read_daily_report_snapshot(report_date)
+    if snapshot:
+        return _ensure_safe_response(
+            _with_daily_report_metadata(
+                DailyResearchReport.model_validate(snapshot),
+                _metadata_from_snapshot(
+                    snapshot,
+                    snapshot_used=True,
+                    snapshot_is_fresh=is_daily_report_snapshot_fresh(snapshot),
+                    status="completed",
+                ),
+            )
+        )
     report = build_daily_report()
     if report_date != report.date:
         raise HTTPException(status_code=404, detail="Mock report date is unavailable.")

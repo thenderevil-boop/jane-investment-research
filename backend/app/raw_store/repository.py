@@ -55,6 +55,12 @@ def _sec_13f_cache_dir() -> Path:
     return path
 
 
+def _daily_report_snapshot_dir() -> Path:
+    path = config.MARKET_DATA_CACHE_DIR / "daily_report_snapshot"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def _cache_key(ticker: str) -> str:
     return ticker.replace("^", "index_").replace("/", "_").upper()
 
@@ -226,6 +232,68 @@ def write_macro_data(data: dict[str, Any]) -> dict[str, Any]:
     target = _macro_cache_dir() / "latest.json"
     target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     return payload
+
+
+def write_daily_report_snapshot(data: dict[str, Any]) -> dict[str, Any]:
+    payload = deepcopy(data)
+    cached_at = datetime.now(timezone.utc).isoformat()
+    snapshot_id = f"daily-report-{payload.get('date', 'unknown')}-{cached_at.replace(':', '').replace('.', '').replace('+', 'Z')}"
+    payload["cached_at"] = cached_at
+    payload["snapshot_id"] = snapshot_id
+    payload["source_status"] = build_source_status(
+        {
+            "source_type": "derived",
+            "provider": "daily_report_snapshot",
+            "source": ["raw_store.daily_report_snapshot"],
+            "source_date": payload.get("date", ""),
+            "fetched_at": cached_at,
+            "is_fresh": True,
+            "limitations": payload.get("limitations", []),
+            "missing_data": payload.get("missing_data", []),
+        }
+    ).model_dump(mode="json")
+    existing_metadata = payload.get("daily_report_metadata") if isinstance(payload.get("daily_report_metadata"), dict) else {}
+    payload["daily_report_metadata"] = {
+        **existing_metadata,
+        "read_mode": existing_metadata.get("read_mode") or config.DAILY_REPORT_READ_MODE,
+        "snapshot_used": True,
+        "snapshot_id": snapshot_id,
+        "snapshot_generated_at": payload.get("report_generated_at"),
+        "snapshot_is_fresh": True,
+        "batch_refresh_status": existing_metadata.get("batch_refresh_status") or "completed",
+        "batch_refresh_started_at": existing_metadata.get("batch_refresh_started_at"),
+        "batch_refresh_completed_at": existing_metadata.get("batch_refresh_completed_at") or cached_at,
+        "batch_duration_ms": existing_metadata.get("batch_duration_ms"),
+    }
+    target_dir = _daily_report_snapshot_dir()
+    latest_path = target_dir / "latest.json"
+    latest_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    report_date = str(payload.get("date") or "").strip()
+    if report_date:
+        (target_dir / f"{report_date}.json").write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    return payload
+
+
+def read_daily_report_snapshot(report_date: str | None = None) -> dict[str, Any] | None:
+    target = _daily_report_snapshot_dir() / (f"{report_date}.json" if report_date else "latest.json")
+    if not target.exists():
+        return None
+    return json.loads(target.read_text(encoding="utf-8"))
+
+
+def is_daily_report_snapshot_fresh(snapshot: dict[str, Any] | None, report_clock: datetime | None = None) -> bool:
+    if not snapshot:
+        return False
+    clock = report_clock or datetime.now(timezone.utc)
+    report_date = str(snapshot.get("date") or "").strip()
+    if report_date != clock.date().isoformat():
+        return False
+    cached_at = snapshot.get("cached_at")
+    try:
+        cached_dt = datetime.fromisoformat(str(cached_at).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return clock - cached_dt.astimezone(timezone.utc) <= timedelta(hours=24)
 
 
 def read_sec_form4_data(ticker: str) -> dict[str, Any] | None:
@@ -1021,6 +1089,10 @@ def _mapped_13f_tickers_from_holdings(holdings: list[dict[str, Any]]) -> list[st
             seen.add(ticker)
             tickers.append(ticker)
     return tickers
+
+
+def mapped_13f_tickers_from_snapshot(snapshot: dict[str, Any]) -> list[str]:
+    return _mapped_13f_tickers_from_holdings(snapshot.get("holdings", []) or [])
 
 
 def warm_price_reference_cache(tickers: list[str], max_tickers: int | None = None, allow_live_fetch: bool = False) -> dict[str, object]:
