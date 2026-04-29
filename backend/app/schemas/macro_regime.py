@@ -22,6 +22,20 @@ class MacroIndicatorComponent(BaseModel):
     source_status: DataSourceStatus | None = None
 
 
+class MacroDataQuality(BaseModel):
+    fred_backed_fields: list[str]
+    mock_context_fields: list[str]
+    derived_from_fred_fields: list[str]
+    live_macro_fields_count: int
+    mock_macro_fields_count: int
+    derived_macro_fields_count: int
+    has_mock_macro_context: bool
+    mock_context_score_weight_pct: float
+    fred_backed_score_weight_pct: float
+    confidence_adjustment_applied: bool
+    limitations: list[str]
+
+
 class MacroRegimeOutput(BaseModel):
     name: str = "macro_regime_score"
     score: float = Field(ge=0, le=100)
@@ -38,3 +52,4 @@ class MacroRegimeOutput(BaseModel):
     limitations: list[str]
     missing_data: list[str]
     source_status: DataSourceStatus | None = None
+    macro_data_quality: MacroDataQuality | None = None

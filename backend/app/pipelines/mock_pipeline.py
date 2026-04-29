@@ -324,6 +324,18 @@ def build_daily_report(
         ],
     )
     report.data_quality = summarize_data_quality(_source_statuses(report))
+    if macro_regime.macro_data_quality:
+        report.data_quality.macro = {
+            "provider": macro_regime.source_status.provider if macro_regime.source_status else macro_snapshot.get("provider", "unknown"),
+            "live_macro_fields_count": macro_regime.macro_data_quality.live_macro_fields_count,
+            "derived_macro_fields_count": macro_regime.macro_data_quality.derived_macro_fields_count,
+            "mock_macro_fields_count": macro_regime.macro_data_quality.mock_macro_fields_count,
+            "has_mock_macro_context": macro_regime.macro_data_quality.has_mock_macro_context,
+            "mock_context_fields": macro_regime.macro_data_quality.mock_context_fields,
+            "fred_backed_fields": macro_regime.macro_data_quality.fred_backed_fields,
+            "derived_from_fred_fields": macro_regime.macro_data_quality.derived_from_fred_fields,
+            "confidence_adjustment_applied": macro_regime.macro_data_quality.confidence_adjustment_applied,
+        }
     if report.data_quality.stale_components:
         report.human_verification_queue.append("Review stale live or derived data source status before interpreting scores.")
     if report.data_quality.missing_source_date_components:

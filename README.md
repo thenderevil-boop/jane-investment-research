@@ -395,6 +395,14 @@ Phase 11.7 hardens FRED failure handling:
 - if a live refresh fails but fresh cached-live FRED data exists, the report uses that cached-live macro data before considering mock fallback
 - mock fallback is used only when live refresh and usable cached-live data are both unavailable, with `missing_data` disclosing `live FRED macro data`
 
+Phase 11.8 clarifies mixed macro evidence without adding providers:
+
+- `macro_regime.macro_data_quality` separates FRED-backed fields, FRED-derived fields, and Phase 9 mock context fields
+- direct FRED fields include federal funds, Treasury yields, and unemployment; derived FRED fields include yield spread, CPI/PPI YoY, policy trend, and unemployment trend
+- ISM, DXY, gold, oil, Fear & Greed, VIX, and equity context remain intentional mock context until providers are added
+- intentional mock context is not labeled fallback, but it is disclosed and reduces macro confidence when it contributes
+- mixed macro output keeps `source_type="derived"` with `provider="mixed_FRED_and_mock_macro"`; `source_type="mixed"` is not used
+
 ## Phase 10 Live SEC Form 4 Insider Transactions
 
 SEC Form 4 insider transactions can now be enabled through the repository-backed SEC EDGAR adapter. Mock Form 4 remains the default.

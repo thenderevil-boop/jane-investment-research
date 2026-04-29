@@ -225,6 +225,17 @@ Still mock in Phase 9:
 - Fear & Greed
 - 13F, options, news, YouTube, and theme APIs
 
+Phase 11.8 source clarity:
+
+- FRED-backed fields are live or cached-live FRED observations: federal funds, 10-year Treasury yield, 2-year Treasury yield, and unemployment rate.
+- Derived-from-FRED fields are calculated from FRED observations: yield spread, CPI YoY, PPI YoY, fed policy trend, and unemployment trend.
+- ISM, DXY, gold, oil, Fear & Greed, VIX, and equity drawdown/rebound context remain Phase 9 mock context until providers are added.
+- Intentional mock context is not a live-source fallback. It uses `source_type: "mock"`, `fallback_used: false`, and the limitation `This field remains mock context in Phase 9 and is not live market evidence.`
+- `macro_regime.macro_data_quality` and `data_quality.macro` expose live/derived/mock macro counts and whether confidence adjustment was applied.
+- Macro confidence is adjusted when mock context contributes materially.
+- Mixed FRED/mock macro output uses `source_type: "derived"` and `provider: "mixed_FRED_and_mock_macro"`; `source_type: "mixed"` is not valid.
+- FRED API keys and tokenized provider URLs must not appear in logs, snapshots, API responses, exceptions, or fallback reasons.
+
 Repository behavior:
 
 - live FRED fetches are made only through `backend.app.raw_store.repository`

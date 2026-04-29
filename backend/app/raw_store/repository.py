@@ -923,7 +923,8 @@ def read_macro_data(scenario: str = "normal", use_live: bool | None = None) -> d
         "provider": "phase5_mock_macro_dataset",
         "source": ["phase5_mock_macro_dataset"],
         "source_date": mock_context["source_date"],
-        "limitations": ["Phase 9 keeps this macro field on mock data."],
+        "fallback_used": False,
+        "limitations": ["This field remains mock context in Phase 9 and is not live market evidence."],
         "missing_data": [],
     }
     merged["component_source_status"] = {

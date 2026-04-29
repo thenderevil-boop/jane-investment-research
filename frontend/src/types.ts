@@ -21,6 +21,17 @@ export type DataQualitySummary = {
   stale_components: number;
   missing_source_date_components?: number;
   limitations: string[];
+  macro?: {
+    provider?: string;
+    live_macro_fields_count?: number;
+    derived_macro_fields_count?: number;
+    mock_macro_fields_count?: number;
+    has_mock_macro_context?: boolean;
+    mock_context_fields?: string[];
+    fred_backed_fields?: string[];
+    derived_from_fred_fields?: string[];
+    confidence_adjustment_applied?: boolean;
+  } | null;
 };
 
 export type DailyReportMetadata = {
@@ -52,6 +63,7 @@ export type ScoreLike = {
   limitations?: string[];
   missing_data?: string[];
   source_status?: DataSourceStatus | null;
+  macro_data_quality?: Record<string, unknown> | null;
   components?: unknown[];
   criteria?: unknown[];
 };

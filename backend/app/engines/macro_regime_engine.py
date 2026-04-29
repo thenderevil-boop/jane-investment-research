@@ -4,10 +4,39 @@ from typing import Any
 
 from backend.app.data_sources.mock_macro import MOCK_MACRO_SOURCE, MOCK_MACRO_SOURCE_DATE
 from backend.app.features.macro_features import build_macro_components
-from backend.app.schemas.macro_regime import MacroRegimeOutput
+from backend.app.schemas.macro_regime import MacroDataQuality, MacroRegimeOutput
 from backend.app.utils.freshness import build_source_status
 
 LIMITATION = "Phase 5 deterministic mock macro regime engine; no live source connection."
+FRED_BACKED_FIELDS = [
+    "fed_funds_rate",
+    "ten_year_yield",
+    "two_year_yield",
+    "unemployment_rate",
+]
+DERIVED_FROM_FRED_FIELDS = [
+    "cpi_yoy",
+    "ppi_yoy",
+    "ten_year_minus_two_year_spread_bps",
+    "fed_policy_trend",
+    "unemployment_trend",
+]
+MOCK_CONTEXT_FIELDS = [
+    "vix",
+    "ism_manufacturing_pmi",
+    "dxy_trend",
+    "gold_trend",
+    "oil_trend",
+    "fear_greed",
+    "equity_drawdown",
+    "gain_from_recent_trough",
+]
+MOCK_CONTEXT_LIMITATION = "This field remains mock context in Phase 9 and is not live market evidence."
+FRED_CLARITY_LIMITATIONS = [
+    "FRED-backed macro fields are live or derived from live/cached FRED data.",
+    "ISM, DXY, gold, oil, Fear & Greed, and equity context remain Phase 9 mock context until live providers are added.",
+    "Macro confidence is adjusted when mock context fields contribute to the score.",
+]
 REQUIRED_FIELDS = [
     "vix",
     "ten_year_minus_two_year_spread_bps",
@@ -74,6 +103,86 @@ def _classify(data: dict[str, Any]) -> tuple[str, float]:
     return "normal", 55
 
 
+def _component_names_by_source(components: list[Any]) -> tuple[list[str], list[str], list[str]]:
+    fred_backed: list[str] = []
+    fred_derived: list[str] = []
+    mock_context: list[str] = []
+    for component in components:
+        status = component.source_status
+        name = component.name
+        if name in FRED_BACKED_FIELDS and status and status.source_type in {"live", "cached_live"} and status.provider == "FRED":
+            fred_backed.append(name)
+        elif name in DERIVED_FROM_FRED_FIELDS and status and status.provider == "derived_from_FRED":
+            fred_derived.append(name)
+        elif name in MOCK_CONTEXT_FIELDS or (status and status.source_type == "mock"):
+            mock_context.append(name)
+    return sorted(set(fred_backed)), sorted(set(fred_derived)), sorted(set(mock_context))
+
+
+def _score_weight_pct(count: int, total: int) -> float:
+    if total <= 0:
+        return 0.0
+    return round(count / total * 100, 2)
+
+
+def _build_macro_data_quality(data: dict[str, Any], components: list[Any], limitations: list[str]) -> MacroDataQuality:
+    fred_backed, fred_derived, mock_context = _component_names_by_source(components)
+    component_status = data.get("component_source_status", {}) if isinstance(data.get("component_source_status"), dict) else {}
+    for field in FRED_BACKED_FIELDS:
+        status = component_status.get(field, {}) if isinstance(component_status.get(field), dict) else {}
+        if data.get(field) is not None and (status.get("source_type") in {"live", "cached_live"} or status.get("provider") == "FRED"):
+            fred_backed.append(field)
+    for field in DERIVED_FROM_FRED_FIELDS:
+        status = component_status.get(field, {}) if isinstance(component_status.get(field), dict) else {}
+        if data.get(field) is not None and (status.get("source_type") == "derived" or status.get("provider") == "derived_from_FRED"):
+            fred_derived.append(field)
+    fred_backed = sorted(set(fred_backed))
+    fred_derived = sorted(set(fred_derived))
+    mock_context = sorted(set(mock_context))
+    total = len(set([*fred_backed, *fred_derived, *mock_context]))
+    mock_pct = _score_weight_pct(len(mock_context), total)
+    fred_pct = _score_weight_pct(len(fred_backed) + len(fred_derived), total)
+    return MacroDataQuality(
+        fred_backed_fields=fred_backed,
+        mock_context_fields=mock_context,
+        derived_from_fred_fields=fred_derived,
+        live_macro_fields_count=len(fred_backed),
+        mock_macro_fields_count=len(mock_context),
+        derived_macro_fields_count=len(fred_derived),
+        has_mock_macro_context=bool(mock_context),
+        mock_context_score_weight_pct=mock_pct,
+        fred_backed_score_weight_pct=fred_pct,
+        confidence_adjustment_applied=bool(mock_context),
+        limitations=sorted(set(limitations)),
+    )
+
+
+def _adjust_macro_confidence(confidence: float, macro_data_quality: MacroDataQuality) -> float:
+    if not macro_data_quality.has_mock_macro_context:
+        return confidence
+    cap = 0.78
+    if macro_data_quality.mock_context_score_weight_pct >= 60:
+        cap = 0.70
+    return round(min(confidence, cap), 2)
+
+
+def _source_contribution(components: list[Any], macro_data_quality: MacroDataQuality, total_score: float) -> dict[str, Any]:
+    by_name = {component.name: component for component in components}
+
+    def score_sum(names: list[str]) -> float:
+        return round(sum(float(by_name[name].score) for name in names if name in by_name), 2)
+
+    return {
+        "fred_backed_score": score_sum(macro_data_quality.fred_backed_fields),
+        "fred_derived_score": score_sum(macro_data_quality.derived_from_fred_fields),
+        "mock_context_score": score_sum(macro_data_quality.mock_context_fields),
+        "total_score": round(total_score, 2),
+        "mock_context_component_names": macro_data_quality.mock_context_fields,
+        "fred_component_names": macro_data_quality.fred_backed_fields,
+        "derived_from_fred_component_names": macro_data_quality.derived_from_fred_fields,
+    }
+
+
 def evaluate_macro_regime(data: dict[str, Any]) -> MacroRegimeOutput:
     components = build_macro_components(data)
     missing = sorted(set(_missing_required(data) + [item for component in components for item in component.missing_data]))
@@ -84,29 +193,42 @@ def evaluate_macro_regime(data: dict[str, Any]) -> MacroRegimeOutput:
         source = [source]
     source_date = data.get("source_date", MOCK_MACRO_SOURCE_DATE)
     limitations = list(data.get("limitations", [LIMITATION]))
+    incoming_source_status = data.get("source_status", {}) if isinstance(data.get("source_status"), dict) else {}
     is_mixed_fred_macro = data.get("provider") == "mixed_FRED_and_mock_macro"
     if is_mixed_fred_macro:
         limitations = sorted(
             set(
                 [
                     *limitations,
-                    "FRED-backed macro fields are live; ISM, DXY, gold, oil, Fear & Greed, and equity context remain mock in Phase 9.",
+                    *FRED_CLARITY_LIMITATIONS,
                 ]
             )
         )
+    macro_data_quality = _build_macro_data_quality(data, components, limitations if is_mixed_fred_macro else data.get("limitations", [LIMITATION]))
+    if macro_data_quality.has_mock_macro_context:
+        if is_mixed_fred_macro:
+            limitations = sorted(set([*limitations, *FRED_CLARITY_LIMITATIONS]))
+        for component in components:
+            if component.name in macro_data_quality.mock_context_fields:
+                component.limitations = sorted(set([*component.limitations, MOCK_CONTEXT_LIMITATION]))
+                if component.source_status:
+                    component.source_status.fallback_used = False
+                    component.source_status.limitations = sorted(set([*component.source_status.limitations, MOCK_CONTEXT_LIMITATION]))
+        macro_data_quality = _build_macro_data_quality(data, components, limitations)
+    confidence = _adjust_macro_confidence(confidence, macro_data_quality)
     source_status = build_source_status(
         {
             "source_type": "derived" if is_mixed_fred_macro else data.get("source_type", "mock"),
             "provider": "mixed_FRED_and_mock_macro" if is_mixed_fred_macro else data.get("provider", "phase5_mock_macro_dataset"),
             "source_date": source_date,
             "fetched_at": data.get("fetched_at"),
-            "is_fresh": data.get("source_status", {}).get("is_fresh") if isinstance(data.get("source_status"), dict) else None,
-            "fallback_used": data.get("fallback_used"),
-            "fallback_reason": data.get("fallback_reason"),
+            "is_fresh": incoming_source_status.get("is_fresh"),
+            "fallback_used": data.get("fallback_used") or incoming_source_status.get("fallback_used"),
+            "fallback_reason": data.get("fallback_reason") or incoming_source_status.get("fallback_reason"),
             "limitations": limitations,
             "missing_data": data.get("missing_data", []),
         },
-        freshness_window=data.get("source_status", {}).get("freshness_window", "macro_release_schedule") if isinstance(data.get("source_status"), dict) else "macro_release_schedule",
+        freshness_window=incoming_source_status.get("freshness_window", "macro_release_schedule"),
     )
     return MacroRegimeOutput(
         score=score,
@@ -117,6 +239,7 @@ def evaluate_macro_regime(data: dict[str, Any]) -> MacroRegimeOutput:
             "max_gain_from_recent_trough_pct": _max_gain_from_trough(data),
             "missing_required_count": len(_missing_required(data)),
             "component_count": len(components),
+            "source_contribution": _source_contribution(components, macro_data_quality, score),
         },
         benchmark={
             "fear_crisis_vix": 30,
@@ -138,4 +261,5 @@ def evaluate_macro_regime(data: dict[str, Any]) -> MacroRegimeOutput:
         limitations=limitations,
         missing_data=missing,
         source_status=source_status,
+        macro_data_quality=macro_data_quality,
     )

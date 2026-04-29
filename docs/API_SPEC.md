@@ -289,6 +289,17 @@ Freshness rules:
   "fallback_components": 1,
   "stale_components": 2,
   "missing_source_date_components": 0,
+  "macro": {
+    "provider": "mixed_FRED_and_mock_macro",
+    "live_macro_fields_count": 4,
+    "derived_macro_fields_count": 5,
+    "mock_macro_fields_count": 8,
+    "has_mock_macro_context": true,
+    "mock_context_fields": [],
+    "fred_backed_fields": [],
+    "derived_from_fred_fields": [],
+    "confidence_adjustment_applied": true
+  },
   "limitations": [
     "Some components use fallback data because live data was unavailable."
   ]
@@ -368,6 +379,8 @@ Evidence is represented by:
 Raw data is always an object under `raw_data`. It contains mock source snapshots in the MVP.
 
 For live FRED macro data, `/api/daily-report/latest` includes compact `raw_fred_snapshot.raw_series` summaries instead of full historical observations. Each series summary includes `series_id`, `latest_date`, `latest_value`, `previous_value`, a bounded `recent_observations` array, `source_status`, `limitations`, and `missing_data`. Full macro raw-series access is reserved for a future `GET /api/raw-data/macro/{series_id}` endpoint.
+
+`macro_regime` may also include `macro_data_quality`, which separates `fred_backed_fields`, `derived_from_fred_fields`, and `mock_context_fields`. FRED-backed fields are live or cached-live FRED observations; FRED-derived fields are calculations from those observations. ISM, DXY, gold, oil, Fear & Greed, VIX, and equity context remain Phase 9 mock context until providers are added. Intentional mock context is disclosed as `source_type="mock"` and is not treated as fallback. When FRED-backed and mock-context fields are mixed, the macro source status uses `source_type="derived"` and `provider="mixed_FRED_and_mock_macro"`.
 
 ### Benchmark
 
@@ -633,6 +646,15 @@ Phase 9.2 monthly FRED freshness:
 - Monthly series (`FEDFUNDS`, `CPIAUCSL`, `PPIACO`, and `UNRATE`) are evaluated using observation-month freshness rather than latest-trading-day freshness.
 - A March 2026 monthly observation can be fresh in an April 27, 2026 report because the observation date is the measured month, while release schedules can lag.
 - Every live FRED component source status should propagate the macro snapshot `fetched_at` timestamp when available.
+
+Phase 11.8 macro source clarity:
+
+- FRED-backed macro fields are live/cached or derived from FRED.
+- ISM, DXY, gold, oil, Fear & Greed, VIX, and equity context remain Phase 9 mock context until providers are added.
+- Mock context is not fallback when it is intentionally used as placeholder context; each mock context component keeps `source_type="mock"` and `fallback_used=false`.
+- Macro confidence is capped when mock context contributes materially to the score.
+- Mixed macro output must use `source_type="derived"` with `provider="mixed_FRED_and_mock_macro"` and must not use `source_type="mixed"`.
+- API keys and raw provider URLs must never appear in API responses, snapshots, logs, or fallback reasons.
 
 ## Phase 10.5 Official SEC EDGAR Form 4
 

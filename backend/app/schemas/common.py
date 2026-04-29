@@ -26,6 +26,7 @@ class DataQualitySummary(BaseModel):
     stale_components: int = 0
     missing_source_date_components: int = 0
     limitations: list[str] = Field(default_factory=list)
+    macro: dict[str, Any] | None = None
 
 
 class ScoreObject(BaseModel):
