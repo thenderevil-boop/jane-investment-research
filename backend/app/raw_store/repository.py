@@ -1010,6 +1010,8 @@ def get_sec_13f_summary(
     summary["source_status"] = _sec_13f_derived_status(snapshot, summary)
     summary["source_type"] = "derived"
     summary["provider"] = summary["source_status"]["provider"]
+    summary["manager"] = snapshot.get("manager") or manager_or_cik
+    summary["manager_name"] = snapshot.get("manager_name") or snapshot.get("manager") or manager_or_cik
     summary["underlying_source_status"] = snapshot.get("source_status")
     summary["underlying_source_type"] = snapshot.get("source_type")
     summary["fallback_used"] = summary["source_status"].get("fallback_used", False)

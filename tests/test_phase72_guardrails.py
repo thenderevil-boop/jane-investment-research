@@ -67,6 +67,7 @@ def test_daily_report_returns_internal_safe_error_on_safety_violation(monkeypatc
         report.risk_notes.append("buy now")
         return report
 
+    monkeypatch.setattr(routes.config, "DAILY_REPORT_READ_MODE", "compute")
     monkeypatch.setattr(routes, "build_daily_report", unsafe_report)
     response = client.get("/api/daily-report/latest")
     assert response.status_code == 500

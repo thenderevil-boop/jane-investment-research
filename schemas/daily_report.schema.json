@@ -1,5 +1,381 @@
 {
   "$defs": {
+    "Candidate13FEvidence": {
+      "properties": {
+        "source_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataSourceStatus"
+            },
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Status"
+        },
+        "candidate_specific_evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Candidate13FSpecificEvidence"
+            },
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidate Specific Evidence"
+        },
+        "target_matches": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Target Matches",
+          "type": "array"
+        },
+        "portfolio_context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Candidate13FPortfolioContext"
+            },
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Portfolio Context"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "title": "Candidate13FEvidence",
+      "type": "object"
+    },
+    "Candidate13FPortfolioContext": {
+      "properties": {
+        "manager_cik": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manager Cik"
+        },
+        "manager_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manager Name"
+        },
+        "latest_report_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest Report Date"
+        },
+        "latest_filing_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest Filing Date"
+        },
+        "holding_count_grouped": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Holding Count Grouped"
+        },
+        "mapped_holding_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mapped Holding Count"
+        },
+        "top_holdings_by_value": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Top Holdings By Value",
+          "type": "array"
+        },
+        "source_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataSourceStatus"
+            },
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Status"
+        }
+      },
+      "title": "Candidate13FPortfolioContext",
+      "type": "object"
+    },
+    "Candidate13FSpecificEvidence": {
+      "properties": {
+        "ticker": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ticker"
+        },
+        "resolved_ticker": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolved Ticker"
+        },
+        "resolved_cusip": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolved Cusip"
+        },
+        "resolved_issuer_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolved Issuer Name"
+        },
+        "local_security_map_used": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Local Security Map Used"
+        },
+        "matched_in_13f": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Matched In 13F"
+        },
+        "match_confidence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match Confidence"
+        },
+        "match_method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match Method"
+        },
+        "position_value_usd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Position Value Usd"
+        },
+        "position_shares_or_principal_amount": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Position Shares Or Principal Amount"
+        },
+        "portfolio_weight_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Portfolio Weight Pct"
+        },
+        "latest_report_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest Report Date"
+        },
+        "latest_filing_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest Filing Date"
+        },
+        "manager_cik": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manager Cik"
+        },
+        "manager_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manager Name"
+        },
+        "interpretation_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Interpretation Label"
+        }
+      },
+      "title": "Candidate13FSpecificEvidence",
+      "type": "object"
+    },
     "CrisisComponent": {
       "properties": {
         "name": {
@@ -998,6 +1374,9 @@
         },
         "institutional_13f": {
           "anyOf": [
+            {
+              "$ref": "#/$defs/Candidate13FEvidence"
+            },
             {
               "additionalProperties": true,
               "type": "object"

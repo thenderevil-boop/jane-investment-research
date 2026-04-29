@@ -61,6 +61,45 @@ export type FutureTheme = ScoreLike & {
   candidate_companies?: string[];
 };
 
+export type Candidate13FSpecificEvidence = {
+  ticker?: string | null;
+  resolved_ticker?: string | null;
+  resolved_cusip?: string | null;
+  resolved_issuer_name?: string | null;
+  local_security_map_used?: boolean | null;
+  matched_in_13f?: boolean | null;
+  match_confidence?: string | null;
+  match_method?: string | null;
+  position_value_usd?: number | null;
+  position_shares_or_principal_amount?: number | null;
+  portfolio_weight_pct?: number | null;
+  latest_report_date?: string | null;
+  latest_filing_date?: string | null;
+  manager_cik?: string | null;
+  manager_name?: string | null;
+  interpretation_label?: string | null;
+};
+
+export type Candidate13FPortfolioContext = {
+  manager_cik?: string | null;
+  manager_name?: string | null;
+  latest_report_date?: string | null;
+  latest_filing_date?: string | null;
+  holding_count_grouped?: number | null;
+  mapped_holding_count?: number | null;
+  top_holdings_by_value?: Record<string, unknown>[];
+  source_status?: DataSourceStatus | Record<string, unknown> | null;
+};
+
+export type Candidate13FEvidence = {
+  source_status?: DataSourceStatus | Record<string, unknown> | null;
+  candidate_specific_evidence?: Candidate13FSpecificEvidence | Record<string, unknown> | null;
+  target_matches?: Record<string, unknown>[];
+  portfolio_context?: Candidate13FPortfolioContext | Record<string, unknown> | null;
+  limitations?: string[];
+  missing_data?: string[];
+};
+
 export type StockCandidate = {
   ticker: string;
   company_name: string;
@@ -77,7 +116,7 @@ export type StockCandidate = {
   limitations: string[];
   missing_data: string[];
   source_status?: DataSourceStatus | null;
-  institutional_13f?: Record<string, unknown> | null;
+  institutional_13f?: Candidate13FEvidence | Record<string, unknown> | null;
 };
 
 export type RiskAllocation = {

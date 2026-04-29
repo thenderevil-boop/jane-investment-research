@@ -782,6 +782,21 @@ Phase 11.5b tightens snapshot SEC 13F source selection and price-reference mode 
 - `price_reference_mode="batch_warmed"` is valid only when `price_reference_used_count > 0` and either `price_reference_cache_hit_count > 0` or `price_reference_live_fetch_count > 0`; failed warmup attempts use `batch_warmup_failed` or cache-only semantics.
 - Mock 13F target matches are diagnostics only, do not count toward high-confidence target-match evidence, and do not boost the institutional support score.
 
+Phase 11.6 separates portfolio-level 13F context from candidate-specific evidence. Each `stock_candidates[].institutional_13f` may include:
+
+- `source_status`
+- `candidate_specific_evidence`
+- `target_matches`
+- `portfolio_context`
+- `limitations`
+- `missing_data`
+
+`candidate_specific_evidence` is the primary candidate interpretation field. It may include `ticker`, `resolved_ticker`, `resolved_cusip`, `resolved_issuer_name`, `local_security_map_used`, `matched_in_13f`, `match_confidence`, `match_method`, `position_value_usd`, `position_shares_or_principal_amount`, `portfolio_weight_pct`, `latest_report_date`, `latest_filing_date`, `manager_cik`, `manager_name`, and `interpretation_label`.
+
+Allowed candidate 13F interpretation labels are `reported_13f_position_observed`, `no_reported_13f_position_observed`, `low_confidence_issuer_name_match`, `insufficient_identifier_mapping`, and `insufficient_13f_data`. A manager's top holdings are portfolio context only and must not be treated as support for unrelated candidates. Candidate support requires an exact CUSIP match through the bounded local security map or another CUSIP-confirmed match. Issuer-name-only matches are low confidence and carry a limitation. Unmatched mapped candidates report `no_reported_13f_position_observed`, not a negative execution signal.
+
+`portfolio_context` is supporting context only. It may include manager identity, latest report and filing dates, grouped and mapped holding counts, source status, and a capped `top_holdings_by_value` list. Candidate output must not include the full 13F holdings list; `SEC_13F_CANDIDATE_CONTEXT_TOP_HOLDINGS_LIMIT=5` caps the candidate context list by default.
+
 Phase 11.5 config:
 
 - `DAILY_REPORT_READ_MODE=snapshot_first`

@@ -15,6 +15,7 @@ from backend.app.engines.macro_regime_engine import evaluate_macro_regime
 from backend.app.engines.market_timing_engine import evaluate_market_timing
 from backend.app.engines.overheat_engine import evaluate_overheat
 from backend.app.engines.risk_allocation_engine import evaluate_risk_allocation
+from backend.app.engines.sec_13f_target_matching import build_candidate_13f_evidence
 from backend.app.engines.smart_money_engine import evaluate_smart_money
 from backend.app.raw_store.repository import read_macro_data, read_market_data, read_sec_filings
 from backend.app.schemas.candidate import StockCandidate
@@ -110,19 +111,11 @@ def _candidate(ticker: str, theme: str, market_context: dict | None = None) -> S
         missing_data=sorted(missing_items),
     )
     thirteen_f_raw = smart_money.raw_data.get("institutional_13f", {})
-    candidate.institutional_13f = {
-        "portfolio_summary": thirteen_f_raw.get("portfolio_summary"),
-        "target_matches": thirteen_f_raw.get("target_matches", []),
-        "top_holdings_by_value": (thirteen_f_raw.get("top_holdings_by_value") or [])[:5],
-        "limitations": [
-            "13F is delayed quarterly evidence.",
-            "13F may lag up to 45 days after quarter end.",
-            "13F may not show shorts, many derivatives, or current positions.",
-            "Local security mapping is bounded and not authoritative.",
-            "Issuer-name matches are low confidence unless CUSIP or local ticker mapping confirms.",
-            *(["Price reference may not match the 13F report date exactly."] if thirteen_f_raw.get("portfolio_summary", {}).get("price_reference_used_count") else []),
-        ],
-    }
+    candidate.institutional_13f = build_candidate_13f_evidence(
+        ticker,
+        sec_filings.get("institutional_13f_summary") or thirteen_f_raw.get("portfolio_summary") or {},
+        sec_filings.get("institutional_13f_target_matches") or {"target_matches": thirteen_f_raw.get("target_matches", [])},
+    )
     component_source_types = {
         item
         for item in [

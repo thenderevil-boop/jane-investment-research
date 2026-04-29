@@ -127,6 +127,7 @@ Neither is a direct investment recommendation.
 | SEC_13F_ASSUME_VALUE_THOUSANDS | false | SEC EDGAR 13F | legacy fallback only; modern XML values are preserved unless disambiguated |
 | SEC_13F_PRICE_REFERENCE_MAX_TICKERS | 20 | SEC EDGAR 13F price reference | performance guardrail |
 | SEC_13F_PRICE_REFERENCE_TOTAL_BUDGET_SECONDS | 10 | SEC EDGAR 13F price reference | performance guardrail |
+| SEC_13F_CANDIDATE_CONTEXT_TOP_HOLDINGS_LIMIT | 5 | candidate 13F evidence | caps portfolio context shown per candidate |
 | INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT | false | daily report output | include full 13F row list only under `raw_data_full` when explicitly enabled |
 | DAILY_REPORT_FAST_MODE | true | daily report output | cache-first report generation |
 | ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST | false | daily report output | use cached market data for 13F price references by default |
@@ -487,6 +488,9 @@ SEC 13F URL strategy:
 - Portfolio summaries use normalized `value_usd` for `total_reported_value_usd`, top holdings, and portfolio weights.
 - Target matching is highest confidence by exact CUSIP. Ticker matching uses only a small local ticker-to-CUSIP map and does not call external CUSIP APIs. Issuer-name-only matching is low confidence and disclosed as a limitation.
 - The local security map is bounded and not authoritative. It is used only for target matching and value-confidence enrichment.
+- Candidate-level `institutional_13f` separates `candidate_specific_evidence` from `portfolio_context`. A manager's top holdings are context only and are not support for unrelated candidates.
+- Candidate support requires an exact 13F CUSIP match through the local security map or another CUSIP-confirmed match. Unmatched mapped candidates use `no_reported_13f_position_observed`, not a negative execution signal.
+- Candidate `portfolio_context.top_holdings_by_value` is capped by `SEC_13F_CANDIDATE_CONTEXT_TOP_HOLDINGS_LIMIT` and does not include the full holdings list.
 - Value confidence may be upgraded when a CUSIP resolves through the local map and a cached/reusable price reference is available. The price-reference layer checks reusable market cache first, then uses a bounded per-ticker adapter instead of refetching for every 13F row.
 - During daily report fast mode, 13F price references use cached market data only unless `ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST=true`.
 - Fast mode can preserve 13F value confidence when mapped tickers already have cached market prices. If no cached price exists, confidence remains lower and unavailable tickers appear in `price_reference_unavailable_tickers`.

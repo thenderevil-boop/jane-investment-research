@@ -57,6 +57,10 @@ Aggregation and target matching:
 - `SEC_13F_TARGET_CUSIPS` is the preferred target configuration and produces high-confidence exact matches.
 - `SEC_13F_TARGET_TICKERS` can match only through the bounded local ticker-to-CUSIP map. The system must not call external CUSIP APIs or scrape mappings.
 - `SEC_13F_TARGET_ISSUERS` can resolve through exact local aliases. Issuer-name-only matching without CUSIP confirmation remains low confidence and must carry a limitation.
+- Candidate-level 13F evidence uses the same local map but separates `candidate_specific_evidence` from `portfolio_context`.
+- A manager's top holdings are portfolio context only; they are not support for an unrelated candidate ticker.
+- Candidate support requires a CUSIP-confirmed match. If a mapped candidate CUSIP is absent from the configured manager portfolio, candidate output reports `no_reported_13f_position_observed`.
+- Candidate `portfolio_context.top_holdings_by_value` is capped by `SEC_13F_CANDIDATE_CONTEXT_TOP_HOLDINGS_LIMIT` and does not include the full holdings list.
 - The local security map is not authoritative and is used only for deterministic target matching and value-confidence enrichment.
 - Value confidence may be upgraded when local CUSIP-to-ticker mapping and a cached/reusable price reference are both available.
 - The price-reference layer checks reusable market cache first, then uses a bounded per-ticker adapter instead of refetching for every 13F row.
@@ -83,6 +87,7 @@ Repository behavior:
 - fallback metadata includes a safe summarized `fallback_reason` and does not expose stack traces or `SEC_EDGAR_USER_AGENT`
 - smart-money engines consume normalized 13F snapshots from the raw store and do not call SEC directly
 - fallback mock 13F does not boost smart-money score and is labeled insufficient data
+- mock/fallback candidate target matches are diagnostics only and do not affect candidate smart-money scoring
 
 Freshness:
 

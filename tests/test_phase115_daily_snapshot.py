@@ -204,11 +204,11 @@ def test_batch_snapshot_uses_cached_live_sec_13f_when_available(monkeypatch):
     snapshot = repository.read_daily_report_snapshot()
     institutional = snapshot["smart_money"]["raw_data"]["institutional_13f"]
     portfolio = institutional["portfolio_summary"]
-    candidate_portfolio = snapshot["stock_candidates"][0]["institutional_13f"]["portfolio_summary"]
+    candidate_portfolio = snapshot["stock_candidates"][0]["institutional_13f"]["portfolio_context"]
     assert portfolio["provider"] == "derived_from_SEC_EDGAR_13F"
     assert portfolio["underlying_source_type"] in {"cached_live", "live"}
     assert "live SEC 13F data" not in institutional["missing_data"]
-    assert candidate_portfolio["provider"] == "derived_from_SEC_EDGAR_13F"
+    assert candidate_portfolio["source_status"]["provider"] == "derived_from_SEC_EDGAR_13F"
     assert "live SEC 13F data" not in snapshot["stock_candidates"][0]["missing_data"]
 
 

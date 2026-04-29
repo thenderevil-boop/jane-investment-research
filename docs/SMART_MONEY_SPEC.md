@@ -82,7 +82,7 @@ Score:
 
 ```text
 if live/cached SEC 13F holdings exist and target CUSIP is observed: score = 60
-elif live/cached SEC 13F holdings exist but target CUSIP is not mapped: score = 50
+elif live/cached SEC 13F holdings exist but no candidate CUSIP match is observed: score = 40
 elif fallback 13F is used: score = 20
 elif mock 13F is used: score = 40
 elif insufficient data: score = 30
@@ -129,6 +129,13 @@ Aggregation and target matching:
 - Exact issuer aliases in the local map may resolve to CUSIP with medium confidence.
 - Issuer-name-only matching is low confidence and must disclose that limitation.
 - The local security map is not authoritative and is used only for deterministic matching and value-confidence enrichment.
+- Candidate-level 13F output separates `candidate_specific_evidence` from `portfolio_context`.
+- A manager's top holdings are supporting context only and do not count as candidate-specific support unless the candidate CUSIP is present in the holdings.
+- `candidate_specific_evidence.matched_in_13f=true` contributes only when source data is live or cached live, provider is SEC EDGAR-derived, freshness uses `quarterly_filing_delay`, and match confidence is high or medium.
+- `matched_in_13f=false` does not add positive 13F support for that candidate and should use `no_reported_13f_position_observed` when the candidate ticker resolves locally.
+- Issuer-name-only candidate matches use `low_confidence_issuer_name_match` and do not carry high-confidence evidence.
+- Mock or fallback target matches are diagnostics only and do not boost candidate smart-money scoring.
+- Candidate `portfolio_context.top_holdings_by_value` is capped by `SEC_13F_CANDIDATE_CONTEXT_TOP_HOLDINGS_LIMIT`, default 5.
 - Value confidence may be upgraded when local mapping and a cached/reusable price reference are both available.
 - The price-reference layer checks reusable market cache first, then uses a bounded per-ticker adapter instead of refetching for every 13F row.
 - Daily report fast mode uses cached market data for 13F price references unless `ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST=true`.

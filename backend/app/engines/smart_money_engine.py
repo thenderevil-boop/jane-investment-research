@@ -187,11 +187,13 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
             qoq_changes = compare_13f_quarter_over_quarter(current_grouped, prior_grouped)
     qoq_changes_count_total = len(qoq_changes)
     qoq_changes_capped = _capped_qoq_changes(qoq_changes)
+    source_is_fresh = source_status.get("is_fresh", True) is not False
+    high_or_medium_live_match = bool(source_is_fresh and (high_confidence_matches or medium_confidence_matches or target_cusip_holdings))
     if live_holdings:
-        score = 60 if high_confidence_matches or target_cusip_holdings else 55 if medium_confidence_matches else 50
+        score = 60 if high_or_medium_live_match and (high_confidence_matches or target_cusip_holdings) else 55 if high_or_medium_live_match and medium_confidence_matches else 40
         if quarter_change is not None and quarter_change < -10:
             score = 40
-        institutional_support_label = "institutional_target_match_observed" if high_or_medium_evidence_matches or target_cusip_holdings else "institutional_evidence_observed"
+        institutional_support_label = "institutional_target_match_observed" if high_or_medium_live_match else "institutional_evidence_limited"
     elif fallback_mock_13f:
         score = 20
         institutional_support_label = "insufficient_data"
