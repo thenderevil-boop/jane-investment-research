@@ -4,6 +4,7 @@ from copy import deepcopy
 from datetime import date
 from typing import Any
 
+from backend.app import config
 from backend.app.data.security_map import resolve_security_identifier
 from backend.app.utils.freshness import THIRTEEN_F_FRESHNESS_WINDOW, build_source_status
 
@@ -217,6 +218,14 @@ def summarize_13f_portfolio(holdings: list[dict[str, Any]], top_holdings_limit: 
     price_reference_ticker_count = len(price_reference_tickers)
     price_reference_cache_hit_count = sum(int(item.get("price_reference_cache_hit_count") or 0) for item in grouped_holdings)
     price_reference_live_fetch_count = sum(int(item.get("price_reference_live_fetch_count") or 0) for item in grouped_holdings)
+    mapped_tickers = sorted({_upper(item.get("mapped_ticker")) for item in grouped_holdings if item.get("security_map_used") and _upper(item.get("mapped_ticker"))})
+    price_reference_unavailable_tickers = sorted(set(mapped_tickers) - set(price_reference_tickers))
+    if config.ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST:
+        price_reference_mode = "live_allowed"
+    elif config.PRICE_REFERENCE_CACHE_WARMUP_ON_REPORT:
+        price_reference_mode = "cache_with_bounded_warmup"
+    else:
+        price_reference_mode = "cache_only"
     missing_data = list(aggregate.get("missing_data", []))
     if mapped_holding_count and price_reference_grouped_holding_count == 0:
         missing_data.append("price reference unavailable for mapped 13F holdings")
@@ -276,6 +285,8 @@ def summarize_13f_portfolio(holdings: list[dict[str, Any]], top_holdings_limit: 
         "price_reference_row_count": price_reference_row_count,
         "price_reference_cache_hit_count": price_reference_cache_hit_count,
         "price_reference_live_fetch_count": price_reference_live_fetch_count,
+        "price_reference_unavailable_tickers": price_reference_unavailable_tickers,
+        "price_reference_mode": price_reference_mode,
         "source_status": source_status,
         "limitations": THIRTEEN_F_LIMITATIONS,
         "missing_data": sorted(set(missing_data)),

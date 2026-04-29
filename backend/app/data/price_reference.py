@@ -36,6 +36,20 @@ def _candidate_cache_paths(ticker: str) -> list[Path]:
     ]
 
 
+def _primary_cache_path(ticker: str) -> Path:
+    return config.MARKET_DATA_CACHE_DIR / f"{_cache_key(ticker)}.json"
+
+
+def clear_price_reference_cache(ticker: str | None = None) -> None:
+    if ticker is None:
+        _REFERENCE_CACHE.clear()
+        return
+    normalized = str(ticker or "").strip().upper()
+    for key in list(_REFERENCE_CACHE):
+        if key == normalized or key.startswith(f"{normalized}|"):
+            _REFERENCE_CACHE.pop(key, None)
+
+
 def _extract_price(payload: dict) -> tuple[float | None, str]:
     if isinstance(payload.get("latest_close"), (int, float)):
         return float(payload["latest_close"]), str(payload.get("source_date") or "")
@@ -56,7 +70,7 @@ def get_price_reference(ticker: str, as_of_date: str | None = None) -> PriceRefe
         normalized = str(ticker or "").strip().upper()
         if not normalized or not config.USE_LIVE_MARKET_DATA:
             return None
-        cache_key = f"{normalized}|{as_of_date or ''}"
+        cache_key = normalized
         if cache_key in _REFERENCE_CACHE:
             increment_metric("cache_hit_count")
             return _REFERENCE_CACHE[cache_key]
@@ -120,3 +134,71 @@ def get_price_reference(ticker: str, as_of_date: str | None = None) -> PriceRefe
             return None
     finally:
         add_timing("sec_13f_price_reference_ms", started_at)
+
+
+def warm_price_reference_cache(tickers: list[str], max_tickers: int | None = None, allow_live_fetch: bool = False) -> dict[str, object]:
+    unique_tickers: list[str] = []
+    seen: set[str] = set()
+    for ticker in tickers or []:
+        normalized = str(ticker or "").strip().upper()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        unique_tickers.append(normalized)
+    limit = max(0, min(max_tickers or config.PRICE_REFERENCE_CACHE_WARMUP_MAX_TICKERS, config.SEC_13F_PRICE_REFERENCE_MAX_TICKERS))
+    selected = unique_tickers[:limit]
+    skipped = max(0, len(unique_tickers) - len(selected))
+    warmed: list[str] = []
+    cache_hits: list[str] = []
+    failed: list[str] = []
+    live_fetch_count = 0
+    if skipped:
+        increment_metric("bounded_fetch_skipped_count", skipped)
+    for ticker in selected:
+        clear_price_reference_cache(ticker)
+        cached = get_price_reference(ticker)
+        if cached is not None:
+            cache_hits.append(ticker)
+            continue
+        if not allow_live_fetch:
+            failed.append(ticker)
+            continue
+        clear_price_reference_cache(ticker)
+        previous_allow = config.ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST
+        try:
+            config.ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST = True
+            reference = get_price_reference(ticker)
+        finally:
+            config.ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST = previous_allow
+        if reference is None:
+            failed.append(ticker)
+            continue
+        live_fetch_count += 1
+        warmed.append(ticker)
+        path = _primary_cache_path(ticker)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(
+                {
+                    "latest_close": reference.price,
+                    "source_date": reference.source_date,
+                    "provider": "yfinance_cache" if "cache" not in reference.provider.casefold() else reference.provider,
+                    "ticker": ticker,
+                },
+                indent=2,
+                sort_keys=True,
+            ),
+            encoding="utf-8",
+        )
+        clear_price_reference_cache(ticker)
+    return {
+        "requested_ticker_count": len(unique_tickers),
+        "selected_ticker_count": len(selected),
+        "cache_hit_count": len(cache_hits),
+        "live_fetch_count": live_fetch_count,
+        "warmed_tickers": warmed,
+        "cache_hit_tickers": cache_hits,
+        "failed_tickers": failed,
+        "skipped_ticker_count": skipped,
+        "mode": "cache_with_bounded_warmup" if allow_live_fetch else "cache_only",
+    }

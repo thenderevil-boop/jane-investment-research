@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Body, HTTPException, Query
 
 from backend.app import config
 from backend.app.data_sources.mock_data import DEFAULT_STOCK, MOCK_SOURCE, MOCK_SOURCE_DATE, STOCK_FIXTURES
 from backend.app.middleware.safety_filter import SafetyViolationError, check_safety
 from backend.app.pipelines.mock_pipeline import build_daily_report
-from backend.app.raw_store.repository import get_market_data, read_sec_filings
+from backend.app.raw_store.repository import get_market_data, read_sec_filings, warm_price_reference_cache
 from backend.app.reports.stock_analysis import analyze_stock
 from backend.app.schemas.daily_report import DailyResearchReport
 from backend.app.schemas.health import HealthResponse
@@ -97,6 +97,19 @@ def latest_daily_report(use_live_market_data: bool | None = Query(default=None))
     if use_live_market_data is None:
         return _ensure_safe_response(build_daily_report())
     return _ensure_safe_response(build_daily_report(use_live_market_data=use_live_market_data))
+
+
+@router.post("/price-reference/warmup")
+def price_reference_warmup(payload: dict = Body(default_factory=dict)) -> dict:
+    tickers = payload.get("tickers") or []
+    if isinstance(tickers, str):
+        tickers = [item.strip() for item in tickers.split(",") if item.strip()]
+    if not isinstance(tickers, list):
+        raise HTTPException(status_code=400, detail="tickers must be a list or comma-separated string")
+    max_tickers = int(payload.get("max_tickers") or config.PRICE_REFERENCE_CACHE_WARMUP_MAX_TICKERS)
+    allow_live_fetch = bool(payload.get("allow_live_fetch", False))
+    result = warm_price_reference_cache([str(item) for item in tickers], max_tickers=max_tickers, allow_live_fetch=allow_live_fetch)
+    return {"not_investment_advice": True, **result}
 
 
 @router.get("/daily-report/{report_date}", response_model=DailyResearchReport)

@@ -61,7 +61,11 @@ Aggregation and target matching:
 - Value confidence may be upgraded when local CUSIP-to-ticker mapping and a cached/reusable price reference are both available.
 - The price-reference layer checks reusable market cache first, then uses a bounded per-ticker adapter instead of refetching for every 13F row.
 - Daily report fast mode uses cached market data for 13F price references unless `ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST=true`.
+- Fast mode can preserve 13F value confidence when mapped tickers already have cached market prices.
+- Optional bounded cache warmup can be enabled with `PRICE_REFERENCE_CACHE_WARMUP_ON_REPORT=true`, `PRICE_REFERENCE_CACHE_WARMUP_ON_STARTUP=true`, or `POST /api/price-reference/warmup`.
+- Warmup deduplicates tickers, respects `PRICE_REFERENCE_CACHE_WARMUP_MAX_TICKERS` and `SEC_13F_PRICE_REFERENCE_MAX_TICKERS`, uses the existing yfinance adapter only at ticker level, and writes reusable market cache entries.
 - Price-reference summaries distinguish `price_reference_grouped_holding_count`, `price_reference_row_count`, and `price_reference_ticker_count`; `price_reference_used_count` remains a backward-compatible grouped count.
+- `price_reference_unavailable_tickers` lists mapped tickers without a cached or warmed reference, and `price_reference_mode` reports `cache_only`, `cache_with_bounded_warmup`, or `live_allowed`.
 - If mapped 13F rows cannot obtain a reusable price reference, portfolio summaries include `price reference unavailable for mapped 13F holdings` in `missing_data`.
 - Price references may not match the 13F report date exactly, and confidence is capped conservatively when the reference date differs materially from the 13F report date.
 - QoQ comparison is by CUSIP and reflects reported quarterly 13F changes only. It does not imply real-time activity.
@@ -366,6 +370,7 @@ Interpretation:
 - Fast mode keeps daily reports cache-first and adds the limitation `Daily report fast mode uses fresh cached live data when available.`
 - `ALLOW_LIVE_FETCH_ON_REPORT_REQUEST=true` is still required for report-triggered SEC live refreshes when cache is missing or stale.
 - `ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST=false` by default, so 13F price references use cached market data during daily reports.
+- `PRICE_REFERENCE_CACHE_WARMUP_ON_REPORT=false` by default, so warmup is opt-in and daily reports remain fast.
 - `INCLUDE_PERFORMANCE_DIAGNOSTICS=false` by default. When enabled, responses include timing and cache/network counters only; diagnostics must not expose secrets, SEC User-Agent values, or tokenized URLs.
 
 Limitations:

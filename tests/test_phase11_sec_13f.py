@@ -467,6 +467,60 @@ def test_price_reference_does_not_call_adapter_when_disabled(monkeypatch):
     assert calls == []
 
 
+def test_price_reference_warmup_deduplicates_respects_limit_and_stores_cache(monkeypatch):
+    cache_dir = workspace_tmp_dir()
+    monkeypatch.setattr(config, "USE_LIVE_MARKET_DATA", True)
+    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", cache_dir)
+    monkeypatch.setattr(config, "ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST", False)
+    price_reference.clear_price_reference_cache()
+    price_reference._LIVE_REFERENCE_TICKERS.clear()
+    price_reference._BUDGET_STARTED_AT = None
+    calls = []
+
+    def fake_fetch(ticker, period="5d", interval="1d"):
+        calls.append(ticker)
+        return {"provider": "yfinance", "source_date": "2025-12-31", "rows": [{"date": "2025-12-31", "close": 100}]}
+
+    monkeypatch.setattr("backend.app.data_sources.live_market_prices.fetch_ohlcv", fake_fetch)
+    result = repository.warm_price_reference_cache(["AAPL", "AAPL", "NVDA", "TSLA"], max_tickers=2, allow_live_fetch=True)
+    assert calls == ["AAPL", "NVDA"]
+    assert result["selected_ticker_count"] == 2
+    assert result["skipped_ticker_count"] == 1
+    assert (cache_dir / "AAPL.json").exists()
+    price_reference.clear_price_reference_cache()
+    assert price_reference.get_price_reference("AAPL") is not None
+
+
+def test_warmup_cache_is_usable_by_later_13f_summary(monkeypatch):
+    cache_dir = workspace_tmp_dir()
+    monkeypatch.setattr(config, "USE_LIVE_MARKET_DATA", True)
+    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", cache_dir)
+    monkeypatch.setattr(config, "ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST", False)
+    price_reference.clear_price_reference_cache()
+    price_reference._LIVE_REFERENCE_TICKERS.clear()
+    price_reference._BUDGET_STARTED_AT = None
+
+    def fake_fetch(ticker, period="5d", interval="1d"):
+        return {"provider": "yfinance", "source_date": "2025-12-31", "rows": [{"date": "2025-12-31", "close": 272}]}
+
+    monkeypatch.setattr("backend.app.data_sources.live_market_prices.fetch_ohlcv", fake_fetch)
+    repository.warm_price_reference_cache(["AAPL"], max_tickers=5, allow_live_fetch=True)
+    price_reference.clear_price_reference_cache()
+    row = sec_edgar_13f.enrich_13f_holding_with_local_context(
+        {
+            "issuer_name": "APPLE INC",
+            "cusip": "037833100",
+            "reported_value_raw": 21929537965,
+            "shares_or_principal_amount": 80664820,
+            "report_date": "2025-12-31",
+            "source_status": {"limitations": []},
+        }
+    )
+    summary = summarize_13f_portfolio([{**row, "manager_cik": "0001", "accession_number": "a", "filing_date": "2026-02-14", "source": ["SEC EDGAR"]}])
+    assert summary["price_reference_cache_hit_count"] == 1
+    assert summary["value_confidence_breakdown"]["high"] == 1
+
+
 def test_current_price_reference_for_old_report_date_caps_confidence_at_medium(monkeypatch):
     monkeypatch.setattr(sec_edgar_13f, "get_price_reference", lambda ticker, as_of_date=None: PriceReference(ticker=ticker, price=240, source_date="2026-04-29", provider="mock_price_reference", confidence="medium"))
     xml = """<?xml version="1.0"?>
@@ -838,6 +892,8 @@ def test_portfolio_summary_missing_price_reference_for_mapped_holdings(monkeypat
     assert summary["mapped_holding_count"] > 0
     assert summary["price_reference_used_count"] == 0
     assert "price reference unavailable for mapped 13F holdings" in summary["missing_data"]
+    assert summary["price_reference_mode"] == "cache_only"
+    assert "AAPL" in summary["price_reference_unavailable_tickers"]
 
 
 def test_price_reference_grouped_and_ticker_counts_are_explicit():
@@ -886,6 +942,33 @@ def test_price_reference_grouped_and_ticker_counts_are_explicit():
     assert summary["price_reference_grouped_holding_count"] == 1
     assert summary["price_reference_ticker_count"] == 1
     assert summary["price_reference_row_count"] == 2
+
+
+def test_price_reference_mode_reports_bounded_warmup(monkeypatch):
+    monkeypatch.setattr(config, "PRICE_REFERENCE_CACHE_WARMUP_ON_REPORT", True)
+    summary = summarize_13f_portfolio(
+        [
+            {
+                "manager_cik": "0001",
+                "accession_number": "a",
+                "issuer_name": "APPLE INC",
+                "title_of_class": "COM",
+                "cusip": "037833100",
+                "value_usd": 100,
+                "reported_value_raw": 100,
+                "shares_or_principal_amount": 1,
+                "report_date": "2025-12-31",
+                "filing_date": "2026-02-14",
+                "mapped_ticker": "AAPL",
+                "security_map_used": True,
+                "price_reference_used": False,
+                "value_unit_confidence": "low",
+                "source": ["SEC EDGAR"],
+                "source_status": {"source_type": "cached_live", "provider": "SEC EDGAR", "source_date": "2025-12-31"},
+            }
+        ]
+    )
+    assert summary["price_reference_mode"] == "cache_with_bounded_warmup"
 
 
 def test_form4_parser_rejects_html_before_xml_parse():

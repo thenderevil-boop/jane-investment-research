@@ -132,7 +132,10 @@ Aggregation and target matching:
 - Value confidence may be upgraded when local mapping and a cached/reusable price reference are both available.
 - The price-reference layer checks reusable market cache first, then uses a bounded per-ticker adapter instead of refetching for every 13F row.
 - Daily report fast mode uses cached market data for 13F price references unless `ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST=true`.
+- Fast mode can preserve 13F value confidence when mapped tickers already have cached market prices.
+- Optional bounded cache warmup can improve value confidence, but it remains ticker-level, deduplicated, capped, and separate from scoring semantics.
 - Price-reference summaries distinguish grouped, row, and ticker counts through `price_reference_grouped_holding_count`, `price_reference_row_count`, and `price_reference_ticker_count`; `price_reference_used_count` remains a backward-compatible grouped count.
+- `price_reference_unavailable_tickers` lists mapped tickers without a cached or warmed reference, and `price_reference_mode` reports `cache_only`, `cache_with_bounded_warmup`, or `live_allowed`.
 - If mapped 13F rows cannot obtain a reusable price reference, the portfolio summary reports `price reference unavailable for mapped 13F holdings` in `missing_data`.
 - Price references may not match the 13F report date exactly, and confidence is capped conservatively when the reference date differs materially from the 13F report date.
 - QoQ comparison is by CUSIP and reflects reported quarterly 13F changes only.

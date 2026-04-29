@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from backend.app import config
+from backend.app.data.price_reference import warm_price_reference_cache as _warm_price_reference_cache
+from backend.app.data.security_map import resolve_security_identifier
 from backend.app.data_sources.mock_crisis import MOCK_CRISIS_SCENARIOS
 from backend.app.data_sources.mock_data import MARKET_SNAPSHOTS, MOCK_SMART_MONEY_SUMMARY, STOCK_FIXTURES, THEMES
 from backend.app.data_sources.mock_macro import MOCK_MACRO_SCENARIOS
@@ -1007,6 +1009,28 @@ def get_sec_13f_qoq_comparison(
     }
 
 
+def _mapped_13f_tickers_from_holdings(holdings: list[dict[str, Any]]) -> list[str]:
+    tickers: list[str] = []
+    seen: set[str] = set()
+    for row in holdings or []:
+        ticker = str(row.get("mapped_ticker") or "").strip().upper()
+        if not ticker:
+            security = resolve_security_identifier(cusip=row.get("cusip"), issuer_name=row.get("issuer_name")).get("security") or {}
+            ticker = str(security.get("ticker") or "").strip().upper()
+        if ticker and ticker not in seen:
+            seen.add(ticker)
+            tickers.append(ticker)
+    return tickers
+
+
+def warm_price_reference_cache(tickers: list[str], max_tickers: int | None = None, allow_live_fetch: bool = False) -> dict[str, object]:
+    return _warm_price_reference_cache(
+        tickers,
+        max_tickers=max_tickers or config.PRICE_REFERENCE_CACHE_WARMUP_MAX_TICKERS,
+        allow_live_fetch=allow_live_fetch,
+    )
+
+
 def _target_13f_managers(fixture_summary: dict[str, Any]) -> list[str]:
     configured = [item.strip() for item in config.SEC_13F_TARGET_MANAGERS.split(",") if item.strip()]
     if configured:
@@ -1031,6 +1055,15 @@ def read_sec_filings(ticker: str = "NVDA", *, allow_live_fetch: bool | None = No
     ]
     primary_13f_snapshot = thirteen_f_snapshots[0] if thirteen_f_snapshots else _mock_13f_snapshot("mock_manager", ticker)
     primary_manager = managers[0] if managers else "mock_manager"
+    if config.PRICE_REFERENCE_CACHE_WARMUP_ON_REPORT:
+        mapped_tickers = _mapped_13f_tickers_from_holdings(primary_13f_snapshot.get("holdings", []) or [])
+        warm_price_reference_cache(
+            mapped_tickers,
+            max_tickers=config.PRICE_REFERENCE_CACHE_WARMUP_MAX_TICKERS,
+            allow_live_fetch=True,
+        )
+        primary_13f_snapshot = get_sec_13f_holdings(primary_manager, allow_live_fetch=False, ticker=ticker)
+        thirteen_f_snapshots = [primary_13f_snapshot, *thirteen_f_snapshots[1:]]
     target_map = {
         "ticker": ticker,
         "cusip": institutional_fixture.get("cusip"),

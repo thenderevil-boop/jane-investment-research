@@ -130,6 +130,9 @@ Neither is a direct investment recommendation.
 | INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT | false | daily report output | include full 13F row list only under `raw_data_full` when explicitly enabled |
 | DAILY_REPORT_FAST_MODE | true | daily report output | cache-first report generation |
 | ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST | false | daily report output | use cached market data for 13F price references by default |
+| PRICE_REFERENCE_CACHE_WARMUP_ON_STARTUP | false | 13F price reference warmup | optional bounded ticker-level cache warmup |
+| PRICE_REFERENCE_CACHE_WARMUP_ON_REPORT | false | 13F price reference warmup | optional bounded ticker-level cache warmup before daily report 13F summary |
+| PRICE_REFERENCE_CACHE_WARMUP_MAX_TICKERS | 20 | 13F price reference warmup | warmup ticker limit |
 | INCLUDE_PERFORMANCE_DIAGNOSTICS | false | daily report output | optional timing and cache counters |
 | ALLOW_LIVE_FETCH_ON_REPORT_REQUEST | false | quota guard | default should remain false |
 
@@ -486,6 +489,8 @@ SEC 13F URL strategy:
 - The local security map is bounded and not authoritative. It is used only for target matching and value-confidence enrichment.
 - Value confidence may be upgraded when a CUSIP resolves through the local map and a cached/reusable price reference is available. The price-reference layer checks reusable market cache first, then uses a bounded per-ticker adapter instead of refetching for every 13F row.
 - During daily report fast mode, 13F price references use cached market data only unless `ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST=true`.
+- Fast mode can preserve 13F value confidence when mapped tickers already have cached market prices. If no cached price exists, confidence remains lower and unavailable tickers appear in `price_reference_unavailable_tickers`.
+- Optional bounded cache warmup is available through `PRICE_REFERENCE_CACHE_WARMUP_ON_REPORT=true`, startup warmup, or `POST /api/price-reference/warmup`. Warmup is ticker-level, deduplicated, capped, and never row-level.
 - 13F price-reference output distinguishes grouped, row, and ticker counts through `price_reference_grouped_holding_count`, `price_reference_row_count`, and `price_reference_ticker_count`; `price_reference_used_count` remains as a backward-compatible grouped count.
 - If mapped 13F rows cannot obtain a reusable price reference, portfolio summaries include `price reference unavailable for mapped 13F holdings` in `missing_data`.
 - Price references may not match the 13F report date exactly, so confidence is capped conservatively when the reference date differs materially from the 13F report date.
