@@ -24,13 +24,10 @@ def test_macro_regime_latest_endpoint_returns_engine_output() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["label"] in {
-        "normal",
-        "fear_crisis",
-        "inflation_pressure",
-        "recession_warning",
-        "recession_confirmed",
-        "recovery",
-        "overheated",
+        "restrictive_or_stress",
+        "cautious",
+        "neutral_to_constructive",
+        "supportive_macro_backdrop",
         "insufficient_data",
     }
     assert payload["components"]

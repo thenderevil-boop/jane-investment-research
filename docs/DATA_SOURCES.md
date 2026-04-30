@@ -265,6 +265,24 @@ Phase 12.3b FRED manufacturing PMI exclusion:
 - Jane reference conditions may display Fear & Greed as methodology context only and never as live/mock evidence.
 - FRED API keys, raw provider URLs, and query strings must not appear in fallback reasons, logs, snapshots, or API responses.
 
+Phase 12.5 macro scoring calibration:
+
+- The active macro scoring model is `macro_v12_5`.
+- Active score inputs are limited to FRED-backed observations, FRED-derived metrics, yfinance-backed market context, and yfinance-derived market context.
+- Weights total 100 across rates/policy, inflation, labor/recession resilience, market stress/volatility, cross-asset context, and rebound/recovery context.
+- CNN Fear & Greed and ISM Manufacturing PMI are excluded indicators with `affects_score: false` and weight 0. They must not appear in active component contributions or missing active components.
+- `macro_data_quality.scoring` reports active component count, active weight total, excluded component count, missing/stale/fallback active components, and the confidence basis.
+- Macro confidence is not capped for mock context when `mock_macro_fields_count=0`; it is reduced for missing active fields, stale active fields, cached-live-after-failure use, and fallback active components.
+- Mixed source summaries must use `source_type: "derived"` and must not use `source_type: "mixed"`.
+
+Phase 12.6 macro score explanation:
+
+- `macro_regime.macro_score_explanation` is a display-oriented summary of the existing `macro_v12_5` diagnostics.
+- It groups active components by scoring group and shows raw value, component score, weight, weighted contribution, provider, source date, freshness window, and freshness status.
+- It repeats excluded indicators separately with `affects_score: false` and weight 0 so UI panels do not mix excluded indicators with active score components.
+- It includes confidence basis and deductions based only on active data availability, freshness, cached-live-after-failure state, fallback state, and missing active components.
+- Jane methodology reference conditions remain separate display-only context and do not affect score or confidence.
+
 Repository behavior:
 
 - live FRED fetches are made only through `backend.app.raw_store.repository`

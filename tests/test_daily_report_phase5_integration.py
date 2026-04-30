@@ -34,8 +34,13 @@ def test_daily_report_includes_macro_regime_and_crisis() -> None:
         "recession_confirmed",
         "recovery",
         "overheated",
+        "restrictive_or_stress",
+        "cautious",
+        "neutral_to_constructive",
+        "supportive_macro_backdrop",
         "insufficient_data",
     }
+    assert payload["macro_regime"]["macro_score_explanation"]["scoring_model_version"] == "macro_v12_5"
     assert payload["crisis"]["level"] in {"normal", "elevated", "high", "severe", "insufficient_data"}
     assert payload["macro_regime"]["components"]
     assert payload["crisis"]["components"]

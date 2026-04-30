@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from copy import deepcopy
+
 from fastapi import APIRouter, Body, HTTPException, Query
 
 from backend.app import config
 from backend.app.data_sources.mock_data import DEFAULT_STOCK, MOCK_SOURCE, MOCK_SOURCE_DATE, STOCK_FIXTURES
+from backend.app.engines.macro_regime_engine import evaluate_macro_regime
 from backend.app.jobs.daily_research_refresh import refresh_daily_research_snapshot
 from backend.app.middleware.safety_filter import SafetyViolationError, check_safety
 from backend.app.pipelines.mock_pipeline import build_daily_report
@@ -59,8 +62,30 @@ def _metadata_from_snapshot(snapshot: dict | None, *, snapshot_used: bool, snaps
 
 
 def _with_daily_report_metadata(report: DailyResearchReport, metadata: DailyReportMetadata) -> DailyResearchReport:
+    _ensure_macro_score_explanation(report)
     report.daily_report_metadata = metadata
     return report
+
+
+def _ensure_macro_score_explanation(report: DailyResearchReport) -> None:
+    macro = report.macro_regime
+    if macro is None or macro.macro_score_explanation is not None:
+        return
+    try:
+        refreshed = evaluate_macro_regime(macro.raw_data or {})
+    except Exception:
+        return
+    if refreshed.macro_score_explanation is None:
+        return
+    explanation = deepcopy(refreshed.macro_score_explanation)
+    explanation["score"] = macro.score
+    explanation["label"] = macro.label
+    explanation["confidence"] = macro.confidence
+    if "confidence_explanation" in explanation:
+        explanation["confidence_explanation"]["confidence"] = macro.confidence
+    weighted_sum = float(explanation.get("weighted_contribution_sum") or 0)
+    explanation["rounding_difference"] = round(float(macro.score) - weighted_sum, 4)
+    macro.macro_score_explanation = explanation
 
 
 @router.get("/health", response_model=HealthResponse)

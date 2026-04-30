@@ -45,7 +45,7 @@ def evaluate_risk_allocation(
         risk_flags.append("crisis_pressure")
     if overheat_risk.score >= 60:
         risk_flags.append("overheat_pressure")
-    if macro_regime.label in {"recession_warning", "recession_confirmed", "fear_crisis"}:
+    if macro_regime.label in {"recession_warning", "recession_confirmed", "fear_crisis", "restrictive_or_stress"}:
         risk_flags.append("macro_stress")
     if market_snapshot.get("vix", 0) >= 25:
         risk_flags.append("volatility_elevated")
@@ -59,7 +59,7 @@ def evaluate_risk_allocation(
     elif overheat_risk.score >= 60:
         posture = "overheat_warning"
         score = overheat_risk.score
-    elif macro_regime.label in {"recession_warning", "recession_confirmed", "fear_crisis"}:
+    elif macro_regime.label in {"recession_warning", "recession_confirmed", "fear_crisis", "restrictive_or_stress"}:
         posture = "defensive_watch"
         score = max(60, macro_regime.score)
     elif market_timing.score >= 60 and overheat_risk.score < 40 and crisis.level == "normal":

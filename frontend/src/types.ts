@@ -33,6 +33,7 @@ export type DataQualitySummary = {
     yfinance_backed_fields?: string[];
     derived_from_yfinance_fields?: string[];
     excluded_indicators?: Record<string, unknown>[];
+    scoring?: Record<string, unknown>;
     yfinance_macro_fields_count?: number;
     market_context_reused_from_daily_market_data?: boolean;
     confidence_adjustment_applied?: boolean;
@@ -54,6 +55,65 @@ export type JaneReferenceConditions = {
   affects_score: boolean;
   not_investment_advice: boolean;
   conditions: JaneReferenceCondition[];
+  limitations: string[];
+};
+
+export type MacroScoreComponent = {
+  name: string;
+  display_name: string;
+  weight: number;
+  raw_value?: unknown;
+  component_score?: number;
+  weighted_contribution?: number;
+  source_type?: SourceType | string;
+  provider?: string;
+  source_date?: string;
+  freshness_window?: string;
+  is_fresh?: boolean;
+  limitation?: string | null;
+};
+
+export type MacroScoreGroup = {
+  name: string;
+  display_name: string;
+  weight: number;
+  weighted_contribution_sum: number;
+  components: MacroScoreComponent[];
+};
+
+export type MacroExcludedIndicator = {
+  name: string;
+  display_name?: string;
+  reason?: string;
+  affects_score: boolean;
+  weight: number;
+};
+
+export type MacroConfidenceExplanation = {
+  confidence: number;
+  basis: Record<string, unknown>;
+  deductions: Array<{
+    reason: string;
+    amount: number;
+    affected_components: string[];
+  }>;
+  max_confidence: number;
+};
+
+export type MacroScoreExplanation = {
+  scoring_model_version: string;
+  score: number;
+  max_score: number;
+  label: string;
+  confidence: number;
+  active_weight_total: number;
+  weighted_contribution_sum: number;
+  rounding_difference: number;
+  rounding_tolerance: number;
+  groups: MacroScoreGroup[];
+  excluded_indicators: MacroExcludedIndicator[];
+  confidence_basis: Record<string, unknown>;
+  confidence_explanation?: MacroConfidenceExplanation;
   limitations: string[];
 };
 
@@ -87,6 +147,7 @@ export type ScoreLike = {
   missing_data?: string[];
   source_status?: DataSourceStatus | null;
   macro_data_quality?: Record<string, unknown> | null;
+  macro_score_explanation?: MacroScoreExplanation | null;
   components?: unknown[];
   criteria?: unknown[];
 };

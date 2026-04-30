@@ -230,6 +230,7 @@ Before marking a task complete:
 6. Confirm Form 4, 13F, and insider transaction outputs include `not_investment_advice` where applicable.
 7. Confirm transaction and institutional outputs do not contain prohibited trading instruction language.
 8. Confirm fallback mock Form 4 does not boost smart-money score.
+9. Confirm macro scoring model diagnostics use `macro_v12_5`, active weights total 100, excluded indicators have weight 0, `macro_score_explanation` groups active components separately from excluded indicators, and `source_type` never uses `mixed`.
 
 ## Data Freshness Contract
 

@@ -345,6 +345,7 @@ def build_daily_report(
             "yfinance_backed_fields": macro_regime.macro_data_quality.yfinance_backed_fields,
             "derived_from_yfinance_fields": macro_regime.macro_data_quality.derived_from_yfinance_fields,
             "excluded_indicators": macro_regime.macro_data_quality.excluded_indicators,
+            "scoring": macro_regime.macro_data_quality.scoring,
             "market_context_reused_from_daily_market_data": (macro_regime.raw_data.get("raw_market_context") or {}).get("diagnostics", {}).get("market_context_reused_from_daily_market_data"),
             "confidence_adjustment_applied": macro_regime.macro_data_quality.confidence_adjustment_applied,
         }

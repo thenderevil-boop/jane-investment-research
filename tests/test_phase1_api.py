@@ -120,8 +120,10 @@ def test_daily_pipeline_scenarios(monkeypatch) -> None:
     normal = build_daily_report("normal")
     fearful = build_daily_report("fearful")
     overheated = build_daily_report("overheated")
-    assert normal.macro_regime.label == "normal"
-    assert fearful.macro_regime.label == "fear_crisis"
+    assert normal.macro_regime.label == "neutral_to_constructive"
+    assert normal.macro_regime.derived_metrics["legacy_rule_classification"]["label"] == "normal"
+    assert fearful.macro_regime.label == "cautious"
+    assert fearful.macro_regime.derived_metrics["legacy_rule_classification"]["label"] == "fear_crisis"
     assert fearful.market_timing.score > normal.market_timing.score
     assert overheated.overheat_risk.label in {"overheated", "high_risk_warning"}
     assert normal.missing_data

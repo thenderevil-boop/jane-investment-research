@@ -430,6 +430,23 @@ Phase 12.3b excludes ISM Manufacturing PMI from scoring:
 - Existing system-observable substitutes include FRED rate trend and yfinance-derived SPY/QQQ drawdown.
 - FRED API keys and raw provider URLs must never appear in fallback reasons, logs, snapshots, or API responses.
 
+Phase 12.5 recalibrates macro scoring after removing unlicensed indicators:
+
+- `macro_regime.derived_metrics.scoring_model.version` is `macro_v12_5`.
+- The active macro score uses only FRED-backed fields, FRED-derived fields, yfinance-backed market context, and yfinance-derived market context.
+- Active component weights total 100: rates and policy 25, inflation pressure 20, labor/recession resilience 15, market stress/volatility 15, cross-asset risk context 15, and rebound/recovery context 10.
+- CNN Fear & Greed and ISM Manufacturing PMI remain excluded with `affects_score=false` and scoring weight 0.
+- Jane reference conditions remain display-only; `jane_reference_conditions.affects_score=false` and condition-level `score_contribution_allowed=false`.
+- Macro confidence is based on active component availability, freshness, cached-live-after-failure state, fallback state, and missing active components. Excluded indicators are not counted as missing active components.
+- Mixed macro evidence continues to use `source_type="derived"` with a descriptive provider such as `mixed_FRED_and_yfinance_macro`; `source_type="mixed"` is invalid.
+
+Phase 12.6 adds macro score explanation output and UI polish:
+
+- `macro_regime.macro_score_explanation` summarizes `macro_v12_5` score, label, confidence, active weight total, weighted contribution sum, rounding difference, grouped score components, excluded indicators, and confidence explanation.
+- Explanation groups mirror the active scoring model and show component raw value, component score, weight, weighted contribution, provider, source date, and freshness status.
+- Excluded indicators are shown separately with `affects_score=false` and weight 0; they do not appear as active components.
+- Jane reference conditions are shown separately as methodology context and do not affect macro score or confidence.
+
 ## Phase 10 Live SEC Form 4 Insider Transactions
 
 SEC Form 4 insider transactions can now be enabled through the repository-backed SEC EDGAR adapter. Mock Form 4 remains the default.

@@ -2,22 +2,6 @@
   "$defs": {
     "Candidate13FEvidence": {
       "properties": {
-        "source_status": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/DataSourceStatus"
-            },
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Source Status"
-        },
         "candidate_specific_evidence": {
           "anyOf": [
             {
@@ -34,12 +18,18 @@
           "default": null,
           "title": "Candidate Specific Evidence"
         },
-        "target_matches": {
+        "limitations": {
           "items": {
-            "additionalProperties": true,
-            "type": "object"
+            "type": "string"
           },
-          "title": "Target Matches",
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
           "type": "array"
         },
         "portfolio_context": {
@@ -58,18 +48,28 @@
           "default": null,
           "title": "Portfolio Context"
         },
-        "limitations": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Limitations",
-          "type": "array"
+        "source_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataSourceStatus"
+            },
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Status"
         },
-        "missing_data": {
+        "target_matches": {
           "items": {
-            "type": "string"
+            "additionalProperties": true,
+            "type": "object"
           },
-          "title": "Missing Data",
+          "title": "Target Matches",
           "type": "array"
         }
       },
@@ -78,53 +78,17 @@
     },
     "Candidate13FPortfolioContext": {
       "properties": {
-        "manager_cik": {
+        "holding_count_grouped": {
           "anyOf": [
             {
-              "type": "string"
+              "type": "integer"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "Manager Cik"
-        },
-        "manager_name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Manager Name"
-        },
-        "manager_metadata_source": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Manager Metadata Source"
-        },
-        "latest_report_date": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Latest Report Date"
+          "title": "Holding Count Grouped"
         },
         "latest_filing_date": {
           "anyOf": [
@@ -138,17 +102,53 @@
           "default": null,
           "title": "Latest Filing Date"
         },
-        "holding_count_grouped": {
+        "latest_report_date": {
           "anyOf": [
             {
-              "type": "integer"
+              "type": "string"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "Holding Count Grouped"
+          "title": "Latest Report Date"
+        },
+        "manager_cik": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manager Cik"
+        },
+        "manager_metadata_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manager Metadata Source"
+        },
+        "manager_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manager Name"
         },
         "mapped_holding_count": {
           "anyOf": [
@@ -161,14 +161,6 @@
           ],
           "default": null,
           "title": "Mapped Holding Count"
-        },
-        "top_holdings_by_value": {
-          "items": {
-            "additionalProperties": true,
-            "type": "object"
-          },
-          "title": "Top Holdings By Value",
-          "type": "array"
         },
         "source_status": {
           "anyOf": [
@@ -185,6 +177,14 @@
           ],
           "default": null,
           "title": "Source Status"
+        },
+        "top_holdings_by_value": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Top Holdings By Value",
+          "type": "array"
         }
       },
       "title": "Candidate13FPortfolioContext",
@@ -192,162 +192,6 @@
     },
     "Candidate13FSpecificEvidence": {
       "properties": {
-        "ticker": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Ticker"
-        },
-        "resolved_ticker": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Resolved Ticker"
-        },
-        "resolved_cusip": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Resolved Cusip"
-        },
-        "resolved_issuer_name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Resolved Issuer Name"
-        },
-        "local_security_map_used": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Local Security Map Used"
-        },
-        "matched_in_13f": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Matched In 13F"
-        },
-        "match_confidence": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Match Confidence"
-        },
-        "match_method": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Match Method"
-        },
-        "position_value_usd": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Position Value Usd"
-        },
-        "position_shares_or_principal_amount": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Position Shares Or Principal Amount"
-        },
-        "portfolio_weight_pct": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Portfolio Weight Pct"
-        },
-        "source_date": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Source Date"
-        },
-        "report_date": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Report Date"
-        },
         "filing_date": {
           "anyOf": [
             {
@@ -359,78 +203,6 @@
           ],
           "default": null,
           "title": "Filing Date"
-        },
-        "latest_report_date": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Latest Report Date"
-        },
-        "latest_filing_date": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Latest Filing Date"
-        },
-        "manager_cik": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Manager Cik"
-        },
-        "manager_name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Manager Name"
-        },
-        "manager_metadata_source": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Manager Metadata Source"
-        },
-        "value_unit_confidence_summary": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Value Unit Confidence Summary"
         },
         "interpretation_label": {
           "anyOf": [
@@ -456,6 +228,198 @@
           "default": null,
           "title": "Interpretation Summary"
         },
+        "latest_filing_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest Filing Date"
+        },
+        "latest_report_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest Report Date"
+        },
+        "local_security_map_used": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Local Security Map Used"
+        },
+        "manager_cik": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manager Cik"
+        },
+        "manager_metadata_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manager Metadata Source"
+        },
+        "manager_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manager Name"
+        },
+        "match_confidence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match Confidence"
+        },
+        "match_method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match Method"
+        },
+        "matched_in_13f": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Matched In 13F"
+        },
+        "portfolio_weight_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Portfolio Weight Pct"
+        },
+        "position_shares_or_principal_amount": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Position Shares Or Principal Amount"
+        },
+        "position_value_usd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Position Value Usd"
+        },
+        "report_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Report Date"
+        },
+        "resolved_cusip": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolved Cusip"
+        },
+        "resolved_issuer_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolved Issuer Name"
+        },
+        "resolved_ticker": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolved Ticker"
+        },
         "score_contribution_allowed": {
           "anyOf": [
             {
@@ -467,6 +431,42 @@
           ],
           "default": null,
           "title": "Score Contribution Allowed"
+        },
+        "source_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Date"
+        },
+        "ticker": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ticker"
+        },
+        "value_unit_confidence_summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value Unit Confidence Summary"
         }
       },
       "title": "Candidate13FSpecificEvidence",
@@ -474,52 +474,21 @@
     },
     "CrisisComponent": {
       "properties": {
-        "name": {
-          "title": "Name",
-          "type": "string"
-        },
-        "score": {
-          "maximum": 100,
-          "minimum": 0,
-          "title": "Score",
-          "type": "number"
-        },
-        "raw_data": {
-          "additionalProperties": true,
-          "title": "Raw Data",
-          "type": "object"
-        },
-        "derived_metrics": {
-          "additionalProperties": true,
-          "title": "Derived Metrics",
-          "type": "object"
-        },
         "benchmark": {
           "additionalProperties": true,
           "title": "Benchmark",
           "type": "object"
-        },
-        "trend": {
-          "additionalProperties": true,
-          "title": "Trend",
-          "type": "object"
-        },
-        "source": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Source",
-          "type": "array"
-        },
-        "source_date": {
-          "title": "Source Date",
-          "type": "string"
         },
         "confidence": {
           "maximum": 1,
           "minimum": 0,
           "title": "Confidence",
           "type": "number"
+        },
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
         },
         "limitations": {
           "items": {
@@ -535,6 +504,32 @@
           "title": "Missing Data",
           "type": "array"
         },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "raw_data": {
+          "additionalProperties": true,
+          "title": "Raw Data",
+          "type": "object"
+        },
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "source": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source",
+          "type": "array"
+        },
+        "source_date": {
+          "title": "Source Date",
+          "type": "string"
+        },
         "source_status": {
           "anyOf": [
             {
@@ -545,6 +540,11 @@
             }
           ],
           "default": null
+        },
+        "trend": {
+          "additionalProperties": true,
+          "title": "Trend",
+          "type": "object"
         }
       },
       "required": [
@@ -565,9 +565,12 @@
     },
     "CrisisOutput": {
       "properties": {
-        "level": {
-          "title": "Level",
-          "type": "string"
+        "components": {
+          "items": {
+            "$ref": "#/$defs/CrisisComponent"
+          },
+          "title": "Components",
+          "type": "array"
         },
         "confidence": {
           "maximum": 1,
@@ -575,19 +578,9 @@
           "title": "Confidence",
           "type": "number"
         },
-        "reference": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "title": "Reference",
-          "type": "object"
-        },
-        "components": {
-          "items": {
-            "$ref": "#/$defs/CrisisComponent"
-          },
-          "title": "Components",
-          "type": "array"
+        "level": {
+          "title": "Level",
+          "type": "string"
         },
         "limitations": {
           "items": {
@@ -602,6 +595,13 @@
           },
           "title": "Missing Data",
           "type": "array"
+        },
+        "reference": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Reference",
+          "type": "object"
         },
         "source_status": {
           "anyOf": [
@@ -628,61 +628,17 @@
     },
     "DailyReportMetadata": {
       "properties": {
-        "read_mode": {
-          "default": "snapshot_first",
-          "title": "Read Mode",
-          "type": "string"
-        },
-        "snapshot_used": {
-          "default": false,
-          "title": "Snapshot Used",
-          "type": "boolean"
-        },
-        "snapshot_id": {
+        "batch_duration_ms": {
           "anyOf": [
             {
-              "type": "string"
+              "type": "integer"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "Snapshot Id"
-        },
-        "snapshot_generated_at": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Snapshot Generated At"
-        },
-        "snapshot_is_fresh": {
-          "default": false,
-          "title": "Snapshot Is Fresh",
-          "type": "boolean"
-        },
-        "batch_refresh_status": {
-          "default": "unknown",
-          "title": "Batch Refresh Status",
-          "type": "string"
-        },
-        "batch_refresh_started_at": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Batch Refresh Started At"
+          "title": "Batch Duration Ms"
         },
         "batch_refresh_completed_at": {
           "anyOf": [
@@ -696,17 +652,61 @@
           "default": null,
           "title": "Batch Refresh Completed At"
         },
-        "batch_duration_ms": {
+        "batch_refresh_started_at": {
           "anyOf": [
             {
-              "type": "integer"
+              "type": "string"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "Batch Duration Ms"
+          "title": "Batch Refresh Started At"
+        },
+        "batch_refresh_status": {
+          "default": "unknown",
+          "title": "Batch Refresh Status",
+          "type": "string"
+        },
+        "read_mode": {
+          "default": "snapshot_first",
+          "title": "Read Mode",
+          "type": "string"
+        },
+        "snapshot_generated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Snapshot Generated At"
+        },
+        "snapshot_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Snapshot Id"
+        },
+        "snapshot_is_fresh": {
+          "default": false,
+          "title": "Snapshot Is Fresh",
+          "type": "boolean"
+        },
+        "snapshot_used": {
+          "default": false,
+          "title": "Snapshot Used",
+          "type": "boolean"
         }
       },
       "title": "DailyReportMetadata",
@@ -714,40 +714,9 @@
     },
     "DataQualitySummary": {
       "properties": {
-        "mode": {
-          "default": "all_mock",
-          "enum": [
-            "all_mock",
-            "mixed",
-            "mostly_live",
-            "live_with_fallback"
-          ],
-          "title": "Mode",
-          "type": "string"
-        },
-        "live_components": {
-          "default": 0,
-          "title": "Live Components",
-          "type": "integer"
-        },
-        "mock_components": {
-          "default": 0,
-          "title": "Mock Components",
-          "type": "integer"
-        },
         "fallback_components": {
           "default": 0,
           "title": "Fallback Components",
-          "type": "integer"
-        },
-        "stale_components": {
-          "default": 0,
-          "title": "Stale Components",
-          "type": "integer"
-        },
-        "missing_source_date_components": {
-          "default": 0,
-          "title": "Missing Source Date Components",
           "type": "integer"
         },
         "limitations": {
@@ -756,6 +725,11 @@
           },
           "title": "Limitations",
           "type": "array"
+        },
+        "live_components": {
+          "default": 0,
+          "title": "Live Components",
+          "type": "integer"
         },
         "macro": {
           "anyOf": [
@@ -769,6 +743,32 @@
           ],
           "default": null,
           "title": "Macro"
+        },
+        "missing_source_date_components": {
+          "default": 0,
+          "title": "Missing Source Date Components",
+          "type": "integer"
+        },
+        "mock_components": {
+          "default": 0,
+          "title": "Mock Components",
+          "type": "integer"
+        },
+        "mode": {
+          "default": "all_mock",
+          "enum": [
+            "all_mock",
+            "mixed",
+            "mostly_live",
+            "live_with_fallback"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "stale_components": {
+          "default": 0,
+          "title": "Stale Components",
+          "type": "integer"
         }
       },
       "title": "DataQualitySummary",
@@ -776,28 +776,22 @@
     },
     "DataSourceStatus": {
       "properties": {
-        "source_type": {
-          "default": "unknown",
-          "enum": [
-            "live",
-            "cached_live",
-            "mock",
-            "fallback",
-            "derived",
-            "unknown"
+        "fallback_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "title": "Source Type",
-          "type": "string"
+          "default": null,
+          "title": "Fallback Reason"
         },
-        "provider": {
-          "default": "unknown",
-          "title": "Provider",
-          "type": "string"
-        },
-        "source_date": {
-          "default": "",
-          "title": "Source Date",
-          "type": "string"
+        "fallback_used": {
+          "default": false,
+          "title": "Fallback Used",
+          "type": "boolean"
         },
         "fetched_at": {
           "anyOf": [
@@ -811,32 +805,15 @@
           "default": null,
           "title": "Fetched At"
         },
-        "is_fresh": {
-          "default": false,
-          "title": "Is Fresh",
-          "type": "boolean"
-        },
         "freshness_window": {
           "default": "unknown",
           "title": "Freshness Window",
           "type": "string"
         },
-        "fallback_used": {
+        "is_fresh": {
           "default": false,
-          "title": "Fallback Used",
+          "title": "Is Fresh",
           "type": "boolean"
-        },
-        "fallback_reason": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Fallback Reason"
         },
         "limitations": {
           "items": {
@@ -851,6 +828,29 @@
           },
           "title": "Missing Data",
           "type": "array"
+        },
+        "provider": {
+          "default": "unknown",
+          "title": "Provider",
+          "type": "string"
+        },
+        "source_date": {
+          "default": "",
+          "title": "Source Date",
+          "type": "string"
+        },
+        "source_type": {
+          "default": "unknown",
+          "enum": [
+            "live",
+            "cached_live",
+            "mock",
+            "fallback",
+            "derived",
+            "unknown"
+          ],
+          "title": "Source Type",
+          "type": "string"
         }
       },
       "title": "DataSourceStatus",
@@ -858,28 +858,55 @@
     },
     "FutureTheme": {
       "properties": {
-        "name": {
-          "default": "theme_score",
-          "title": "Name",
-          "type": "string"
+        "benchmark": {
+          "additionalProperties": true,
+          "title": "Benchmark",
+          "type": "object"
         },
-        "theme": {
-          "title": "Theme",
-          "type": "string"
+        "candidate_companies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Candidate Companies",
+          "type": "array"
         },
-        "score": {
-          "maximum": 100,
+        "confidence": {
+          "maximum": 1,
           "minimum": 0,
-          "title": "Score",
+          "title": "Confidence",
           "type": "number"
+        },
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
         },
         "max_score": {
           "default": 100,
           "title": "Max Score",
           "type": "number"
         },
-        "label": {
-          "title": "Label",
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        },
+        "name": {
+          "default": "theme_score",
+          "title": "Name",
           "type": "string"
         },
         "raw_data": {
@@ -887,20 +914,11 @@
           "title": "Raw Data",
           "type": "object"
         },
-        "derived_metrics": {
-          "additionalProperties": true,
-          "title": "Derived Metrics",
-          "type": "object"
-        },
-        "benchmark": {
-          "additionalProperties": true,
-          "title": "Benchmark",
-          "type": "object"
-        },
-        "trend": {
-          "additionalProperties": true,
-          "title": "Trend",
-          "type": "object"
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
         },
         "source": {
           "items": {
@@ -913,33 +931,6 @@
           "title": "Source Date",
           "type": "string"
         },
-        "confidence": {
-          "maximum": 1,
-          "minimum": 0,
-          "title": "Confidence",
-          "type": "number"
-        },
-        "limitations": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Limitations",
-          "type": "array"
-        },
-        "missing_data": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Missing Data",
-          "type": "array"
-        },
-        "candidate_companies": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Candidate Companies",
-          "type": "array"
-        },
         "source_status": {
           "anyOf": [
             {
@@ -950,6 +941,15 @@
             }
           ],
           "default": null
+        },
+        "theme": {
+          "title": "Theme",
+          "type": "string"
+        },
+        "trend": {
+          "additionalProperties": true,
+          "title": "Trend",
+          "type": "object"
         }
       },
       "required": [
@@ -972,29 +972,9 @@
     },
     "JaneReferenceCondition": {
       "properties": {
-        "name": {
-          "title": "Name",
-          "type": "string"
-        },
         "display_text": {
           "title": "Display Text",
           "type": "string"
-        },
-        "system_status": {
-          "title": "System Status",
-          "type": "string"
-        },
-        "mapped_system_fields": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Mapped System Fields",
-          "type": "array"
-        },
-        "score_contribution_allowed": {
-          "default": false,
-          "title": "Score Contribution Allowed",
-          "type": "boolean"
         },
         "limitation": {
           "anyOf": [
@@ -1007,6 +987,26 @@
           ],
           "default": null,
           "title": "Limitation"
+        },
+        "mapped_system_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mapped System Fields",
+          "type": "array"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "score_contribution_allowed": {
+          "default": false,
+          "title": "Score Contribution Allowed",
+          "type": "boolean"
+        },
+        "system_status": {
+          "title": "System Status",
+          "type": "string"
         }
       },
       "required": [
@@ -1020,24 +1020,9 @@
     },
     "JaneReferenceConditions": {
       "properties": {
-        "title": {
-          "default": "Jane methodology reference conditions",
-          "title": "Title",
-          "type": "string"
-        },
-        "source_type": {
-          "default": "methodology_reference",
-          "title": "Source Type",
-          "type": "string"
-        },
         "affects_score": {
           "default": false,
           "title": "Affects Score",
-          "type": "boolean"
-        },
-        "not_investment_advice": {
-          "default": true,
-          "title": "Not Investment Advice",
           "type": "boolean"
         },
         "conditions": {
@@ -1053,6 +1038,21 @@
           },
           "title": "Limitations",
           "type": "array"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        },
+        "source_type": {
+          "default": "methodology_reference",
+          "title": "Source Type",
+          "type": "string"
+        },
+        "title": {
+          "default": "Jane methodology reference conditions",
+          "title": "Title",
+          "type": "string"
         }
       },
       "required": [
@@ -1064,32 +1064,15 @@
     },
     "MacroDataQuality": {
       "properties": {
-        "fred_backed_fields": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Fred Backed Fields",
-          "type": "array"
-        },
-        "mock_context_fields": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Mock Context Fields",
-          "type": "array"
+        "confidence_adjustment_applied": {
+          "title": "Confidence Adjustment Applied",
+          "type": "boolean"
         },
         "derived_from_fred_fields": {
           "items": {
             "type": "string"
           },
           "title": "Derived From Fred Fields",
-          "type": "array"
-        },
-        "yfinance_backed_fields": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Yfinance Backed Fields",
           "type": "array"
         },
         "derived_from_yfinance_fields": {
@@ -1099,42 +1082,31 @@
           "title": "Derived From Yfinance Fields",
           "type": "array"
         },
-        "live_macro_fields_count": {
-          "title": "Live Macro Fields Count",
-          "type": "integer"
-        },
-        "mock_macro_fields_count": {
-          "title": "Mock Macro Fields Count",
-          "type": "integer"
-        },
         "derived_macro_fields_count": {
           "title": "Derived Macro Fields Count",
           "type": "integer"
         },
-        "yfinance_macro_fields_count": {
-          "default": 0,
-          "title": "Yfinance Macro Fields Count",
-          "type": "integer"
+        "excluded_indicators": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Excluded Indicators",
+          "type": "array"
         },
-        "has_mock_macro_context": {
-          "title": "Has Mock Macro Context",
-          "type": "boolean"
-        },
-        "mock_context_score_weight_pct": {
-          "title": "Mock Context Score Weight Pct",
-          "type": "number"
+        "fred_backed_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fred Backed Fields",
+          "type": "array"
         },
         "fred_backed_score_weight_pct": {
           "title": "Fred Backed Score Weight Pct",
           "type": "number"
         },
-        "live_or_cached_context_score_weight_pct": {
-          "default": 0,
-          "title": "Live Or Cached Context Score Weight Pct",
-          "type": "number"
-        },
-        "confidence_adjustment_applied": {
-          "title": "Confidence Adjustment Applied",
+        "has_mock_macro_context": {
+          "title": "Has Mock Macro Context",
           "type": "boolean"
         },
         "limitations": {
@@ -1144,13 +1116,46 @@
           "title": "Limitations",
           "type": "array"
         },
-        "excluded_indicators": {
+        "live_macro_fields_count": {
+          "title": "Live Macro Fields Count",
+          "type": "integer"
+        },
+        "live_or_cached_context_score_weight_pct": {
+          "default": 0,
+          "title": "Live Or Cached Context Score Weight Pct",
+          "type": "number"
+        },
+        "mock_context_fields": {
           "items": {
-            "additionalProperties": true,
-            "type": "object"
+            "type": "string"
           },
-          "title": "Excluded Indicators",
+          "title": "Mock Context Fields",
           "type": "array"
+        },
+        "mock_context_score_weight_pct": {
+          "title": "Mock Context Score Weight Pct",
+          "type": "number"
+        },
+        "mock_macro_fields_count": {
+          "title": "Mock Macro Fields Count",
+          "type": "integer"
+        },
+        "scoring": {
+          "additionalProperties": true,
+          "title": "Scoring",
+          "type": "object"
+        },
+        "yfinance_backed_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Yfinance Backed Fields",
+          "type": "array"
+        },
+        "yfinance_macro_fields_count": {
+          "default": 0,
+          "title": "Yfinance Macro Fields Count",
+          "type": "integer"
         }
       },
       "required": [
@@ -1171,52 +1176,21 @@
     },
     "MacroIndicatorComponent": {
       "properties": {
-        "name": {
-          "title": "Name",
-          "type": "string"
-        },
-        "score": {
-          "maximum": 100,
-          "minimum": 0,
-          "title": "Score",
-          "type": "number"
-        },
-        "raw_data": {
-          "additionalProperties": true,
-          "title": "Raw Data",
-          "type": "object"
-        },
-        "derived_metrics": {
-          "additionalProperties": true,
-          "title": "Derived Metrics",
-          "type": "object"
-        },
         "benchmark": {
           "additionalProperties": true,
           "title": "Benchmark",
           "type": "object"
-        },
-        "trend": {
-          "additionalProperties": true,
-          "title": "Trend",
-          "type": "object"
-        },
-        "source": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Source",
-          "type": "array"
-        },
-        "source_date": {
-          "title": "Source Date",
-          "type": "string"
         },
         "confidence": {
           "maximum": 1,
           "minimum": 0,
           "title": "Confidence",
           "type": "number"
+        },
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
         },
         "limitations": {
           "items": {
@@ -1232,6 +1206,32 @@
           "title": "Missing Data",
           "type": "array"
         },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "raw_data": {
+          "additionalProperties": true,
+          "title": "Raw Data",
+          "type": "object"
+        },
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "source": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source",
+          "type": "array"
+        },
+        "source_date": {
+          "title": "Source Date",
+          "type": "string"
+        },
         "source_status": {
           "anyOf": [
             {
@@ -1242,6 +1242,11 @@
             }
           ],
           "default": null
+        },
+        "trend": {
+          "additionalProperties": true,
+          "title": "Trend",
+          "type": "object"
         }
       },
       "required": [
@@ -1262,24 +1267,79 @@
     },
     "MacroRegimeOutput": {
       "properties": {
-        "name": {
-          "default": "macro_regime_score",
-          "title": "Name",
+        "benchmark": {
+          "additionalProperties": true,
+          "title": "Benchmark",
+          "type": "object"
+        },
+        "components": {
+          "items": {
+            "$ref": "#/$defs/MacroIndicatorComponent"
+          },
+          "title": "Components",
+          "type": "array"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
+        },
+        "label": {
+          "title": "Label",
           "type": "string"
         },
-        "score": {
-          "maximum": 100,
-          "minimum": 0,
-          "title": "Score",
-          "type": "number"
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "macro_data_quality": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MacroDataQuality"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "macro_score_explanation": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Macro Score Explanation"
         },
         "max_score": {
           "default": 100,
           "title": "Max Score",
           "type": "number"
         },
-        "label": {
-          "title": "Label",
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        },
+        "name": {
+          "default": "macro_regime_score",
+          "title": "Name",
           "type": "string"
         },
         "raw_data": {
@@ -1287,20 +1347,11 @@
           "title": "Raw Data",
           "type": "object"
         },
-        "derived_metrics": {
-          "additionalProperties": true,
-          "title": "Derived Metrics",
-          "type": "object"
-        },
-        "benchmark": {
-          "additionalProperties": true,
-          "title": "Benchmark",
-          "type": "object"
-        },
-        "trend": {
-          "additionalProperties": true,
-          "title": "Trend",
-          "type": "object"
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
         },
         "source": {
           "items": {
@@ -1313,33 +1364,6 @@
           "title": "Source Date",
           "type": "string"
         },
-        "confidence": {
-          "maximum": 1,
-          "minimum": 0,
-          "title": "Confidence",
-          "type": "number"
-        },
-        "components": {
-          "items": {
-            "$ref": "#/$defs/MacroIndicatorComponent"
-          },
-          "title": "Components",
-          "type": "array"
-        },
-        "limitations": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Limitations",
-          "type": "array"
-        },
-        "missing_data": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Missing Data",
-          "type": "array"
-        },
         "source_status": {
           "anyOf": [
             {
@@ -1351,16 +1375,10 @@
           ],
           "default": null
         },
-        "macro_data_quality": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/MacroDataQuality"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
+        "trend": {
+          "additionalProperties": true,
+          "title": "Trend",
+          "type": "object"
         }
       },
       "required": [
@@ -1382,23 +1400,40 @@
     },
     "RiskAllocationReference": {
       "properties": {
-        "risk_posture": {
-          "enum": [
-            "risk_on_watch",
-            "balanced_watch",
-            "defensive_watch",
-            "crisis_watch",
-            "overheat_warning",
-            "insufficient_data"
-          ],
-          "title": "Risk Posture",
-          "type": "string"
+        "benchmark": {
+          "additionalProperties": true,
+          "title": "Benchmark",
+          "type": "object"
         },
-        "score": {
-          "maximum": 100,
+        "confidence": {
+          "maximum": 1,
           "minimum": 0,
-          "title": "Score",
+          "title": "Confidence",
           "type": "number"
+        },
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        },
+        "raw_data": {
+          "additionalProperties": true,
+          "title": "Raw Data",
+          "type": "object"
         },
         "reference": {
           "additionalProperties": {
@@ -1422,25 +1457,23 @@
           "title": "Risk Flags",
           "type": "array"
         },
-        "raw_data": {
-          "additionalProperties": true,
-          "title": "Raw Data",
-          "type": "object"
+        "risk_posture": {
+          "enum": [
+            "risk_on_watch",
+            "balanced_watch",
+            "defensive_watch",
+            "crisis_watch",
+            "overheat_warning",
+            "insufficient_data"
+          ],
+          "title": "Risk Posture",
+          "type": "string"
         },
-        "derived_metrics": {
-          "additionalProperties": true,
-          "title": "Derived Metrics",
-          "type": "object"
-        },
-        "benchmark": {
-          "additionalProperties": true,
-          "title": "Benchmark",
-          "type": "object"
-        },
-        "trend": {
-          "additionalProperties": true,
-          "title": "Trend",
-          "type": "object"
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
         },
         "source": {
           "items": {
@@ -1453,26 +1486,6 @@
           "title": "Source Date",
           "type": "string"
         },
-        "confidence": {
-          "maximum": 1,
-          "minimum": 0,
-          "title": "Confidence",
-          "type": "number"
-        },
-        "limitations": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Limitations",
-          "type": "array"
-        },
-        "missing_data": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Missing Data",
-          "type": "array"
-        },
         "source_status": {
           "anyOf": [
             {
@@ -1483,6 +1496,11 @@
             }
           ],
           "default": null
+        },
+        "trend": {
+          "additionalProperties": true,
+          "title": "Trend",
+          "type": "object"
         }
       },
       "required": [
@@ -1505,21 +1523,47 @@
     },
     "ScoreObject": {
       "properties": {
-        "name": {
-          "title": "Name",
+        "benchmark": {
+          "additionalProperties": true,
+          "title": "Benchmark",
+          "type": "object"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
+        },
+        "label": {
+          "title": "Label",
           "type": "string"
         },
-        "score": {
-          "title": "Score",
-          "type": "number"
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
         },
         "max_score": {
           "default": 100,
           "title": "Max Score",
           "type": "number"
         },
-        "label": {
-          "title": "Label",
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        },
+        "name": {
+          "title": "Name",
           "type": "string"
         },
         "raw_data": {
@@ -1527,20 +1571,9 @@
           "title": "Raw Data",
           "type": "object"
         },
-        "derived_metrics": {
-          "additionalProperties": true,
-          "title": "Derived Metrics",
-          "type": "object"
-        },
-        "benchmark": {
-          "additionalProperties": true,
-          "title": "Benchmark",
-          "type": "object"
-        },
-        "trend": {
-          "additionalProperties": true,
-          "title": "Trend",
-          "type": "object"
+        "score": {
+          "title": "Score",
+          "type": "number"
         },
         "source": {
           "items": {
@@ -1553,26 +1586,6 @@
           "title": "Source Date",
           "type": "string"
         },
-        "confidence": {
-          "maximum": 1,
-          "minimum": 0,
-          "title": "Confidence",
-          "type": "number"
-        },
-        "limitations": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Limitations",
-          "type": "array"
-        },
-        "missing_data": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Missing Data",
-          "type": "array"
-        },
         "source_status": {
           "anyOf": [
             {
@@ -1583,6 +1596,11 @@
             }
           ],
           "default": null
+        },
+        "trend": {
+          "additionalProperties": true,
+          "title": "Trend",
+          "type": "object"
         }
       },
       "required": [
@@ -1604,60 +1622,8 @@
     },
     "StockCandidate": {
       "properties": {
-        "ticker": {
-          "title": "Ticker",
-          "type": "string"
-        },
         "company_name": {
           "title": "Company Name",
-          "type": "string"
-        },
-        "theme": {
-          "title": "Theme",
-          "type": "string"
-        },
-        "leadership_score": {
-          "minimum": 0,
-          "title": "Leadership Score",
-          "type": "number"
-        },
-        "smart_money_score": {
-          "maximum": 100,
-          "minimum": 0,
-          "title": "Smart Money Score",
-          "type": "number"
-        },
-        "market_timing_score": {
-          "maximum": 100,
-          "minimum": 0,
-          "title": "Market Timing Score",
-          "type": "number"
-        },
-        "overheat_score": {
-          "maximum": 100,
-          "minimum": 0,
-          "title": "Overheat Score",
-          "type": "number"
-        },
-        "risk_score": {
-          "maximum": 100,
-          "minimum": 0,
-          "title": "Risk Score",
-          "type": "number"
-        },
-        "label": {
-          "title": "Label",
-          "type": "string"
-        },
-        "source": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Source",
-          "type": "array"
-        },
-        "source_date": {
-          "title": "Source Date",
           "type": "string"
         },
         "confidence": {
@@ -1665,31 +1631,6 @@
           "minimum": 0,
           "title": "Confidence",
           "type": "number"
-        },
-        "limitations": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Limitations",
-          "type": "array"
-        },
-        "missing_data": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Missing Data",
-          "type": "array"
-        },
-        "source_status": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/DataSourceStatus"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
         },
         "institutional_13f": {
           "anyOf": [
@@ -1706,6 +1647,83 @@
           ],
           "default": null,
           "title": "Institutional 13F"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "leadership_score": {
+          "minimum": 0,
+          "title": "Leadership Score",
+          "type": "number"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "market_timing_score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Market Timing Score",
+          "type": "number"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        },
+        "overheat_score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Overheat Score",
+          "type": "number"
+        },
+        "risk_score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Risk Score",
+          "type": "number"
+        },
+        "smart_money_score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Smart Money Score",
+          "type": "number"
+        },
+        "source": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source",
+          "type": "array"
+        },
+        "source_date": {
+          "title": "Source Date",
+          "type": "string"
+        },
+        "source_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataSourceStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "theme": {
+          "title": "Theme",
+          "type": "string"
+        },
+        "ticker": {
+          "title": "Ticker",
+          "type": "string"
         }
       },
       "required": [
@@ -1729,33 +1747,37 @@
     }
   },
   "properties": {
-    "date": {
-      "title": "Date",
-      "type": "string"
-    },
-    "market": {
-      "default": "US",
-      "title": "Market",
-      "type": "string"
-    },
-    "report_generated_at": {
-      "title": "Report Generated At",
-      "type": "string"
-    },
-    "macro_regime": {
-      "$ref": "#/$defs/MacroRegimeOutput"
-    },
-    "market_timing": {
-      "$ref": "#/$defs/ScoreObject"
-    },
-    "overheat_risk": {
-      "$ref": "#/$defs/ScoreObject"
+    "crisis": {
+      "$ref": "#/$defs/CrisisOutput"
     },
     "crisis_risk": {
       "$ref": "#/$defs/ScoreObject"
     },
-    "crisis": {
-      "$ref": "#/$defs/CrisisOutput"
+    "daily_report_metadata": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DailyReportMetadata"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "data_quality": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DataQualitySummary"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "date": {
+      "title": "Date",
+      "type": "string"
     },
     "future_themes": {
       "items": {
@@ -1764,27 +1786,11 @@
       "title": "Future Themes",
       "type": "array"
     },
-    "stock_candidates": {
-      "items": {
-        "$ref": "#/$defs/StockCandidate"
-      },
-      "title": "Stock Candidates",
-      "type": "array"
-    },
-    "smart_money_summary": {
-      "$ref": "#/$defs/ScoreObject"
-    },
-    "smart_money": {
-      "$ref": "#/$defs/ScoreObject"
-    },
-    "risk_allocation": {
-      "$ref": "#/$defs/RiskAllocationReference"
-    },
-    "risk_notes": {
+    "human_verification_queue": {
       "items": {
         "type": "string"
       },
-      "title": "Risk Notes",
+      "title": "Human Verification Queue",
       "type": "array"
     },
     "jane_reference_conditions": {
@@ -1805,6 +1811,17 @@
       "title": "Limitations",
       "type": "array"
     },
+    "macro_regime": {
+      "$ref": "#/$defs/MacroRegimeOutput"
+    },
+    "market": {
+      "default": "US",
+      "title": "Market",
+      "type": "string"
+    },
+    "market_timing": {
+      "$ref": "#/$defs/ScoreObject"
+    },
     "missing_data": {
       "items": {
         "type": "string"
@@ -1812,45 +1829,13 @@
       "title": "Missing Data",
       "type": "array"
     },
-    "human_verification_queue": {
-      "items": {
-        "type": "string"
-      },
-      "title": "Human Verification Queue",
-      "type": "array"
+    "not_investment_advice": {
+      "default": true,
+      "title": "Not Investment Advice",
+      "type": "boolean"
     },
-    "data_quality": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/DataQualitySummary"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
-    },
-    "source_status": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/DataSourceStatus"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
-    },
-    "daily_report_metadata": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/DailyReportMetadata"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
+    "overheat_risk": {
+      "$ref": "#/$defs/ScoreObject"
     },
     "performance_diagnostics": {
       "anyOf": [
@@ -1874,10 +1859,43 @@
       "default": null,
       "title": "Performance Diagnostics"
     },
-    "not_investment_advice": {
-      "default": true,
-      "title": "Not Investment Advice",
-      "type": "boolean"
+    "report_generated_at": {
+      "title": "Report Generated At",
+      "type": "string"
+    },
+    "risk_allocation": {
+      "$ref": "#/$defs/RiskAllocationReference"
+    },
+    "risk_notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Risk Notes",
+      "type": "array"
+    },
+    "smart_money": {
+      "$ref": "#/$defs/ScoreObject"
+    },
+    "smart_money_summary": {
+      "$ref": "#/$defs/ScoreObject"
+    },
+    "source_status": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "stock_candidates": {
+      "items": {
+        "$ref": "#/$defs/StockCandidate"
+      },
+      "title": "Stock Candidates",
+      "type": "array"
     }
   },
   "required": [

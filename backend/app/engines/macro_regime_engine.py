@@ -9,6 +9,64 @@ from backend.app.utils.freshness import build_source_status
 
 LIMITATION = "Phase 5 deterministic mock macro regime engine; no live source connection."
 ISM_PMI_EXCLUSION_NOTE = "ISM Manufacturing PMI is excluded from scoring because no valid licensed/live source is configured."
+SCORING_MODEL_VERSION = "macro_v12_5"
+MACRO_SCORING_GROUPS = [
+    {
+        "name": "rates_and_policy",
+        "weight": 25,
+        "components": [
+            {"name": "fed_policy_trend", "weight": 10},
+            {"name": "fed_funds_rate", "weight": 5},
+            {"name": "ten_year_minus_two_year_spread_bps", "weight": 10},
+        ],
+    },
+    {
+        "name": "inflation_pressure",
+        "weight": 20,
+        "components": [
+            {"name": "cpi_yoy", "weight": 10},
+            {"name": "ppi_yoy", "weight": 10},
+        ],
+    },
+    {
+        "name": "labor_recession_resilience",
+        "weight": 15,
+        "components": [
+            {"name": "unemployment_rate", "weight": 8},
+            {"name": "unemployment_trend", "weight": 7},
+        ],
+    },
+    {
+        "name": "market_stress_volatility",
+        "weight": 15,
+        "components": [
+            {"name": "vix", "weight": 10},
+            {"name": "equity_drawdown", "weight": 5},
+        ],
+    },
+    {
+        "name": "cross_asset_risk_context",
+        "weight": 15,
+        "components": [
+            {"name": "dxy_trend", "weight": 5},
+            {"name": "gold_trend", "weight": 5},
+            {"name": "oil_trend", "weight": 5},
+        ],
+    },
+    {
+        "name": "rebound_market_recovery",
+        "weight": 10,
+        "components": [
+            {"name": "gain_from_recent_trough", "weight": 10},
+        ],
+    },
+]
+ACTIVE_COMPONENT_WEIGHTS = {
+    component["name"]: (group["name"], component["weight"])
+    for group in MACRO_SCORING_GROUPS
+    for component in group["components"]
+}
+ACTIVE_COMPONENT_NAMES = list(ACTIVE_COMPONENT_WEIGHTS.keys())
 EXCLUDED_INDICATORS = [
     {
         "name": "ism_manufacturing_pmi",
@@ -21,6 +79,33 @@ EXCLUDED_INDICATORS = [
         "affects_score": False,
     },
 ]
+GROUP_DISPLAY_NAMES = {
+    "rates_and_policy": "Rates and policy environment",
+    "inflation_pressure": "Inflation pressure",
+    "labor_recession_resilience": "Labor / recession resilience",
+    "market_stress_volatility": "Market stress / volatility context",
+    "cross_asset_risk_context": "Cross-asset risk context",
+    "rebound_market_recovery": "Rebound / market recovery context",
+}
+COMPONENT_DISPLAY_NAMES = {
+    "fed_policy_trend": "Fed policy trend",
+    "fed_funds_rate": "Fed funds rate",
+    "ten_year_minus_two_year_spread_bps": "10Y-2Y spread",
+    "cpi_yoy": "CPI YoY",
+    "ppi_yoy": "PPI YoY",
+    "unemployment_rate": "Unemployment rate",
+    "unemployment_trend": "Unemployment trend",
+    "vix": "VIX",
+    "equity_drawdown": "Equity drawdown",
+    "dxy_trend": "DXY trend",
+    "gold_trend": "Gold trend",
+    "oil_trend": "Oil trend",
+    "gain_from_recent_trough": "Gain from recent trough",
+}
+EXCLUDED_INDICATOR_DISPLAY_NAMES = {
+    "ism_manufacturing_pmi": "ISM Manufacturing PMI",
+    "cnn_fear_greed": "CNN Fear & Greed",
+}
 FRED_BACKED_FIELDS = [
     "fed_funds_rate",
     "ten_year_yield",
@@ -59,6 +144,7 @@ FRED_CLARITY_LIMITATIONS = [
 ]
 REQUIRED_FIELDS = [
     "vix",
+    "fed_funds_rate",
     "ten_year_minus_two_year_spread_bps",
     "unemployment_rate",
     "unemployment_trend",
@@ -70,6 +156,8 @@ REQUIRED_FIELDS = [
     "oil_trend",
     "sp500_drawdown_pct",
     "nasdaq_drawdown_pct",
+    "sp500_gain_from_trough_pct",
+    "nasdaq_gain_from_trough_pct",
 ]
 
 
@@ -117,6 +205,269 @@ def _classify(data: dict[str, Any]) -> tuple[str, float]:
     if max_gain is not None and max_gain >= 30:
         return "overheated", 82
     return "normal", 55
+
+
+def _score_label(score: float, missing_active_components: list[str]) -> str:
+    if len(missing_active_components) > 6:
+        return "insufficient_data"
+    if score <= 30:
+        return "restrictive_or_stress"
+    if score <= 55:
+        return "cautious"
+    if score <= 75:
+        return "neutral_to_constructive"
+    return "supportive_macro_backdrop"
+
+
+def _scoring_model() -> dict[str, Any]:
+    excluded = [
+        {
+            **indicator,
+            "weight": 0,
+        }
+        for indicator in EXCLUDED_INDICATORS
+    ]
+    return {
+        "version": SCORING_MODEL_VERSION,
+        "total_weight": 100,
+        "groups": MACRO_SCORING_GROUPS,
+        "excluded_indicators": excluded,
+        "score_normalization": "weighted_component_score",
+    }
+
+
+def _component_display_name(name: str) -> str:
+    return COMPONENT_DISPLAY_NAMES.get(name, name.replace("_", " ").title())
+
+
+def _group_display_name(name: str) -> str:
+    return GROUP_DISPLAY_NAMES.get(name, name.replace("_", " ").title())
+
+
+def _excluded_indicators_with_display(indicators: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            **indicator,
+            "display_name": EXCLUDED_INDICATOR_DISPLAY_NAMES.get(str(indicator.get("name")), str(indicator.get("name"))),
+            "affects_score": False,
+            "weight": 0,
+        }
+        for indicator in indicators
+    ]
+
+
+def _component_value(component: Any) -> Any:
+    return component.raw_data.get(component.name)
+
+
+def _status_payload(component: Any) -> dict[str, Any]:
+    if component.source_status is None:
+        return {
+            "source_type": "unknown",
+            "provider": "unknown",
+            "source_date": component.source_date,
+            "is_fresh": False,
+            "fallback_used": False,
+            "fallback_reason": None,
+        }
+    return component.source_status.model_dump(mode="json")
+
+
+def _component_contributions(components: list[Any]) -> list[dict[str, Any]]:
+    by_name = {component.name: component for component in components}
+    contributions: list[dict[str, Any]] = []
+    for name, (group, weight) in ACTIVE_COMPONENT_WEIGHTS.items():
+        component = by_name.get(name)
+        if component is None:
+            contributions.append(
+                {
+                    "name": name,
+                    "display_name": _component_display_name(name),
+                    "group": group,
+                    "weight": weight,
+                    "raw_value": None,
+                    "component_score": 0,
+                    "weighted_contribution": 0,
+                    "source_type": "unknown",
+                    "provider": "unknown",
+                    "source_date": "",
+                    "freshness_window": "unknown",
+                    "is_fresh": False,
+                    "limitation": "active macro component unavailable",
+                }
+            )
+            continue
+        status = _status_payload(component)
+        component_score = round(float(component.score), 2)
+        contributions.append(
+            {
+                "name": name,
+                "display_name": _component_display_name(name),
+                "group": group,
+                "weight": weight,
+                "raw_value": _component_value(component),
+                "component_score": component_score,
+                "weighted_contribution": round(component_score * weight / 100, 4),
+                "source_type": status.get("source_type", "unknown"),
+                "provider": status.get("provider", "unknown"),
+                "source_date": status.get("source_date") or component.source_date,
+                "freshness_window": status.get("freshness_window", "unknown"),
+                "is_fresh": bool(status.get("is_fresh", False)),
+                "limitation": component.limitations[0] if component.limitations else None,
+            }
+        )
+    return contributions
+
+
+def _score_from_contributions(contributions: list[dict[str, Any]]) -> float:
+    return round(sum(float(item["weighted_contribution"]) for item in contributions), 2)
+
+
+def _scoring_quality(contributions: list[dict[str, Any]], components: list[Any], macro_data_quality: MacroDataQuality) -> dict[str, Any]:
+    by_name = {component.name: component for component in components}
+    missing_active: list[str] = []
+    stale_active: list[str] = []
+    fallback_active: list[str] = []
+    cached_live_after_failure: list[str] = []
+    available_weight = 0.0
+    for contribution in contributions:
+        name = contribution["name"]
+        source_type = contribution.get("source_type")
+        component = by_name.get(name)
+        value_missing = contribution.get("raw_value") is None
+        source_available = source_type in {"live", "cached_live", "derived"}
+        if value_missing:
+            missing_active.append(name)
+        if not value_missing and source_available:
+            available_weight += float(contribution["weight"])
+        status = component.source_status if component else None
+        if status and status.source_type in {"live", "cached_live", "derived", "fallback"} and not status.is_fresh:
+            stale_active.append(name)
+        if status and status.source_type == "fallback":
+            fallback_active.append(name)
+        if status and status.source_type == "cached_live" and status.fallback_used:
+            cached_live_after_failure.append(name)
+    return {
+        "scoring_model_version": SCORING_MODEL_VERSION,
+        "active_component_count": len(ACTIVE_COMPONENT_NAMES),
+        "active_weight_total": 100,
+        "excluded_component_count": len(EXCLUDED_INDICATORS),
+        "excluded_indicators": [
+            *_excluded_indicators_with_display(macro_data_quality.excluded_indicators)
+        ],
+        "missing_active_components": sorted(set(missing_active)),
+        "stale_active_components": sorted(set(stale_active)),
+        "fallback_active_components": sorted(set(fallback_active)),
+        "cached_live_after_failure_components": sorted(set(cached_live_after_failure)),
+        "active_available_weight_pct": round(available_weight, 2),
+        "confidence_basis": {
+            "all_active_components_available": round(available_weight, 2) == 100,
+            "all_active_components_fresh": not stale_active,
+            "fallback_used": bool(fallback_active),
+            "cached_live_after_failure_used": bool(cached_live_after_failure),
+            "mock_context_used": macro_data_quality.has_mock_macro_context,
+            "excluded_indicators_count_as_missing": False,
+        },
+    }
+
+
+def _confidence_from_scoring(scoring: dict[str, Any]) -> float:
+    available_weight = float(scoring.get("active_available_weight_pct", 0))
+    confidence = 0.50 + 0.45 * (available_weight / 100)
+    for deduction in _confidence_deductions(scoring):
+        confidence -= float(deduction["amount"])
+    return round(min(0.95, max(0.50, confidence)), 2)
+
+
+def _confidence_deductions(scoring: dict[str, Any]) -> list[dict[str, Any]]:
+    deductions: list[dict[str, Any]] = []
+    stale_components = set(scoring.get("stale_active_components", []))
+    missing_components = set(scoring.get("missing_active_components", []))
+    fallback_components = set(scoring.get("fallback_active_components", []))
+    cached_live_after_failure = set(scoring.get("cached_live_after_failure_components", []))
+    stale_market = stale_components & {"vix", "equity_drawdown", "gain_from_recent_trough", "dxy_trend", "gold_trend", "oil_trend"}
+    stale_macro = stale_components & {"fed_funds_rate", "fed_policy_trend", "ten_year_minus_two_year_spread_bps", "cpi_yoy", "ppi_yoy", "unemployment_rate", "unemployment_trend"}
+    if stale_market:
+        deductions.append({"reason": "stale_daily_market_context", "amount": 0.05, "affected_components": sorted(stale_market)})
+    if stale_macro:
+        deductions.append({"reason": "stale_macro_field", "amount": 0.05, "affected_components": sorted(stale_macro)})
+    if missing_components:
+        deductions.append({"reason": "missing_active_component", "amount": 0.10, "affected_components": sorted(missing_components)})
+    if cached_live_after_failure:
+        deductions.append({"reason": "cached_live_after_failure", "amount": 0.10, "affected_components": sorted(cached_live_after_failure)})
+    if fallback_components:
+        deductions.append({"reason": "fallback_active_component", "amount": 0.15, "affected_components": sorted(fallback_components)})
+    return deductions
+
+
+def _macro_score_explanation(
+    *,
+    score: float,
+    label: str,
+    confidence: float,
+    scoring_model: dict[str, Any],
+    component_contributions: list[dict[str, Any]],
+    scoring_quality: dict[str, Any],
+    limitations: list[str],
+) -> dict[str, Any]:
+    by_name = {str(item["name"]): item for item in component_contributions}
+    groups: list[dict[str, Any]] = []
+    for group in scoring_model["groups"]:
+        group_components: list[dict[str, Any]] = []
+        for component_ref in group["components"]:
+            contribution = by_name.get(component_ref["name"])
+            if contribution is None:
+                continue
+            group_components.append(
+                {
+                    "name": contribution["name"],
+                    "display_name": contribution.get("display_name") or _component_display_name(str(contribution["name"])),
+                    "weight": contribution["weight"],
+                    "raw_value": contribution.get("raw_value"),
+                    "component_score": contribution.get("component_score"),
+                    "weighted_contribution": contribution.get("weighted_contribution"),
+                    "source_type": contribution.get("source_type", "unknown"),
+                    "provider": contribution.get("provider", "unknown"),
+                    "source_date": contribution.get("source_date", ""),
+                    "freshness_window": contribution.get("freshness_window", "unknown"),
+                    "is_fresh": bool(contribution.get("is_fresh", False)),
+                    "limitation": contribution.get("limitation"),
+                }
+            )
+        groups.append(
+            {
+                "name": group["name"],
+                "display_name": _group_display_name(str(group["name"])),
+                "weight": group["weight"],
+                "weighted_contribution_sum": round(sum(float(item.get("weighted_contribution") or 0) for item in group_components), 4),
+                "components": group_components,
+            }
+        )
+    weighted_sum = round(sum(float(item.get("weighted_contribution") or 0) for item in component_contributions), 4)
+    rounding_difference = round(float(score) - weighted_sum, 4)
+    confidence_basis = dict(scoring_quality.get("confidence_basis", {}))
+    confidence_basis["excluded_indicators_count_as_missing"] = False
+    return {
+        "scoring_model_version": scoring_model["version"],
+        "score": round(score, 2),
+        "max_score": 100,
+        "label": label,
+        "confidence": confidence,
+        "active_weight_total": scoring_quality.get("active_weight_total", 100),
+        "weighted_contribution_sum": weighted_sum,
+        "rounding_difference": rounding_difference,
+        "rounding_tolerance": 1.0,
+        "groups": groups,
+        "excluded_indicators": _excluded_indicators_with_display(scoring_model.get("excluded_indicators", [])),
+        "confidence_basis": confidence_basis,
+        "confidence_explanation": {
+            "confidence": confidence,
+            "basis": confidence_basis,
+            "deductions": _confidence_deductions(scoring_quality),
+            "max_confidence": 0.95,
+        },
+        "limitations": limitations,
+    }
 
 
 def _component_names_by_source(components: list[Any]) -> tuple[list[str], list[str], list[str], list[str], list[str]]:
@@ -229,8 +580,7 @@ def _source_contribution(components: list[Any], macro_data_quality: MacroDataQua
 def evaluate_macro_regime(data: dict[str, Any]) -> MacroRegimeOutput:
     components = build_macro_components(data)
     missing = sorted(set(_missing_required(data) + [item for component in components for item in component.missing_data]))
-    label, score = _classify(data)
-    confidence = 0.35 if label == "insufficient_data" else round(sum(component.confidence for component in components) / len(components), 2)
+    legacy_label, legacy_score = _classify(data)
     source = data.get("source", MOCK_MACRO_SOURCE)
     if isinstance(source, str):
         source = [source]
@@ -261,8 +611,23 @@ def evaluate_macro_regime(data: dict[str, Any]) -> MacroRegimeOutput:
                     component.source_status.fallback_used = False
                     component.source_status.limitations = sorted(set([*component.source_status.limitations, limitation]))
         macro_data_quality = _build_macro_data_quality(data, components, limitations)
-    confidence = _adjust_macro_confidence(confidence, macro_data_quality)
+    contributions = _component_contributions(components)
+    score = _score_from_contributions(contributions)
+    scoring_quality = _scoring_quality(contributions, components, macro_data_quality)
+    macro_data_quality.scoring = scoring_quality
+    label = _score_label(score, scoring_quality["missing_active_components"])
+    confidence = _confidence_from_scoring(scoring_quality)
     limitations = sorted(set([*limitations, ISM_PMI_EXCLUSION_NOTE, "CNN Fear & Greed is excluded from scoring because no licensed/stable source is configured."]))
+    scoring_model = _scoring_model()
+    macro_score_explanation = _macro_score_explanation(
+        score=score,
+        label=label,
+        confidence=confidence,
+        scoring_model=scoring_model,
+        component_contributions=contributions,
+        scoring_quality=scoring_quality,
+        limitations=limitations,
+    )
     source_status = build_source_status(
         {
             "source_type": "derived" if is_mixed_fred_macro else data.get("source_type", "mock"),
@@ -288,12 +653,19 @@ def evaluate_macro_regime(data: dict[str, Any]) -> MacroRegimeOutput:
             "component_count": len(components),
             "excluded_indicators": EXCLUDED_INDICATORS,
             "source_contribution": _source_contribution(components, macro_data_quality, score),
+            "scoring_model": scoring_model,
+            "component_contributions": contributions,
+            "legacy_rule_classification": {
+                "label": legacy_label,
+                "score": legacy_score,
+                "used_for_final_score": False,
+            },
         },
         benchmark={
-            "fear_crisis_vix": 30,
-            "fear_crisis_drawdown_pct": -10,
-            "inflation_pressure_yoy_pct": 4,
-            "overheated_gain_from_trough_pct": 30,
+            "restrictive_or_stress_max": 30,
+            "cautious_max": 55,
+            "neutral_to_constructive_max": 75,
+            "supportive_macro_backdrop_min": 76,
         },
         trend={
             "vix": data.get("vix_trend"),
@@ -309,4 +681,5 @@ def evaluate_macro_regime(data: dict[str, Any]) -> MacroRegimeOutput:
         missing_data=missing,
         source_status=source_status,
         macro_data_quality=macro_data_quality,
+        macro_score_explanation=macro_score_explanation,
     )

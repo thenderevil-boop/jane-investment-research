@@ -25,7 +25,7 @@ describe('JaneReferencePanel', () => {
         }}
       />,
     );
-    expect(html).toContain('Jane 方法論參考條件');
+    expect(html).toContain('Jane Methodology Reference Conditions');
     expect(html).toContain('未納入評分');
     expect(html).toContain('資料源未啟用');
     expect(html).toContain('score_contribution_allowed=false');

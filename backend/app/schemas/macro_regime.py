@@ -39,6 +39,7 @@ class MacroDataQuality(BaseModel):
     confidence_adjustment_applied: bool
     limitations: list[str]
     excluded_indicators: list[dict[str, Any]] = Field(default_factory=list)
+    scoring: dict[str, Any] = Field(default_factory=dict)
 
 
 class MacroRegimeOutput(BaseModel):
@@ -58,3 +59,4 @@ class MacroRegimeOutput(BaseModel):
     missing_data: list[str]
     source_status: DataSourceStatus | None = None
     macro_data_quality: MacroDataQuality | None = None
+    macro_score_explanation: dict[str, Any] | None = None

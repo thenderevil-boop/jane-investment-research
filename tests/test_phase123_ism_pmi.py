@@ -357,6 +357,11 @@ def test_api_daily_report_preserves_jane_reference_utf8_and_exclusions(monkeypat
         assert fragment not in text
     assert excluded["cnn_fear_greed"]["affects_score"] is False
     assert excluded["ism_manufacturing_pmi"]["affects_score"] is False
+    assert payload["macro_regime"]["derived_metrics"]["scoring_model"]["version"] == "macro_v12_5"
+    assert payload["macro_regime"]["macro_data_quality"]["scoring"]["active_weight_total"] == 100
+    assert payload["data_quality"]["macro"]["scoring"]["scoring_model_version"] == "macro_v12_5"
+    assert "cnn_fear_greed" not in {item["name"] for item in payload["macro_regime"]["derived_metrics"]["component_contributions"]}
+    assert "ism_manufacturing_pmi" not in {item["name"] for item in payload["macro_regime"]["derived_metrics"]["component_contributions"]}
     assert "fear_greed" not in payload["macro_regime"]["raw_data"]["component_source_status"]
     assert "ism_manufacturing_pmi" not in payload["macro_regime"]["raw_data"]["component_source_status"]
     assert quality["mock_macro_fields_count"] == 0

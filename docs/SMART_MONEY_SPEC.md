@@ -4,6 +4,8 @@
 
 Track institutional, insider, and options-related smart money signals referenced in Jane's methodology.
 
+Macro scoring is separate from smart-money scoring. Phase 12.5 macro calibration uses FRED, yfinance, and derived macro/market context only; CNN Fear & Greed and ISM Manufacturing PMI remain excluded at weight 0 and do not affect smart-money evidence. Phase 12.6 adds `macro_score_explanation` for macro display only; it does not change smart-money scoring or candidate evidence.
+
 ## Outputs
 
 ```json

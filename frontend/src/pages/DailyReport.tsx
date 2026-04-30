@@ -5,6 +5,7 @@ import DataQualitySummary from '../components/DataQualitySummary';
 import DataSourceBadge from '../components/DataSourceBadge';
 import EvidencePanel from '../components/EvidencePanel';
 import JaneReferencePanel from '../components/JaneReferencePanel';
+import MacroScoreExplanationPanel from '../components/MacroScoreExplanationPanel';
 import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
@@ -99,7 +100,8 @@ export default function DailyReport() {
           <div className="cardWithSource"><ScoreCard title="Crisis level" score={report.crisis_risk?.score} label={report.crisis?.level ?? report.crisis_risk?.label} confidence={report.crisis?.confidence} /><DataSourceBadge status={report.crisis_risk?.source_status} /></div>
         </div>
         <ul className="noteList">{report.risk_notes?.map((item) => <li key={item}>{item}</li>)}</ul>
-        <RawDataPanel title="Macro regime evidence" rawData={report.macro_regime?.raw_data} derivedMetrics={{ components: report.macro_regime?.components }} benchmark={report.macro_regime?.benchmark} trend={report.macro_regime?.trend} limitations={report.macro_regime?.limitations} missingData={report.macro_regime?.missing_data} sourceStatus={report.macro_regime?.source_status} />
+        <MacroScoreExplanationPanel explanation={report.macro_regime?.macro_score_explanation} provider={report.data_quality?.macro?.provider} />
+        <RawDataPanel title="Macro regime evidence" rawData={report.macro_regime?.raw_data} derivedMetrics={report.macro_regime?.derived_metrics} benchmark={report.macro_regime?.benchmark} trend={report.macro_regime?.trend} limitations={report.macro_regime?.limitations} missingData={report.macro_regime?.missing_data} sourceStatus={report.macro_regime?.source_status} />
       </Section>
 
       <Section title="Methodology Reference">
