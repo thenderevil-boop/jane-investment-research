@@ -154,32 +154,6 @@ def index_overextension_component(data: dict[str, Any]) -> ScoreObject:
     )
 
 
-def fear_greed_greed_component(data: dict[str, Any]) -> ScoreObject:
-    value = data.get("fear_greed")
-    if value is None:
-        return _score(
-            "fear_greed_greed_score",
-            0,
-            "normal",
-            {"fear_greed": None},
-            {"greed_level": None},
-            {"greed_threshold": 75},
-            {"sentiment_heat": "unknown"},
-            ["fear_greed"],
-        )
-    score = 100 if value >= 90 else 80 if value >= 75 else 40 if value >= 60 else 0
-    label = "high_risk_warning" if score >= 80 else "elevated_heat" if score >= 40 else "normal"
-    return _score(
-        "fear_greed_greed_score",
-        score,
-        label,
-        {"fear_greed": value},
-        {"greed_level": value},
-        {"greed_threshold": 75, "extreme_greed_threshold": 90},
-        {"sentiment_heat": "up" if value >= 75 else "stable"},
-    )
-
-
 def media_hype_component(data: dict[str, Any]) -> ScoreObject:
     ratio = data.get("media_hype_ratio")
     if ratio is None:
@@ -262,18 +236,16 @@ def overheat_label(score: float) -> str:
 def evaluate_overheat(data: dict[str, Any]) -> ScoreObject:
     components = [
         index_overextension_component(data),
-        fear_greed_greed_component(data),
         media_hype_component(data),
         youtube_hype_component(data),
         user_social_heat_component(data),
     ]
     _mark_live_derived(components[0], data)
     weights = {
-        "index_overextension_score": 0.30,
-        "fear_greed_greed_score": 0.20,
-        "media_hype_score": 0.25,
-        "youtube_hype_score": 0.15,
-        "user_reported_social_heat_score": 0.10,
+        "index_overextension_score": 0.38,
+        "media_hype_score": 0.32,
+        "youtube_hype_score": 0.18,
+        "user_reported_social_heat_score": 0.12,
     }
     total = sum(component.score * weights[component.name] for component in components)
     missing = sorted({item for component in components for item in component.missing_data})
@@ -283,7 +255,7 @@ def evaluate_overheat(data: dict[str, Any]) -> ScoreObject:
         name="overheat_score",
         score=round(total, 2),
         label=overheat_label(total),
-        raw_data={key: data.get(key) for key in sorted(data.keys())},
+        raw_data={key: data.get(key) for key in sorted(data.keys()) if key != "fear_greed"},
         derived_metrics={"components": component_payload, "weights": weights, **explanation},
         benchmark={
             "high_risk_warning_minimum": 80,

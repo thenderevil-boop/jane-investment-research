@@ -26,14 +26,16 @@ def workspace_tmp_dir() -> Path:
 
 
 class FakeResponse:
-    def __init__(self, rows: list[dict]):
-        self._rows = rows
+    def __init__(self, payload: dict | list[dict]):
+        self._payload = payload
 
     def raise_for_status(self):
         return None
 
     def json(self):
-        return {"observations": self._rows}
+        if isinstance(self._payload, list):
+            return {"observations": self._payload}
+        return self._payload
 
 
 def monthly_rows(values: list[float], start_year: int = 2025, start_month: int = 1) -> list[dict]:
@@ -50,7 +52,7 @@ def monthly_rows(values: list[float], start_year: int = 2025, start_month: int =
 
 
 def daily_rows(values: list[float]) -> list[dict]:
-    return [{"date": f"2026-04-{20 + index:02d}", "value": str(value)} for index, value in enumerate(values)]
+    return [{"date": f"2026-04-{27 + index:02d}", "value": str(value)} for index, value in enumerate(values)]
 
 
 def fred_payloads() -> dict[str, list[dict]]:
@@ -61,6 +63,7 @@ def fred_payloads() -> dict[str, list[dict]]:
         "CPIAUCSL": monthly_rows([300.0] * 12 + [306.0, 307.0, 309.0], start_month=2),
         "PPIACO": monthly_rows([250.0] * 12 + [255.0, 256.0, 257.5], start_month=2),
         "UNRATE": monthly_rows([4.0] * 12 + [4.0, 4.1, 4.2], start_month=2),
+        "PMITEST": monthly_rows([49.0] * 12 + [50.5, 51.0, 52.0], start_month=2),
     }
 
 
@@ -69,9 +72,15 @@ def install_fake_fred(monkeypatch):
 
     def fake_get(_url: str, params: dict, timeout: int):
         assert timeout == 20
+        if "series/observations" not in _url:
+            return FakeResponse({"seriess": [{"id": params["series_id"], "title": "Manufacturing PMI test proxy", "frequency": "Monthly", "observation_start": "2020-01-01", "observation_end": "2026-03-01", "last_updated": "2026-04-01", "notes": "safe notes"}]})
         return FakeResponse(payloads[params["series_id"]])
 
     monkeypatch.setattr(config, "FRED_API_KEY", "test-key")
+    monkeypatch.setattr(config, "ENABLE_LIVE_ISM_MANUFACTURING_PMI", True)
+    monkeypatch.setattr(config, "ISM_MANUFACTURING_PMI_SERIES_ID", "PMITEST")
+    monkeypatch.setattr(config, "ISM_MANUFACTURING_PMI_SOURCE_LABEL", "Manufacturing PMI test proxy")
+    monkeypatch.setattr(config, "ISM_MANUFACTURING_PMI_IS_PROXY", True)
     monkeypatch.setattr(config, "USE_LIVE_MARKET_DATA", False)
     monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", workspace_tmp_dir())
     monkeypatch.setattr(live_macro_fred.httpx, "get", fake_get)
@@ -130,9 +139,7 @@ def test_live_macro_enabled_routes_fred_data_into_macro_regime(monkeypatch):
     assert components["cpi_yoy"].source_status.provider == "derived_from_FRED"
     assert components["ten_year_minus_two_year_spread_bps"].source_status.source_type == "derived"
     assert components["ten_year_minus_two_year_spread_bps"].source_status.provider == "derived_from_FRED"
-    assert components["ism_manufacturing_pmi"].source_status.source_type == "mock"
-    assert components["ism_manufacturing_pmi"].source_status.fallback_used is False
-    assert "This field remains mock context in Phase 9 and is not live market evidence." in components["ism_manufacturing_pmi"].source_status.limitations
+    assert "ism_manufacturing_pmi" not in components
 
 
 def test_macro_data_quality_separates_fred_and_mock_context(monkeypatch):
@@ -148,21 +155,22 @@ def test_macro_data_quality_separates_fred_and_mock_context(monkeypatch):
     assert quality is not None
     assert set(["fed_funds_rate", "ten_year_yield", "two_year_yield", "unemployment_rate"]).issubset(quality.fred_backed_fields)
     assert set(["cpi_yoy", "ppi_yoy", "ten_year_minus_two_year_spread_bps", "fed_policy_trend", "unemployment_trend"]).issubset(quality.derived_from_fred_fields)
-    assert set(["ism_manufacturing_pmi", "dxy_trend", "gold_trend", "oil_trend", "fear_greed", "equity_drawdown"]).issubset(quality.mock_context_fields)
+    assert set(["dxy_trend", "gold_trend", "oil_trend", "equity_drawdown"]).issubset(quality.mock_context_fields)
+    assert "fear_greed" not in quality.mock_context_fields
+    assert "ism_manufacturing_pmi" not in quality.mock_context_fields
+    assert "ism_manufacturing_pmi" not in quality.fred_backed_fields
     assert quality.live_macro_fields_count > 0
     assert quality.derived_macro_fields_count > 0
     assert quality.mock_macro_fields_count > 0
     assert quality.has_mock_macro_context is True
-    assert quality.confidence_adjustment_applied is True
     assert quality.mock_context_score_weight_pct >= 40
     assert report.macro_regime.confidence <= 0.78
     assert report.macro_regime.source_status.source_type == "derived"
     assert report.macro_regime.source_status.provider == "mixed_FRED_and_mock_macro"
     assert report.macro_regime.source_status.fallback_used is False
     assert "live FRED macro data" not in report.macro_regime.source_status.missing_data
-    assert "Fear & Greed and ISM Manufacturing PMI remain mock context until live providers are added." in report.macro_regime.limitations
-    assert components["fear_greed"].source_status.source_type == "mock"
-    assert components["fear_greed"].source_status.fallback_used is False
+    assert "Remaining market or sentiment context fields are mock until live providers are available." in report.macro_regime.limitations
+    assert "fear_greed" not in components
 
 
 def test_macro_source_contribution_and_data_quality_summary(monkeypatch):
@@ -178,14 +186,13 @@ def test_macro_source_contribution_and_data_quality_summary(monkeypatch):
     assert contribution["fred_backed_score"] > 0
     assert contribution["fred_derived_score"] > 0
     assert contribution["mock_context_score"] > 0
-    assert "fear_greed" in contribution["mock_context_component_names"]
+    assert "fear_greed" not in contribution["mock_context_component_names"]
     assert "ten_year_yield" in contribution["fred_component_names"]
     assert macro_summary["provider"] == "mixed_FRED_and_mock_macro"
     assert macro_summary["live_macro_fields_count"] > 0
     assert macro_summary["derived_macro_fields_count"] > 0
     assert macro_summary["mock_macro_fields_count"] > 0
     assert macro_summary["has_mock_macro_context"] is True
-    assert macro_summary["confidence_adjustment_applied"] is True
 
 
 def test_monthly_fred_march_2026_is_fresh_for_april_27_report_date():

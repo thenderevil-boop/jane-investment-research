@@ -1,7 +1,10 @@
+# -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import json
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 from pydantic import BaseModel
 
@@ -20,9 +23,11 @@ from backend.app.engines.smart_money_engine import evaluate_smart_money
 from backend.app.raw_store.repository import read_macro_data, read_market_data, read_sec_filings
 from backend.app.schemas.candidate import StockCandidate
 from backend.app.schemas.common import DataSourceStatus, ScoreObject
-from backend.app.schemas.daily_report import DailyResearchReport
+from backend.app.schemas.daily_report import DailyResearchReport, JaneReferenceCondition, JaneReferenceConditions
 from backend.app.utils.freshness import build_source_status, summarize_data_quality
 from backend.app.utils.performance import add_timing, finalize_performance_context, reset_performance_context
+
+JANE_REFERENCE_CONDITIONS_PATH = Path(__file__).resolve().parents[1] / "data" / "jane_reference_conditions.json"
 
 
 def score_object(
@@ -261,6 +266,7 @@ def build_daily_report(
         _candidate("TSLA", "humanoid robotics", snapshot),
     ]
     add_timing("candidate_generation_ms", section_started_at)
+    jane_reference_conditions = _build_jane_reference_conditions(macro_snapshot)
     missing_data = sorted(
         set(
             [
@@ -285,7 +291,7 @@ def build_daily_report(
         set(
             [
                 "Live market price data is enabled for price-derived fields only." if snapshot.get("source_type") == "live" else "Mock-only validation report; live market data APIs are not connected.",
-                "FRED-backed macro data is enabled for selected macro fields only." if macro_snapshot.get("provider") == "mixed_FRED_and_mock_macro" else "Mock macro data is used unless USE_LIVE_MACRO_DATA=true and FRED_API_KEY is configured.",
+                "FRED-backed macro data is enabled for selected macro fields only." if macro_snapshot.get("provider") == "mixed_FRED_and_mock_macro" else "Mock macro data is used unless live FRED macro data is configured.",
                 *macro_regime.limitations,
                 *crisis.limitations,
                 *smart_money.limitations,
@@ -316,6 +322,7 @@ def build_daily_report(
             f"Risk reference posture is {risk_allocation.risk_posture}.",
             "Theme attention can change quickly when live data is enabled.",
         ],
+        jane_reference_conditions=jane_reference_conditions,
         limitations=limitations,
         missing_data=missing_data,
         human_verification_queue=[
@@ -337,6 +344,7 @@ def build_daily_report(
             "derived_from_fred_fields": macro_regime.macro_data_quality.derived_from_fred_fields,
             "yfinance_backed_fields": macro_regime.macro_data_quality.yfinance_backed_fields,
             "derived_from_yfinance_fields": macro_regime.macro_data_quality.derived_from_yfinance_fields,
+            "excluded_indicators": macro_regime.macro_data_quality.excluded_indicators,
             "market_context_reused_from_daily_market_data": (macro_regime.raw_data.get("raw_market_context") or {}).get("diagnostics", {}).get("market_context_reused_from_daily_market_data"),
             "confidence_adjustment_applied": macro_regime.macro_data_quality.confidence_adjustment_applied,
         }
@@ -349,3 +357,63 @@ def build_daily_report(
     if config.INCLUDE_PERFORMANCE_DIAGNOSTICS:
         report.performance_diagnostics = finalize_performance_context(performance_started_at)
     return report
+
+
+def _build_jane_reference_conditions(macro_snapshot: dict[str, object]) -> JaneReferenceConditions:
+    definition = _load_jane_reference_condition_text()
+    display_text_by_name = {
+        str(condition.get("name")): str(condition.get("display_text"))
+        for condition in definition.get("conditions", [])
+        if isinstance(condition, dict)
+    }
+    drawdown = min(
+        value
+        for value in [macro_snapshot.get("sp500_drawdown_pct"), macro_snapshot.get("nasdaq_drawdown_pct")]
+        if isinstance(value, (int, float))
+    ) if any(isinstance(value, (int, float)) for value in [macro_snapshot.get("sp500_drawdown_pct"), macro_snapshot.get("nasdaq_drawdown_pct")]) else None
+    equity_trend = str(macro_snapshot.get("equity_trend") or "")
+    base_like = equity_trend in {"stable", "stabilizing", "recovering", "base_building"}
+    if drawdown is not None and drawdown <= -20 and base_like:
+        index_status = "observed_condition"
+    elif drawdown is not None:
+        index_status = "not_observed"
+    else:
+        index_status = "partially_observable"
+    return JaneReferenceConditions(
+        title=str(definition.get("title") or "Jane methodology reference conditions"),
+        conditions=[
+            JaneReferenceCondition(
+                name="fed_rate_cut_cycle",
+                display_text=display_text_by_name["fed_rate_cut_cycle"],
+                system_status="observable_not_evaluated",
+                mapped_system_fields=["fed_funds_rate", "fed_policy_trend"],
+                score_contribution_allowed=False,
+            ),
+            JaneReferenceCondition(
+                name="major_index_drawdown_and_base",
+                display_text=display_text_by_name["major_index_drawdown_and_base"],
+                system_status=index_status,
+                mapped_system_fields=["equity_drawdown", "gain_from_recent_trough", "SPY", "QQQ"],
+                score_contribution_allowed=False,
+            ),
+            JaneReferenceCondition(
+                name="cnn_fear_greed_extreme_fear",
+                display_text=display_text_by_name["cnn_fear_greed_extreme_fear"],
+                system_status="excluded_unlicensed_source",
+                mapped_system_fields=[],
+                score_contribution_allowed=False,
+                limitation="CNN Fear & Greed is excluded from scoring because no licensed/stable source is configured.",
+            ),
+        ],
+        limitations=[
+            "Jane reference conditions are displayed for methodology context only.",
+            "CNN Fear & Greed is excluded from scoring because no licensed/stable source is configured.",
+            "ISM Manufacturing PMI is excluded from scoring because no valid licensed/live source is configured.",
+            "Reference conditions are not system recommendations or investment instructions.",
+        ],
+    )
+
+
+def _load_jane_reference_condition_text() -> dict[str, object]:
+    with JANE_REFERENCE_CONDITIONS_PATH.open(encoding="utf-8") as file:
+        return json.load(file)

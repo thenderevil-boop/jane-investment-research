@@ -20,6 +20,12 @@ FRED_API_KEY = os.getenv("FRED_API_KEY", "").strip()
 MACRO_DATA_PROVIDER = os.getenv("MACRO_DATA_PROVIDER", "fred").strip().lower() or "fred"
 MACRO_DATA_CACHE_DIR = Path(os.getenv("MACRO_DATA_CACHE_DIR", "backend/raw_store/cache/macro"))
 FRED_API_KEY_PLACEHOLDERS = {"your_key_here", "none", "null", "placeholder", "demo"}
+# Deprecated in Phase 12.3b. Developer tools may still validate candidate FRED series,
+# but production reports do not enable ISM Manufacturing PMI scoring.
+ENABLE_LIVE_ISM_MANUFACTURING_PMI = _env_bool("ENABLE_LIVE_ISM_MANUFACTURING_PMI", False)
+ISM_MANUFACTURING_PMI_SERIES_ID = os.getenv("ISM_MANUFACTURING_PMI_SERIES_ID", "").strip().upper()
+ISM_MANUFACTURING_PMI_SOURCE_LABEL = os.getenv("ISM_MANUFACTURING_PMI_SOURCE_LABEL", "Unconfigured FRED PMI source").strip() or "Unconfigured FRED PMI source"
+ISM_MANUFACTURING_PMI_IS_PROXY = _env_bool("ISM_MANUFACTURING_PMI_IS_PROXY", True)
 
 
 def is_fred_api_key_configured() -> bool:

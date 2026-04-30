@@ -379,10 +379,10 @@ def write_daily_report_snapshot(data: dict[str, Any]) -> dict[str, Any]:
     }
     target_dir = _daily_report_snapshot_dir()
     latest_path = target_dir / "latest.json"
-    latest_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    latest_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
     report_date = str(payload.get("date") or "").strip()
     if report_date:
-        (target_dir / f"{report_date}.json").write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        (target_dir / f"{report_date}.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
     return payload
 
 
@@ -1007,7 +1007,7 @@ def get_macro_snapshot(use_live: bool | None = None, scenario: str = "normal") -
     if config.MACRO_DATA_PROVIDER != "fred":
         return _mock_macro_snapshot(scenario, f"unsupported macro data provider: {config.MACRO_DATA_PROVIDER}")
     if not config.is_fred_api_key_configured():
-        return _mock_macro_snapshot(scenario, "FRED_API_KEY is missing")
+        return _mock_macro_snapshot(scenario, "FRED API key is missing")
     try:
         from backend.app.data_sources.live_macro_fred import fetch_macro_snapshot
 
@@ -1059,21 +1059,20 @@ def read_macro_data(
     merged["fed_funds_rate"] = indicators.get("fed_funds_rate")
     merged["ten_year_yield"] = indicators.get("ten_year_yield")
     merged["two_year_yield"] = indicators.get("two_year_yield")
+    merged.pop("ism_manufacturing_pmi", None)
+    for key in ["manufacturing_pmi_series_id", "manufacturing_pmi_source_label", "manufacturing_pmi_is_proxy", "live_pmi_available", "pmi_provider"]:
+        merged.pop(key, None)
+    if "excluded_indicators" in snapshot:
+        merged["excluded_indicators"] = snapshot.get("excluded_indicators")
     merged["source_type"] = "derived"
     merged["source"] = ["FRED", "yfinance", "phase5_mock_macro_dataset"]
     merged["source_date"] = snapshot.get("source_date", mock_context["source_date"])
     merged["fetched_at"] = snapshot.get("fetched_at")
     merged["raw_fred_snapshot"] = _compact_fred_snapshot(snapshot)
     merged["raw_market_context"] = market_context_snapshot.get("raw_market_context", {})
-    merged["limitations"] = sorted(
-        set(
-            [
-                *snapshot.get("limitations", []),
-                "Fear & Greed and ISM Manufacturing PMI remain mock context until live providers are added.",
-            ]
-        )
-    )
-    merged["missing_data"] = sorted(set(snapshot.get("missing_data", [])))
+    merged.pop("fear_greed", None)
+    merged["limitations"] = sorted(set(snapshot.get("limitations", [])))
+    merged["missing_data"] = sorted(set(item for item in snapshot.get("missing_data", []) if item != "live ISM Manufacturing PMI data"))
     raw_series = snapshot.get("raw_series", {}) or {}
     fetched_at = snapshot.get("fetched_at")
     fred_source_type = snapshot.get("source_type", "live")
@@ -1139,11 +1138,9 @@ def read_macro_data(
         "ppi_yoy": ppi_yoy_status,
         "unemployment_rate": unemployment_status,
         "unemployment_trend": unemployment_trend_status,
-        "ism_manufacturing_pmi": {**mock_status, "freshness_window": "phase9_mock_context"},
         "dxy_trend": market_context_snapshot.get("component_source_status", {}).get("dxy_trend", {**mock_status, "freshness_window": "phase9_mock_context"}),
         "gold_trend": market_context_snapshot.get("component_source_status", {}).get("gold_trend", {**mock_status, "freshness_window": "phase9_mock_context"}),
         "oil_trend": market_context_snapshot.get("component_source_status", {}).get("oil_trend", {**mock_status, "freshness_window": "phase9_mock_context"}),
-        "fear_greed": {**mock_status, "freshness_window": "phase9_mock_context"},
         "vix": market_context_snapshot.get("component_source_status", {}).get("vix", {**mock_status, "freshness_window": "phase9_mock_context"}),
         "equity_drawdown": market_context_snapshot.get("component_source_status", {}).get("equity_drawdown", {**mock_status, "freshness_window": "phase9_mock_context"}),
         "gain_from_recent_trough": market_context_snapshot.get("component_source_status", {}).get("gain_from_recent_trough", {**mock_status, "freshness_window": "phase9_mock_context"}),

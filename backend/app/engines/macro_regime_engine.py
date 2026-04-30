@@ -8,6 +8,19 @@ from backend.app.schemas.macro_regime import MacroDataQuality, MacroRegimeOutput
 from backend.app.utils.freshness import build_source_status
 
 LIMITATION = "Phase 5 deterministic mock macro regime engine; no live source connection."
+ISM_PMI_EXCLUSION_NOTE = "ISM Manufacturing PMI is excluded from scoring because no valid licensed/live source is configured."
+EXCLUDED_INDICATORS = [
+    {
+        "name": "ism_manufacturing_pmi",
+        "reason": "Excluded because no valid licensed/live source is configured. NAPM is invalid and IPMAN is not PMI.",
+        "affects_score": False,
+    },
+    {
+        "name": "cnn_fear_greed",
+        "reason": "Excluded because no licensed/stable source is configured.",
+        "affects_score": False,
+    },
+]
 FRED_BACKED_FIELDS = [
     "fed_funds_rate",
     "ten_year_yield",
@@ -23,11 +36,9 @@ DERIVED_FROM_FRED_FIELDS = [
 ]
 MOCK_CONTEXT_FIELDS = [
     "vix",
-    "ism_manufacturing_pmi",
     "dxy_trend",
     "gold_trend",
     "oil_trend",
-    "fear_greed",
     "equity_drawdown",
     "gain_from_recent_trough",
 ]
@@ -44,7 +55,6 @@ MOCK_CONTEXT_LIMITATION = "This field remains mock context in Phase 9 and is not
 MOCK_CONTEXT_UNAVAILABLE_LIMITATION = "This field remains mock context because live market context was unavailable."
 FRED_CLARITY_LIMITATIONS = [
     "FRED-backed macro fields are live or derived from live/cached FRED data.",
-    "Fear & Greed and ISM Manufacturing PMI remain mock context until live providers are added.",
     "Macro confidence is adjusted when mock context fields contribute to the score.",
 ]
 REQUIRED_FIELDS = [
@@ -52,7 +62,6 @@ REQUIRED_FIELDS = [
     "ten_year_minus_two_year_spread_bps",
     "unemployment_rate",
     "unemployment_trend",
-    "ism_manufacturing_pmi",
     "cpi_yoy",
     "ppi_yoy",
     "fed_policy_trend",
@@ -61,7 +70,6 @@ REQUIRED_FIELDS = [
     "oil_trend",
     "sp500_drawdown_pct",
     "nasdaq_drawdown_pct",
-    "fear_greed",
 ]
 
 
@@ -88,27 +96,25 @@ def _classify(data: dict[str, Any]) -> tuple[str, float]:
     vix = data.get("vix")
     spread = data.get("ten_year_minus_two_year_spread_bps")
     unemployment_trend = data.get("unemployment_trend")
-    ism = data.get("ism_manufacturing_pmi")
     cpi = data.get("cpi_yoy")
     ppi = data.get("ppi_yoy")
     fed = data.get("fed_policy_trend")
     oil = data.get("oil_trend")
-    fear_greed = data.get("fear_greed")
     max_drawdown = _max_drawdown(data)
     max_gain = _max_gain_from_trough(data)
     equity_trend = data.get("equity_trend")
     vix_trend = data.get("vix_trend")
-    if unemployment_trend == "rising" and ism is not None and ism < 50 and max_drawdown is not None and max_drawdown <= -20:
+    if unemployment_trend == "rising" and max_drawdown is not None and max_drawdown <= -20:
         return "recession_confirmed", 92
-    if vix is not None and vix >= 30 and max_drawdown is not None and max_drawdown <= -10 and (fear_greed is None or fear_greed <= 25):
+    if vix is not None and vix >= 30 and max_drawdown is not None and max_drawdown <= -10:
         return "fear_crisis", 88
-    if spread is not None and spread < 0 and ((ism is not None and ism < 50) or unemployment_trend == "rising"):
+    if spread is not None and spread < 0 and unemployment_trend == "rising":
         return "recession_warning", 78
     if ((cpi is not None and cpi >= 4) or (ppi is not None and ppi >= 4)) and oil == "rising":
         return "inflation_pressure", 74
-    if vix_trend == "falling" and ism is not None and ism >= 50 and equity_trend == "recovering" and fed in {"easing", "neutral"}:
+    if vix_trend == "falling" and equity_trend == "recovering" and fed in {"easing", "neutral"}:
         return "recovery", 72
-    if max_gain is not None and max_gain >= 30 and (fear_greed is None or fear_greed >= 75):
+    if max_gain is not None and max_gain >= 30:
         return "overheated", 82
     return "normal", 55
 
@@ -186,6 +192,7 @@ def _build_macro_data_quality(data: dict[str, Any], components: list[Any], limit
         live_or_cached_context_score_weight_pct=live_context_pct,
         confidence_adjustment_applied=mock_pct >= 40,
         limitations=sorted(set(limitations)),
+        excluded_indicators=EXCLUDED_INDICATORS,
     )
 
 
@@ -244,14 +251,18 @@ def evaluate_macro_regime(data: dict[str, Any]) -> MacroRegimeOutput:
     if macro_data_quality.has_mock_macro_context:
         if is_mixed_fred_macro:
             limitations = sorted(set([*limitations, *FRED_CLARITY_LIMITATIONS]))
+            if macro_data_quality.mock_context_fields:
+                limitations = sorted(set([*limitations, "Remaining market or sentiment context fields are mock until live providers are available."]))
         for component in components:
             if component.name in macro_data_quality.mock_context_fields:
-                component.limitations = sorted(set([*component.limitations, MOCK_CONTEXT_LIMITATION]))
+                limitation = MOCK_CONTEXT_LIMITATION
+                component.limitations = sorted(set([*component.limitations, limitation]))
                 if component.source_status:
                     component.source_status.fallback_used = False
-                    component.source_status.limitations = sorted(set([*component.source_status.limitations, MOCK_CONTEXT_LIMITATION]))
+                    component.source_status.limitations = sorted(set([*component.source_status.limitations, limitation]))
         macro_data_quality = _build_macro_data_quality(data, components, limitations)
     confidence = _adjust_macro_confidence(confidence, macro_data_quality)
+    limitations = sorted(set([*limitations, ISM_PMI_EXCLUSION_NOTE, "CNN Fear & Greed is excluded from scoring because no licensed/stable source is configured."]))
     source_status = build_source_status(
         {
             "source_type": "derived" if is_mixed_fred_macro else data.get("source_type", "mock"),
@@ -275,12 +286,12 @@ def evaluate_macro_regime(data: dict[str, Any]) -> MacroRegimeOutput:
             "max_gain_from_recent_trough_pct": _max_gain_from_trough(data),
             "missing_required_count": len(_missing_required(data)),
             "component_count": len(components),
+            "excluded_indicators": EXCLUDED_INDICATORS,
             "source_contribution": _source_contribution(components, macro_data_quality, score),
         },
         benchmark={
             "fear_crisis_vix": 30,
             "fear_crisis_drawdown_pct": -10,
-            "recession_ism_threshold": 50,
             "inflation_pressure_yoy_pct": 4,
             "overheated_gain_from_trough_pct": 30,
         },

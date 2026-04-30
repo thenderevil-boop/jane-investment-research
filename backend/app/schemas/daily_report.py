@@ -22,6 +22,24 @@ class DailyReportMetadata(BaseModel):
     batch_duration_ms: int | None = None
 
 
+class JaneReferenceCondition(BaseModel):
+    name: str
+    display_text: str
+    system_status: str
+    mapped_system_fields: list[str]
+    score_contribution_allowed: bool = False
+    limitation: str | None = None
+
+
+class JaneReferenceConditions(BaseModel):
+    title: str = "Jane methodology reference conditions"
+    source_type: str = "methodology_reference"
+    affects_score: bool = False
+    not_investment_advice: bool = True
+    conditions: list[JaneReferenceCondition]
+    limitations: list[str]
+
+
 class DailyResearchReport(BaseModel):
     date: str
     market: str = "US"
@@ -37,6 +55,7 @@ class DailyResearchReport(BaseModel):
     smart_money: ScoreObject
     risk_allocation: RiskAllocationReference
     risk_notes: list[str]
+    jane_reference_conditions: JaneReferenceConditions | None = None
     limitations: list[str]
     missing_data: list[str]
     human_verification_queue: list[str]

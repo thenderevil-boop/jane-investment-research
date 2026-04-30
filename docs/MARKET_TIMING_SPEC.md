@@ -29,12 +29,11 @@ insufficient_data_or_unfavorable
 
 ```text
 entry_environment_score =
-  fed_easing_score * 0.25 +
-  index_drawdown_stabilization_score * 0.25 +
-  fear_greed_extreme_fear_score * 0.20 +
-  vix_confirmation_score * 0.10 +
-  company_cash_score * 0.07 +
-  company_revenue_growth_score * 0.07 +
+  fed_easing_score * 0.32 +
+  index_drawdown_stabilization_score * 0.32 +
+  vix_confirmation_score * 0.14 +
+  company_cash_score * 0.08 +
+  company_revenue_growth_score * 0.08 +
   founder_ceo_insider_buying_score * 0.06
 ```
 
@@ -95,16 +94,7 @@ elif A: score = 50
 else: score = 0
 ```
 
-### CNN Fear & Greed Extreme Fear Score
-
-Rule:
-
-```text
-if latest_value < 20: score = 100
-elif latest_value < 30: score = 70
-elif latest_value < 45: score = 40
-else: score = 0
-```
+CNN Fear & Greed is excluded from scoring because no licensed/stable source is configured. It may appear only in Jane methodology reference conditions.
 
 ### VIX Confirmation Score
 
@@ -168,11 +158,10 @@ Formula:
 
 ```text
 overheat_score =
-  index_cycle_heat_score * 0.30 +
-  fear_greed_greed_score * 0.20 +
-  media_hype_score * 0.25 +
-  youtube_hype_score * 0.15 +
-  user_reported_social_heat_score * 0.10
+  index_cycle_heat_score * 0.38 +
+  media_hype_score * 0.32 +
+  youtube_hype_score * 0.18 +
+  user_reported_social_heat_score * 0.12
 ```
 
 Primary index heat inputs:

@@ -33,10 +33,13 @@ Daily or latest available:
 - CPI
 - PPI
 - unemployment rate
-- ISM Manufacturing PMI
 - consumer confidence
 - major geopolitical news count
-- CNN Fear & Greed when available
+
+Excluded:
+
+- ISM Manufacturing PMI is excluded from current scoring because no valid licensed/live source is configured. NAPM is invalid, and IPMAN is Industrial Production: Manufacturing, not PMI.
+- CNN Fear & Greed is excluded from current scoring because no licensed/stable source is configured.
 
 ## Phase 5 Mock Engine Contract
 
@@ -82,21 +85,19 @@ Conditions:
 
 - VIX >= 30
 - S&P 500 or Nasdaq drawdown <= -10%
-- Fear & Greed <= 25 when available
 
 ### recession_warning
 
 Conditions:
 
 - 10Y minus 2Y spread < 0
-- ISM Manufacturing PMI < 50 or unemployment trend is rising
+- unemployment trend is rising
 
 ### recession_confirmed
 
 Conditions:
 
 - unemployment trend is rising
-- ISM Manufacturing PMI < 50
 - S&P 500 or Nasdaq drawdown <= -20%
 
 ### inflation_pressure
@@ -111,7 +112,6 @@ Conditions:
 Conditions:
 
 - VIX is falling
-- ISM Manufacturing PMI >= 50
 - S&P 500 / Nasdaq trend is recovering from drawdown
 - Fed policy trend is easing or neutral
 
@@ -120,7 +120,6 @@ Conditions:
 Conditions:
 
 - S&P 500 or Nasdaq gain from recent trough >= 30%
-- Fear & Greed >= 75 when available
 
 ### normal
 
@@ -148,18 +147,16 @@ Trend:
 
 ```text
 recession_warning_score =
-  yield_curve_score * 0.30 +
-  unemployment_score * 0.25 +
-  ism_score * 0.20 +
+  yield_curve_score * 0.40 +
+  unemployment_score * 0.30 +
   consumer_confidence_score * 0.15 +
-  equity_drawdown_score * 0.10
+  equity_drawdown_score * 0.15
 ```
 
 Rules:
 
 - Yield curve inverted or recently uninverted after long inversion: elevated risk
 - unemployment rising quickly: elevated risk
-- ISM below 50: elevated risk
 - consumer confidence dropping: elevated risk
 
 ### Inflation Pressure Score

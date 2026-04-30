@@ -38,6 +38,7 @@ class MacroDataQuality(BaseModel):
     live_or_cached_context_score_weight_pct: float = 0
     confidence_adjustment_applied: bool
     limitations: list[str]
+    excluded_indicators: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class MacroRegimeOutput(BaseModel):

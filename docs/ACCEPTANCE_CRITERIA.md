@@ -45,7 +45,6 @@ Must calculate:
 
 - Fed easing score
 - index drawdown stabilization score
-- Fear & Greed score
 - VIX confirmation score
 - company cash score
 - revenue growth score
@@ -56,7 +55,6 @@ Must calculate:
 Must calculate:
 
 - index overextension
-- Fear & Greed greed score
 - media hype
 - YouTube hype
 - user-reported social heat

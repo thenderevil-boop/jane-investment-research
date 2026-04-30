@@ -17,14 +17,16 @@ def workspace_tmp_dir() -> Path:
 
 
 class FakeFredResponse:
-    def __init__(self, rows: list[dict]):
-        self._rows = rows
+    def __init__(self, payload: dict | list[dict]):
+        self._payload = payload
 
     def raise_for_status(self):
         return None
 
     def json(self):
-        return {"observations": self._rows}
+        if isinstance(self._payload, list):
+            return {"observations": self._payload}
+        return self._payload
 
 
 def monthly_rows(values: list[float], start_year: int = 2025, start_month: int = 1) -> list[dict]:
@@ -41,7 +43,7 @@ def monthly_rows(values: list[float], start_year: int = 2025, start_month: int =
 
 
 def daily_fred_rows(values: list[float]) -> list[dict]:
-    return [{"date": f"2026-04-{20 + index:02d}", "value": str(value)} for index, value in enumerate(values)]
+    return [{"date": f"2026-04-{27 + index:02d}", "value": str(value)} for index, value in enumerate(values)]
 
 
 def install_fake_fred(monkeypatch):
@@ -52,13 +54,20 @@ def install_fake_fred(monkeypatch):
         "CPIAUCSL": monthly_rows([300.0] * 12 + [306.0, 307.0, 309.0], start_month=2),
         "PPIACO": monthly_rows([250.0] * 12 + [255.0, 256.0, 257.5], start_month=2),
         "UNRATE": monthly_rows([4.0] * 12 + [4.0, 4.1, 4.2], start_month=2),
+        "PMITEST": monthly_rows([49.0] * 12 + [50.5, 51.0, 52.0], start_month=2),
     }
 
     def fake_get(_url: str, params: dict, timeout: int):
         assert timeout == 20
+        if "series/observations" not in _url:
+            return FakeFredResponse({"seriess": [{"id": params["series_id"], "title": "Manufacturing PMI test proxy", "frequency": "Monthly", "observation_start": "2020-01-01", "observation_end": "2026-03-01", "last_updated": "2026-04-01", "notes": "safe notes"}]})
         return FakeFredResponse(payloads[params["series_id"]])
 
     monkeypatch.setattr(config, "FRED_API_KEY", "test-key")
+    monkeypatch.setattr(config, "ENABLE_LIVE_ISM_MANUFACTURING_PMI", True)
+    monkeypatch.setattr(config, "ISM_MANUFACTURING_PMI_SERIES_ID", "PMITEST")
+    monkeypatch.setattr(config, "ISM_MANUFACTURING_PMI_SOURCE_LABEL", "Manufacturing PMI test proxy")
+    monkeypatch.setattr(config, "ISM_MANUFACTURING_PMI_IS_PROXY", True)
     monkeypatch.setattr(live_macro_fred.httpx, "get", fake_get)
 
 
@@ -203,7 +212,7 @@ def test_macro_regime_uses_yfinance_context_and_reduces_mock_fields(monkeypatch)
     components = {component.name: component for component in report.macro_regime.components}
 
     assert report.macro_regime.source_status.source_type == "derived"
-    assert report.macro_regime.source_status.provider == "mixed_FRED_yfinance_and_mock_macro"
+    assert report.macro_regime.source_status.provider == "mixed_FRED_and_yfinance_macro"
     assert quality.yfinance_macro_fields_count > 0
     assert quality.mock_macro_fields_count < 8
     assert "vix" not in quality.mock_context_fields
@@ -212,13 +221,18 @@ def test_macro_regime_uses_yfinance_context_and_reduces_mock_fields(monkeypatch)
     assert "oil_trend" not in quality.mock_context_fields
     assert "equity_drawdown" not in quality.mock_context_fields
     assert "gain_from_recent_trough" not in quality.mock_context_fields
-    assert {"fear_greed", "ism_manufacturing_pmi"}.issubset(set(quality.mock_context_fields))
+    assert quality.mock_context_fields == []
+    assert quality.mock_macro_fields_count == 0
+    assert quality.has_mock_macro_context is False
+    assert quality.confidence_adjustment_applied is False
+    assert "ism_manufacturing_pmi" not in quality.fred_backed_fields
+    assert "cnn_fear_greed" in {item["name"] for item in quality.excluded_indicators}
     assert components["vix"].source_status.provider == "derived_from_yfinance"
     assert components["dxy_trend"].source_status.provider == "derived_from_yfinance"
-    assert components["fear_greed"].source_status.source_type == "mock"
-    assert components["fear_greed"].source_status.freshness_window != "derived_from_FRED"
+    assert "fear_greed" not in components
+    assert "fear_greed" not in report.macro_regime.raw_data["component_source_status"]
     assert report.data_quality.macro["yfinance_macro_fields_count"] > 0
-    assert report.data_quality.macro["provider"] == "mixed_FRED_yfinance_and_mock_macro"
+    assert report.data_quality.macro["provider"] == "mixed_FRED_and_yfinance_macro"
     assert calls.count("SPY") == 1
     assert calls.count("QQQ") == 1
     assert calls.count("^VIX") == 1
@@ -254,5 +268,8 @@ def test_market_context_disabled_keeps_mock_context(monkeypatch):
     quality = report.macro_regime.macro_data_quality
 
     assert "vix" in quality.mock_context_fields
+    assert "ism_manufacturing_pmi" not in quality.mock_context_fields
+    assert "fear_greed" not in quality.mock_context_fields
+    assert "ism_manufacturing_pmi" not in quality.fred_backed_fields
     assert quality.yfinance_macro_fields_count == 0
     assert report.macro_regime.source_status.provider == "mixed_FRED_and_mock_macro"

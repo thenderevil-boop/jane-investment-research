@@ -32,10 +32,29 @@ export type DataQualitySummary = {
     derived_from_fred_fields?: string[];
     yfinance_backed_fields?: string[];
     derived_from_yfinance_fields?: string[];
+    excluded_indicators?: Record<string, unknown>[];
     yfinance_macro_fields_count?: number;
     market_context_reused_from_daily_market_data?: boolean;
     confidence_adjustment_applied?: boolean;
   } | null;
+};
+
+export type JaneReferenceCondition = {
+  name: string;
+  display_text: string;
+  system_status: string;
+  mapped_system_fields: string[];
+  score_contribution_allowed: boolean;
+  limitation?: string | null;
+};
+
+export type JaneReferenceConditions = {
+  title: string;
+  source_type?: string;
+  affects_score: boolean;
+  not_investment_advice: boolean;
+  conditions: JaneReferenceCondition[];
+  limitations: string[];
 };
 
 export type DailyReportMetadata = {
@@ -182,6 +201,7 @@ export type DailyReport = {
   smart_money?: ScoreLike;
   risk_allocation?: RiskAllocation;
   risk_notes?: string[];
+  jane_reference_conditions?: JaneReferenceConditions | null;
   limitations?: string[];
   missing_data?: string[];
   human_verification_queue?: string[];

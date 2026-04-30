@@ -216,20 +216,21 @@ Derived fields:
 - `unemployment_trend`
 - `fed_policy_trend`
 
-Still mock in Phase 9:
+Still mock or excluded:
 
-- ISM Manufacturing PMI
 - DXY trend
 - gold trend
 - oil trend
-- Fear & Greed
 - 13F, options, news, YouTube, and theme APIs
+- ISM Manufacturing PMI is excluded from scoring and mock context because no valid licensed/live source is configured.
+- CNN Fear & Greed is excluded from scoring and mock context because no licensed/stable source is configured.
 
 Phase 11.8 source clarity:
 
 - FRED-backed fields are live or cached-live FRED observations: federal funds, 10-year Treasury yield, 2-year Treasury yield, and unemployment rate.
 - Derived-from-FRED fields are calculated from FRED observations: yield spread, CPI YoY, PPI YoY, fed policy trend, and unemployment trend.
-- ISM, DXY, gold, oil, Fear & Greed, VIX, and equity drawdown/rebound context remain Phase 9 mock context until providers are added.
+- DXY, gold, oil, VIX, and equity drawdown/rebound context remain Phase 9 mock context until providers are added.
+- CNN Fear & Greed and ISM Manufacturing PMI are excluded from scoring and mock context.
 - Intentional mock context is not a live-source fallback. It uses `source_type: "mock"`, `fallback_used: false`, and the limitation `This field remains mock context in Phase 9 and is not live market evidence.`
 - `macro_regime.macro_data_quality` and `data_quality.macro` expose live/derived/mock macro counts and whether confidence adjustment was applied.
 - Macro confidence is adjusted when mock context contributes materially.
@@ -244,11 +245,25 @@ Phase 12.1 live market context:
 - DXY uses `DX-Y.NYB`.
 - Gold uses `GC=F`, with `GLD` as a documented yfinance fallback if the primary symbol is unavailable.
 - Oil uses `CL=F`, with `USO` as a documented yfinance fallback if the primary symbol is unavailable.
-- Fear & Greed and ISM Manufacturing PMI remain mock context until dedicated providers are added.
+- CNN Fear & Greed and ISM Manufacturing PMI are excluded from scoring.
 - Daily reports reuse already fetched SPY, QQQ, and VIX market data for macro context when available, then use cache/live retrieval for the extra yfinance symbols.
 - Yfinance-derived macro context uses `provider: "derived_from_yfinance"` and `freshness_window: "latest_expected_trading_day"`.
 - If a market-context symbol is unavailable and no fresh cache exists, that field remains mock context with a clear limitation; it must not pretend to be live.
-- When FRED, yfinance, and remaining mock context coexist, the macro provider is `mixed_FRED_yfinance_and_mock_macro` with `source_type: "derived"`.
+- When FRED and yfinance context coexist without remaining mock macro fields, the macro provider is `mixed_FRED_and_yfinance_macro` with `source_type: "derived"`.
+
+Phase 12.3b FRED manufacturing PMI exclusion:
+
+- ISM Manufacturing PMI is not live-enabled at this time.
+- `NAPM` was tested and rejected as invalid.
+- `IPMAN` is Industrial Production: Manufacturing and must not be used as PMI.
+- Search candidates with `python -m backend.app.tools.fred_series_search "ISM Manufacturing PMI"`.
+- Validate candidates with `python -m backend.app.tools.fred_series_validate <SERIES_ID>`.
+- These tools are for future source exploration only and do not enable PMI in production reports.
+- `ism_manufacturing_pmi` is absent from scoring components, source contribution, component source status, and mock context counts.
+- Reports disclose the exclusion through `excluded_indicators` with `affects_score=false`.
+- CNN Fear & Greed may be reconsidered only if a licensed/stable data provider is selected.
+- Jane reference conditions may display Fear & Greed as methodology context only and never as live/mock evidence.
+- FRED API keys, raw provider URLs, and query strings must not appear in fallback reasons, logs, snapshots, or API responses.
 
 Repository behavior:
 
@@ -454,13 +469,13 @@ Potential sources:
 
 Purpose:
 
-- CNN Fear & Greed
 - VIX
 - news sentiment
+- Jane methodology reference for CNN Fear & Greed, unscored
 
 Potential sources:
 
-- CNN Fear & Greed page or vendor API where available
+- CNN Fear & Greed only if a licensed/stable provider is selected later
 - CBOE / market data vendor for VIX
 - News API providers
 

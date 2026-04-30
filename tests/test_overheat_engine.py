@@ -39,7 +39,9 @@ def test_overheated_environment_reaches_high_risk_warning() -> None:
     )
     assert result.score >= 80
     assert result.label == "high_risk_warning"
-    assert len(result.derived_metrics["components"]) == 5
+    assert len(result.derived_metrics["components"]) == 4
+    assert "fear_greed_greed_score" not in result.derived_metrics["components"]
+    assert "fear_greed" not in result.raw_data
     assert_no_prohibited_language(result.model_dump())
 
 
@@ -62,7 +64,7 @@ def test_neutral_overheat_environment_stays_normal() -> None:
     assert_no_prohibited_language(result.model_dump())
 
 
-def test_missing_fear_greed_data_is_explicit_for_overheat() -> None:
+def test_fear_greed_data_is_excluded_for_overheat() -> None:
     result = evaluate_overheat(
         {
             "index_gain_vs_prior_cycle_high": 22.0,
@@ -75,10 +77,9 @@ def test_missing_fear_greed_data_is_explicit_for_overheat() -> None:
             "user_reported_social_heat": "medium",
         }
     )
-    fear_component = result.derived_metrics["components"]["fear_greed_greed_score"]
-    assert "fear_greed" in result.missing_data
-    assert fear_component["score"] == 0
-    assert "fear_greed" in fear_component["missing_data"]
+    assert "fear_greed_greed_score" not in result.derived_metrics["components"]
+    assert "fear_greed" not in result.missing_data
+    assert "fear_greed" not in result.raw_data
     assert result.label in {"elevated_heat", "overheated"}
 
 

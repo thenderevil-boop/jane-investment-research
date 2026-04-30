@@ -69,7 +69,9 @@ def test_extreme_fear_environment_scores_as_favorable_research_context() -> None
     payload = result.model_dump()
     assert result.score == 100
     assert result.label == "favorable_research_environment"
-    assert len(result.derived_metrics["components"]) == 7
+    assert len(result.derived_metrics["components"]) == 6
+    assert "fear_greed_extreme_fear_score" not in result.derived_metrics["components"]
+    assert "fear_greed" not in result.raw_data
     assert_score_contract(payload)
     assert_no_prohibited_language(payload)
 
@@ -100,7 +102,7 @@ def test_neutral_environment_scores_below_confirmation_level() -> None:
     assert_no_prohibited_language(result.model_dump())
 
 
-def test_missing_fear_greed_data_is_explicit() -> None:
+def test_fear_greed_data_is_excluded_from_market_timing() -> None:
     result = evaluate_market_timing(
         {
             "consecutive_rate_cut_count": 1,
@@ -117,11 +119,9 @@ def test_missing_fear_greed_data_is_explicit() -> None:
             "founder_is_ceo": False,
         }
     )
-    fear_component = result.derived_metrics["components"]["fear_greed_extreme_fear_score"]
-    assert "fear_greed" in result.missing_data
-    assert fear_component["score"] == 0
-    assert "fear_greed" in fear_component["missing_data"]
-    assert result.confidence < 0.91
+    assert "fear_greed_extreme_fear_score" not in result.derived_metrics["components"]
+    assert "fear_greed" not in result.missing_data
+    assert "fear_greed" not in result.raw_data
 
 
 def test_high_vix_alone_is_not_favorable_confirmation() -> None:

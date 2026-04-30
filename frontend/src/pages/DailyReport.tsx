@@ -4,6 +4,7 @@ import { getLatestDailyReport } from '../api/client';
 import DataQualitySummary from '../components/DataQualitySummary';
 import DataSourceBadge from '../components/DataSourceBadge';
 import EvidencePanel from '../components/EvidencePanel';
+import JaneReferencePanel from '../components/JaneReferencePanel';
 import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
@@ -99,6 +100,10 @@ export default function DailyReport() {
         </div>
         <ul className="noteList">{report.risk_notes?.map((item) => <li key={item}>{item}</li>)}</ul>
         <RawDataPanel title="Macro regime evidence" rawData={report.macro_regime?.raw_data} derivedMetrics={{ components: report.macro_regime?.components }} benchmark={report.macro_regime?.benchmark} trend={report.macro_regime?.trend} limitations={report.macro_regime?.limitations} missingData={report.macro_regime?.missing_data} sourceStatus={report.macro_regime?.source_status} />
+      </Section>
+
+      <Section title="Methodology Reference">
+        <JaneReferencePanel reference={report.jane_reference_conditions} />
       </Section>
 
       <Section title="Market Timing">

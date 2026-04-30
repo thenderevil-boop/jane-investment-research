@@ -21,7 +21,7 @@ Preferred local report time: 06:30 to 08:00 Asia/Taipei
 1. Update market prices
 2. Update VIX, DXY, yields, gold, oil, major ETFs
 3. Update macro data when available
-4. Update CNN Fear & Greed or mock equivalent
+4. Keep CNN Fear & Greed excluded unless a licensed/stable provider is selected
 5. Update news and theme mentions
 6. Update YouTube hype metrics if available
 7. Update SEC Form 4 insider transactions
@@ -51,7 +51,7 @@ The daily report must include:
    - DXY
    - 10Y-2Y spread
    - Fed policy state
-   - CNN Fear & Greed
+   - Jane methodology reference conditions
 
 3. Smart Money Signals
    - insider Form 4 changes

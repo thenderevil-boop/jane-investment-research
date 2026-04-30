@@ -155,7 +155,8 @@ def test_market_timing_engine_works_with_repository_backed_market_features():
 
     assert result.source == ["yfinance"]
     assert result.raw_data["source_type"] == "live"
-    assert result.label in {"watch_for_confirmation", "favorable_research_environment"}
+    assert result.label in {"neutral", "watch_for_confirmation", "favorable_research_environment"}
+    assert "fear_greed_extreme_fear_score" not in result.derived_metrics["components"]
 
 
 def test_overheat_engine_works_with_repository_backed_market_features():

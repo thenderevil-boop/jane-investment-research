@@ -42,9 +42,11 @@ Conditions may include:
 - recession warning elevated
 - yield curve risk
 - unemployment rising
-- ISM below 50
 - insider selling
 - high debt company risk
+
+ISM Manufacturing PMI is excluded from current scoring and risk reference because no valid licensed/live source is configured.
+CNN Fear & Greed is excluded from current scoring and risk reference because no licensed/stable source is configured.
 
 ### Crisis Watch
 
@@ -62,7 +64,6 @@ Conditions may include:
 Conditions may include:
 
 - overheat score >= 60
-- Fear & Greed high
 - media hype ratio high
 - market extended
 - retail/social heat high

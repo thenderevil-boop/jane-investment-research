@@ -106,6 +106,10 @@ Neither is a direct investment recommendation.
 | USE_LIVE_MACRO_DATA | false | FRED live macro | |
 | MACRO_DATA_PROVIDER | fred | FRED live macro | |
 | FRED_API_KEY | none | FRED live macro | secret; never expose |
+| ENABLE_LIVE_ISM_MANUFACTURING_PMI | false | deprecated PMI exploration | production reports ignore PMI |
+| ISM_MANUFACTURING_PMI_SERIES_ID | empty | deprecated PMI exploration | no default series is assumed valid |
+| ISM_MANUFACTURING_PMI_SOURCE_LABEL | Unconfigured FRED PMI source | deprecated PMI exploration | developer tooling only |
+| ISM_MANUFACTURING_PMI_IS_PROXY | true | deprecated PMI exploration | production reports ignore PMI |
 | USE_LIVE_SEC_FORM4 | false | SEC EDGAR Form 4 | |
 | SEC_FORM4_PROVIDER | sec_edgar | SEC EDGAR Form 4 | |
 | SEC_EDGAR_USER_AGENT | none | SEC EDGAR Form 4 | required; never expose |
@@ -375,14 +379,14 @@ Live Phase 9 fields:
 - PPI YoY
 - unemployment rate and `unemployment_trend`
 
-Still mock in Phase 9:
+Still mock or excluded:
 
-- ISM Manufacturing PMI
 - DXY trend
 - gold trend
 - oil trend
 - Fear & Greed
 - macro equity drawdown context unless live market prices are separately enabled
+- ISM Manufacturing PMI is excluded from scoring because no valid licensed/live source is configured.
 
 If `USE_LIVE_MACRO_DATA=true` but `FRED_API_KEY` is missing, FRED is unavailable, or the provider is unsupported, the raw store returns deterministic mock fallback macro data with `source_type="fallback"`. FRED release schedules can lag the current date, so live macro components include release-delay limitations and may require human verification.
 
@@ -399,16 +403,32 @@ Phase 11.8 clarifies mixed macro evidence without adding providers:
 
 - `macro_regime.macro_data_quality` separates FRED-backed fields, FRED-derived fields, and Phase 9 mock context fields
 - direct FRED fields include federal funds, Treasury yields, and unemployment; derived FRED fields include yield spread, CPI/PPI YoY, policy trend, and unemployment trend
-- ISM, DXY, gold, oil, Fear & Greed, VIX, and equity context remain intentional mock context until providers are added
+- DXY, gold, oil, VIX, and equity context remain intentional mock context until providers are added
+- ISM Manufacturing PMI is excluded from scoring and mock context; `NAPM` is invalid and `IPMAN` is Industrial Production: Manufacturing, not PMI
+- CNN Fear & Greed is excluded from scoring and mock context because no licensed/stable source is configured
 - intentional mock context is not labeled fallback, but it is disclosed and reduces macro confidence when it contributes
 - mixed macro output keeps `source_type="derived"` with `provider="mixed_FRED_and_mock_macro"`; `source_type="mixed"` is not used
 
 Phase 12.1 live-enables low-risk market context through the existing yfinance integration:
 
 - VIX, SPY/QQQ drawdown, SPY/QQQ gain from trough, DXY trend, gold trend, and oil trend can now be live, cached-live, or derived from yfinance-backed market snapshots.
-- Fear & Greed and ISM Manufacturing PMI remain mock context until dedicated providers are added.
-- The macro provider becomes `mixed_FRED_yfinance_and_mock_macro` when FRED, yfinance, and remaining mock context coexist.
+- CNN Fear & Greed and ISM Manufacturing PMI are excluded from scoring and mock context.
+- The macro provider becomes `mixed_FRED_and_yfinance_macro` when FRED and yfinance-backed context coexist without mock macro fields.
 - Yfinance data is suitable for MVP research reference only, and remaining mock context continues to reduce confidence when it contributes materially.
+
+Phase 12.3b excludes ISM Manufacturing PMI from scoring:
+
+- ISM Manufacturing PMI is not live-enabled at this time.
+- `NAPM` was tested and rejected as invalid.
+- `IPMAN` is Industrial Production: Manufacturing and must not be used as PMI.
+- Search candidates with `python -m backend.app.tools.fred_series_search "ISM Manufacturing PMI"`.
+- Validate a candidate with `python -m backend.app.tools.fred_series_validate <SERIES_ID>`.
+- These tools are for future data source exploration only and do not enable PMI in production reports.
+- Current reports include `excluded_indicators` noting that `ism_manufacturing_pmi` does not affect score.
+- CNN Fear & Greed may be reconsidered only if a licensed/stable data provider is selected.
+- Jane reference conditions are displayed as methodology context only and do not affect score.
+- Existing system-observable substitutes include FRED rate trend and yfinance-derived SPY/QQQ drawdown.
+- FRED API keys and raw provider URLs must never appear in fallback reasons, logs, snapshots, or API responses.
 
 ## Phase 10 Live SEC Form 4 Insider Transactions
 

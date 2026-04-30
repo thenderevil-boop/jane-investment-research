@@ -158,38 +158,6 @@ def index_drawdown_stabilization_component(data: dict[str, Any]) -> ScoreObject:
     )
 
 
-def fear_greed_extreme_fear_component(data: dict[str, Any]) -> ScoreObject:
-    value = data.get("fear_greed")
-    if value is None:
-        return _score(
-            "fear_greed_extreme_fear_score",
-            0,
-            "insufficient_data_or_unfavorable",
-            {"fear_greed": None},
-            {"extreme_fear": False},
-            {"extreme_fear_threshold": 20},
-            {"sentiment": "unknown"},
-            ["fear_greed"],
-        )
-    if value < 20:
-        score, label = 100, "favorable_research_environment"
-    elif value < 30:
-        score, label = 70, "watch_for_confirmation"
-    elif value < 45:
-        score, label = 40, "neutral"
-    else:
-        score, label = 0, "insufficient_data_or_unfavorable"
-    return _score(
-        "fear_greed_extreme_fear_score",
-        score,
-        label,
-        {"fear_greed": value},
-        {"extreme_fear": value < 20},
-        {"extreme_fear_threshold": 20, "fear_watch_threshold": 30},
-        {"sentiment": "fearful" if value < 30 else "steady"},
-    )
-
-
 def vix_confirmation_component(data: dict[str, Any]) -> ScoreObject:
     vix = data.get("vix")
     recent_spike = bool(data.get("vix_recent_spike", False))
@@ -349,7 +317,6 @@ def evaluate_market_timing(data: dict[str, Any]) -> ScoreObject:
     components = [
         fed_easing_component(data),
         index_drawdown_stabilization_component(data),
-        fear_greed_extreme_fear_component(data),
         vix_confirmation_component(data),
         company_cash_component(data),
         company_revenue_growth_component(data),
@@ -359,12 +326,11 @@ def evaluate_market_timing(data: dict[str, Any]) -> ScoreObject:
         if component.name in {"index_drawdown_stabilization_score", "vix_confirmation_score"}:
             _mark_live_derived(component, data)
     weights = {
-        "fed_easing_score": 0.25,
-        "index_drawdown_stabilization_score": 0.25,
-        "fear_greed_extreme_fear_score": 0.20,
-        "vix_confirmation_score": 0.10,
-        "company_cash_score": 0.07,
-        "company_revenue_growth_score": 0.07,
+        "fed_easing_score": 0.32,
+        "index_drawdown_stabilization_score": 0.32,
+        "vix_confirmation_score": 0.14,
+        "company_cash_score": 0.08,
+        "company_revenue_growth_score": 0.08,
         "founder_ceo_insider_buying_score": 0.06,
     }
     total = sum(component.score * weights[component.name] for component in components)
@@ -374,7 +340,7 @@ def evaluate_market_timing(data: dict[str, Any]) -> ScoreObject:
         name="entry_environment_score",
         score=round(total, 2),
         label=market_timing_label(total),
-        raw_data={key: data.get(key) for key in sorted(data.keys())},
+        raw_data={key: data.get(key) for key in sorted(data.keys()) if key != "fear_greed"},
         derived_metrics={"components": component_payload, "weights": weights},
         benchmark={
             "favorable_research_environment_minimum": 80,
@@ -382,7 +348,7 @@ def evaluate_market_timing(data: dict[str, Any]) -> ScoreObject:
             "neutral_minimum": 40,
         },
         trend={
-            "market_environment": "fearful" if component_payload["fear_greed_extreme_fear_score"]["score"] >= 70 else "steady",
+            "market_environment": "steady",
             "component_count": len(components),
         },
         source=_source(data),

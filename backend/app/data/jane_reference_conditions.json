@@ -1,0 +1,17 @@
+{
+  "title": "Jane methodology reference conditions",
+  "conditions": [
+    {
+      "name": "fed_rate_cut_cycle",
+      "display_text": "當美國聯準會開始連續降息時"
+    },
+    {
+      "name": "major_index_drawdown_and_base",
+      "display_text": "當整體股價指數（S&P 500、那斯達克）下跌 20% 以上後進入盤整時"
+    },
+    {
+      "name": "cnn_fear_greed_extreme_fear",
+      "display_text": "當 CNN 恐懼與貪婪指數低於 20，進入極度恐慌時"
+    }
+  ]
+}
