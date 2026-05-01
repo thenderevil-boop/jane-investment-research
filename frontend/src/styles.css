@@ -486,6 +486,7 @@ th {
 .tickerForm {
   align-items: end;
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 18px;
 }
@@ -499,7 +500,22 @@ th {
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   padding: 8px 10px;
+}
+
+.tickerForm #ticker {
   text-transform: uppercase;
+}
+
+.verdictBand {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #dde3ec;
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px;
 }
 
 .errorText {

@@ -1,16 +1,24 @@
-# Jane Framework Daily Investment Research Assistant
+# Jane Framework Investment Research Assistant
 
 This repo specification pack is designed to be copied into a new VSCode project and used with Codex.
 
 ## Purpose
 
-Build a US-market-only daily investment research automation system based on Jane's Markdown investment framework.
+Build a US-market-only investment research automation system based on Jane's Markdown investment framework.
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
+## Phase 13 Analyze-Stock First Workflow
+
+`POST /api/analyze-stock` is now the primary product workflow. The user brings externally discovered themes and candidate tickers; the system validates each US-listed ticker with structured evidence and Jane methodology.
+
+Analyze-stock responses include ticker validation mode, research-priority verdict, macro regime, leadership score, smart-money score, SEC Form 4 insider activity, SEC 13F institutional evidence, risk flags, source quality diagnostics, Jane reference conditions, and `not_investment_advice=true`.
+
+Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
+
 ## Current Implementation Status
 
-`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced to Phase 10.5 / 10.6.
+`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced through Phase 13 architecture realignment.
 
 Completed live integrations now documented in this README:
 
@@ -18,6 +26,8 @@ Completed live integrations now documented in this README:
 - Phase 9: FRED macro data
 - Phase 10: official SEC EDGAR Form 4
 - Phase 11: official SEC EDGAR 13F
+- Phase 12: macro modernization with `macro_v12_5`
+- Phase 13: analyze-stock first architecture
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 
@@ -93,9 +103,10 @@ Frontend:
 
 ## Product Rule
 
-Leadership Score tells us what to research.
-Market Timing and Macro Regime tell us whether the current environment is favorable, neutral, fearful, or overheated.
-Neither is a direct investment recommendation.
+Analyze-stock validates user-provided ticker ideas.
+Leadership Score and smart-money evidence help prioritize deeper research.
+Market Timing and Macro Regime tell us whether the current research environment is favorable, neutral, fearful, or overheated.
+None of these are direct investment recommendations.
 
 ## Environment Variables Reference
 

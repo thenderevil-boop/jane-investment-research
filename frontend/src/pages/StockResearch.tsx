@@ -1,23 +1,68 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { analyzeStock } from '../api/client';
 import EvidencePanel from '../components/EvidencePanel';
+import JaneReferencePanel from '../components/JaneReferencePanel';
 import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
-import type { ScoreLike, StockAnalysis } from '../types';
+import type { DataSourceStatus, ScoreLike, StockAnalysis } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
 function scoreMax(score?: ScoreLike) {
   return score?.max_score ?? score?.maxScore ?? 100;
 }
 
-function ScoreBlock({ title, score }: { title: string; score?: ScoreLike }) {
+export function resolveScoreSourceStatus(score?: ScoreLike): DataSourceStatus | null {
   if (!score) return null;
+  if (score.source_status) return score.source_status;
+  const rawStatus = score.raw_data?.source_status;
+  if (rawStatus && typeof rawStatus === 'object') return rawStatus as DataSourceStatus;
+  const nestedStatus = score.raw_data?.institutional_13f;
+  if (nestedStatus && typeof nestedStatus === 'object' && 'source_status' in nestedStatus) {
+    return (nestedStatus as { source_status?: DataSourceStatus }).source_status ?? null;
+  }
+  return null;
+}
+
+export function ProfileGrid({ profile }: { profile?: Record<string, unknown> }) {
+  if (!profile) return null;
+  const researchContext = profile.research_context as { theme?: unknown; user_reason?: unknown } | undefined;
+  const sourceStatus = profile.source_status as DataSourceStatus | undefined;
+  const entries = Object.entries(profile).filter(([key]) => key !== 'research_context' && key !== 'source_status');
+  return (
+    <div className="profileGrid">
+      {entries.map(([key, value]) => (
+        <div key={key}><strong>{key}</strong><span>{Array.isArray(value) ? value.join(', ') : String(value)}</span></div>
+      ))}
+      {researchContext && (
+        <>
+          <div><strong>research_context.theme</strong><span>{String(researchContext.theme ?? '')}</span></div>
+          <div><strong>research_context.user_reason</strong><span>{String(researchContext.user_reason ?? '')}</span></div>
+        </>
+      )}
+      {sourceStatus && (
+        <>
+          <div><strong>source_status.source_type</strong><span>{sourceStatus.source_type}</span></div>
+          <div><strong>source_status.provider</strong><span>{sourceStatus.provider}</span></div>
+          <div><strong>source_status.source_date</strong><span>{sourceStatus.source_date}</span></div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function ScoreBlock({ title, score }: { title: string; score?: ScoreLike }) {
+  if (!score) return null;
+  const sourceStatus = resolveScoreSourceStatus(score);
+  const isMockLeadership = title === 'Leadership' && sourceStatus?.source_type === 'mock';
   return (
     <div className="evidenceGroup">
       <ScoreCard title={title} score={score.score} maxScore={scoreMax(score)} label={score.label} confidence={score.confidence} />
-      <EvidencePanel source={score.source} sourceDate={score.source_date} confidence={score.confidence} limitations={score.limitations} />
+      {isMockLeadership && (
+        <p className="sourceWarning">Leadership score is mock-based preliminary evidence and should not be treated as live validation.</p>
+      )}
+      <EvidencePanel source={score.source} sourceDate={score.source_date} confidence={score.confidence} limitations={score.limitations} sourceStatus={sourceStatus} />
       <RawDataPanel rawData={score.raw_data} derivedMetrics={score.derived_metrics} benchmark={score.benchmark} trend={score.trend} limitations={score.limitations} missingData={score.missing_data} />
     </div>
   );
@@ -25,6 +70,8 @@ function ScoreBlock({ title, score }: { title: string; score?: ScoreLike }) {
 
 export default function StockResearch() {
   const [ticker, setTicker] = useState('NVDA');
+  const [theme, setTheme] = useState('AI infrastructure');
+  const [userReason, setUserReason] = useState('External trend research');
   const [result, setResult] = useState<StockAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -36,7 +83,7 @@ export default function StockResearch() {
     setLoading(true);
     setError('');
     try {
-      setResult(await analyzeStock(ticker));
+      setResult(await analyzeStock(ticker, { theme, user_reason: userReason }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to analyze ticker');
     } finally {
@@ -58,6 +105,10 @@ export default function StockResearch() {
       <form className="tickerForm" onSubmit={onSubmit}>
         <label htmlFor="ticker">Ticker</label>
         <input id="ticker" value={ticker} onChange={(event) => setTicker(event.target.value)} maxLength={10} />
+        <label htmlFor="theme">Theme</label>
+        <input id="theme" value={theme} onChange={(event) => setTheme(event.target.value)} />
+        <label htmlFor="reason">Reason</label>
+        <input id="reason" value={userReason} onChange={(event) => setUserReason(event.target.value)} />
         <button type="submit" disabled={loading}>{loading ? 'Analyzing...' : 'Run research'}</button>
       </form>
 
@@ -67,18 +118,24 @@ export default function StockResearch() {
         <>
           <section className="pageSection">
             <h2>{result.ticker} Overview</h2>
-            <div className="profileGrid">
-              {Object.entries(result.company_profile ?? {}).map(([key, value]) => (
-                <div key={key}><strong>{key}</strong><span>{Array.isArray(value) ? value.join(', ') : String(value)}</span></div>
-              ))}
-            </div>
+            {result.research_verdict && (
+              <div className="verdictBand">
+                <SignalBadge label={result.research_verdict.label} variant={result.research_verdict.label === 'high_risk_context' ? 'warning' : 'positive'} />
+                <strong>{result.research_verdict.score.toFixed(0)} / 100</strong>
+                <span>{result.research_verdict.summary}</span>
+              </div>
+            )}
+            <ProfileGrid profile={result.company_profile} />
           </section>
 
           <section className="pageSection">
             <h2>Research Scores</h2>
             <div className="scoreGrid">
               <ScoreBlock title="Leadership" score={result.leadership_score} />
+              <ScoreBlock title="Macro regime" score={result.macro_regime} />
               <ScoreBlock title="Smart money" score={result.smart_money} />
+              <ScoreBlock title="Insider Form 4" score={result.insider_activity} />
+              <ScoreBlock title="Institutional 13F" score={result.institutional_13f} />
               <ScoreBlock title="Market sentiment" score={result.market_timing_context} />
               <ScoreBlock title="Overheat risk" score={result.overheat_risk} />
               <ScoreBlock title="Financial quality" score={result.financial_quality} />
@@ -106,6 +163,12 @@ export default function StockResearch() {
                   </tbody>
                 </table>
               </div>
+            </section>
+          )}
+
+          {result.jane_reference_conditions && (
+            <section className="pageSection">
+              <JaneReferencePanel reference={result.jane_reference_conditions} />
             </section>
           )}
 

@@ -1,4 +1,4 @@
-import type { ApiError, DailyReport, StockAnalysis } from '../types';
+import type { ApiError, DailyReport, ResearchContext, StockAnalysis } from '../types';
 
 async function parseJson<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') ?? '';
@@ -37,14 +37,17 @@ export function getLatestDailyReport(): Promise<DailyReport> {
   return request<DailyReport>('/api/daily-report/latest');
 }
 
-export function analyzeStock(ticker: string): Promise<StockAnalysis> {
+export function analyzeStock(ticker: string, researchContext?: ResearchContext): Promise<StockAnalysis> {
   return request<StockAnalysis>('/api/analyze-stock', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       ticker: ticker.trim().toUpperCase(),
       market: 'US',
-      period: '3Y',
+      research_context: {
+        theme: researchContext?.theme?.trim() || undefined,
+        user_reason: researchContext?.user_reason?.trim() || undefined,
+      },
       user_context: {
         friends_asking_about_stock: false,
         social_discussion_level: 'low',

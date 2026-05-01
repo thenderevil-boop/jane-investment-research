@@ -94,12 +94,18 @@ def test_analyze_stock_schema_and_score_contracts() -> None:
     payload = response.json()
     assert payload["ticker"] == "NVDA"
     assert payload["market"] == "US"
+    assert payload["analysis_mode"] == "ticker_validation"
     assert payload["not_investment_advice"] is True
+    assert payload["macro_regime"]["derived_metrics"]["scoring_model"]["version"] == "macro_v12_5"
+    assert payload["jane_reference_conditions"]["affects_score"] is False
     for key in [
+        "macro_regime",
         "leadership_score",
         "market_timing_context",
         "overheat_risk",
         "smart_money",
+        "insider_activity",
+        "institutional_13f",
         "financial_quality",
         "valuation_context",
     ]:

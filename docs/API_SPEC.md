@@ -26,6 +26,8 @@ Response:
 
 Returns latest daily research report.
 
+Phase 13 keeps this endpoint as background context, source health, cache warmup, and market-environment snapshot support. It is snapshot-first and is not the primary user workflow. `POST /api/analyze-stock` is the primary workflow for user-provided ticker validation.
+
 Phase 11.5 defaults this endpoint to `DAILY_REPORT_READ_MODE=snapshot_first`. When a fresh daily snapshot exists in raw store, the endpoint returns that snapshot without refreshing live providers. The top-level `source_status` uses schema-compatible `source_type="derived"` and `provider="daily_report_snapshot"` to identify snapshot-served reports. If the snapshot is missing or stale, the endpoint computes the report only when `DAILY_BATCH_ALLOW_LIVE_FETCH=true`; otherwise it returns a safe 503 payload with `not_investment_advice=true`.
 
 Phase 11.5a adds `daily_report_metadata` to `/api/daily-report/latest` responses and stale-snapshot 503 details. Metadata includes `read_mode`, `snapshot_used`, `snapshot_id`, `snapshot_generated_at`, `snapshot_is_fresh`, `batch_refresh_status`, `batch_refresh_started_at`, `batch_refresh_completed_at`, and `batch_duration_ms`. The endpoint must not silently recompute without this metadata.
@@ -97,16 +99,17 @@ Returns daily report by date.
 
 ### POST /api/analyze-stock
 
+Primary endpoint. Validates a user-provided US ticker using structured evidence and Jane methodology. Future Industry Radar is not required for this endpoint.
+
 Request:
 
 ```json
 {
   "ticker": "NVDA",
   "market": "US",
-  "period": "3Y",
-  "user_context": {
-    "friends_asking_about_stock": false,
-    "social_discussion_level": "low"
+  "research_context": {
+    "theme": "AI infrastructure",
+    "user_reason": "External trend research"
   }
 }
 ```
@@ -117,19 +120,33 @@ Response:
 {
   "ticker": "NVDA",
   "market": "US",
+  "analysis_mode": "ticker_validation",
+  "research_verdict": {
+    "label": "worth_deep_research",
+    "score": 72,
+    "confidence": 0.76,
+    "summary": "Research reference only."
+  },
   "company_profile": {},
+  "macro_regime": {},
   "leadership_score": {},
   "market_timing_context": {},
   "overheat_risk": {},
   "smart_money": {},
+  "insider_activity": {},
+  "institutional_13f": {},
   "financial_quality": {},
   "valuation_context": {},
   "risk_flags": [],
+  "data_quality": {},
+  "jane_reference_conditions": {},
   "missing_data": [],
   "human_verification_queue": [],
   "not_investment_advice": true
 }
 ```
+
+Research verdict labels describe research priority only: `worth_deep_research`, `watchlist_candidate`, `insufficient_data`, or `high_risk_context`. Missing data reduces confidence. Mock or excluded indicators must not increase the verdict score. The endpoint must not emit trading instructions.
 
 ### GET /api/themes/latest
 
@@ -545,19 +562,28 @@ Allowed `risk_posture` and `reference` labels:
 {
   "ticker": "NVDA",
   "market": "US",
+  "analysis_mode": "ticker_validation",
+  "research_verdict": {},
   "company_profile": {},
+  "macro_regime": {},
   "leadership_score": {},
   "market_timing_context": {},
   "overheat_risk": {},
   "smart_money": {},
+  "insider_activity": {},
+  "institutional_13f": {},
   "financial_quality": {},
   "valuation_context": {},
   "risk_flags": [],
+  "data_quality": {},
+  "jane_reference_conditions": {},
   "missing_data": [],
   "human_verification_queue": [],
   "not_investment_advice": true
 }
 ```
+
+`analysis_mode` is always `ticker_validation`. `macro_regime.derived_metrics.scoring_model.version` remains `macro_v12_5`; `macro_score_explanation` is preserved. `jane_reference_conditions.affects_score=false`. Form 4 evidence is exposed under `insider_activity`; candidate-specific SEC 13F evidence is exposed through the 13F component and related smart-money raw data.
 
 ## Phase 5 Additions
 

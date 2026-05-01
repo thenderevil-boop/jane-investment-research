@@ -14,10 +14,20 @@ The system helps the user answer:
 
 1. What is the current market regime?
 2. Is the market closer to fear, recovery, normal, or overheat?
-3. Which future investment themes are heating up?
-4. Which US-listed companies deserve deeper research under Jane's framework?
+3. Which user-provided US-listed companies deserve deeper research under Jane's framework?
+4. Are externally discovered themes and ticker ideas supported by structured evidence?
 5. Are smart money, insiders, or sentiment signals changing?
 6. Which items require human verification because data is incomplete or uncertain?
+
+## Analyze-Stock First Architecture
+
+Phase 13 makes `POST /api/analyze-stock` the primary product workflow.
+
+The user discovers themes and candidate tickers externally. The system validates user-provided US tickers using structured evidence, macro context, leadership scoring, SEC Form 4, SEC 13F, risk flags, source quality, and Jane methodology reference conditions.
+
+Daily reports remain available as background context, source-health visibility, cache warmup, and environment snapshots. Daily reports must stay snapshot-first and must not become the main user workflow.
+
+Future Industry Radar is optional/future/reference only. Do not rebuild automatic theme discovery as a core requirement, and do not let Future Industry Radar block ticker validation.
 
 ## Hard Safety Rules
 
@@ -126,7 +136,7 @@ Implement deterministic rule engines:
 1. Macro Regime Engine
 2. Market Timing Engine
 3. Overheat Risk Engine
-4. Future Industry Radar
+4. Future Industry Radar as optional/reference context only
 5. Leadership Stock Engine
 6. Smart Money Engine
 7. Risk & Allocation Reference Engine
@@ -205,7 +215,7 @@ Minimum endpoints:
 
 ## Daily Research Pipeline
 
-The pipeline must produce one daily report object with:
+The pipeline must produce one daily report object for background context, cache warmup, source health, and environment snapshot use. It is not the primary user workflow.
 
 1. macro regime
 2. market timing environment
@@ -217,6 +227,8 @@ The pipeline must produce one daily report object with:
 8. risk and allocation reference
 9. missing data
 10. human verification queue
+
+`POST /api/analyze-stock` must remain usable even if Future Industry Radar is unavailable or not refreshed.
 
 ## Testing Requirements
 

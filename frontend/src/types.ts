@@ -272,17 +272,35 @@ export type DailyReport = {
   not_investment_advice?: boolean;
 };
 
+export type ResearchContext = {
+  theme?: string;
+  user_reason?: string;
+};
+
+export type ResearchVerdict = {
+  label: 'worth_deep_research' | 'watchlist_candidate' | 'insufficient_data' | 'high_risk_context';
+  score: number;
+  confidence: number;
+  summary: string;
+};
+
 export type StockAnalysis = {
   ticker: string;
   market: string;
+  analysis_mode?: 'ticker_validation';
+  research_verdict?: ResearchVerdict;
   company_profile?: Record<string, unknown>;
+  macro_regime?: ScoreLike;
   leadership_score?: ScoreLike;
   market_timing_context?: ScoreLike;
   overheat_risk?: ScoreLike;
   smart_money?: ScoreLike;
+  insider_activity?: ScoreLike;
+  institutional_13f?: ScoreLike;
   financial_quality?: ScoreLike;
   valuation_context?: ScoreLike;
   risk_flags?: string[];
+  jane_reference_conditions?: JaneReferenceConditions | null;
   missing_data?: string[];
   human_verification_queue?: string[];
   data_quality?: DataQualitySummary | null;

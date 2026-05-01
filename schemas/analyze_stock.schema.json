@@ -2,9 +2,40 @@
   "$defs": {
     "DataQualitySummary": {
       "properties": {
+        "mode": {
+          "default": "all_mock",
+          "enum": [
+            "all_mock",
+            "mixed",
+            "mostly_live",
+            "live_with_fallback"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "live_components": {
+          "default": 0,
+          "title": "Live Components",
+          "type": "integer"
+        },
+        "mock_components": {
+          "default": 0,
+          "title": "Mock Components",
+          "type": "integer"
+        },
         "fallback_components": {
           "default": 0,
           "title": "Fallback Components",
+          "type": "integer"
+        },
+        "stale_components": {
+          "default": 0,
+          "title": "Stale Components",
+          "type": "integer"
+        },
+        "missing_source_date_components": {
+          "default": 0,
+          "title": "Missing Source Date Components",
           "type": "integer"
         },
         "limitations": {
@@ -13,11 +44,6 @@
           },
           "title": "Limitations",
           "type": "array"
-        },
-        "live_components": {
-          "default": 0,
-          "title": "Live Components",
-          "type": "integer"
         },
         "macro": {
           "anyOf": [
@@ -31,32 +57,6 @@
           ],
           "default": null,
           "title": "Macro"
-        },
-        "missing_source_date_components": {
-          "default": 0,
-          "title": "Missing Source Date Components",
-          "type": "integer"
-        },
-        "mock_components": {
-          "default": 0,
-          "title": "Mock Components",
-          "type": "integer"
-        },
-        "mode": {
-          "default": "all_mock",
-          "enum": [
-            "all_mock",
-            "mixed",
-            "mostly_live",
-            "live_with_fallback"
-          ],
-          "title": "Mode",
-          "type": "string"
-        },
-        "stale_components": {
-          "default": 0,
-          "title": "Stale Components",
-          "type": "integer"
         }
       },
       "title": "DataQualitySummary",
@@ -64,22 +64,28 @@
     },
     "DataSourceStatus": {
       "properties": {
-        "fallback_reason": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+        "source_type": {
+          "default": "unknown",
+          "enum": [
+            "live",
+            "cached_live",
+            "mock",
+            "fallback",
+            "derived",
+            "unknown"
           ],
-          "default": null,
-          "title": "Fallback Reason"
+          "title": "Source Type",
+          "type": "string"
         },
-        "fallback_used": {
-          "default": false,
-          "title": "Fallback Used",
-          "type": "boolean"
+        "provider": {
+          "default": "unknown",
+          "title": "Provider",
+          "type": "string"
+        },
+        "source_date": {
+          "default": "",
+          "title": "Source Date",
+          "type": "string"
         },
         "fetched_at": {
           "anyOf": [
@@ -93,15 +99,32 @@
           "default": null,
           "title": "Fetched At"
         },
+        "is_fresh": {
+          "default": false,
+          "title": "Is Fresh",
+          "type": "boolean"
+        },
         "freshness_window": {
           "default": "unknown",
           "title": "Freshness Window",
           "type": "string"
         },
-        "is_fresh": {
+        "fallback_used": {
           "default": false,
-          "title": "Is Fresh",
+          "title": "Fallback Used",
           "type": "boolean"
+        },
+        "fallback_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fallback Reason"
         },
         "limitations": {
           "items": {
@@ -116,47 +139,105 @@
           },
           "title": "Missing Data",
           "type": "array"
-        },
-        "provider": {
-          "default": "unknown",
-          "title": "Provider",
-          "type": "string"
-        },
-        "source_date": {
-          "default": "",
-          "title": "Source Date",
-          "type": "string"
-        },
-        "source_type": {
-          "default": "unknown",
-          "enum": [
-            "live",
-            "cached_live",
-            "mock",
-            "fallback",
-            "derived",
-            "unknown"
-          ],
-          "title": "Source Type",
-          "type": "string"
         }
       },
       "title": "DataSourceStatus",
       "type": "object"
     },
+    "JaneReferenceCondition": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "display_text": {
+          "title": "Display Text",
+          "type": "string"
+        },
+        "system_status": {
+          "title": "System Status",
+          "type": "string"
+        },
+        "mapped_system_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mapped System Fields",
+          "type": "array"
+        },
+        "score_contribution_allowed": {
+          "default": false,
+          "title": "Score Contribution Allowed",
+          "type": "boolean"
+        },
+        "limitation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Limitation"
+        }
+      },
+      "required": [
+        "name",
+        "display_text",
+        "system_status",
+        "mapped_system_fields"
+      ],
+      "title": "JaneReferenceCondition",
+      "type": "object"
+    },
+    "JaneReferenceConditions": {
+      "properties": {
+        "title": {
+          "default": "Jane methodology reference conditions",
+          "title": "Title",
+          "type": "string"
+        },
+        "source_type": {
+          "default": "methodology_reference",
+          "title": "Source Type",
+          "type": "string"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        },
+        "conditions": {
+          "items": {
+            "$ref": "#/$defs/JaneReferenceCondition"
+          },
+          "title": "Conditions",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "conditions",
+        "limitations"
+      ],
+      "title": "JaneReferenceConditions",
+      "type": "object"
+    },
     "LeadershipCriterion": {
       "properties": {
-        "benchmark": {
-          "additionalProperties": true,
-          "title": "Benchmark",
-          "type": "object"
-        },
-        "confidence": {
-          "maximum": 1,
-          "minimum": 0,
-          "title": "Confidence",
-          "type": "number"
-        },
         "criterion_id": {
           "maximum": 20,
           "minimum": 1,
@@ -167,39 +248,35 @@
           "title": "Criterion Name",
           "type": "string"
         },
-        "derived_metrics": {
-          "additionalProperties": true,
-          "title": "Derived Metrics",
-          "type": "object"
-        },
-        "evidence_summary": {
-          "title": "Evidence Summary",
-          "type": "string"
-        },
-        "limitations": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Limitations",
-          "type": "array"
-        },
-        "missing_data": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Missing Data",
-          "type": "array"
+        "score": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
         },
         "raw_data": {
           "additionalProperties": true,
           "title": "Raw Data",
           "type": "object"
         },
-        "score": {
-          "maximum": 1,
-          "minimum": 0,
-          "title": "Score",
-          "type": "number"
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
+        },
+        "benchmark": {
+          "additionalProperties": true,
+          "title": "Benchmark",
+          "type": "object"
+        },
+        "trend": {
+          "additionalProperties": true,
+          "title": "Trend",
+          "type": "object"
+        },
+        "evidence_summary": {
+          "title": "Evidence Summary",
+          "type": "string"
         },
         "source": {
           "items": {
@@ -212,6 +289,26 @@
           "title": "Source Date",
           "type": "string"
         },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        },
         "source_status": {
           "anyOf": [
             {
@@ -222,11 +319,6 @@
             }
           ],
           "default": null
-        },
-        "trend": {
-          "additionalProperties": true,
-          "title": "Trend",
-          "type": "object"
         }
       },
       "required": [
@@ -249,55 +341,24 @@
     },
     "LeadershipScore": {
       "properties": {
-        "benchmark": {
-          "additionalProperties": true,
-          "title": "Benchmark",
-          "type": "object"
-        },
-        "confidence": {
-          "maximum": 1,
-          "minimum": 0,
-          "title": "Confidence",
-          "type": "number"
-        },
-        "criteria": {
-          "items": {
-            "$ref": "#/$defs/LeadershipCriterion"
-          },
-          "title": "Criteria",
-          "type": "array"
-        },
-        "derived_metrics": {
-          "additionalProperties": true,
-          "title": "Derived Metrics",
-          "type": "object"
-        },
-        "label": {
-          "title": "Label",
+        "name": {
+          "default": "leadership_score",
+          "title": "Name",
           "type": "string"
         },
-        "limitations": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Limitations",
-          "type": "array"
+        "score": {
+          "maximum": 20,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
         },
         "max_score": {
           "default": 20,
           "title": "Max Score",
           "type": "number"
         },
-        "missing_data": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Missing Data",
-          "type": "array"
-        },
-        "name": {
-          "default": "leadership_score",
-          "title": "Name",
+        "label": {
+          "title": "Label",
           "type": "string"
         },
         "raw_data": {
@@ -305,11 +366,20 @@
           "title": "Raw Data",
           "type": "object"
         },
-        "score": {
-          "maximum": 20,
-          "minimum": 0,
-          "title": "Score",
-          "type": "number"
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
+        },
+        "benchmark": {
+          "additionalProperties": true,
+          "title": "Benchmark",
+          "type": "object"
+        },
+        "trend": {
+          "additionalProperties": true,
+          "title": "Trend",
+          "type": "object"
         },
         "source": {
           "items": {
@@ -322,6 +392,33 @@
           "title": "Source Date",
           "type": "string"
         },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        },
+        "criteria": {
+          "items": {
+            "$ref": "#/$defs/LeadershipCriterion"
+          },
+          "title": "Criteria",
+          "type": "array"
+        },
         "source_status": {
           "anyOf": [
             {
@@ -332,11 +429,6 @@
             }
           ],
           "default": null
-        },
-        "trend": {
-          "additionalProperties": true,
-          "title": "Trend",
-          "type": "object"
         }
       },
       "required": [
@@ -356,27 +448,80 @@
       "title": "LeadershipScore",
       "type": "object"
     },
-    "ScoreObject": {
+    "MacroDataQuality": {
       "properties": {
-        "benchmark": {
-          "additionalProperties": true,
-          "title": "Benchmark",
-          "type": "object"
+        "fred_backed_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fred Backed Fields",
+          "type": "array"
         },
-        "confidence": {
-          "maximum": 1,
-          "minimum": 0,
-          "title": "Confidence",
+        "mock_context_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mock Context Fields",
+          "type": "array"
+        },
+        "derived_from_fred_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Derived From Fred Fields",
+          "type": "array"
+        },
+        "yfinance_backed_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Yfinance Backed Fields",
+          "type": "array"
+        },
+        "derived_from_yfinance_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Derived From Yfinance Fields",
+          "type": "array"
+        },
+        "live_macro_fields_count": {
+          "title": "Live Macro Fields Count",
+          "type": "integer"
+        },
+        "mock_macro_fields_count": {
+          "title": "Mock Macro Fields Count",
+          "type": "integer"
+        },
+        "derived_macro_fields_count": {
+          "title": "Derived Macro Fields Count",
+          "type": "integer"
+        },
+        "yfinance_macro_fields_count": {
+          "default": 0,
+          "title": "Yfinance Macro Fields Count",
+          "type": "integer"
+        },
+        "has_mock_macro_context": {
+          "title": "Has Mock Macro Context",
+          "type": "boolean"
+        },
+        "mock_context_score_weight_pct": {
+          "title": "Mock Context Score Weight Pct",
           "type": "number"
         },
-        "derived_metrics": {
-          "additionalProperties": true,
-          "title": "Derived Metrics",
-          "type": "object"
+        "fred_backed_score_weight_pct": {
+          "title": "Fred Backed Score Weight Pct",
+          "type": "number"
         },
-        "label": {
-          "title": "Label",
-          "type": "string"
+        "live_or_cached_context_score_weight_pct": {
+          "default": 0,
+          "title": "Live Or Cached Context Score Weight Pct",
+          "type": "number"
+        },
+        "confidence_adjustment_applied": {
+          "title": "Confidence Adjustment Applied",
+          "type": "boolean"
         },
         "limitations": {
           "items": {
@@ -385,30 +530,67 @@
           "title": "Limitations",
           "type": "array"
         },
-        "max_score": {
-          "default": 100,
-          "title": "Max Score",
-          "type": "number"
-        },
-        "missing_data": {
+        "excluded_indicators": {
           "items": {
-            "type": "string"
+            "additionalProperties": true,
+            "type": "object"
           },
-          "title": "Missing Data",
+          "title": "Excluded Indicators",
           "type": "array"
         },
+        "scoring": {
+          "additionalProperties": true,
+          "title": "Scoring",
+          "type": "object"
+        }
+      },
+      "required": [
+        "fred_backed_fields",
+        "mock_context_fields",
+        "derived_from_fred_fields",
+        "live_macro_fields_count",
+        "mock_macro_fields_count",
+        "derived_macro_fields_count",
+        "has_mock_macro_context",
+        "mock_context_score_weight_pct",
+        "fred_backed_score_weight_pct",
+        "confidence_adjustment_applied",
+        "limitations"
+      ],
+      "title": "MacroDataQuality",
+      "type": "object"
+    },
+    "MacroIndicatorComponent": {
+      "properties": {
         "name": {
           "title": "Name",
           "type": "string"
+        },
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
         },
         "raw_data": {
           "additionalProperties": true,
           "title": "Raw Data",
           "type": "object"
         },
-        "score": {
-          "title": "Score",
-          "type": "number"
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
+        },
+        "benchmark": {
+          "additionalProperties": true,
+          "title": "Benchmark",
+          "type": "object"
+        },
+        "trend": {
+          "additionalProperties": true,
+          "title": "Trend",
+          "type": "object"
         },
         "source": {
           "items": {
@@ -421,6 +603,134 @@
           "title": "Source Date",
           "type": "string"
         },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        },
+        "source_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataSourceStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "name",
+        "score",
+        "raw_data",
+        "derived_metrics",
+        "benchmark",
+        "trend",
+        "source",
+        "source_date",
+        "confidence",
+        "limitations",
+        "missing_data"
+      ],
+      "title": "MacroIndicatorComponent",
+      "type": "object"
+    },
+    "MacroRegimeOutput": {
+      "properties": {
+        "name": {
+          "default": "macro_regime_score",
+          "title": "Name",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "max_score": {
+          "default": 100,
+          "title": "Max Score",
+          "type": "number"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "raw_data": {
+          "additionalProperties": true,
+          "title": "Raw Data",
+          "type": "object"
+        },
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
+        },
+        "benchmark": {
+          "additionalProperties": true,
+          "title": "Benchmark",
+          "type": "object"
+        },
+        "trend": {
+          "additionalProperties": true,
+          "title": "Trend",
+          "type": "object"
+        },
+        "source": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source",
+          "type": "array"
+        },
+        "source_date": {
+          "title": "Source Date",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "components": {
+          "items": {
+            "$ref": "#/$defs/MacroIndicatorComponent"
+          },
+          "title": "Components",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        },
         "source_status": {
           "anyOf": [
             {
@@ -432,10 +742,166 @@
           ],
           "default": null
         },
+        "macro_data_quality": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MacroDataQuality"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "macro_score_explanation": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Macro Score Explanation"
+        }
+      },
+      "required": [
+        "score",
+        "label",
+        "raw_data",
+        "derived_metrics",
+        "benchmark",
+        "trend",
+        "source",
+        "source_date",
+        "confidence",
+        "components",
+        "limitations",
+        "missing_data"
+      ],
+      "title": "MacroRegimeOutput",
+      "type": "object"
+    },
+    "ResearchVerdict": {
+      "properties": {
+        "label": {
+          "enum": [
+            "worth_deep_research",
+            "watchlist_candidate",
+            "insufficient_data",
+            "high_risk_context"
+          ],
+          "title": "Label",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "score",
+        "confidence",
+        "summary"
+      ],
+      "title": "ResearchVerdict",
+      "type": "object"
+    },
+    "ScoreObject": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "score": {
+          "title": "Score",
+          "type": "number"
+        },
+        "max_score": {
+          "default": 100,
+          "title": "Max Score",
+          "type": "number"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "raw_data": {
+          "additionalProperties": true,
+          "title": "Raw Data",
+          "type": "object"
+        },
+        "derived_metrics": {
+          "additionalProperties": true,
+          "title": "Derived Metrics",
+          "type": "object"
+        },
+        "benchmark": {
+          "additionalProperties": true,
+          "title": "Benchmark",
+          "type": "object"
+        },
         "trend": {
           "additionalProperties": true,
           "title": "Trend",
           "type": "object"
+        },
+        "source": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source",
+          "type": "array"
+        },
+        "source_date": {
+          "title": "Source Date",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        },
+        "source_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataSourceStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -457,10 +923,88 @@
     }
   },
   "properties": {
+    "ticker": {
+      "title": "Ticker",
+      "type": "string"
+    },
+    "market": {
+      "const": "US",
+      "default": "US",
+      "title": "Market",
+      "type": "string"
+    },
+    "analysis_mode": {
+      "const": "ticker_validation",
+      "default": "ticker_validation",
+      "title": "Analysis Mode",
+      "type": "string"
+    },
+    "research_verdict": {
+      "$ref": "#/$defs/ResearchVerdict"
+    },
     "company_profile": {
       "additionalProperties": true,
       "title": "Company Profile",
       "type": "object"
+    },
+    "macro_regime": {
+      "$ref": "#/$defs/MacroRegimeOutput"
+    },
+    "leadership_score": {
+      "$ref": "#/$defs/LeadershipScore"
+    },
+    "market_timing_context": {
+      "$ref": "#/$defs/ScoreObject"
+    },
+    "overheat_risk": {
+      "$ref": "#/$defs/ScoreObject"
+    },
+    "smart_money": {
+      "$ref": "#/$defs/ScoreObject"
+    },
+    "insider_activity": {
+      "$ref": "#/$defs/ScoreObject"
+    },
+    "institutional_13f": {
+      "$ref": "#/$defs/ScoreObject"
+    },
+    "financial_quality": {
+      "$ref": "#/$defs/ScoreObject"
+    },
+    "valuation_context": {
+      "$ref": "#/$defs/ScoreObject"
+    },
+    "risk_flags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Risk Flags",
+      "type": "array"
+    },
+    "jane_reference_conditions": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/JaneReferenceConditions"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "missing_data": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Data",
+      "type": "array"
+    },
+    "human_verification_queue": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Human Verification Queue",
+      "type": "array"
     },
     "data_quality": {
       "anyOf": [
@@ -473,53 +1017,6 @@
       ],
       "default": null
     },
-    "financial_quality": {
-      "$ref": "#/$defs/ScoreObject"
-    },
-    "human_verification_queue": {
-      "items": {
-        "type": "string"
-      },
-      "title": "Human Verification Queue",
-      "type": "array"
-    },
-    "leadership_score": {
-      "$ref": "#/$defs/LeadershipScore"
-    },
-    "market": {
-      "const": "US",
-      "default": "US",
-      "title": "Market",
-      "type": "string"
-    },
-    "market_timing_context": {
-      "$ref": "#/$defs/ScoreObject"
-    },
-    "missing_data": {
-      "items": {
-        "type": "string"
-      },
-      "title": "Missing Data",
-      "type": "array"
-    },
-    "not_investment_advice": {
-      "default": true,
-      "title": "Not Investment Advice",
-      "type": "boolean"
-    },
-    "overheat_risk": {
-      "$ref": "#/$defs/ScoreObject"
-    },
-    "risk_flags": {
-      "items": {
-        "type": "string"
-      },
-      "title": "Risk Flags",
-      "type": "array"
-    },
-    "smart_money": {
-      "$ref": "#/$defs/ScoreObject"
-    },
     "source_status": {
       "anyOf": [
         {
@@ -531,21 +1028,23 @@
       ],
       "default": null
     },
-    "ticker": {
-      "title": "Ticker",
-      "type": "string"
-    },
-    "valuation_context": {
-      "$ref": "#/$defs/ScoreObject"
+    "not_investment_advice": {
+      "default": true,
+      "title": "Not Investment Advice",
+      "type": "boolean"
     }
   },
   "required": [
     "ticker",
+    "research_verdict",
     "company_profile",
+    "macro_regime",
     "leadership_score",
     "market_timing_context",
     "overheat_risk",
     "smart_money",
+    "insider_activity",
+    "institutional_13f",
     "financial_quality",
     "valuation_context",
     "risk_flags",

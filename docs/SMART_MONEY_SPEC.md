@@ -6,6 +6,8 @@ Track institutional, insider, and options-related smart money signals referenced
 
 Macro scoring is separate from smart-money scoring. Phase 12.5 macro calibration uses FRED, yfinance, and derived macro/market context only; CNN Fear & Greed and ISM Manufacturing PMI remain excluded at weight 0 and do not affect smart-money evidence. Phase 12.6 adds `macro_score_explanation` for macro display only; it does not change smart-money scoring or candidate evidence.
 
+Phase 13 exposes smart-money evidence as part of the analyze-stock first workflow. `POST /api/analyze-stock` treats Form 4 and 13F as ticker-validation research evidence only, with `insider_activity` and `institutional_13f` surfaced separately from the aggregate `smart_money` score. These fields must never be converted into trading instructions.
+
 ## Outputs
 
 ```json

@@ -4,6 +4,14 @@
 
 Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions, and Phase 11 adds opt-in official SEC EDGAR 13F institutional holdings. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
 
+## Phase 13 Endpoint Roles
+
+`POST /api/analyze-stock` is the primary consumer of source evidence. It validates a user-provided US ticker and may reuse market, FRED macro, SEC Form 4, and SEC 13F snapshots through the raw-store boundary.
+
+Daily reports remain snapshot-first background context, source-health visibility, cache warmup, and environment snapshots. They should not become the main ticker-discovery workflow.
+
+Future Industry Radar is optional/future/reference only. Analyze-stock must not depend on automatic theme discovery and must remain usable when theme radar data is missing or stale.
+
 ## Phase 11 Official SEC EDGAR 13F
 
 Default:
