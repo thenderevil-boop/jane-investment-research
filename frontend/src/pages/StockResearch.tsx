@@ -1,16 +1,21 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { analyzeStock } from '../api/client';
+import DataSourceBadge from '../components/DataSourceBadge';
 import EvidencePanel from '../components/EvidencePanel';
 import JaneReferencePanel from '../components/JaneReferencePanel';
 import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
-import type { DataSourceStatus, ScoreLike, StockAnalysis } from '../types';
+import type { AnalyzeStockDataQualitySummary, DataSourceStatus, EvidenceMatrixItem, NextManualCheck, ScoreDriver, ScoreLike, StockAnalysis } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
 function scoreMax(score?: ScoreLike) {
   return score?.max_score ?? score?.maxScore ?? 100;
+}
+
+function displayKey(value: string) {
+  return value.replace(/_/g, ' ');
 }
 
 export function resolveScoreSourceStatus(score?: ScoreLike): DataSourceStatus | null {
@@ -52,7 +57,7 @@ export function ProfileGrid({ profile }: { profile?: Record<string, unknown> }) 
   );
 }
 
-export function ScoreBlock({ title, score }: { title: string; score?: ScoreLike }) {
+export function ScoreBlock({ title, score, showRaw = true }: { title: string; score?: ScoreLike; showRaw?: boolean }) {
   if (!score) return null;
   const sourceStatus = resolveScoreSourceStatus(score);
   const isMockLeadership = title === 'Leadership' && sourceStatus?.source_type === 'mock';
@@ -63,8 +68,174 @@ export function ScoreBlock({ title, score }: { title: string; score?: ScoreLike 
         <p className="sourceWarning">Leadership score is mock-based preliminary evidence and should not be treated as live validation.</p>
       )}
       <EvidencePanel source={score.source} sourceDate={score.source_date} confidence={score.confidence} limitations={score.limitations} sourceStatus={sourceStatus} />
-      <RawDataPanel rawData={score.raw_data} derivedMetrics={score.derived_metrics} benchmark={score.benchmark} trend={score.trend} limitations={score.limitations} missingData={score.missing_data} />
+      {showRaw && <RawDataPanel rawData={score.raw_data} derivedMetrics={score.derived_metrics} benchmark={score.benchmark} trend={score.trend} limitations={score.limitations} missingData={score.missing_data} />}
     </div>
+  );
+}
+
+function sourceQualityStatus(sourceQuality: EvidenceMatrixItem['source_quality']): DataSourceStatus {
+  const sourceTypeByQuality: Record<EvidenceMatrixItem['source_quality'], DataSourceStatus['source_type']> = {
+    live_backed: 'live',
+    derived_live: 'derived',
+    cached_live: 'cached_live',
+    mixed_with_fallback: 'fallback',
+    mock_only: 'mock',
+    insufficient: 'unknown',
+  };
+  return {
+    source_type: sourceTypeByQuality[sourceQuality],
+    provider: sourceQuality,
+    source_date: 'summary',
+    fetched_at: null,
+    is_fresh: sourceQuality !== 'insufficient',
+    freshness_window: 'analyze_stock_summary',
+    fallback_used: sourceQuality === 'mixed_with_fallback',
+    fallback_reason: null,
+    limitations: [],
+    missing_data: [],
+  };
+}
+
+export function CandidateSummarySection({ result }: { result: StockAnalysis }) {
+  const summary = result.candidate_validation_summary;
+  if (!summary) return null;
+  return (
+    <section className="pageSection">
+      <h2>Candidate Validation Summary</h2>
+      <div className="verdictBand">
+        <SignalBadge label={summary.research_priority} variant={summary.research_priority === 'high_risk_context' ? 'warning' : 'positive'} />
+        <strong>{summary.score.toFixed(0)} / 100</strong>
+        <span>{summary.overall_summary}</span>
+      </div>
+      <div className="summaryGrid">
+        <div><strong>Environment</strong><span>{summary.environment_assessment}</span></div>
+        <div><strong>Company</strong><span>{summary.company_assessment}</span></div>
+        <div><strong>Smart money</strong><span>{summary.smart_money_assessment}</span></div>
+        <div><strong>Data quality</strong><span>{summary.data_quality_assessment}</span></div>
+      </div>
+      <div className="twoColumn">
+        <div>
+          <h3>Primary strengths</h3>
+          <ul>{summary.primary_strengths.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+        <div>
+          <h3>Primary risks</h3>
+          <ul>{summary.primary_risks.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+      </div>
+      {!!summary.missing_or_mock_evidence.length && (
+        <p className="sourceWarning">Missing or mock evidence: {summary.missing_or_mock_evidence.join(', ')}</p>
+      )}
+    </section>
+  );
+}
+
+export function AnalyzeDataQualitySection({ dataQuality }: { dataQuality?: AnalyzeStockDataQualitySummary }) {
+  if (!dataQuality) return null;
+  return (
+    <section className="pageSection">
+      <h2>Data Quality Summary</h2>
+      <div className="summaryMain">
+        <span className="smallPill">Grade {dataQuality.source_quality_grade}</span>
+        <span className="smallPill">{dataQuality.mode}</span>
+        {dataQuality.confidence_cap_applied && <span className="smallPill">Confidence capped</span>}
+      </div>
+      <p>{dataQuality.source_quality_summary}</p>
+      {dataQuality.confidence_cap_reason && <p className="sourceWarning">{dataQuality.confidence_cap_reason}</p>}
+      <dl className="qualityMetrics">
+        <div><dt>Live/derived</dt><dd>{dataQuality.live_components}</dd></div>
+        <div><dt>Mock</dt><dd>{dataQuality.mock_components}</dd></div>
+        <div><dt>Fallback</dt><dd>{dataQuality.fallback_components}</dd></div>
+        <div><dt>Missing dates</dt><dd>{dataQuality.missing_source_date_components}</dd></div>
+        <div><dt>Stale</dt><dd>{dataQuality.stale_components}</dd></div>
+      </dl>
+      <div className="twoColumn">
+        <div>
+          <h3>Mock evidence</h3>
+          <ul>{dataQuality.mock_evidence_categories.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+        <div>
+          <h3>Fallback evidence</h3>
+          <ul>{dataQuality.fallback_evidence_categories.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+      </div>
+      {!!dataQuality.excluded_from_scoring.length && <p className="muted">Excluded from scoring: {dataQuality.excluded_from_scoring.join(', ')}</p>}
+    </section>
+  );
+}
+
+export function EvidenceMatrixSection({ rows }: { rows?: EvidenceMatrixItem[] }) {
+  if (!rows?.length) return null;
+  return (
+    <section className="pageSection">
+      <h2>Evidence Matrix</h2>
+      <div className="evidenceMatrix">
+        {rows.map((row) => (
+          <article className="evidenceRow" key={row.category}>
+            <div className="evidenceRowHeader">
+              <h3>{displayKey(row.category)}</h3>
+              <div>
+                <SignalBadge label={row.status} variant={row.status === 'caution' || row.status === 'insufficient' ? 'warning' : 'neutral'} />
+                <DataSourceBadge status={sourceQualityStatus(row.source_quality)} />
+                <span className="smallPill">{row.source_quality}</span>
+              </div>
+            </div>
+            <p>{row.summary}</p>
+            {(row.source_quality === 'mock_only' || row.source_quality === 'mixed_with_fallback') && (
+              <p className="sourceWarning">{row.source_quality === 'mock_only' ? 'Mock-only evidence; treat as preliminary.' : 'Fallback or mixed source quality; manual confirmation required.'}</p>
+            )}
+            <ul>{row.key_evidence.map((item) => <li key={item}>{item}</li>)}</ul>
+            {!!row.limitations.length && <p className="muted">Limitations: {row.limitations.join(' ')}</p>}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DriverList({ title, drivers }: { title: string; drivers?: ScoreDriver[] }) {
+  if (!drivers?.length) return null;
+  return (
+    <div>
+      <h3>{title}</h3>
+      <ul>{drivers.map((driver) => <li key={`${driver.category}-${driver.name}`}><strong>{driver.category}</strong>: {driver.summary}</li>)}</ul>
+    </div>
+  );
+}
+
+export function ScoreDriverSection({ result }: { result: StockAnalysis }) {
+  const breakdown = result.score_driver_breakdown;
+  if (!breakdown) return null;
+  return (
+    <section className="pageSection">
+      <h2>Score Driver Breakdown</h2>
+      <div className="verdictBand">
+        <strong>{breakdown.final_score.toFixed(0)} / 100</strong>
+        <span>Confidence {(breakdown.final_confidence * 100).toFixed(0)}%</span>
+      </div>
+      <div className="twoColumn">
+        <DriverList title="Positive drivers" drivers={breakdown.positive_drivers} />
+        <DriverList title="Limiting drivers" drivers={breakdown.negative_or_limiting_drivers} />
+        <DriverList title="Neutral drivers" drivers={breakdown.neutral_drivers} />
+      </div>
+    </section>
+  );
+}
+
+export function ManualChecksSection({ checks }: { checks?: NextManualCheck[] }) {
+  if (!checks?.length) return null;
+  return (
+    <section className="pageSection">
+      <h2>Next Manual Checks</h2>
+      <ul className="checkList">
+        {checks.map((item) => (
+          <li key={`${item.area}-${item.check}`}>
+            <span className={`checkPriority ${item.priority}`}>{item.priority}</span>
+            <div><strong>{displayKey(item.area)}</strong><span>{item.check}</span><small>{item.reason}</small></div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -116,6 +287,12 @@ export default function StockResearch() {
 
       {result && (
         <>
+          <CandidateSummarySection result={result} />
+          <AnalyzeDataQualitySection dataQuality={result.data_quality_summary} />
+          <EvidenceMatrixSection rows={result.evidence_matrix} />
+          <ScoreDriverSection result={result} />
+          <ManualChecksSection checks={result.next_manual_checks} />
+
           <section className="pageSection">
             <h2>{result.ticker} Overview</h2>
             {result.research_verdict && (
@@ -131,15 +308,15 @@ export default function StockResearch() {
           <section className="pageSection">
             <h2>Research Scores</h2>
             <div className="scoreGrid">
-              <ScoreBlock title="Leadership" score={result.leadership_score} />
-              <ScoreBlock title="Macro regime" score={result.macro_regime} />
-              <ScoreBlock title="Smart money" score={result.smart_money} />
-              <ScoreBlock title="Insider Form 4" score={result.insider_activity} />
-              <ScoreBlock title="Institutional 13F" score={result.institutional_13f} />
-              <ScoreBlock title="Market sentiment" score={result.market_timing_context} />
-              <ScoreBlock title="Overheat risk" score={result.overheat_risk} />
-              <ScoreBlock title="Financial quality" score={result.financial_quality} />
-              <ScoreBlock title="Valuation context" score={result.valuation_context} />
+              <ScoreBlock title="Leadership" score={result.leadership_score} showRaw={false} />
+              <ScoreBlock title="Macro regime" score={result.macro_regime} showRaw={false} />
+              <ScoreBlock title="Smart money" score={result.smart_money} showRaw={false} />
+              <ScoreBlock title="Insider Form 4" score={result.insider_activity} showRaw={false} />
+              <ScoreBlock title="Institutional 13F" score={result.institutional_13f} showRaw={false} />
+              <ScoreBlock title="Market sentiment" score={result.market_timing_context} showRaw={false} />
+              <ScoreBlock title="Overheat risk" score={result.overheat_risk} showRaw={false} />
+              <ScoreBlock title="Financial quality" score={result.financial_quality} showRaw={false} />
+              <ScoreBlock title="Valuation context" score={result.valuation_context} showRaw={false} />
             </div>
           </section>
 
@@ -184,6 +361,15 @@ export default function StockResearch() {
                 <ul>{result.missing_data?.map((item) => <li key={item}>{item}</li>)}</ul>
               </div>
             </div>
+          </section>
+
+          <section className="pageSection">
+            <h2>Raw Evidence Panels</h2>
+            <RawDataPanel title="Macro raw evidence" rawData={result.macro_regime?.raw_data} derivedMetrics={result.macro_regime?.derived_metrics} benchmark={result.macro_regime?.benchmark} trend={result.macro_regime?.trend} limitations={result.macro_regime?.limitations} missingData={result.macro_regime?.missing_data} sourceStatus={resolveScoreSourceStatus(result.macro_regime)} />
+            <RawDataPanel title="Leadership raw evidence" rawData={result.leadership_score?.raw_data} derivedMetrics={result.leadership_score?.derived_metrics} benchmark={result.leadership_score?.benchmark} trend={result.leadership_score?.trend} limitations={result.leadership_score?.limitations} missingData={result.leadership_score?.missing_data} sourceStatus={resolveScoreSourceStatus(result.leadership_score)} />
+            <RawDataPanel title="Smart money raw evidence" rawData={result.smart_money?.raw_data} derivedMetrics={result.smart_money?.derived_metrics} benchmark={result.smart_money?.benchmark} trend={result.smart_money?.trend} limitations={result.smart_money?.limitations} missingData={result.smart_money?.missing_data} sourceStatus={resolveScoreSourceStatus(result.smart_money)} />
+            <RawDataPanel title="Insider Form 4 raw evidence" rawData={result.insider_activity?.raw_data} derivedMetrics={result.insider_activity?.derived_metrics} benchmark={result.insider_activity?.benchmark} trend={result.insider_activity?.trend} limitations={result.insider_activity?.limitations} missingData={result.insider_activity?.missing_data} sourceStatus={resolveScoreSourceStatus(result.insider_activity)} />
+            <RawDataPanel title="Institutional 13F raw evidence" rawData={result.institutional_13f?.raw_data} derivedMetrics={result.institutional_13f?.derived_metrics} benchmark={result.institutional_13f?.benchmark} trend={result.institutional_13f?.trend} limitations={result.institutional_13f?.limitations} missingData={result.institutional_13f?.missing_data} sourceStatus={resolveScoreSourceStatus(result.institutional_13f)} />
           </section>
         </>
       )}

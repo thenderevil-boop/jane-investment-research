@@ -8,6 +8,8 @@ Macro scoring is separate from smart-money scoring. Phase 12.5 macro calibration
 
 Phase 13 exposes smart-money evidence as part of the analyze-stock first workflow. `POST /api/analyze-stock` treats Form 4 and 13F as ticker-validation research evidence only, with `insider_activity` and `institutional_13f` surfaced separately from the aggregate `smart_money` score. These fields must never be converted into trading instructions.
 
+Phase 14 makes smart-money evidence candidate-readable in analyze-stock. `insider_activity` includes a concise summary, source quality, Form 4 evidence, accumulation count, disposition count, neutral/excluded transaction count, limitations, and missing data. `institutional_13f` is candidate-focused and separates `candidate_specific_evidence` from `portfolio_context`; manager top holdings are context only unless the candidate-specific match is allowed to contribute. Fallback or cached-limited evidence is a confidence limiter, not a positive driver.
+
 ## Outputs
 
 ```json

@@ -1,5 +1,209 @@
 {
   "$defs": {
+    "AnalyzeStockDataQualitySummary": {
+      "properties": {
+        "mode": {
+          "enum": [
+            "live_with_fallback",
+            "mixed_preliminary",
+            "mostly_mock",
+            "insufficient"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "confidence_cap_applied": {
+          "title": "Confidence Cap Applied",
+          "type": "boolean"
+        },
+        "confidence_cap_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence Cap Reason"
+        },
+        "live_components": {
+          "title": "Live Components",
+          "type": "integer"
+        },
+        "mock_components": {
+          "title": "Mock Components",
+          "type": "integer"
+        },
+        "fallback_components": {
+          "title": "Fallback Components",
+          "type": "integer"
+        },
+        "missing_source_date_components": {
+          "title": "Missing Source Date Components",
+          "type": "integer"
+        },
+        "stale_components": {
+          "title": "Stale Components",
+          "type": "integer"
+        },
+        "source_quality_grade": {
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D"
+          ],
+          "title": "Source Quality Grade",
+          "type": "string"
+        },
+        "source_quality_summary": {
+          "title": "Source Quality Summary",
+          "type": "string"
+        },
+        "mock_evidence_categories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mock Evidence Categories",
+          "type": "array"
+        },
+        "fallback_evidence_categories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fallback Evidence Categories",
+          "type": "array"
+        },
+        "missing_source_date_categories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Source Date Categories",
+          "type": "array"
+        },
+        "excluded_from_scoring": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Excluded From Scoring",
+          "type": "array"
+        }
+      },
+      "required": [
+        "mode",
+        "confidence_cap_applied",
+        "live_components",
+        "mock_components",
+        "fallback_components",
+        "missing_source_date_components",
+        "stale_components",
+        "source_quality_grade",
+        "source_quality_summary",
+        "mock_evidence_categories",
+        "fallback_evidence_categories",
+        "missing_source_date_categories",
+        "excluded_from_scoring"
+      ],
+      "title": "AnalyzeStockDataQualitySummary",
+      "type": "object"
+    },
+    "CandidateValidationSummary": {
+      "properties": {
+        "ticker": {
+          "title": "Ticker",
+          "type": "string"
+        },
+        "research_priority": {
+          "enum": [
+            "worth_deep_research",
+            "watchlist_candidate",
+            "insufficient_data",
+            "high_risk_context"
+          ],
+          "title": "Research Priority",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "environment_assessment": {
+          "title": "Environment Assessment",
+          "type": "string"
+        },
+        "company_assessment": {
+          "title": "Company Assessment",
+          "type": "string"
+        },
+        "smart_money_assessment": {
+          "title": "Smart Money Assessment",
+          "type": "string"
+        },
+        "data_quality_assessment": {
+          "title": "Data Quality Assessment",
+          "type": "string"
+        },
+        "overall_summary": {
+          "title": "Overall Summary",
+          "type": "string"
+        },
+        "primary_strengths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Primary Strengths",
+          "type": "array"
+        },
+        "primary_risks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Primary Risks",
+          "type": "array"
+        },
+        "missing_or_mock_evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Or Mock Evidence",
+          "type": "array"
+        },
+        "next_manual_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Next Manual Checks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ticker",
+        "research_priority",
+        "score",
+        "confidence",
+        "environment_assessment",
+        "company_assessment",
+        "smart_money_assessment",
+        "data_quality_assessment",
+        "overall_summary",
+        "primary_strengths",
+        "primary_risks",
+        "missing_or_mock_evidence",
+        "next_manual_checks"
+      ],
+      "title": "CandidateValidationSummary",
+      "type": "object"
+    },
     "DataQualitySummary": {
       "properties": {
         "mode": {
@@ -142,6 +346,92 @@
         }
       },
       "title": "DataSourceStatus",
+      "type": "object"
+    },
+    "EvidenceMatrixItem": {
+      "properties": {
+        "category": {
+          "enum": [
+            "macro_environment",
+            "company_profile",
+            "leadership_score",
+            "smart_money",
+            "insider_activity",
+            "institutional_13f",
+            "risk_flags"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "supportive",
+            "neutral",
+            "caution",
+            "insufficient"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "source_quality": {
+          "enum": [
+            "live_backed",
+            "derived_live",
+            "cached_live",
+            "mixed_with_fallback",
+            "mock_only",
+            "insufficient"
+          ],
+          "title": "Source Quality",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "key_evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Key Evidence",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "category",
+        "status",
+        "confidence",
+        "source_quality",
+        "summary",
+        "key_evidence",
+        "limitations"
+      ],
+      "title": "EvidenceMatrixItem",
       "type": "object"
     },
     "JaneReferenceCondition": {
@@ -784,6 +1074,48 @@
       "title": "MacroRegimeOutput",
       "type": "object"
     },
+    "NextManualCheck": {
+      "properties": {
+        "priority": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "title": "Priority",
+          "type": "string"
+        },
+        "area": {
+          "enum": [
+            "company_fundamentals",
+            "leadership",
+            "filings",
+            "smart_money",
+            "valuation",
+            "risk",
+            "source_quality"
+          ],
+          "title": "Area",
+          "type": "string"
+        },
+        "check": {
+          "title": "Check",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "priority",
+        "area",
+        "check",
+        "reason"
+      ],
+      "title": "NextManualCheck",
+      "type": "object"
+    },
     "ResearchVerdict": {
       "properties": {
         "label": {
@@ -811,6 +1143,16 @@
         "summary": {
           "title": "Summary",
           "type": "string"
+        },
+        "confidence_factors": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Confidence Factors",
+          "type": "object"
         }
       },
       "required": [
@@ -820,6 +1162,91 @@
         "summary"
       ],
       "title": "ResearchVerdict",
+      "type": "object"
+    },
+    "ScoreDriver": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "effect": {
+          "enum": [
+            "positive",
+            "limiting",
+            "negative",
+            "insufficient"
+          ],
+          "title": "Effect",
+          "type": "string"
+        },
+        "source_quality": {
+          "title": "Source Quality",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "category",
+        "effect",
+        "source_quality",
+        "summary"
+      ],
+      "title": "ScoreDriver",
+      "type": "object"
+    },
+    "ScoreDriverBreakdown": {
+      "properties": {
+        "final_score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Final Score",
+          "type": "number"
+        },
+        "final_confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Final Confidence",
+          "type": "number"
+        },
+        "positive_drivers": {
+          "items": {
+            "$ref": "#/$defs/ScoreDriver"
+          },
+          "title": "Positive Drivers",
+          "type": "array"
+        },
+        "negative_or_limiting_drivers": {
+          "items": {
+            "$ref": "#/$defs/ScoreDriver"
+          },
+          "title": "Negative Or Limiting Drivers",
+          "type": "array"
+        },
+        "neutral_drivers": {
+          "items": {
+            "$ref": "#/$defs/ScoreDriver"
+          },
+          "title": "Neutral Drivers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "final_score",
+        "final_confidence",
+        "positive_drivers",
+        "negative_or_limiting_drivers",
+        "neutral_drivers"
+      ],
+      "title": "ScoreDriverBreakdown",
       "type": "object"
     },
     "ScoreObject": {
@@ -942,6 +1369,29 @@
     "research_verdict": {
       "$ref": "#/$defs/ResearchVerdict"
     },
+    "candidate_validation_summary": {
+      "$ref": "#/$defs/CandidateValidationSummary"
+    },
+    "evidence_matrix": {
+      "items": {
+        "$ref": "#/$defs/EvidenceMatrixItem"
+      },
+      "title": "Evidence Matrix",
+      "type": "array"
+    },
+    "data_quality_summary": {
+      "$ref": "#/$defs/AnalyzeStockDataQualitySummary"
+    },
+    "score_driver_breakdown": {
+      "$ref": "#/$defs/ScoreDriverBreakdown"
+    },
+    "next_manual_checks": {
+      "items": {
+        "$ref": "#/$defs/NextManualCheck"
+      },
+      "title": "Next Manual Checks",
+      "type": "array"
+    },
     "company_profile": {
       "additionalProperties": true,
       "title": "Company Profile",
@@ -963,10 +1413,14 @@
       "$ref": "#/$defs/ScoreObject"
     },
     "insider_activity": {
-      "$ref": "#/$defs/ScoreObject"
+      "additionalProperties": true,
+      "title": "Insider Activity",
+      "type": "object"
     },
     "institutional_13f": {
-      "$ref": "#/$defs/ScoreObject"
+      "additionalProperties": true,
+      "title": "Institutional 13F",
+      "type": "object"
     },
     "financial_quality": {
       "$ref": "#/$defs/ScoreObject"
@@ -1037,6 +1491,11 @@
   "required": [
     "ticker",
     "research_verdict",
+    "candidate_validation_summary",
+    "evidence_matrix",
+    "data_quality_summary",
+    "score_driver_breakdown",
+    "next_manual_checks",
     "company_profile",
     "macro_regime",
     "leadership_score",

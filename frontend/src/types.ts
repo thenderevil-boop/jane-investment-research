@@ -40,6 +40,73 @@ export type DataQualitySummary = {
   } | null;
 };
 
+export type CandidateValidationSummary = {
+  ticker: string;
+  research_priority: 'worth_deep_research' | 'watchlist_candidate' | 'insufficient_data' | 'high_risk_context';
+  score: number;
+  confidence: number;
+  environment_assessment: string;
+  company_assessment: string;
+  smart_money_assessment: string;
+  data_quality_assessment: string;
+  overall_summary: string;
+  primary_strengths: string[];
+  primary_risks: string[];
+  missing_or_mock_evidence: string[];
+  next_manual_checks: string[];
+};
+
+export type EvidenceMatrixItem = {
+  category: string;
+  status: 'supportive' | 'neutral' | 'caution' | 'insufficient';
+  score?: number | null;
+  confidence: number;
+  source_quality: 'live_backed' | 'derived_live' | 'cached_live' | 'mixed_with_fallback' | 'mock_only' | 'insufficient';
+  summary: string;
+  key_evidence: string[];
+  limitations: string[];
+};
+
+export type AnalyzeStockDataQualitySummary = {
+  mode: 'live_with_fallback' | 'mixed_preliminary' | 'mostly_mock' | 'insufficient';
+  confidence_cap_applied: boolean;
+  confidence_cap_reason?: string | null;
+  live_components: number;
+  mock_components: number;
+  fallback_components: number;
+  missing_source_date_components: number;
+  stale_components: number;
+  source_quality_grade: 'A' | 'B' | 'C' | 'D';
+  source_quality_summary: string;
+  mock_evidence_categories: string[];
+  fallback_evidence_categories: string[];
+  missing_source_date_categories: string[];
+  excluded_from_scoring: string[];
+};
+
+export type ScoreDriver = {
+  name: string;
+  category: string;
+  effect: 'positive' | 'limiting' | 'negative' | 'insufficient';
+  source_quality: string;
+  summary: string;
+};
+
+export type ScoreDriverBreakdown = {
+  final_score: number;
+  final_confidence: number;
+  positive_drivers: ScoreDriver[];
+  negative_or_limiting_drivers: ScoreDriver[];
+  neutral_drivers: ScoreDriver[];
+};
+
+export type NextManualCheck = {
+  priority: 'high' | 'medium' | 'low';
+  area: 'company_fundamentals' | 'leadership' | 'filings' | 'smart_money' | 'valuation' | 'risk' | 'source_quality';
+  check: string;
+  reason: string;
+};
+
 export type JaneReferenceCondition = {
   name: string;
   display_text: string;
@@ -282,6 +349,10 @@ export type ResearchVerdict = {
   score: number;
   confidence: number;
   summary: string;
+  confidence_factors?: {
+    confidence_boosters: string[];
+    confidence_limiters: string[];
+  };
 };
 
 export type StockAnalysis = {
@@ -289,6 +360,11 @@ export type StockAnalysis = {
   market: string;
   analysis_mode?: 'ticker_validation';
   research_verdict?: ResearchVerdict;
+  candidate_validation_summary?: CandidateValidationSummary;
+  evidence_matrix?: EvidenceMatrixItem[];
+  data_quality_summary?: AnalyzeStockDataQualitySummary;
+  score_driver_breakdown?: ScoreDriverBreakdown;
+  next_manual_checks?: NextManualCheck[];
   company_profile?: Record<string, unknown>;
   macro_regime?: ScoreLike;
   leadership_score?: ScoreLike;

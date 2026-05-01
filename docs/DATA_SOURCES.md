@@ -12,6 +12,8 @@ Daily reports remain snapshot-first background context, source-health visibility
 
 Future Industry Radar is optional/future/reference only. Analyze-stock must not depend on automatic theme discovery and must remain usable when theme radar data is missing or stale.
 
+Phase 14 adds user-facing source-quality composition for analyze-stock without adding providers. The endpoint keeps raw evidence available for audit while leading with `candidate_validation_summary`, `evidence_matrix`, `data_quality_summary`, `score_driver_breakdown`, and `next_manual_checks`. Mock company profile and leadership evidence are disclosed as preliminary. Fallback or cached-after-failure SEC evidence lowers confidence and appears in fallback evidence categories. CNN Fear & Greed and ISM Manufacturing PMI remain excluded from scoring.
+
 ## Phase 11 Official SEC EDGAR 13F
 
 Default:

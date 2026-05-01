@@ -518,6 +518,85 @@ th {
   padding: 12px;
 }
 
+.summaryGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  margin-bottom: 14px;
+}
+
+.summaryGrid div {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+}
+
+.evidenceMatrix {
+  display: grid;
+  gap: 12px;
+}
+
+.evidenceRow {
+  border: 1px solid #dde3ec;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.evidenceRowHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.evidenceRowHeader h3 {
+  margin-bottom: 6px;
+}
+
+.checkList {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.checkList li {
+  align-items: flex-start;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+}
+
+.checkList div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.checkList small {
+  color: #64748b;
+}
+
+.checkPriority {
+  border-radius: 999px;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+}
+
+.checkPriority.high { background: #fee2e2; color: #991b1b; }
+.checkPriority.medium { background: #fef3c7; color: #92400e; }
+.checkPriority.low { background: #e0f2fe; color: #075985; }
+
 .errorText {
   color: #991b1b;
 }

@@ -8,11 +8,19 @@ Build a US-market-only investment research automation system based on Jane's Mar
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
-## Phase 13 Analyze-Stock First Workflow
+## Phase 14 Analyze-Stock Response Composition
 
 `POST /api/analyze-stock` is now the primary product workflow. The user brings externally discovered themes and candidate tickers; the system validates each US-listed ticker with structured evidence and Jane methodology.
 
-Analyze-stock responses include ticker validation mode, research-priority verdict, macro regime, leadership score, smart-money score, SEC Form 4 insider activity, SEC 13F institutional evidence, risk flags, source quality diagnostics, Jane reference conditions, and `not_investment_advice=true`.
+Analyze-stock responses now lead with a readable candidate validation report:
+
+- `candidate_validation_summary` is the main user-facing summary.
+- `evidence_matrix` is the main explanation layer across macro, company profile, leadership, smart money, Form 4, 13F, and risk flags.
+- `data_quality_summary` converts raw source-quality counts into a source-quality grade and confidence-cap explanation.
+- `score_driver_breakdown` separates positive, limiting, and neutral score drivers.
+- `next_manual_checks` lists research-oriented follow-up checks.
+
+Raw engine evidence remains available for audit in the existing score objects and raw evidence panels. Mock and fallback evidence lowers or caps confidence. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
 
@@ -28,6 +36,7 @@ Completed live integrations now documented in this README:
 - Phase 11: official SEC EDGAR 13F
 - Phase 12: macro modernization with `macro_v12_5`
 - Phase 13: analyze-stock first architecture
+- Phase 14: analyze-stock response composition and data-quality cleanup
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 

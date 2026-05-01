@@ -101,6 +101,16 @@ Returns daily report by date.
 
 Primary endpoint. Validates a user-provided US ticker using structured evidence and Jane methodology. Future Industry Radar is not required for this endpoint.
 
+Phase 14 makes the response a candidate validation report rather than a loose bundle of engine outputs. The main user-facing fields are:
+
+- `candidate_validation_summary`: concise research-priority summary, strengths, risks, mock/fallback disclosure, and next checks.
+- `evidence_matrix`: primary explanation layer for macro environment, company profile, leadership score, smart money, insider activity, institutional 13F, and risk flags.
+- `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, and excluded scoring indicators.
+- `score_driver_breakdown`: positive, limiting, and neutral score drivers.
+- `next_manual_checks`: research-oriented checks for source quality, fundamentals, filings, valuation, and risk.
+
+Raw evidence remains available in the legacy score objects, `raw_data`, and debug/expandable frontend panels for audit. Mock and fallback data reduce confidence. The endpoint must keep `not_investment_advice=true` and must not emit trading instructions.
+
 Request:
 
 ```json
@@ -125,8 +135,31 @@ Response:
     "label": "worth_deep_research",
     "score": 72,
     "confidence": 0.76,
-    "summary": "Research reference only."
+    "summary": "Research reference only.",
+    "confidence_factors": {
+      "confidence_boosters": [],
+      "confidence_limiters": []
+    }
   },
+  "candidate_validation_summary": {
+    "ticker": "NVDA",
+    "research_priority": "watchlist_candidate",
+    "score": 63,
+    "confidence": 0.72,
+    "environment_assessment": "Macro environment is neutral-to-constructive.",
+    "company_assessment": "Company evidence remains preliminary.",
+    "smart_money_assessment": "Smart-money evidence is limited by fallback or cached components.",
+    "data_quality_assessment": "Source quality grade C.",
+    "overall_summary": "Research validation summary.",
+    "primary_strengths": [],
+    "primary_risks": [],
+    "missing_or_mock_evidence": [],
+    "next_manual_checks": []
+  },
+  "evidence_matrix": [],
+  "data_quality_summary": {},
+  "score_driver_breakdown": {},
+  "next_manual_checks": [],
   "company_profile": {},
   "macro_regime": {},
   "leadership_score": {},
@@ -147,6 +180,10 @@ Response:
 ```
 
 Research verdict labels describe research priority only: `worth_deep_research`, `watchlist_candidate`, `insufficient_data`, or `high_risk_context`. Missing data reduces confidence. Mock or excluded indicators must not increase the verdict score. The endpoint must not emit trading instructions.
+
+`institutional_13f` is candidate-focused. It includes `candidate_specific_evidence`, `portfolio_context`, `source_status`, `limitations`, and `missing_data`. A configured manager portfolio is context only unless the candidate has matched 13F evidence with `score_contribution_allowed=true`.
+
+`insider_activity` summarizes SEC Form 4 evidence. Only transaction code `P` counts as accumulation evidence; only code `S` counts as disposition evidence. Cached or fallback evidence is described as limited source context.
 
 ### GET /api/themes/latest
 

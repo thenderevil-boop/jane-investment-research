@@ -83,3 +83,72 @@ def test_excluded_macro_indicators_do_not_affect_analyze_stock_score() -> None:
 
     text = json.dumps(payload, sort_keys=True).lower()
     assert '"source_type": "mixed"' not in text
+
+
+def test_phase14_analyze_stock_composition_layers() -> None:
+    payload = client.post(
+        "/api/analyze-stock",
+        json={
+            "ticker": "NVDA",
+            "market": "US",
+            "research_context": {
+                "theme": "AI infrastructure",
+                "user_reason": "External trend research",
+            },
+        },
+    ).json()
+
+    summary = payload["candidate_validation_summary"]
+    assert summary["research_priority"] in {"worth_deep_research", "watchlist_candidate", "insufficient_data", "high_risk_context"}
+    assert isinstance(summary["score"], (int, float))
+    assert isinstance(summary["confidence"], (int, float))
+    for key in ["primary_strengths", "primary_risks", "missing_or_mock_evidence", "next_manual_checks"]:
+        assert isinstance(summary[key], list)
+        assert summary[key]
+    assert "mock" in summary["overall_summary"].lower()
+
+    matrix = {item["category"]: item for item in payload["evidence_matrix"]}
+    for category in ["macro_environment", "company_profile", "leadership_score", "smart_money", "insider_activity", "institutional_13f"]:
+        assert category in matrix
+        assert matrix[category]["summary"]
+        assert isinstance(matrix[category]["key_evidence"], list)
+    assert matrix["macro_environment"]["source_quality"] == "derived_live"
+    assert matrix["leadership_score"]["source_quality"] == "mock_only"
+
+    quality = payload["data_quality_summary"]
+    assert quality["source_quality_grade"] in {"A", "B", "C", "D"}
+    assert "leadership_score" in quality["mock_evidence_categories"]
+    assert "company_profile" in quality["mock_evidence_categories"]
+    assert "smart_money" in quality["fallback_evidence_categories"]
+    assert "ISM Manufacturing PMI" in quality["excluded_from_scoring"]
+    assert "CNN Fear & Greed" in quality["excluded_from_scoring"]
+
+    verdict = payload["research_verdict"]
+    assert "confidence_factors" in verdict
+    assert verdict["confidence"] <= MOCK_LEADERSHIP_CONFIDENCE_CAP
+
+    drivers = payload["score_driver_breakdown"]
+    assert drivers["final_score"] == verdict["score"]
+    driver_text = json.dumps(drivers).lower()
+    assert "live-confirmed" in driver_text
+    assert not any(
+        driver["category"] == "leadership_score" and driver["source_quality"] == "mock_only"
+        for driver in drivers["positive_drivers"]
+    )
+    thirteen_f = payload["institutional_13f"]["candidate_specific_evidence"]
+    if thirteen_f.get("matched_in_13f") is False:
+        assert thirteen_f["score_contribution_allowed"] is False
+        assert thirteen_f["interpretation_label"] == "no_reported_13f_position_observed"
+    if thirteen_f.get("score_contribution_allowed") is False:
+        assert not any(driver["category"] == "institutional_13f" for driver in drivers["positive_drivers"])
+    assert "negative trading signal" not in json.dumps(payload["institutional_13f"]).lower()
+
+    assert payload["insider_activity"]["source_quality"] in {"cached_live", "mixed_with_fallback", "mock_only", "insufficient"}
+    if payload["insider_activity"]["source_quality"] in {"mixed_with_fallback", "cached_live"}:
+        assert "limited" in payload["insider_activity"]["summary"].lower() or "cached" in payload["insider_activity"]["summary"].lower()
+
+    checks = payload["next_manual_checks"]
+    assert any(item["priority"] == "high" and item["area"] in {"source_quality", "company_fundamentals"} for item in checks)
+    assert payload["not_investment_advice"] is True
+    assert detect_forbidden_language(payload) == []
+    walk_source_types(payload)
