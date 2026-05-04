@@ -63,6 +63,8 @@ class EvidenceMatrixItem(BaseModel):
     category: Literal[
         "macro_environment",
         "company_profile",
+        "financial_quality",
+        "valuation_context",
         "leadership_score",
         "smart_money",
         "insider_activity",

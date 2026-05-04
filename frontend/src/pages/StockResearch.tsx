@@ -18,6 +18,14 @@ function displayKey(value: string) {
   return value.replace(/_/g, ' ');
 }
 
+function displayValue(value: unknown) {
+  if (value === null || value === undefined || value === '') return 'N/A';
+  if (typeof value === 'number') return Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
 export function resolveScoreSourceStatus(score?: ScoreLike): DataSourceStatus | null {
   if (!score) return null;
   if (score.source_status) return score.source_status;
@@ -164,6 +172,40 @@ export function AnalyzeDataQualitySection({ dataQuality }: { dataQuality?: Analy
   );
 }
 
+export function CompanyFundamentalsSection({ result }: { result: StockAnalysis }) {
+  const profile = result.company_profile ?? {};
+  const financial = result.financial_quality;
+  const valuation = result.valuation_context;
+  const financialRaw = financial?.raw_data ?? {};
+  const valuationRaw = valuation?.raw_data ?? {};
+  const profileStatus = profile.source_status as DataSourceStatus | undefined;
+  const financialStatus = resolveScoreSourceStatus(financial);
+  if (!financial && !valuation) return null;
+  return (
+    <section className="pageSection">
+      <h2>Company Fundamentals</h2>
+      <div className="summaryMain">
+        {profileStatus && <DataSourceBadge status={profileStatus} />}
+        {financialStatus && <DataSourceBadge status={financialStatus} />}
+        {valuation?.source_status && <DataSourceBadge status={valuation.source_status} />}
+      </div>
+      <div className="fundamentalsGrid">
+        <div><strong>Revenue growth</strong><span>{displayValue(financialRaw.revenue_yoy_growth_pct)}%</span></div>
+        <div><strong>Gross margin</strong><span>{displayValue(financialRaw.gross_margin_pct)}%</span></div>
+        <div><strong>Free cash flow</strong><span>{displayValue(financialRaw.free_cash_flow_ttm)}</span></div>
+        <div><strong>Cash/debt</strong><span>{displayValue(financialRaw.cash_and_equivalents)} / {displayValue(financialRaw.total_debt)}</span></div>
+        <div><strong>Market cap</strong><span>{displayValue(profile.market_cap ?? valuationRaw.market_cap)}</span></div>
+        <div><strong>Enterprise value</strong><span>{displayValue(profile.enterprise_value ?? valuationRaw.enterprise_value)}</span></div>
+        <div><strong>Price/sales TTM</strong><span>{displayValue(valuationRaw.price_to_sales_ttm)}</span></div>
+        <div><strong>EV/sales TTM</strong><span>{displayValue(valuationRaw.ev_to_sales_ttm)}</span></div>
+      </div>
+      {typeof valuationRaw.valuation_summary === 'string' && valuationRaw.valuation_summary && <p>{valuationRaw.valuation_summary}</p>}
+      {!!financial?.missing_data?.length && <p className="sourceWarning">Missing fundamentals: {financial.missing_data.join(', ')}</p>}
+      {!!valuation?.missing_data?.length && <p className="muted">Valuation missing data: {valuation.missing_data.join(', ')}</p>}
+    </section>
+  );
+}
+
 export function EvidenceMatrixSection({ rows }: { rows?: EvidenceMatrixItem[] }) {
   if (!rows?.length) return null;
   return (
@@ -289,6 +331,7 @@ export default function StockResearch() {
         <>
           <CandidateSummarySection result={result} />
           <AnalyzeDataQualitySection dataQuality={result.data_quality_summary} />
+          <CompanyFundamentalsSection result={result} />
           <EvidenceMatrixSection rows={result.evidence_matrix} />
           <ScoreDriverSection result={result} />
           <ManualChecksSection checks={result.next_manual_checks} />

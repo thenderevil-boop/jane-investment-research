@@ -101,15 +101,25 @@ Returns daily report by date.
 
 Primary endpoint. Validates a user-provided US ticker using structured evidence and Jane methodology. Future Industry Radar is not required for this endpoint.
 
-Phase 14 makes the response a candidate validation report rather than a loose bundle of engine outputs. The main user-facing fields are:
+Phase 14 makes the response a candidate validation report rather than a loose bundle of engine outputs. Phase 15 adds live/cached company profile, financial quality, and derived valuation context through repository-backed yfinance data when company data is enabled. The main user-facing fields are:
 
 - `candidate_validation_summary`: concise research-priority summary, strengths, risks, mock/fallback disclosure, and next checks.
-- `evidence_matrix`: primary explanation layer for macro environment, company profile, leadership score, smart money, insider activity, institutional 13F, and risk flags.
+- `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, leadership score, smart money, insider activity, institutional 13F, and risk flags.
 - `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, and excluded scoring indicators.
 - `score_driver_breakdown`: positive, limiting, and neutral score drivers.
 - `next_manual_checks`: research-oriented checks for source quality, fundamentals, filings, valuation, and risk.
 
 Raw evidence remains available in the legacy score objects, `raw_data`, and debug/expandable frontend panels for audit. Mock and fallback data reduce confidence. The endpoint must keep `not_investment_advice=true` and must not emit trading instructions.
+
+Phase 15 company data behavior:
+
+- `company_profile` may use `source_type="live"` or `source_type="cached_live"` with `provider="yfinance"` when yfinance profile data is available.
+- `financial_quality` may use yfinance fundamentals. SEC companyfacts is a preferred future official source but is not required for this implementation slice.
+- `valuation_context` is derived from market cap, enterprise value, revenue, and free cash flow inputs. It is risk context only.
+- If live yfinance company data is unavailable, profile and fundamentals fall back to mock fixtures with `fallback_used=true` when a live attempt was made.
+- `research_context` remains user-provided context and is not treated as source evidence.
+- Leadership score remains mock-only until a later phase.
+- `source_type="mixed"` is invalid; derived summaries use `source_type="derived"` with descriptive providers such as `derived_from_yfinance`.
 
 Request:
 
@@ -184,6 +194,10 @@ Research verdict labels describe research priority only: `worth_deep_research`, 
 `institutional_13f` is candidate-focused. It includes `candidate_specific_evidence`, `portfolio_context`, `source_status`, `limitations`, and `missing_data`. A configured manager portfolio is context only unless the candidate has matched 13F evidence with `score_contribution_allowed=true`.
 
 `insider_activity` summarizes SEC Form 4 evidence. Only transaction code `P` counts as accumulation evidence; only code `S` counts as disposition evidence. Cached or fallback evidence is described as limited source context.
+
+`financial_quality.raw_data` may include `revenue_ttm`, `revenue_yoy_growth_pct`, `revenue_3y_cagr_pct`, `gross_margin_pct`, `operating_margin_pct`, `free_cash_flow_ttm`, `free_cash_flow_margin_pct`, `cash_and_equivalents`, `total_debt`, `net_cash_or_debt`, `debt_to_equity`, `shares_outstanding`, and `share_dilution_3y_pct`. Missing fields are listed in `missing_data` and are not fabricated.
+
+`valuation_context.raw_data` may include `market_cap`, `enterprise_value`, `price_to_sales_ttm`, `ev_to_sales_ttm`, `price_to_free_cash_flow_ttm`, `ev_to_free_cash_flow_ttm`, `gross_margin_pct`, `revenue_growth_yoy_pct`, `valuation_risk_label`, and `valuation_summary`. Multiples are null when denominators are missing or non-positive.
 
 ### GET /api/themes/latest
 

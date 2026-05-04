@@ -12,7 +12,13 @@ Daily reports remain snapshot-first background context, source-health visibility
 
 Future Industry Radar is optional/future/reference only. Analyze-stock must not depend on automatic theme discovery and must remain usable when theme radar data is missing or stale.
 
-Phase 14 adds user-facing source-quality composition for analyze-stock without adding providers. The endpoint keeps raw evidence available for audit while leading with `candidate_validation_summary`, `evidence_matrix`, `data_quality_summary`, `score_driver_breakdown`, and `next_manual_checks`. Mock company profile and leadership evidence are disclosed as preliminary. Fallback or cached-after-failure SEC evidence lowers confidence and appears in fallback evidence categories. CNN Fear & Greed and ISM Manufacturing PMI remain excluded from scoring.
+Phase 14 adds user-facing source-quality composition for analyze-stock without adding providers. The endpoint keeps raw evidence available for audit while leading with `candidate_validation_summary`, `evidence_matrix`, `data_quality_summary`, `score_driver_breakdown`, and `next_manual_checks`. Fallback or cached-after-failure SEC evidence lowers confidence and appears in fallback evidence categories. CNN Fear & Greed and ISM Manufacturing PMI remain excluded from scoring.
+
+Phase 15 live-enables company profile and fundamentals through the existing repository-backed yfinance dependency. `company_profile` may be live or cached-live with `provider: "yfinance"`. `financial_quality` may use yfinance fundamentals and provider-normalized fields. `valuation_context` is derived from yfinance profile and fundamentals inputs with `provider: "derived_from_yfinance"`. Valuation context is risk context only. Missing financial fields are listed in `missing_data` and are not fabricated. If yfinance is unavailable after a live attempt, mock fallback data is clearly labeled with `fallback_used=true`. Leadership evidence remains mock-disclosed until a later live leadership phase.
+
+`USE_LIVE_COMPANY_DATA=true` enables this company-data path directly. If unset, it follows `USE_LIVE_MARKET_DATA`. `COMPANY_DATA_PROVIDER` defaults to `yfinance`. No paid provider is added, and no website scraping is used.
+
+SEC companyfacts remains a preferred future official source for filed fundamentals. When added later, it must use official SEC EDGAR endpoints, require `SEC_EDGAR_USER_AGENT`, and never expose the User-Agent value in API responses, snapshots, logs, fallback reasons, or tests.
 
 ## Phase 11 Official SEC EDGAR 13F
 

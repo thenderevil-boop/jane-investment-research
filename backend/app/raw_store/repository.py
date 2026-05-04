@@ -14,7 +14,7 @@ from backend.app.data.price_reference import warm_price_reference_cache as _warm
 from backend.app.data.security_map import resolve_security_identifier
 from backend.app.data_sources import market_context
 from backend.app.data_sources.mock_crisis import MOCK_CRISIS_SCENARIOS
-from backend.app.data_sources.mock_data import MARKET_SNAPSHOTS, MOCK_SMART_MONEY_SUMMARY, STOCK_FIXTURES, THEMES
+from backend.app.data_sources.mock_data import MARKET_SNAPSHOTS, MOCK_SMART_MONEY_SUMMARY, MOCK_SOURCE_DATE, STOCK_FIXTURES, THEMES
 from backend.app.data_sources.mock_macro import MOCK_MACRO_SCENARIOS
 from backend.app.engines.sec_13f_aggregation import aggregate_13f_holdings, compare_13f_quarter_over_quarter, summarize_13f_portfolio
 from backend.app.engines.sec_13f_target_matching import match_13f_targets, normalize_target_security_map
@@ -38,6 +38,12 @@ MARKET_CONTEXT_FALLBACK_SYMBOLS = {"gold": "GLD", "oil": "USO"}
 
 def _cache_dir() -> Path:
     path = config.MARKET_DATA_CACHE_DIR
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _company_data_cache_dir() -> Path:
+    path = config.MARKET_DATA_CACHE_DIR / "company_data"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -68,6 +74,10 @@ def _daily_report_snapshot_dir() -> Path:
 
 def _cache_key(ticker: str) -> str:
     return ticker.replace("^", "index_").replace("/", "_").upper()
+
+
+def _company_cache_path(ticker: str, kind: str) -> Path:
+    return _company_data_cache_dir() / f"{_cache_key(ticker)}_{kind}.json"
 
 
 def _manager_cache_key(manager_or_cik: str) -> str:
@@ -272,6 +282,126 @@ def _cached_market_data_if_fresh(ticker: str) -> dict[str, Any] | None:
     payload["provider"] = "yfinance"
     payload["source"] = "yfinance"
     payload["source_status"] = status
+    return payload
+
+
+def write_company_data(ticker: str, kind: str, data: dict[str, Any]) -> dict[str, Any]:
+    normalized_ticker = ticker.strip().upper()
+    payload = deepcopy(data)
+    payload["ticker"] = normalized_ticker
+    payload["cached_at"] = datetime.now(timezone.utc).isoformat()
+    target = _company_cache_path(normalized_ticker, kind)
+    target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    return payload
+
+
+def read_company_data_cache(ticker: str, kind: str) -> dict[str, Any] | None:
+    target = _company_cache_path(ticker, kind)
+    if not target.exists():
+        return None
+    return json.loads(target.read_text(encoding="utf-8"))
+
+
+def _cached_company_data_if_fresh(ticker: str, kind: str) -> dict[str, Any] | None:
+    cached = read_company_data_cache(ticker, kind)
+    if not cached:
+        return None
+    status = build_source_status(
+        {
+            **cached,
+            "source_type": "cached_live",
+            "provider": cached.get("provider") or "yfinance",
+            "fallback_used": False,
+            "limitations": cached.get("limitations", []),
+            "missing_data": cached.get("missing_data", []),
+        }
+    ).model_dump(mode="json")
+    if status.get("is_fresh") is False:
+        return None
+    payload = deepcopy(cached)
+    payload["source_type"] = "cached_live"
+    payload["provider"] = cached.get("provider") or "yfinance"
+    payload["source"] = cached.get("source") or ["yfinance"]
+    payload["source_status"] = status
+    return payload
+
+
+def _mock_company_profile(ticker: str = "NVDA", reason: str | None = None) -> dict[str, Any]:
+    normalized_ticker = ticker.strip().upper()
+    fixture = read_company_fundamentals(normalized_ticker)
+    source_type = "fallback" if reason else "mock"
+    payload: dict[str, Any] = {
+        "ticker": normalized_ticker,
+        "company_name": fixture.get("company_name", normalized_ticker),
+        "sector": fixture.get("sector"),
+        "industry": None,
+        "market": "US",
+        "exchange": None,
+        "currency": None,
+        "website": None,
+        "country": None,
+        "market_cap": None,
+        "enterprise_value": None,
+        "shares_outstanding": None,
+        "current_price": None,
+        "themes": fixture.get("themes", []),
+        "source_type": source_type,
+        "provider": "mock",
+        "source": ["phase1_mock_company_profile"],
+        "source_date": MOCK_SOURCE_DATE,
+        "limitations": ["Mock company profile fixture is used when live yfinance company data is disabled or unavailable."],
+        "missing_data": ["live yfinance company profile"],
+    }
+    if reason:
+        payload["fallback_used"] = True
+        payload["fallback_reason"] = reason
+        payload["limitations"].append("Live yfinance company profile unavailable; mock fallback used.")
+    payload["source_status"] = build_source_status(payload).model_dump(mode="json")
+    return payload
+
+
+def _mock_company_fundamentals(ticker: str = "NVDA", reason: str | None = None) -> dict[str, Any]:
+    normalized_ticker = ticker.strip().upper()
+    fixture = read_company_fundamentals(normalized_ticker)
+    source_type = "fallback" if reason else "mock"
+    payload: dict[str, Any] = {
+        "ticker": normalized_ticker,
+        "period": "mock_reference",
+        "latest_fiscal_year": None,
+        "latest_quarter": None,
+        "revenue_ttm": None,
+        "revenue_yoy_growth_pct": None,
+        "revenue_3y_cagr_pct": None,
+        "gross_margin_pct": None,
+        "operating_margin_pct": None,
+        "free_cash_flow_ttm": None,
+        "free_cash_flow_margin_pct": fixture.get("free_cash_flow_margin_pct"),
+        "cash_and_equivalents": None,
+        "total_debt": None,
+        "net_cash_or_debt": None,
+        "debt_to_equity": None,
+        "shares_outstanding": None,
+        "share_dilution_3y_pct": None,
+        "net_debt_to_ebitda": fixture.get("net_debt_to_ebitda"),
+        "source_type": source_type,
+        "provider": "mock",
+        "source": ["phase1_mock_company_fundamentals"],
+        "source_date": MOCK_SOURCE_DATE,
+        "limitations": ["Mock financial quality fixture is used when live yfinance fundamentals are disabled or unavailable."],
+        "missing_data": [
+            "live yfinance fundamentals",
+            "revenue_ttm",
+            "gross_margin_pct",
+            "free_cash_flow_ttm",
+            "cash_and_equivalents",
+            "total_debt",
+        ],
+    }
+    if reason:
+        payload["fallback_used"] = True
+        payload["fallback_reason"] = reason
+        payload["limitations"].append("Live yfinance fundamentals unavailable; mock fallback used.")
+    payload["source_status"] = build_source_status(payload).model_dump(mode="json")
     return payload
 
 
@@ -1164,6 +1294,60 @@ def read_macro_data(
         freshness_window=DERIVED_FRED_FRESHNESS_WINDOW,
     ).model_dump(mode="json")
     return merged
+
+
+def get_company_profile(ticker: str = "NVDA", use_live: bool | None = None) -> dict[str, Any]:
+    normalized_ticker = ticker.strip().upper()
+    enabled = config.USE_LIVE_COMPANY_DATA if use_live is None else use_live
+    if not enabled:
+        return _mock_company_profile(normalized_ticker)
+    cached = _cached_company_data_if_fresh(normalized_ticker, "profile")
+    if cached:
+        return cached
+    if config.COMPANY_DATA_PROVIDER != "yfinance":
+        return _mock_company_profile(normalized_ticker, f"unsupported company data provider: {config.COMPANY_DATA_PROVIDER}")
+    try:
+        from backend.app.data_sources.company_profile import fetch_company_profile
+
+        snapshot = fetch_company_profile(normalized_ticker)
+        snapshot["source_status"] = build_source_status(snapshot).model_dump(mode="json")
+        return write_company_data(normalized_ticker, "profile", snapshot)
+    except Exception as exc:
+        safe_reason = str(exc).splitlines()[0][:180] or "live yfinance company profile fetch failed"
+        cached_after_failure = _cached_company_data_if_fresh(normalized_ticker, "profile")
+        if cached_after_failure:
+            cached_after_failure["fallback_used"] = True
+            cached_after_failure["fallback_reason"] = "Live yfinance company profile fetch failed; cached live data used."
+            cached_after_failure["source_status"] = build_source_status(cached_after_failure, source_type="cached_live", fallback_used=True).model_dump(mode="json")
+            return cached_after_failure
+        return _mock_company_profile(normalized_ticker, safe_reason)
+
+
+def get_company_fundamentals(ticker: str = "NVDA", use_live: bool | None = None) -> dict[str, Any]:
+    normalized_ticker = ticker.strip().upper()
+    enabled = config.USE_LIVE_COMPANY_DATA if use_live is None else use_live
+    if not enabled:
+        return _mock_company_fundamentals(normalized_ticker)
+    cached = _cached_company_data_if_fresh(normalized_ticker, "fundamentals")
+    if cached:
+        return cached
+    if config.COMPANY_DATA_PROVIDER != "yfinance":
+        return _mock_company_fundamentals(normalized_ticker, f"unsupported company data provider: {config.COMPANY_DATA_PROVIDER}")
+    try:
+        from backend.app.data_sources.company_profile import fetch_company_fundamentals
+
+        snapshot = fetch_company_fundamentals(normalized_ticker)
+        snapshot["source_status"] = build_source_status(snapshot).model_dump(mode="json")
+        return write_company_data(normalized_ticker, "fundamentals", snapshot)
+    except Exception as exc:
+        safe_reason = str(exc).splitlines()[0][:180] or "live yfinance fundamentals fetch failed"
+        cached_after_failure = _cached_company_data_if_fresh(normalized_ticker, "fundamentals")
+        if cached_after_failure:
+            cached_after_failure["fallback_used"] = True
+            cached_after_failure["fallback_reason"] = "Live yfinance fundamentals fetch failed; cached live data used."
+            cached_after_failure["source_status"] = build_source_status(cached_after_failure, source_type="cached_live", fallback_used=True).model_dump(mode="json")
+            return cached_after_failure
+        return _mock_company_fundamentals(normalized_ticker, safe_reason)
 
 
 def read_company_fundamentals(ticker: str = "NVDA") -> dict[str, Any]:

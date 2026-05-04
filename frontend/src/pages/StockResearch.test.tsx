@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { DataSourceStatus, ScoreLike, StockAnalysis } from '../types';
-import { AnalyzeDataQualitySection, CandidateSummarySection, EvidenceMatrixSection, ManualChecksSection, ProfileGrid, ScoreBlock } from './StockResearch';
+import { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, EvidenceMatrixSection, ManualChecksSection, ProfileGrid, ScoreBlock } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -143,6 +143,46 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Evidence Matrix');
     expect(html).toContain('mock_only');
     expect(html).toContain('Mock-only evidence');
+  });
+
+  it('renders Company Fundamentals and valuation context', () => {
+    const liveStatus = { ...mockStatus, source_type: 'live' as const, provider: 'yfinance' };
+    const result = {
+      ticker: 'NVDA',
+      market: 'US',
+      company_profile: {
+        company_name: 'NVIDIA Corporation',
+        market_cap: 3000000000000,
+        enterprise_value: 2990000000000,
+        source_status: liveStatus,
+      },
+      financial_quality: {
+        ...score(liveStatus),
+        raw_data: {
+          revenue_yoy_growth_pct: 80,
+          gross_margin_pct: 70,
+          free_cash_flow_ttm: 29000000000,
+          cash_and_equivalents: 26000000000,
+          total_debt: 9000000000,
+        },
+        missing_data: ['share_dilution_3y_pct'],
+      },
+      valuation_context: {
+        ...score({ ...liveStatus, source_type: 'derived', provider: 'derived_from_yfinance' }),
+        raw_data: {
+          price_to_sales_ttm: 24,
+          ev_to_sales_ttm: 23,
+          valuation_summary: 'Valuation context is elevated as a research risk flag.',
+        },
+        missing_data: [],
+      },
+    } as StockAnalysis;
+    const html = renderToStaticMarkup(<CompanyFundamentalsSection result={result} />);
+    expect(html).toContain('Company Fundamentals');
+    expect(html).toContain('Revenue growth');
+    expect(html).toContain('Price/sales TTM');
+    expect(html).toContain('Missing fundamentals');
+    expect(html).not.toContain('[object Object]');
   });
 
   it('renders Next Manual Checks as checklist-style items', () => {

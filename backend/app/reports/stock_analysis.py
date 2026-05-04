@@ -8,7 +8,7 @@ from backend.app.engines.overheat_engine import evaluate_overheat
 from backend.app.engines.sec_13f_target_matching import build_candidate_13f_evidence
 from backend.app.engines.smart_money_engine import evaluate_smart_money
 from backend.app.pipelines.mock_pipeline import _build_jane_reference_conditions, _enrich_source_status, score_object
-from backend.app.raw_store.repository import read_macro_data, read_market_data, read_sec_filings
+from backend.app.raw_store.repository import get_company_fundamentals, get_company_profile, read_macro_data, read_market_data, read_sec_filings
 from backend.app.schemas.common import ScoreObject
 from backend.app.schemas.stock_analysis import (
     AnalyzeStockDataQualitySummary,
@@ -73,7 +73,7 @@ def _research_verdict(
     if smart_money_score >= 50:
         boosters.append("Aggregate smart-money evidence is at least neutral in the current framework.")
     if mock_evidence_present:
-        limiters.append("Company profile or leadership evidence is mock-based.")
+        limiters.append("Leadership or company-related evidence is mock-based.")
     if fallback_evidence_present:
         limiters.append("One or more smart-money or filing components use fallback or cached-after-failure evidence.")
     if missing_data_count:
@@ -104,6 +104,8 @@ def _source_quality_from_status(status: dict, *, category: str = "") -> str:
     source_type = status.get("source_type")
     provider = str(status.get("provider") or "")
     fallback_used = bool(status.get("fallback_used")) or source_type == "fallback"
+    if category == "macro_environment" and source_type == "derived" and provider.startswith("mixed_FRED"):
+        return "derived_live"
     if fallback_used:
         return "mixed_with_fallback"
     if source_type == "mock":
@@ -133,6 +135,187 @@ def _score_status(score: float | None) -> str:
     return "caution"
 
 
+def _metric_available(value) -> bool:
+    return isinstance(value, (int, float)) and value is not None
+
+
+def _safe_ratio(numerator: float | None, denominator: float | None, missing_data: list[str], missing_label: str) -> float | None:
+    if numerator is None or denominator is None:
+        missing_data.append(missing_label)
+        return None
+    if denominator <= 0:
+        missing_data.append(f"{missing_label}: denominator missing or non-positive")
+        return None
+    return round(numerator / denominator, 4)
+
+
+def _financial_quality_score(financials: dict) -> tuple[float, str, float]:
+    status = _status_dict(financials.get("source_status"))
+    live_like = status.get("source_type") in {"live", "cached_live", "derived"}
+    required = [
+        financials.get("revenue_yoy_growth_pct"),
+        financials.get("gross_margin_pct"),
+        financials.get("free_cash_flow_ttm"),
+        financials.get("cash_and_equivalents"),
+        financials.get("total_debt"),
+    ]
+    available = sum(1 for item in required if _metric_available(item))
+    if not live_like or available < 3:
+        return 50, "neutral", 0.45 if not live_like else 0.58
+    score = 50
+    if (financials.get("revenue_yoy_growth_pct") or 0) >= 10:
+        score += 12
+    if (financials.get("gross_margin_pct") or 0) >= 40:
+        score += 10
+    if (financials.get("free_cash_flow_ttm") or 0) > 0:
+        score += 10
+    if (financials.get("net_cash_or_debt") or 0) >= 0:
+        score += 8
+    if (financials.get("debt_to_equity") or 0) and (financials.get("debt_to_equity") or 0) > 150:
+        score -= 8
+    score = round(max(0, min(100, score)), 2)
+    label = "favorable_research_environment" if score >= 70 else "neutral"
+    confidence = round(min(0.78, 0.52 + available * 0.05), 2)
+    return score, label, confidence
+
+
+def _build_financial_quality_score(financials: dict) -> ScoreObject:
+    status = _status_dict(financials.get("source_status"))
+    score, label, confidence = _financial_quality_score(financials)
+    return ScoreObject(
+        name="financial_quality_score",
+        score=score,
+        label=label,
+        raw_data=financials,
+        derived_metrics={
+            "revenue_yoy_growth_pct": financials.get("revenue_yoy_growth_pct"),
+            "revenue_3y_cagr_pct": financials.get("revenue_3y_cagr_pct"),
+            "gross_margin_pct": financials.get("gross_margin_pct"),
+            "free_cash_flow_margin_pct": financials.get("free_cash_flow_margin_pct"),
+            "net_cash_or_debt": financials.get("net_cash_or_debt"),
+            "available_core_metric_count": sum(
+                1
+                for item in [
+                    financials.get("revenue_yoy_growth_pct"),
+                    financials.get("gross_margin_pct"),
+                    financials.get("free_cash_flow_ttm"),
+                    financials.get("cash_and_equivalents"),
+                    financials.get("total_debt"),
+                ]
+                if _metric_available(item)
+            ),
+        },
+        benchmark={
+            "revenue_growth_supportive_pct": 10,
+            "gross_margin_supportive_pct": 40,
+            "positive_free_cash_flow_required_for_quality_driver": True,
+            "net_cash_supportive": True,
+        },
+        trend={
+            "financial_quality": "available" if status.get("source_type") in {"live", "cached_live", "derived"} else "preliminary",
+        },
+        source=[status.get("provider") or financials.get("provider") or "unknown"],
+        source_date=status.get("source_date") or financials.get("source_date") or "",
+        confidence=confidence,
+        limitations=financials.get("limitations", []),
+        missing_data=financials.get("missing_data", []),
+        source_status=build_source_status(financials).model_copy(update=status) if status else build_source_status(financials),
+    )
+
+
+def _build_valuation_context(profile: dict, financials: dict) -> ScoreObject:
+    missing_data: list[str] = []
+    market_cap = profile.get("market_cap")
+    enterprise_value = profile.get("enterprise_value")
+    revenue_ttm = financials.get("revenue_ttm")
+    free_cash_flow_ttm = financials.get("free_cash_flow_ttm")
+    price_to_sales = _safe_ratio(market_cap, revenue_ttm, missing_data, "market_cap or revenue_ttm unavailable for price_to_sales_ttm")
+    ev_to_sales = _safe_ratio(enterprise_value, revenue_ttm, missing_data, "enterprise_value or revenue_ttm unavailable for ev_to_sales_ttm")
+    price_to_fcf = _safe_ratio(market_cap, free_cash_flow_ttm, missing_data, "market_cap or free_cash_flow_ttm unavailable for price_to_free_cash_flow_ttm")
+    ev_to_fcf = _safe_ratio(enterprise_value, free_cash_flow_ttm, missing_data, "enterprise_value or free_cash_flow_ttm unavailable for ev_to_free_cash_flow_ttm")
+    multiples = [value for value in [price_to_sales, ev_to_sales, price_to_fcf, ev_to_fcf] if value is not None]
+    if not multiples:
+        label = "insufficient"
+        score = 50
+        summary = "Valuation context is insufficient because live market value and fundamental denominators are incomplete."
+    elif (price_to_sales is not None and price_to_sales >= 15) or (ev_to_sales is not None and ev_to_sales >= 18) or (price_to_fcf is not None and price_to_fcf >= 60):
+        label = "elevated"
+        score = 35
+        summary = "Valuation context is elevated as a research risk flag based on available live or cached inputs."
+    elif (price_to_sales is not None and price_to_sales >= 8) or (ev_to_sales is not None and ev_to_sales >= 10):
+        label = "moderate"
+        score = 55
+        summary = "Valuation context is moderate based on available live or cached inputs."
+    else:
+        label = "low"
+        score = 70
+        summary = "Valuation context is not elevated based on available live or cached inputs."
+    profile_status = _status_dict(profile.get("source_status"))
+    fundamentals_status = _status_dict(financials.get("source_status"))
+    source_types = {profile_status.get("source_type"), fundamentals_status.get("source_type")}
+    if source_types <= {"live", "cached_live"}:
+        source_type = "derived"
+        provider = "derived_from_yfinance"
+    elif any(item in {"live", "cached_live", "derived"} for item in source_types):
+        source_type = "derived"
+        provider = "derived_from_yfinance"
+    else:
+        source_type = "mock"
+        provider = "mock"
+    source_date = max([item for item in [profile_status.get("source_date"), fundamentals_status.get("source_date")] if item], default="")
+    limitations = sorted(set([*profile.get("limitations", []), *financials.get("limitations", []), "Valuation context is risk context only and is not an investment instruction."]))
+    missing = sorted(set([*missing_data, *profile.get("missing_data", []), *financials.get("missing_data", [])]))
+    source_status = build_source_status(
+        {
+            "source_type": source_type,
+            "provider": provider,
+            "source_date": source_date,
+            "limitations": limitations,
+            "missing_data": missing,
+            "fallback_used": bool(profile_status.get("fallback_used") or fundamentals_status.get("fallback_used")),
+            "fallback_reason": profile_status.get("fallback_reason") or fundamentals_status.get("fallback_reason"),
+        }
+    )
+    return ScoreObject(
+        name="valuation_context_score",
+        score=score,
+        label=label,
+        raw_data={
+            "ticker": profile.get("ticker") or financials.get("ticker"),
+            "market_cap": market_cap,
+            "enterprise_value": enterprise_value,
+            "price_to_sales_ttm": price_to_sales,
+            "ev_to_sales_ttm": ev_to_sales,
+            "price_to_free_cash_flow_ttm": price_to_fcf,
+            "ev_to_free_cash_flow_ttm": ev_to_fcf,
+            "gross_margin_pct": financials.get("gross_margin_pct"),
+            "revenue_growth_yoy_pct": financials.get("revenue_yoy_growth_pct"),
+            "valuation_risk_label": label,
+            "valuation_summary": summary,
+            "source_status": source_status.model_dump(mode="json"),
+            "limitations": limitations,
+            "missing_data": missing,
+        },
+        derived_metrics={
+            "valuation_risk_label": label,
+            "available_multiple_count": len(multiples),
+            "valuation_summary": summary,
+        },
+        benchmark={
+            "price_to_sales_elevated": 15,
+            "ev_to_sales_elevated": 18,
+            "price_to_free_cash_flow_elevated": 60,
+        },
+        trend={"valuation_pressure": "elevated" if label == "elevated" else "not_elevated" if label in {"low", "moderate"} else "insufficient"},
+        source=[provider],
+        source_date=source_date,
+        confidence=0.68 if multiples else 0.42,
+        limitations=limitations,
+        missing_data=missing,
+        source_status=source_status,
+    )
+
+
 def _limited(items: list[str], fallback: str, limit: int = 3) -> list[str]:
     clean = [str(item) for item in items if item]
     return clean[:limit] or [fallback]
@@ -155,6 +338,8 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
     component_statuses = {
         "macro_environment": _status_dict(response.macro_regime.source_status),
         "company_profile": _status_dict(response.company_profile.get("source_status")),
+        "financial_quality": _status_dict(response.financial_quality.source_status),
+        "valuation_context": _status_dict(response.valuation_context.source_status),
         "leadership_score": _status_dict(response.leadership_score.source_status),
         "smart_money": _status_dict(response.smart_money.source_status),
         "insider_activity": _status_dict(response.insider_activity.get("source_status")),
@@ -177,11 +362,13 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         for status in component_statuses.values()
         if status.get("source_type") in {"live", "cached_live", "fallback", "derived"} and status.get("is_fresh") is False
     )
-    critical_mock = {"company_profile", "leadership_score"} & set(mock_categories)
+    critical_mock = {"company_profile", "financial_quality", "leadership_score"} & set(mock_categories)
     if mock_components >= 4 or missing_source_date_categories:
         grade = "D"
-    elif critical_mock and fallback_components:
+    elif {"company_profile", "financial_quality"} & set(mock_categories):
         grade = "C"
+    elif critical_mock and fallback_components:
+        grade = "B"
     elif critical_mock or fallback_components:
         grade = "B"
     else:
@@ -194,14 +381,14 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         summary = "Live or derived source context is present, but some candidate-specific evidence remains preliminary."
     elif grade == "C":
         mode = "mixed_preliminary"
-        summary = "Important company or leadership evidence is mock-based and filing evidence includes fallback or cached-limited components."
+        summary = "Important company or fundamentals evidence remains mock-based or only partially improved."
     else:
         mode = "mostly_mock" if mock_components else "insufficient"
         summary = "Source quality is too limited for more than preliminary research triage."
     confidence_cap_applied = response.research_verdict.confidence <= MOCK_LEADERSHIP_CONFIDENCE_CAP and bool(critical_mock or fallback_components)
     cap_reason = None
     if confidence_cap_applied:
-        cap_reason = "Mock company or leadership evidence and fallback/cached-limited evidence cap analyze-stock confidence."
+        cap_reason = "Mock leadership evidence or fallback/cached-limited evidence caps analyze-stock confidence."
     return {
         "mode": mode,
         "confidence_cap_applied": confidence_cap_applied,
@@ -282,6 +469,8 @@ def _build_institutional_13f(score: ScoreObject, ticker: str, sec_filings: dict)
 
 def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
     company_status = _status_dict(response.company_profile.get("source_status"))
+    financial_status = _status_dict(response.financial_quality.source_status)
+    valuation_status = _status_dict(response.valuation_context.source_status)
     leadership_status = _status_dict(response.leadership_score.source_status)
     smart_status = _status_dict(response.smart_money.source_status)
     insider_status = _status_dict(response.insider_activity.get("source_status"))
@@ -294,7 +483,7 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
             "status": _score_status(response.macro_regime.score),
             "score": response.macro_regime.score,
             "confidence": response.macro_regime.confidence,
-            "source_quality": "derived_live" if macro_quality and macro_quality.mock_context_score_weight_pct == 0 else _source_quality_from_status(_status_dict(response.macro_regime.source_status)),
+            "source_quality": "derived_live" if macro_quality and macro_quality.mock_context_score_weight_pct == 0 else _source_quality_from_status(_status_dict(response.macro_regime.source_status), category="macro_environment"),
             "summary": f"Macro score is {response.macro_regime.label} under macro_v12_5.",
             "key_evidence": _limited(
                 [
@@ -312,9 +501,51 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
             "score": None,
             "confidence": 0.35 if company_status.get("source_type") == "mock" else 0.65,
             "source_quality": _source_quality_from_status(company_status),
-            "summary": "Company profile is mock-based preliminary context.",
-            "key_evidence": _limited([str(response.company_profile.get("company_name", "")), str(response.company_profile.get("sector", ""))], "Company profile evidence unavailable."),
+            "summary": "Company profile uses live or cached yfinance context." if company_status.get("source_type") in {"live", "cached_live", "derived"} else "Company profile is mock-based preliminary context.",
+            "key_evidence": _limited(
+                [
+                    str(response.company_profile.get("company_name", "")),
+                    str(response.company_profile.get("sector", "")),
+                    f"Market cap: {response.company_profile.get('market_cap')}",
+                ],
+                "Company profile evidence unavailable.",
+            ),
             "limitations": _limited(company_status.get("limitations", []), "Company profile remains preliminary."),
+        },
+        {
+            "category": "financial_quality",
+            "status": _score_status(response.financial_quality.score),
+            "score": response.financial_quality.score,
+            "confidence": response.financial_quality.confidence,
+            "source_quality": _source_quality_from_status(financial_status),
+            "summary": "Financial quality uses live or cached yfinance fundamentals when available.",
+            "key_evidence": _limited(
+                [
+                    f"Revenue TTM: {response.financial_quality.raw_data.get('revenue_ttm')}",
+                    f"Revenue YoY growth: {response.financial_quality.raw_data.get('revenue_yoy_growth_pct')}%",
+                    f"Gross margin: {response.financial_quality.raw_data.get('gross_margin_pct')}%",
+                    f"Free cash flow TTM: {response.financial_quality.raw_data.get('free_cash_flow_ttm')}",
+                ],
+                "Financial quality evidence unavailable.",
+            ),
+            "limitations": _limited(response.financial_quality.limitations, "Financial quality source limitations unavailable."),
+        },
+        {
+            "category": "valuation_context",
+            "status": "caution" if response.valuation_context.label == "elevated" else "insufficient" if response.valuation_context.label == "insufficient" else "neutral",
+            "score": response.valuation_context.score,
+            "confidence": response.valuation_context.confidence,
+            "source_quality": _source_quality_from_status(valuation_status),
+            "summary": response.valuation_context.raw_data.get("valuation_summary", "Valuation context is risk context only."),
+            "key_evidence": _limited(
+                [
+                    f"Price to sales TTM: {response.valuation_context.raw_data.get('price_to_sales_ttm')}",
+                    f"EV to sales TTM: {response.valuation_context.raw_data.get('ev_to_sales_ttm')}",
+                    f"Valuation risk label: {response.valuation_context.raw_data.get('valuation_risk_label')}",
+                ],
+                "Valuation context unavailable.",
+            ),
+            "limitations": _limited(response.valuation_context.limitations, "Valuation source limitations unavailable."),
         },
         {
             "category": "leadership_score",
@@ -386,8 +617,10 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
 def _build_manual_checks(response: AnalyzeStockResponse) -> list[dict]:
     dq = response.data_quality_summary
     has_mock = bool(dq.mock_evidence_categories)
+    profile_live = "company_profile" not in dq.mock_evidence_categories and "company_profile" not in dq.fallback_evidence_categories
+    fundamentals_live = "financial_quality" not in dq.mock_evidence_categories and "financial_quality" not in dq.fallback_evidence_categories
     checks = []
-    if has_mock:
+    if has_mock and not profile_live:
         checks.append(
             {
                 "priority": "high",
@@ -405,10 +638,16 @@ def _build_manual_checks(response: AnalyzeStockResponse) -> list[dict]:
                 "reason": "Jane 20-item leadership quality should not be treated as live-confirmed while mock-based.",
             },
             {
-                "priority": "medium",
+                "priority": "medium" if fundamentals_live else "high",
                 "area": "filings",
-                "check": "Review latest 10-K or 10-Q for revenue growth, margins, cash flow, and risk factors.",
-                "reason": "Fundamental filing evidence is outside the current automated provider set.",
+                "check": "Review latest 10-K/10-Q footnotes and segment trends.",
+                "reason": "Automated fundamentals require human review against filed disclosures and segment context.",
+            },
+            {
+                "priority": "medium",
+                "area": "company_fundamentals",
+                "check": "Confirm whether reported fundamentals align with external thesis.",
+                "reason": "User-provided research context remains separate from source evidence.",
             },
             {
                 "priority": "medium",
@@ -517,6 +756,39 @@ def _build_score_driver_breakdown(response: AnalyzeStockResponse) -> dict:
                 "summary": "Form 4 evidence is limited by fallback, cached-after-failure, or insufficient source context.",
             }
         )
+    financial_quality = _source_quality_from_status(_status_dict(response.financial_quality.source_status))
+    if financial_quality in {"live_backed", "cached_live", "derived_live"} and response.financial_quality.derived_metrics.get("available_core_metric_count", 0) >= 3:
+        target = positive if response.financial_quality.score >= 65 else neutral
+        target.append(
+            {
+                "name": "live_financial_quality",
+                "category": "financial_quality",
+                "effect": "positive" if response.financial_quality.score >= 65 else "limiting",
+                "source_quality": financial_quality,
+                "summary": "Financial quality uses live or cached company fundamentals with core metrics available.",
+            }
+        )
+    else:
+        neutral.append(
+            {
+                "name": "financial_quality_not_live_confirmed",
+                "category": "financial_quality",
+                "effect": "insufficient",
+                "source_quality": financial_quality,
+                "summary": "Missing or mock fundamentals do not contribute as a positive driver.",
+            }
+        )
+    valuation_quality = _source_quality_from_status(_status_dict(response.valuation_context.source_status))
+    if response.valuation_context.label == "elevated":
+        limiting.append(
+            {
+                "name": "valuation_context_elevated",
+                "category": "valuation_context",
+                "effect": "limiting",
+                "source_quality": valuation_quality,
+                "summary": "Elevated valuation is treated as research risk context only.",
+            }
+        )
     if response.missing_data:
         limiting.append(
             {
@@ -540,6 +812,9 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
     dq = response.data_quality_summary
     leadership_mock = "leadership_score" in dq.mock_evidence_categories
     company_mock = "company_profile" in dq.mock_evidence_categories
+    fundamentals_mock = "financial_quality" in dq.mock_evidence_categories
+    company_live = not company_mock and "company_profile" not in dq.fallback_evidence_categories
+    fundamentals_live = not fundamentals_mock and "financial_quality" not in dq.fallback_evidence_categories
     smart_limited = "smart_money" in dq.fallback_evidence_categories or "insider_activity" in dq.fallback_evidence_categories
     strengths = []
     if response.macro_regime.score >= 56:
@@ -550,22 +825,34 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
         strengths.append("Leadership score clears watchlist-level threshold with non-mock source context.")
     elif response.leadership_score.score >= 12:
         strengths.append("Mock leadership score clears watchlist-level threshold but remains preliminary.")
+    if company_live:
+        strengths.append("Company profile is live or cached-live instead of mock-only.")
+    if fundamentals_live:
+        strengths.append("Financial quality includes live or cached fundamentals context.")
     risks = []
     if leadership_mock:
         risks.append("Leadership evidence is mock-based and cannot confirm live leadership quality.")
     if company_mock:
-        risks.append("Company profile and fundamentals remain mock-based.")
+        risks.append("Company profile remains mock-based.")
+    if fundamentals_mock:
+        risks.append("Financial quality remains mock-based or incomplete.")
     if smart_limited:
         risks.append("Smart-money evidence includes fallback or cached-limited components.")
     if response.risk_flags:
         risks.extend(response.risk_flags[:3])
     missing_or_mock = sorted(set([*dq.mock_evidence_categories, *dq.fallback_evidence_categories, *response.missing_data[:5]]))
     env = f"Macro environment is {response.macro_regime.label} with {response.macro_regime.confidence:.2f} confidence."
-    company = "Company evidence remains preliminary because profile or leadership data is mock-based." if (leadership_mock or company_mock) else "Company evidence has non-mock source status in the current response."
+    if company_live and fundamentals_live and leadership_mock:
+        company = "Live company profile and fundamentals are available; leadership evidence remains mock-based until a later phase."
+    elif company_live:
+        company = "Live company profile is available; fundamentals or leadership evidence still needs verification."
+    else:
+        company = "Company evidence remains preliminary because profile, fundamentals, or leadership data is mock-based."
     smart = "Smart-money assessment is limited by fallback or cached components." if smart_limited else f"Smart-money assessment is {response.smart_money.label}."
     overall = (
         f"{response.ticker} qualifies as a {response.research_verdict.label} research candidate under the current validation framework. "
-        f"Macro context is {response.macro_regime.label}, company leadership evidence "
+        f"Macro context is {response.macro_regime.label}, company profile/fundamentals evidence "
+        f"{'uses live or cached sources' if company_live and fundamentals_live else 'remains partly preliminary'}, leadership evidence "
         f"{'remains mock-based' if leadership_mock else 'has source metadata'}, and smart-money evidence "
         f"{'includes fallback or cached-limited components' if smart_limited else 'is available with disclosed limitations'}. "
         "Further manual validation is required before treating the candidate as high conviction."
@@ -596,6 +883,8 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     macro_snapshot = read_macro_data("normal", market_context_seed=market_context)
     macro_regime = evaluate_macro_regime(macro_snapshot)
     sec_filings = read_sec_filings(request.ticker)
+    company_profile = get_company_profile(request.ticker)
+    company_fundamentals = get_company_fundamentals(request.ticker)
     smart_money_data = {**fixture["smart_money"], **sec_filings}
     engine_context = {
         **fixture,
@@ -604,6 +893,12 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         "friends_asking_about_stock": request.user_context.friends_asking_about_stock,
     }
     missing_data = list(fixture["missing_data"])
+    if company_profile.get("source_status", {}).get("source_type") not in {"live", "cached_live", "derived"}:
+        missing_data.append("live yfinance company profile")
+    if company_fundamentals.get("source_status", {}).get("source_type") not in {"live", "cached_live", "derived"}:
+        missing_data.append("live yfinance fundamentals")
+    missing_data.extend(company_profile.get("missing_data", []))
+    missing_data.extend(company_fundamentals.get("missing_data", []))
     if market_context.get("source_type") != "live":
         missing_data.append("live price history")
     if sec_filings.get("form4_source_status", {}).get("source_type") not in {"live", "cached_live"}:
@@ -624,26 +919,27 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         institutional_13f = ScoreObject.model_validate(institutional_13f)
     leadership_percent = leadership_score.score / leadership_score.max_score * 100
     leadership_status = build_source_status(leadership_score.model_dump(mode="json"))
-    company_profile_status = build_source_status(
-        {
-            "source_type": "mock",
-            "provider": "phase1_mock_company_profile",
-            "source": ["phase1_mock_company_profile"],
-            "source_date": MOCK_SOURCE_DATE,
-            "limitations": ["Company profile remains mock-based preliminary evidence."],
-            "missing_data": [],
-        }
-    )
+    company_profile_status = build_source_status(company_profile)
+    financial_quality = _build_financial_quality_score(company_fundamentals)
+    valuation_context = _build_valuation_context(company_profile, company_fundamentals)
     form4_status = sec_filings.get("form4_source_status", {})
     thirteen_f_status = sec_filings.get("institutional_13f_source_status", {})
     mock_evidence_present = (
         leadership_status.source_type == "mock"
         or company_profile_status.source_type == "mock"
+        or bool(financial_quality.source_status and financial_quality.source_status.source_type == "mock")
         or market_context.get("source_type") in {"mock", "fallback"}
     )
     fallback_evidence_present = any(
         status.get("fallback_used") or status.get("source_type") == "fallback"
-        for status in [form4_status, thirteen_f_status, _status_dict(smart_money.source_status)]
+        for status in [
+            form4_status,
+            thirteen_f_status,
+            _status_dict(smart_money.source_status),
+            _status_dict(company_profile.get("source_status")),
+            _status_dict(financial_quality.source_status),
+            _status_dict(valuation_context.source_status),
+        ]
         if status
     )
     macro_provider = macro_regime.source_status.provider if macro_regime.source_status else ""
@@ -655,7 +951,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         macro_score=macro_regime.score,
         overheat_score=overheat_risk.score,
         missing_data_count=len(missing_data),
-        confidence_inputs=[leadership_score.confidence, smart_money.confidence, macro_regime.confidence, overheat_risk.confidence],
+        confidence_inputs=[leadership_score.confidence, smart_money.confidence, macro_regime.confidence, overheat_risk.confidence, financial_quality.confidence],
         mock_evidence_present=mock_evidence_present,
         fallback_evidence_present=fallback_evidence_present,
         live_macro_present=bool(live_macro_present),
@@ -708,14 +1004,9 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         },
         next_manual_checks=[],
         company_profile={
-            "company_name": fixture["company_name"],
-            "sector": fixture["sector"],
-            "market": "US",
-            "themes": fixture["themes"],
-            "source": ["phase1_mock_company_profile"],
-            "source_date": MOCK_SOURCE_DATE,
+            **company_profile,
+            "themes": company_profile.get("themes", fixture["themes"]),
             "market_price_source_type": market_context.get("source_type", "mock"),
-            "source_status": company_profile_status.model_dump(mode="json"),
             "research_context": research_context,
         },
         macro_regime=macro_regime,
@@ -725,37 +1016,14 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         smart_money=smart_money,
         insider_activity=insider_activity_payload,
         institutional_13f=institutional_13f_payload,
-        financial_quality=score_object(
-            "financial_quality_score",
-            min(100, 50 + fixture["free_cash_flow_margin_pct"] - max(0, fixture["net_debt_to_ebitda"]) * 5),
-            "favorable_research_environment" if fixture["free_cash_flow_margin_pct"] >= 15 else "neutral",
-            {
-                "free_cash_flow_margin_pct": fixture["free_cash_flow_margin_pct"],
-                "net_debt_to_ebitda": fixture["net_debt_to_ebitda"],
-            },
-            {"cash_generation_proxy": fixture["free_cash_flow_margin_pct"]},
-            {"fcf_margin_supportive_pct": 15, "net_debt_to_ebitda_watch": 3},
-            {"financial_quality": "up" if fixture["free_cash_flow_margin_pct"] >= 15 else "mixed"},
-            0.62,
-            missing_data=["live income statement", "live balance sheet"],
-        ),
-        valuation_context=score_object(
-            "valuation_context_score",
-            100 - fixture["valuation_percentile_vs_5y"],
-            "elevated_heat" if fixture["valuation_percentile_vs_5y"] >= 75 else "neutral",
-            {"valuation_percentile_vs_5y": fixture["valuation_percentile_vs_5y"]},
-            {"relative_expensiveness_proxy": fixture["valuation_percentile_vs_5y"]},
-            {"elevated_heat_percentile": 75},
-            {"valuation_pressure": "up" if fixture["valuation_percentile_vs_5y"] >= 75 else "stable"},
-            0.60,
-            missing_data=["live peer valuation multiples"],
-        ),
+        financial_quality=financial_quality,
+        valuation_context=valuation_context,
         risk_flags=[
             flag
             for flag, present in {
-                "valuation_context_elevated": fixture["valuation_percentile_vs_5y"] >= 75,
+                "valuation_context_elevated": valuation_context.label == "elevated",
                 "social_heat_elevated": request.user_context.social_discussion_level == "high",
-                "financial_quality_mixed": fixture["free_cash_flow_margin_pct"] < 5,
+                "financial_quality_mixed": financial_quality.score < 50,
                 "macro_context_cautious": macro_regime.score < 45,
             }.items()
             if present

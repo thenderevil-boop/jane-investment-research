@@ -11,6 +11,8 @@ from backend.app.jobs.daily_research_refresh import refresh_daily_research_snaps
 from backend.app.middleware.safety_filter import SafetyViolationError, check_safety
 from backend.app.pipelines.mock_pipeline import build_daily_report
 from backend.app.raw_store.repository import (
+    get_company_fundamentals,
+    get_company_profile,
     get_market_data,
     is_daily_report_snapshot_fresh,
     read_daily_report_snapshot,
@@ -101,6 +103,12 @@ def data_health() -> DataHealthResponse:
                 "enabled": config.USE_LIVE_MARKET_DATA,
                 "provider": config.MARKET_DATA_PROVIDER,
                 "source_type": "live" if config.USE_LIVE_MARKET_DATA else "mock",
+                "requires_secret": False,
+            },
+            "yfinance company data": {
+                "enabled": config.USE_LIVE_COMPANY_DATA,
+                "provider": config.COMPANY_DATA_PROVIDER,
+                "source_type": "live" if config.USE_LIVE_COMPANY_DATA else "mock",
                 "requires_secret": False,
             },
             "FRED": {
@@ -263,6 +271,8 @@ def raw_data_by_ticker(ticker: str) -> RawDataResponse:
     normalized_ticker = ticker.strip().upper()
     fixture = STOCK_FIXTURES.get(normalized_ticker, DEFAULT_STOCK)
     market_snapshot = get_market_data(normalized_ticker)
+    company_profile = get_company_profile(normalized_ticker)
+    company_fundamentals = get_company_fundamentals(normalized_ticker)
     sec_filings = read_sec_filings(normalized_ticker)
     source_status = build_source_status(market_snapshot)
     form4_live = sec_filings.get("form4_source_status", {}).get("source_type") in {"live", "cached_live"}
@@ -271,14 +281,16 @@ def raw_data_by_ticker(ticker: str) -> RawDataResponse:
         ticker=normalized_ticker,
         raw_data={
             "company_fixture": fixture,
+            "company_profile_snapshot": company_profile,
+            "company_fundamentals_snapshot": company_fundamentals,
             "market_price_snapshot": market_snapshot,
             "sec_form4_snapshot": sec_filings.get("form4_snapshot", {}),
             "sec_13f_snapshot": sec_filings.get("institutional_13f_snapshot", {}),
-            "note": "Company fixture remains mock-only; market price, SEC Form 4, and SEC 13F snapshots may be live when enabled.",
+            "note": "Company profile, company fundamentals, market price, SEC Form 4, and SEC 13F snapshots may be live when enabled.",
         },
         source=MOCK_SOURCE,
         source_date=MOCK_SOURCE_DATE,
-        limitations=["Company fundamentals remain mock fixtures; live integrations currently cover market prices, FRED macro data, opt-in SEC Form 4, and opt-in SEC 13F."],
+        limitations=["Company profile and fundamentals may use yfinance when enabled; live integrations also cover market prices, FRED macro data, opt-in SEC Form 4, and opt-in SEC 13F."],
         missing_data=[*([] if form4_live and thirteen_f_live else ["live SEC filings"]), "live options feed"],
         source_status=source_status,
     )

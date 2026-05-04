@@ -8,19 +8,19 @@ Build a US-market-only investment research automation system based on Jane's Mar
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
-## Phase 14 Analyze-Stock Response Composition
+## Phase 15 Company Fundamentals Live Integration
 
 `POST /api/analyze-stock` is now the primary product workflow. The user brings externally discovered themes and candidate tickers; the system validates each US-listed ticker with structured evidence and Jane methodology.
 
 Analyze-stock responses now lead with a readable candidate validation report:
 
 - `candidate_validation_summary` is the main user-facing summary.
-- `evidence_matrix` is the main explanation layer across macro, company profile, leadership, smart money, Form 4, 13F, and risk flags.
+- `evidence_matrix` is the main explanation layer across macro, company profile, financial quality, valuation context, leadership, smart money, Form 4, 13F, and risk flags.
 - `data_quality_summary` converts raw source-quality counts into a source-quality grade and confidence-cap explanation.
 - `score_driver_breakdown` separates positive, limiting, and neutral score drivers.
 - `next_manual_checks` lists research-oriented follow-up checks.
 
-Raw engine evidence remains available for audit in the existing score objects and raw evidence panels. Mock and fallback evidence lowers or caps confidence. Future Industry Radar is not required for analyze-stock.
+Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, and valuation context use live or cached yfinance data when available and fall back to clearly labeled mock fixtures when unavailable. Valuation context is risk context only, not an investment instruction. Leadership remains mock-disclosed until a later live leadership evidence phase. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
 
@@ -37,6 +37,7 @@ Completed live integrations now documented in this README:
 - Phase 12: macro modernization with `macro_v12_5`
 - Phase 13: analyze-stock first architecture
 - Phase 14: analyze-stock response composition and data-quality cleanup
+- Phase 15: yfinance-backed company profile, fundamentals, and derived valuation context
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 
@@ -123,6 +124,8 @@ None of these are direct investment recommendations.
 |---|---|---|---|
 | USE_LIVE_MARKET_DATA | false | yfinance live prices | |
 | MARKET_DATA_PROVIDER | yfinance | yfinance live prices | |
+| USE_LIVE_COMPANY_DATA | follows USE_LIVE_MARKET_DATA | yfinance company profile and fundamentals | |
+| COMPANY_DATA_PROVIDER | yfinance | yfinance company profile and fundamentals | |
 | USE_LIVE_MACRO_DATA | false | FRED live macro | |
 | MACRO_DATA_PROVIDER | fred | FRED live macro | |
 | FRED_API_KEY | none | FRED live macro | secret; never expose |

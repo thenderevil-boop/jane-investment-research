@@ -14,6 +14,8 @@ def _env_bool(name: str, default: bool = False) -> bool:
 USE_LIVE_MARKET_DATA = _env_bool("USE_LIVE_MARKET_DATA", False)
 MARKET_DATA_PROVIDER = os.getenv("MARKET_DATA_PROVIDER", "yfinance").strip().lower() or "yfinance"
 MARKET_DATA_CACHE_DIR = Path(os.getenv("MARKET_DATA_CACHE_DIR", "backend/raw_store/cache"))
+USE_LIVE_COMPANY_DATA = _env_bool("USE_LIVE_COMPANY_DATA", USE_LIVE_MARKET_DATA)
+COMPANY_DATA_PROVIDER = os.getenv("COMPANY_DATA_PROVIDER", "yfinance").strip().lower() or "yfinance"
 
 USE_LIVE_MACRO_DATA = _env_bool("USE_LIVE_MACRO_DATA", False)
 FRED_API_KEY = os.getenv("FRED_API_KEY", "").strip()

@@ -535,6 +535,26 @@ th {
   padding: 10px;
 }
 
+.fundamentalsGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin: 14px 0;
+}
+
+.fundamentalsGrid div {
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 0;
+}
+
+.fundamentalsGrid span {
+  overflow-wrap: anywhere;
+}
+
 .evidenceMatrix {
   display: grid;
   gap: 12px;
