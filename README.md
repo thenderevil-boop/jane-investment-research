@@ -8,6 +8,18 @@ Build a US-market-only investment research automation system based on Jane's Mar
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
+## Phase 15.5 Architecture Stabilization
+
+Phase 15.5 stabilizes the Phase 15 architecture before Jane Company Quality expansion:
+
+- `backend/app/pipelines/research_pipeline.py` is the main daily research pipeline.
+- `backend/app/pipelines/mock_pipeline.py` is a compatibility shim only.
+- `backend/app/raw_store/repository.py` is now a facade over focused raw-store modules for market, macro, SEC, company, snapshot, and price-reference cache access.
+- Daily report candidates are config-driven with `DEFAULT_DAILY_REPORT_CANDIDATES`, defaulting to `NVDA:AI energy infrastructure,TSLA:humanoid robotics`.
+- Daily batch refresh uses a per-job context instead of mutating global config such as `ALLOW_LIVE_FETCH_ON_REPORT_REQUEST` or `PRICE_REFERENCE_CACHE_WARMUP_ON_REPORT`.
+- Source-status enrichment is legacy compatibility only; new engines should emit `source_status` directly.
+- `smart_money` is canonical. `smart_money_summary` remains only as a deprecated backward-compatible alias.
+
 ## Phase 15 Company Fundamentals Live Integration
 
 `POST /api/analyze-stock` is now the primary product workflow. The user brings externally discovered themes and candidate tickers; the system validates each US-listed ticker with structured evidence and Jane methodology.
@@ -161,6 +173,7 @@ None of these are direct investment recommendations.
 | PRICE_REFERENCE_CACHE_WARMUP_ON_STARTUP | false | 13F price reference warmup | optional bounded ticker-level cache warmup |
 | PRICE_REFERENCE_CACHE_WARMUP_ON_REPORT | false | 13F price reference warmup | optional bounded ticker-level cache warmup before daily report 13F summary |
 | PRICE_REFERENCE_CACHE_WARMUP_MAX_TICKERS | 20 | 13F price reference warmup | warmup ticker limit |
+| DEFAULT_DAILY_REPORT_CANDIDATES | NVDA:AI energy infrastructure,TSLA:humanoid robotics | daily report candidates | comma-separated `TICKER:theme`; analyze-stock remains request-ticker driven |
 | INCLUDE_PERFORMANCE_DIAGNOSTICS | false | daily report output | optional timing and cache counters |
 | ALLOW_LIVE_FETCH_ON_REPORT_REQUEST | false | quota guard | default should remain false |
 

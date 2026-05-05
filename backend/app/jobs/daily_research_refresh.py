@@ -6,13 +6,16 @@ from datetime import datetime, timezone
 from backend.app import config
 from backend.app.data_sources.mock_data import MOCK_SMART_MONEY_SUMMARY, STOCK_FIXTURES
 from backend.app.middleware.safety_filter import SafetyViolationError, check_safety
-from backend.app.pipelines.mock_pipeline import build_daily_report
+from backend.app.pipelines.research_pipeline import build_daily_report
 from backend.app.raw_store import repository
+from backend.app.services.daily_batch_context import DailyBatchContext, use_daily_batch_context
+from backend.app.services.daily_candidates import configured_daily_report_candidates
 
 
 def _daily_research_tickers() -> list[str]:
     tickers: list[str] = []
-    for ticker in ["NVDA", "TSLA", *STOCK_FIXTURES.keys()]:
+    configured_candidates, _warnings = configured_daily_report_candidates()
+    for ticker in [*(candidate.ticker for candidate in configured_candidates), *STOCK_FIXTURES.keys()]:
         normalized = str(ticker or "").strip().upper()
         if normalized and normalized not in tickers:
             tickers.append(normalized)
@@ -83,21 +86,17 @@ def refresh_daily_research_snapshot() -> dict[str, object]:
             allow_live_fetch=config.DAILY_BATCH_ALLOW_LIVE_FETCH,
         )
 
-    previous_allow_report_fetch = config.ALLOW_LIVE_FETCH_ON_REPORT_REQUEST
-    previous_price_warmup_on_report = config.PRICE_REFERENCE_CACHE_WARMUP_ON_REPORT
-    previous_batch_warmed = config.DAILY_BATCH_PRICE_REFERENCE_WARMED
-    try:
-        config.ALLOW_LIVE_FETCH_ON_REPORT_REQUEST = False
-        config.PRICE_REFERENCE_CACHE_WARMUP_ON_REPORT = False
-        config.DAILY_BATCH_PRICE_REFERENCE_WARMED = bool(
+    batch_context = DailyBatchContext(
+        allow_live_fetch_on_report_request=False,
+        price_reference_cache_warmup_on_report=False,
+        daily_batch_price_reference_warmed=bool(
             config.DAILY_BATCH_PRICE_REFERENCE_WARMUP
             and (refreshed.get("price_reference_warmup") or {}).get("selected_ticker_count", 0)
-        )
+        ),
+        batch_started_at=batch_refresh_started_at,
+    )
+    with use_daily_batch_context(batch_context):
         report = build_daily_report(report_clock=generated_at)
-    finally:
-        config.ALLOW_LIVE_FETCH_ON_REPORT_REQUEST = previous_allow_report_fetch
-        config.PRICE_REFERENCE_CACHE_WARMUP_ON_REPORT = previous_price_warmup_on_report
-        config.DAILY_BATCH_PRICE_REFERENCE_WARMED = previous_batch_warmed
 
     batch_refresh_completed_at = datetime.now(timezone.utc)
     batch_duration_ms = int(round((time.monotonic() - started_at) * 1000))
@@ -112,6 +111,7 @@ def refresh_daily_research_snapshot() -> dict[str, object]:
         "batch_refresh_started_at": batch_refresh_started_at.isoformat(),
         "batch_refresh_completed_at": batch_refresh_completed_at.isoformat(),
         "batch_duration_ms": batch_duration_ms,
+        "price_reference_warmup": refreshed.get("price_reference_warmup", {}),
     }
     if warnings:
         payload["limitations"] = sorted(set([*payload.get("limitations", []), *warnings]))
@@ -130,6 +130,7 @@ def refresh_daily_research_snapshot() -> dict[str, object]:
         "batch_refresh_started_at": batch_refresh_started_at.isoformat(),
         "batch_refresh_completed_at": batch_refresh_completed_at.isoformat(),
         "runtime_budget_seconds": config.DAILY_BATCH_MAX_RUNTIME_SECONDS,
+        "price_reference_warmup": refreshed.get("price_reference_warmup", {}),
         "refreshed": refreshed,
         "warnings": warnings,
     }

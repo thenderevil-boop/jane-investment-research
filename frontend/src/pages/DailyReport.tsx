@@ -41,7 +41,7 @@ function ScoreEvidence({ title, score }: { title: string; score?: ScoreLike }) {
 
 function collectLimitations(report?: DailyReport): string[] {
   if (!report) return [];
-  const scores = [report.macro_regime, report.market_timing, report.overheat_risk, report.crisis_risk, report.smart_money_summary, ...(report.future_themes ?? [])];
+  const scores = [report.macro_regime, report.market_timing, report.overheat_risk, report.crisis_risk, report.smart_money ?? report.smart_money_summary, ...(report.future_themes ?? [])];
   const scoreLimitations = scores.flatMap((score) => score?.limitations ?? []);
   return Array.from(new Set([...scoreLimitations, ...(report.crisis?.limitations ?? []), ...(report.risk_allocation?.limitations ?? []), ...(report.limitations ?? [])]));
 }

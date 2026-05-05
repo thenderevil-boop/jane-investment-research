@@ -5,6 +5,7 @@ from datetime import date
 from typing import Any
 
 from backend.app import config
+from backend.app.services.daily_batch_context import get_daily_batch_context
 from backend.app.data.security_map import resolve_security_identifier
 from backend.app.utils.freshness import THIRTEEN_F_FRESHNESS_WINDOW, build_source_status
 
@@ -223,13 +224,24 @@ def summarize_13f_portfolio(holdings: list[dict[str, Any]], top_holdings_limit: 
     price_reference_observed = price_reference_grouped_holding_count > 0 and (
         price_reference_cache_hit_count > 0 or price_reference_live_fetch_count > 0
     )
-    if config.DAILY_BATCH_PRICE_REFERENCE_WARMED and price_reference_observed:
+    batch_context = get_daily_batch_context()
+    daily_batch_price_reference_warmed = (
+        batch_context.daily_batch_price_reference_warmed
+        if batch_context is not None
+        else config.DAILY_BATCH_PRICE_REFERENCE_WARMED
+    )
+    price_reference_cache_warmup_on_report = (
+        batch_context.price_reference_cache_warmup_on_report
+        if batch_context is not None
+        else config.PRICE_REFERENCE_CACHE_WARMUP_ON_REPORT
+    )
+    if daily_batch_price_reference_warmed and price_reference_observed:
         price_reference_mode = "batch_warmed"
-    elif config.DAILY_BATCH_PRICE_REFERENCE_WARMED:
+    elif daily_batch_price_reference_warmed:
         price_reference_mode = "batch_warmup_failed"
     elif config.ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST:
         price_reference_mode = "live_allowed"
-    elif config.PRICE_REFERENCE_CACHE_WARMUP_ON_REPORT:
+    elif price_reference_cache_warmup_on_report:
         price_reference_mode = "cache_with_bounded_warmup"
     else:
         price_reference_mode = "cache_only"

@@ -68,7 +68,13 @@ DAILY_REPORT_READ_MODE = os.getenv("DAILY_REPORT_READ_MODE", "snapshot_first").s
 DAILY_BATCH_ALLOW_LIVE_FETCH = _env_bool("DAILY_BATCH_ALLOW_LIVE_FETCH", True)
 DAILY_BATCH_PRICE_REFERENCE_WARMUP = _env_bool("DAILY_BATCH_PRICE_REFERENCE_WARMUP", True)
 DAILY_BATCH_MAX_RUNTIME_SECONDS = float(os.getenv("DAILY_BATCH_MAX_RUNTIME_SECONDS", "180") or "180")
+# Deprecated mutable global retained for backward compatibility only. Batch-specific
+# warmup state must travel through DailyBatchContext.
 DAILY_BATCH_PRICE_REFERENCE_WARMED = False
+DEFAULT_DAILY_REPORT_CANDIDATES = os.getenv(
+    "DEFAULT_DAILY_REPORT_CANDIDATES",
+    "NVDA:AI energy infrastructure,TSLA:humanoid robotics",
+).strip()
 
 SEC_FORM4_MAX_FILINGS_PER_TICKER = int(os.getenv("SEC_FORM4_MAX_FILINGS_PER_TICKER", "10") or "10")
 SEC_FORM4_MAX_XML_DISCOVERY_PER_REPORT = int(os.getenv("SEC_FORM4_MAX_XML_DISCOVERY_PER_REPORT", "20") or "20")

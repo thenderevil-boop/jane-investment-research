@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-from copy import deepcopy
-
 from fastapi import APIRouter, Body, HTTPException, Query
 
 from backend.app import config
 from backend.app.data_sources.mock_data import DEFAULT_STOCK, MOCK_SOURCE, MOCK_SOURCE_DATE, STOCK_FIXTURES
-from backend.app.engines.macro_regime_engine import evaluate_macro_regime
 from backend.app.jobs.daily_research_refresh import refresh_daily_research_snapshot
 from backend.app.middleware.safety_filter import SafetyViolationError, check_safety
-from backend.app.pipelines.mock_pipeline import build_daily_report
+from backend.app.pipelines.research_pipeline import build_daily_report
 from backend.app.raw_store.repository import (
     get_company_fundamentals,
     get_company_profile,
@@ -25,6 +22,12 @@ from backend.app.schemas.health import HealthResponse
 from backend.app.schemas.macro_regime import MacroRegimeOutput
 from backend.app.schemas.stock_analysis import AnalyzeStockRequest, AnalyzeStockResponse
 from backend.app.schemas.supplemental import DataHealthResponse, RawDataResponse, ThemesLatestResponse, TickerSignalsResponse
+from backend.app.services.daily_report_service import latest_daily_report_response
+from backend.app.services.snapshot_metadata import (
+    ensure_macro_score_explanation as _ensure_macro_score_explanation,
+    metadata_from_snapshot as _metadata_from_snapshot,
+    with_daily_report_metadata as _with_daily_report_metadata,
+)
 from backend.app.utils.freshness import build_source_status
 
 router = APIRouter(prefix="/api")
@@ -46,48 +49,6 @@ def _ensure_safe_response(model):
             },
         ) from exc
     return model
-
-
-def _metadata_from_snapshot(snapshot: dict | None, *, snapshot_used: bool, snapshot_is_fresh: bool, status: str) -> DailyReportMetadata:
-    existing = snapshot.get("daily_report_metadata") if isinstance(snapshot, dict) and isinstance(snapshot.get("daily_report_metadata"), dict) else {}
-    return DailyReportMetadata(
-        read_mode=config.DAILY_REPORT_READ_MODE,
-        snapshot_used=snapshot_used,
-        snapshot_id=(snapshot or {}).get("snapshot_id") or existing.get("snapshot_id"),
-        snapshot_generated_at=(snapshot or {}).get("report_generated_at") or existing.get("snapshot_generated_at"),
-        snapshot_is_fresh=snapshot_is_fresh,
-        batch_refresh_status=(existing.get("batch_refresh_status") if snapshot_used else None) or status,
-        batch_refresh_started_at=existing.get("batch_refresh_started_at"),
-        batch_refresh_completed_at=existing.get("batch_refresh_completed_at") or (snapshot or {}).get("cached_at"),
-        batch_duration_ms=existing.get("batch_duration_ms"),
-    )
-
-
-def _with_daily_report_metadata(report: DailyResearchReport, metadata: DailyReportMetadata) -> DailyResearchReport:
-    _ensure_macro_score_explanation(report)
-    report.daily_report_metadata = metadata
-    return report
-
-
-def _ensure_macro_score_explanation(report: DailyResearchReport) -> None:
-    macro = report.macro_regime
-    if macro is None or macro.macro_score_explanation is not None:
-        return
-    try:
-        refreshed = evaluate_macro_regime(macro.raw_data or {})
-    except Exception:
-        return
-    if refreshed.macro_score_explanation is None:
-        return
-    explanation = deepcopy(refreshed.macro_score_explanation)
-    explanation["score"] = macro.score
-    explanation["label"] = macro.label
-    explanation["confidence"] = macro.confidence
-    if "confidence_explanation" in explanation:
-        explanation["confidence_explanation"]["confidence"] = macro.confidence
-    weighted_sum = float(explanation.get("weighted_contribution_sum") or 0)
-    explanation["rounding_difference"] = round(float(macro.score) - weighted_sum, 4)
-    macro.macro_score_explanation = explanation
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -154,57 +115,7 @@ def data_health() -> DataHealthResponse:
 
 @router.get("/daily-report/latest", response_model=DailyResearchReport)
 def latest_daily_report(use_live_market_data: bool | None = Query(default=None)) -> DailyResearchReport:
-    if use_live_market_data is None and config.DAILY_REPORT_READ_MODE == "snapshot_first":
-        snapshot = read_daily_report_snapshot()
-        snapshot_fresh = is_daily_report_snapshot_fresh(snapshot)
-        if snapshot_fresh:
-            return _ensure_safe_response(
-                _with_daily_report_metadata(
-                    DailyResearchReport.model_validate(snapshot),
-                    _metadata_from_snapshot(snapshot, snapshot_used=True, snapshot_is_fresh=True, status="completed"),
-                )
-            )
-        if not config.DAILY_BATCH_ALLOW_LIVE_FETCH:
-            raise HTTPException(
-                status_code=503,
-                detail={
-                    "error": "daily_report_snapshot_missing_or_stale",
-                    "not_investment_advice": True,
-                    "daily_report_metadata": _metadata_from_snapshot(
-                        snapshot,
-                        snapshot_used=False,
-                        snapshot_is_fresh=False,
-                        status="fallback_compute_disabled",
-                    ).model_dump(mode="json"),
-                },
-            )
-        report = build_daily_report()
-        return _ensure_safe_response(
-            _with_daily_report_metadata(
-                report,
-                _metadata_from_snapshot(
-                    snapshot,
-                    snapshot_used=False,
-                    snapshot_is_fresh=False,
-                    status="computed_without_fresh_snapshot",
-                ),
-            )
-        )
-    if use_live_market_data is None:
-        report = build_daily_report()
-        return _ensure_safe_response(
-            _with_daily_report_metadata(
-                report,
-                DailyReportMetadata(read_mode=config.DAILY_REPORT_READ_MODE, snapshot_used=False, batch_refresh_status="computed_without_snapshot_mode"),
-            )
-        )
-    report = build_daily_report(use_live_market_data=use_live_market_data)
-    return _ensure_safe_response(
-        _with_daily_report_metadata(
-            report,
-            DailyReportMetadata(read_mode="explicit_query", snapshot_used=False, batch_refresh_status="computed_from_explicit_query"),
-        )
-    )
+    return _ensure_safe_response(latest_daily_report_response(use_live_market_data=use_live_market_data, build_report=build_daily_report))
 
 
 @router.post("/jobs/daily-research-refresh")

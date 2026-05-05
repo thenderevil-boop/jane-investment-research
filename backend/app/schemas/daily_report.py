@@ -20,6 +20,7 @@ class DailyReportMetadata(BaseModel):
     batch_refresh_started_at: str | None = None
     batch_refresh_completed_at: str | None = None
     batch_duration_ms: int | None = None
+    price_reference_warmup: dict | None = None
 
 
 class JaneReferenceCondition(BaseModel):

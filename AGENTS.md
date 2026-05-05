@@ -217,6 +217,15 @@ Minimum endpoints:
 
 The pipeline must produce one daily report object for background context, cache warmup, source health, and environment snapshot use. It is not the primary user workflow.
 
+Phase 15.5 architecture notes:
+
+- `backend/app/pipelines/research_pipeline.py` is the main pipeline; `mock_pipeline.py` is a compatibility shim only.
+- `backend/app/raw_store/repository.py` is a facade over focused raw-store cache modules.
+- Daily report candidates are config-driven; analyze-stock remains request-ticker driven.
+- Batch jobs must not mutate global config for temporary state. Use a request/job context object.
+- `_enrich_source_status` is legacy compatibility only. New engines must emit `source_status` directly.
+- `smart_money` is canonical; `smart_money_summary` is deprecated and retained for backward compatibility.
+
 1. macro regime
 2. market timing environment
 3. overheat risk

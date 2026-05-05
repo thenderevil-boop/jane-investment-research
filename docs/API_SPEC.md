@@ -32,6 +32,8 @@ Phase 11.5 defaults this endpoint to `DAILY_REPORT_READ_MODE=snapshot_first`. Wh
 
 Phase 11.5a adds `daily_report_metadata` to `/api/daily-report/latest` responses and stale-snapshot 503 details. Metadata includes `read_mode`, `snapshot_used`, `snapshot_id`, `snapshot_generated_at`, `snapshot_is_fresh`, `batch_refresh_status`, `batch_refresh_started_at`, `batch_refresh_completed_at`, and `batch_duration_ms`. The endpoint must not silently recompute without this metadata.
 
+Phase 15.5 keeps daily reports snapshot-first while stabilizing architecture. Daily batch refresh uses a per-job context instead of mutating global config for report live-fetch or price-reference warmup flags. Daily report candidates are config-driven through `DEFAULT_DAILY_REPORT_CANDIDATES`, with safe defaults matching the existing NVDA and TSLA background candidates. `smart_money` is canonical; `smart_money_summary` is deprecated and retained as an equal backward-compatible alias.
+
 Optional query parameter:
 
 - `use_live_market_data`: boolean. Defaults to environment configuration. When `true`, the backend attempts repository-backed yfinance OHLCV fetches for market price fields and falls back to mock market data if the fetch fails.
@@ -408,7 +410,7 @@ Endpoint implementers must keep Pydantic response models, JSON schemas in `schem
 
 ## raw_store Boundary
 
-Mock phases use `backend/app/raw_store/repository.py` as a repository interface over mock JSON-like fixtures. Live phases will replace the implementation with a SQLite-backed cache.
+Mock phases use `backend/app/raw_store/repository.py` as a repository interface over mock JSON-like fixtures. Live phases will replace the implementation with a SQLite-backed cache. Phase 15.5 makes `repository.py` a compatibility facade; new code should prefer focused raw-store modules such as `market_cache.py`, `macro_cache.py`, `sec_cache.py`, `company_cache.py`, `snapshot.py`, and `price_reference_cache.py`.
 
 Rule engines must not call external APIs directly. Engines should receive raw snapshots through repository interfaces so data collection, caching, and deterministic scoring remain separate.
 
@@ -511,7 +513,7 @@ Missing data is an array of strings under `missing_data`.
 
 `source_date` is the date of the underlying observation or filing. `fetched_at` is the cache/write or retrieval timestamp when available. `report_generated_at` is the timestamp for report assembly and must not be substituted for source freshness.
 
-`smart_money_summary` and `smart_money` currently contain the same score object. `smart_money` is the stable frontend-facing field; `smart_money_summary` is retained for backwards compatibility.
+`smart_money_summary` and `smart_money` currently contain the same score object. `smart_money` is the canonical frontend-facing field; `smart_money_summary` is deprecated and retained for backwards compatibility.
 
 ### FutureTheme
 

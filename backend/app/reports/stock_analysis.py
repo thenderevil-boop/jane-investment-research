@@ -7,7 +7,7 @@ from backend.app.engines.market_timing_engine import evaluate_market_timing
 from backend.app.engines.overheat_engine import evaluate_overheat
 from backend.app.engines.sec_13f_target_matching import build_candidate_13f_evidence
 from backend.app.engines.smart_money_engine import evaluate_smart_money
-from backend.app.pipelines.mock_pipeline import _build_jane_reference_conditions, _enrich_source_status, score_object
+from backend.app.pipelines.research_pipeline import _build_jane_reference_conditions, _enrich_source_status, score_object
 from backend.app.raw_store.repository import get_company_fundamentals, get_company_profile, read_macro_data, read_market_data, read_sec_filings
 from backend.app.schemas.common import ScoreObject
 from backend.app.schemas.stock_analysis import (
