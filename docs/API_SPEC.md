@@ -113,6 +113,14 @@ Phase 14 makes the response a candidate validation report rather than a loose bu
 
 Raw evidence remains available in the legacy score objects, `raw_data`, and debug/expandable frontend panels for audit. Mock and fallback data reduce confidence. The endpoint must keep `not_investment_advice=true` and must not emit trading instructions.
 
+Phase 17c data-quality category behavior:
+
+- `fallback_evidence_categories` are derived from actual component fallback status, `source_quality="mixed_with_fallback"`, or score-affecting fallback subcomponents.
+- `source_type="derived"` and `source_quality="derived_live"` are not fallback by themselves.
+- `source_quality="derived_live"`, `filing_backed`, `cached_live`, `live_backed`, and `derived_from_mixed_sources` do not create fallback categories unless fallback source status is present.
+- Excluded scoring indicators such as ISM Manufacturing PMI and CNN Fear & Greed remain under `excluded_from_scoring`; they are not fallback evidence categories.
+- A `fundamentals_cross_check.agreement_level="low"` is a discrepancy/review signal, not fallback evidence.
+
 Phase 15 company data behavior:
 
 - `company_profile` may use `source_type="live"` or `source_type="cached_live"` with `provider="yfinance"` when yfinance profile data is available.

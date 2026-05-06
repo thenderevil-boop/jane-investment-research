@@ -19,6 +19,7 @@ Phase 17 adds official SEC EDGAR Companyfacts as a filing-backed cross-check lay
 - Jane qualitative moat/founder/network/disruption criteria remain insufficient until independent qualitative evidence sources exist.
 - `SEC_EDGAR_USER_AGENT` is required for live Companyfacts fetches and is never exposed in API responses, snapshots, logs, fallback reasons, or tests.
 - Phase 17a aligns SEC Companyfacts derived metrics by fiscal period. Income statement and cash-flow margins only use same-period annual facts, CapEx must align with OCF, and invalid period-alignment ratios are nulled with `invalid_period_alignment` rather than used as supportive evidence.
+- Phase 17c tightens analyze-stock data-quality categories. `fallback_evidence_categories` are based on actual fallback source status, `mixed_with_fallback` evidence quality, or score-affecting fallback subcomponents. Derived-live macro context is not fallback when active `macro_v12_5` components are live/cached/derived, mock context score weight is 0, and excluded ISM/CNN indicators have `affects_score=false` with weight 0.
 
 Enable live Companyfacts:
 
@@ -512,6 +513,7 @@ Phase 12.5 recalibrates macro scoring after removing unlicensed indicators:
 - The active macro score uses only FRED-backed fields, FRED-derived fields, yfinance-backed market context, and yfinance-derived market context.
 - Active component weights total 100: rates and policy 25, inflation pressure 20, labor/recession resilience 15, market stress/volatility 15, cross-asset risk context 15, and rebound/recovery context 10.
 - CNN Fear & Greed and ISM Manufacturing PMI remain excluded with `affects_score=false` and scoring weight 0.
+- Excluded indicators are disclosed separately and do not make the macro category fallback evidence. `source_type="derived"` and `source_quality="derived_live"` are not fallback by themselves.
 - Jane reference conditions remain display-only; `jane_reference_conditions.affects_score=false` and condition-level `score_contribution_allowed=false`.
 - Macro confidence is based on active component availability, freshness, cached-live-after-failure state, fallback state, and missing active components. Excluded indicators are not counted as missing active components.
 - Mixed macro evidence continues to use `source_type="derived"` with a descriptive provider such as `mixed_FRED_and_yfinance_macro`; `source_type="mixed"` is invalid.

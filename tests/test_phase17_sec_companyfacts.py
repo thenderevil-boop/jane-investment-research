@@ -156,6 +156,65 @@ def _fundamentals(ticker: str = "NVDA", revenue: float = 130_000_000_000) -> dic
     }
 
 
+def _macro_status(source_type: str, provider: str) -> dict:
+    return {
+        "source_type": source_type,
+        "provider": provider,
+        "source_date": "2026-05-04",
+        "is_fresh": True,
+        "fallback_used": False,
+        "limitations": [],
+        "missing_data": [],
+    }
+
+
+def _derived_live_macro_payload() -> dict:
+    return {
+        "fed_funds_rate": 4.25,
+        "fed_policy_trend": "easing",
+        "ten_year_yield": 4.3,
+        "two_year_yield": 4.05,
+        "ten_year_minus_two_year_spread_bps": 25,
+        "cpi_yoy": 3.0,
+        "ppi_yoy": 2.8,
+        "unemployment_rate": 4.2,
+        "unemployment_trend": "stable",
+        "vix": 18.5,
+        "vix_trend": "stable",
+        "dxy_trend": "stable",
+        "gold_trend": "stable",
+        "oil_trend": "stable",
+        "sp500_drawdown_pct": -4.0,
+        "nasdaq_drawdown_pct": -6.0,
+        "sp500_gain_from_trough_pct": 14.0,
+        "nasdaq_gain_from_trough_pct": 18.0,
+        "equity_trend": "stable",
+        "source_type": "derived",
+        "provider": "mixed_FRED_and_yfinance_macro",
+        "source": ["FRED", "yfinance"],
+        "source_date": "2026-05-04",
+        "fallback_used": True,
+        "fallback_reason": "Live FRED macro refresh failed; fresh cached live macro data used.",
+        "limitations": ["FRED release lag may apply."],
+        "missing_data": [],
+        "component_source_status": {
+            "fed_funds_rate": _macro_status("cached_live", "FRED"),
+            "fed_policy_trend": _macro_status("derived", "derived_from_FRED"),
+            "ten_year_minus_two_year_spread_bps": _macro_status("derived", "derived_from_FRED"),
+            "cpi_yoy": _macro_status("derived", "derived_from_FRED"),
+            "ppi_yoy": _macro_status("derived", "derived_from_FRED"),
+            "unemployment_rate": _macro_status("cached_live", "FRED"),
+            "unemployment_trend": _macro_status("derived", "derived_from_FRED"),
+            "vix": _macro_status("cached_live", "yfinance"),
+            "equity_drawdown": _macro_status("derived", "derived_from_yfinance"),
+            "dxy_trend": _macro_status("derived", "derived_from_yfinance"),
+            "gold_trend": _macro_status("derived", "derived_from_yfinance"),
+            "oil_trend": _macro_status("derived", "derived_from_yfinance"),
+            "gain_from_recent_trough": _macro_status("derived", "derived_from_yfinance"),
+        },
+    }
+
+
 def _analyze(monkeypatch, sec_snapshot: dict | None = None, revenue: float = 130_000_000_000) -> dict:
     monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", _tmp_cache())
     monkeypatch.setattr(config, "USE_LIVE_COMPANY_DATA", True)
@@ -404,3 +463,78 @@ def test_phase17b_aligned_facts_produce_sane_margins_and_current_capex():
     assert parsed["derived_metrics"]["gross_margin_pct"] != 570.1977
     assert parsed["facts"]["capex"]["period"] == "2026-01-31"
     assert parsed["derived_metrics"]["capex_as_pct_of_ocf"] is not None
+
+
+def test_phase17c_data_quality_does_not_treat_derived_live_macro_as_fallback(monkeypatch):
+    monkeypatch.setattr(stock_analysis, "read_macro_data", lambda *args, **kwargs: _derived_live_macro_payload())
+    payload = _analyze(monkeypatch, sec_snapshot=_sec_snapshot())
+    quality = payload["data_quality_summary"]
+    matrix = {item["category"]: item for item in payload["evidence_matrix"]}
+    macro_quality = payload["macro_regime"]["macro_data_quality"]
+    macro_scoring = macro_quality["scoring"]
+    source_contribution = payload["macro_regime"]["derived_metrics"]["source_contribution"]
+
+    assert matrix["macro_environment"]["source_quality"] == "derived_live"
+    assert "macro_environment" not in quality["fallback_evidence_categories"]
+    assert quality["fallback_components"] == len(quality["fallback_evidence_categories"])
+    assert source_contribution["mock_context_score"] == 0
+    assert macro_scoring["scoring_model_version"] == "macro_v12_5"
+    assert macro_scoring["active_weight_total"] == 100
+    assert macro_scoring["fallback_active_components"] == []
+    assert macro_scoring["cached_live_after_failure_components"] == []
+    assert macro_scoring["confidence_basis"]["excluded_indicators_count_as_missing"] is False
+
+
+def test_phase17c_excluded_macro_indicators_are_not_fallback_categories(monkeypatch):
+    monkeypatch.setattr(stock_analysis, "read_macro_data", lambda *args, **kwargs: _derived_live_macro_payload())
+    payload = _analyze(monkeypatch, sec_snapshot=_sec_snapshot())
+    quality = payload["data_quality_summary"]
+    excluded = payload["macro_regime"]["macro_score_explanation"]["excluded_indicators"]
+
+    assert "ISM Manufacturing PMI" in quality["excluded_from_scoring"]
+    assert "CNN Fear & Greed" in quality["excluded_from_scoring"]
+    assert "ISM Manufacturing PMI" not in quality["fallback_evidence_categories"]
+    assert "CNN Fear & Greed" not in quality["fallback_evidence_categories"]
+    assert {item["display_name"] for item in excluded} >= {"ISM Manufacturing PMI", "CNN Fear & Greed"}
+    assert all(item["affects_score"] is False and item["weight"] == 0 for item in excluded)
+
+
+def test_phase17c_smart_money_and_insider_fallback_categories_remain_when_mixed(monkeypatch):
+    payload = _analyze(monkeypatch, sec_snapshot=_sec_snapshot())
+    quality = payload["data_quality_summary"]
+    matrix = {item["category"]: item for item in payload["evidence_matrix"]}
+
+    assert matrix["smart_money"]["source_quality"] == "mixed_with_fallback"
+    assert matrix["insider_activity"]["source_quality"] == "mixed_with_fallback"
+    assert "smart_money" in quality["fallback_evidence_categories"]
+    assert "insider_activity" in quality["fallback_evidence_categories"]
+
+
+def test_phase17c_legacy_and_sec_cross_check_quality_do_not_create_fallback(monkeypatch):
+    sec_snapshot = _sec_snapshot()
+    sec_snapshot["source_type"] = "cached_live"
+    sec_snapshot["source_status"]["source_type"] = "cached_live"
+    sec_snapshot["source_status"]["fallback_used"] = False
+    payload = _analyze(monkeypatch, sec_snapshot=_provider_normalization_diff_sec_snapshot(), revenue=130_000_000_000)
+    cached_payload = _analyze(monkeypatch, sec_snapshot=sec_snapshot)
+    quality = payload["data_quality_summary"]
+    cached_quality = cached_payload["data_quality_summary"]
+
+    assert "legacy_leadership_score" in quality["mock_evidence_categories"]
+    assert "legacy_leadership_score" not in quality["fallback_evidence_categories"]
+    assert payload["fundamentals_cross_check"]["agreement_level"] == "low"
+    assert "fundamentals_cross_check" not in quality["fallback_evidence_categories"]
+    assert cached_payload["sec_financial_facts"]["source_status"]["source_type"] == "cached_live"
+    assert cached_payload["sec_financial_facts"]["source_status"]["fallback_used"] is False
+    assert "sec_financial_facts" not in cached_quality["fallback_evidence_categories"]
+
+
+def test_phase17c_analyze_stock_guardrails_still_hold(monkeypatch):
+    payload = _analyze(monkeypatch, sec_snapshot=_sec_snapshot())
+    text = json.dumps(payload)
+
+    assert payload["not_investment_advice"] is True
+    assert detect_forbidden_language(payload) == []
+    assert '"source_type": "mixed"' not in text
+    assert "SEC_EDGAR_USER_AGENT" not in text
+    assert "data.sec.gov/api/xbrl/companyfacts" not in text

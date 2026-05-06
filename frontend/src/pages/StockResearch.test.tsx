@@ -144,6 +144,52 @@ describe('StockResearch presentation helpers', () => {
     expect(html).not.toContain('[object Object]');
   });
 
+  it('renders corrected fallback categories without macro when macro is derived-live', () => {
+    const html = renderToStaticMarkup(
+      <AnalyzeDataQualitySection
+        dataQuality={{
+          mode: 'mixed_preliminary',
+          confidence_cap_applied: true,
+          confidence_cap_reason: 'Fallback smart-money evidence caps confidence.',
+          live_components: 8,
+          mock_components: 1,
+          fallback_components: 2,
+          missing_source_date_components: 0,
+          stale_components: 0,
+          source_quality_grade: 'B',
+          source_quality_summary: 'Macro is derived from live or cached scored components; fallback categories reflect actual fallback source status.',
+          mock_evidence_categories: ['legacy_leadership_score'],
+          fallback_evidence_categories: ['insider_activity', 'smart_money'],
+          missing_source_date_categories: [],
+          excluded_from_scoring: ['ISM Manufacturing PMI', 'CNN Fear & Greed'],
+          insufficient_evidence_categories: [],
+          company_quality: {
+            evidence_backed_criteria_count: 4,
+            insufficient_criteria_count: 3,
+            mock_criteria_count: 0,
+            derived_live_criteria_count: 2,
+            user_context_criteria_count: 1,
+            filing_backed_criteria_count: 2,
+          },
+          sec_companyfacts: {
+            available: true,
+            source_type: 'cached_live',
+            filing_backed_metric_count: 12,
+            missing_concept_count: 0,
+            latest_filing_date: '2026-03-15',
+            latest_report_period: '2026-01-31',
+            agreement_level_with_yfinance: 'high',
+          },
+        }}
+      />,
+    );
+    expect(html).toContain('insider_activity');
+    expect(html).toContain('smart_money');
+    expect(html).toContain('Excluded from scoring: ISM Manufacturing PMI, CNN Fear &amp; Greed');
+    expect(html).not.toContain('<li>macro_environment</li>');
+    expect(html).not.toContain('[object Object]');
+  });
+
   it('renders Evidence Matrix rows with source quality badges', () => {
     const html = renderToStaticMarkup(
       <EvidenceMatrixSection
@@ -164,6 +210,28 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Evidence Matrix');
     expect(html).toContain('mock_only');
     expect(html).toContain('Mock-only evidence');
+  });
+
+  it('renders macro evidence as derived live while excluded indicators stay separate', () => {
+    const html = renderToStaticMarkup(
+      <EvidenceMatrixSection
+        rows={[
+          {
+            category: 'macro_environment',
+            status: 'supportive',
+            score: 66.75,
+            confidence: 0.95,
+            source_quality: 'derived_live',
+            summary: 'Macro score is neutral_to_constructive under macro_v12_5.',
+            key_evidence: ['Mock context score weight: 0', 'Excluded from scoring: ISM Manufacturing PMI, CNN Fear & Greed'],
+            limitations: ['FRED release lag may apply.'],
+          },
+        ]}
+      />,
+    );
+    expect(html).toContain('derived_live');
+    expect(html).toContain('Excluded from scoring');
+    expect(html).not.toContain('Fallback or mixed source quality');
   });
 
   it('renders Jane Company Quality criteria and user theme as context', () => {

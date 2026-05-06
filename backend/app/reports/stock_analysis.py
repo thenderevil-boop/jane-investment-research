@@ -1005,6 +1005,57 @@ def _excluded_indicator_names(macro_regime) -> list[str]:
     return excluded
 
 
+def _status_is_fallback_evidence(status: dict) -> bool:
+    return bool(status.get("fallback_used") or status.get("source_type") == "fallback")
+
+
+def _macro_active_scoring_uses_fallback(macro_regime) -> bool:
+    quality = getattr(macro_regime, "macro_data_quality", None)
+    scoring = getattr(quality, "scoring", {}) if quality else {}
+    if scoring.get("fallback_active_components") or scoring.get("cached_live_after_failure_components"):
+        return True
+    contributions = macro_regime.derived_metrics.get("component_contributions", [])
+    for item in contributions:
+        if item.get("weight", 0) and item.get("source_type") == "fallback":
+            return True
+    return False
+
+
+def _macro_is_derived_live_quality(macro_regime) -> bool:
+    quality = getattr(macro_regime, "macro_data_quality", None)
+    scoring = getattr(quality, "scoring", {}) if quality else {}
+    if macro_regime.derived_metrics.get("scoring_model", {}).get("version") != "macro_v12_5":
+        return False
+    if not quality or getattr(quality, "mock_context_score_weight_pct", None) != 0:
+        return False
+    if _macro_active_scoring_uses_fallback(macro_regime):
+        return False
+    active_available = scoring.get("active_available_weight_pct")
+    if active_available is not None and float(active_available) <= 0:
+        return False
+    for item in macro_regime.derived_metrics.get("component_contributions", []):
+        if item.get("source_type") in {"mock", "fallback"}:
+            return False
+    excluded = macro_regime.derived_metrics.get("scoring_model", {}).get("excluded_indicators", [])
+    return all(item.get("affects_score") is False and item.get("weight", 0) == 0 for item in excluded)
+
+
+def _category_is_fallback_evidence(category: str, status: dict, response: AnalyzeStockResponse) -> bool:
+    if category == "macro_environment":
+        return _macro_active_scoring_uses_fallback(response.macro_regime)
+    if _status_is_fallback_evidence(status):
+        return True
+    if category == "legacy_leadership_score":
+        return False
+    matrix_quality = None
+    for item in response.evidence_matrix or []:
+        item_category = item.category if hasattr(item, "category") else item.get("category")
+        if item_category == category:
+            matrix_quality = item.source_quality if hasattr(item, "source_quality") else item.get("source_quality")
+            break
+    return matrix_quality == "mixed_with_fallback"
+
+
 def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
     component_statuses = {
         "macro_environment": _status_dict(response.macro_regime.source_status),
@@ -1037,7 +1088,7 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         name for name, status in component_statuses.items() if status.get("source_type") == "mock"
     )
     fallback_categories = sorted(
-        name for name, status in component_statuses.items() if status.get("fallback_used") or status.get("source_type") == "fallback"
+        name for name, status in component_statuses.items() if _category_is_fallback_evidence(name, status, response)
     )
     missing_source_date_categories = sorted(
         name for name, status in component_statuses.items() if not status.get("source_date") and status.get("source_type") != "unknown"
@@ -1191,7 +1242,7 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
             "status": _score_status(response.macro_regime.score),
             "score": response.macro_regime.score,
             "confidence": response.macro_regime.confidence,
-            "source_quality": "derived_live" if macro_quality and macro_quality.mock_context_score_weight_pct == 0 else _source_quality_from_status(_status_dict(response.macro_regime.source_status), category="macro_environment"),
+            "source_quality": "derived_live" if _macro_is_derived_live_quality(response.macro_regime) else _source_quality_from_status(_status_dict(response.macro_regime.source_status), category="macro_environment"),
             "summary": f"Macro score is {response.macro_regime.label} under macro_v12_5.",
             "key_evidence": _limited(
                 [
