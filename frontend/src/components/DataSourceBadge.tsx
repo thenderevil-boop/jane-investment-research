@@ -9,6 +9,8 @@ function labelFor(status?: DataSourceStatus | null) {
   if (!status.source_date) return 'Missing source date';
   if (status.fallback_used || status.source_type === 'fallback') return 'Fallback';
   if (!status.is_fresh) return status.source_type === 'mock' ? 'Mock' : 'Stale';
+  if (status.freshness_window === 'latest_company_filing' && status.source_type === 'cached_live') return 'Cached SEC filing';
+  if (status.freshness_window === 'latest_company_filing') return 'Filing current';
   if (status.source_type === 'cached_live') return 'Cached Live';
   if (status.source_type === 'live') return status.provider === 'FRED' ? 'Live FRED' : 'Live';
   if (status.source_type === 'derived') return status.provider === 'derived_from_FRED' ? 'Derived FRED' : 'Derived';

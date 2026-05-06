@@ -89,6 +89,9 @@ function sourceQualityStatus(sourceQuality: EvidenceMatrixItem['source_quality']
     mixed_with_fallback: 'fallback',
     user_context: 'unknown',
     mock_only: 'mock',
+    filing_backed: 'live',
+    provider_backed: 'derived',
+    derived_from_mixed_sources: 'derived',
     insufficient: 'unknown',
   };
   return {
@@ -174,6 +177,15 @@ export function AnalyzeDataQualitySection({ dataQuality }: { dataQuality?: Analy
           <div><dt>Quality insufficient</dt><dd>{dataQuality.company_quality.insufficient_criteria_count}</dd></div>
           <div><dt>Quality derived</dt><dd>{dataQuality.company_quality.derived_live_criteria_count}</dd></div>
           <div><dt>User context</dt><dd>{dataQuality.company_quality.user_context_criteria_count}</dd></div>
+          <div><dt>Filing backed</dt><dd>{dataQuality.company_quality.filing_backed_criteria_count ?? 0}</dd></div>
+        </dl>
+      )}
+      {dataQuality.sec_companyfacts && (
+        <dl className="qualityMetrics">
+          <div><dt>SEC facts</dt><dd>{dataQuality.sec_companyfacts.filing_backed_metric_count}</dd></div>
+          <div><dt>Missing concepts</dt><dd>{dataQuality.sec_companyfacts.missing_concept_count}</dd></div>
+          <div><dt>SEC filing</dt><dd>{dataQuality.sec_companyfacts.latest_filing_date ?? 'N/A'}</dd></div>
+          <div><dt>Agreement</dt><dd>{dataQuality.sec_companyfacts.agreement_level_with_yfinance}</dd></div>
         </dl>
       )}
       {!!dataQuality.insufficient_evidence_categories?.length && (
@@ -246,6 +258,75 @@ export function FinancialStatementSignalsSection({ signals }: { signals?: Financ
         </table>
       </div>
       {!!signals.limitations.length && <p className="muted">Limitations: {signals.limitations.join(' ')}</p>}
+    </section>
+  );
+}
+
+export function SecFinancialFactsSection({ facts }: { facts?: Record<string, unknown> }) {
+  if (!facts) return null;
+  const sourceStatus = facts.source_status as DataSourceStatus | undefined;
+  const factMap = (facts.facts ?? {}) as Record<string, { value?: number; unit?: string; period?: string; form?: string; filed?: string; concept?: string } | null>;
+  const missingData = Array.isArray(facts.missing_data) ? facts.missing_data.map(String) : [];
+  return (
+    <section className="pageSection">
+      <h2>SEC Financial Facts</h2>
+      <div className="summaryMain">
+        {sourceStatus && <DataSourceBadge status={sourceStatus} />}
+        <span className="smallPill">CIK {displayValue(facts.cik)}</span>
+        <span className="smallPill">Filing {displayValue(facts.latest_filing_date)}</span>
+        <span className="smallPill">Period {displayValue(facts.latest_report_period)}</span>
+      </div>
+      <div className="tableWrap">
+        <table>
+          <thead><tr><th>Metric</th><th>Value</th><th>Period</th><th>Form</th><th>Concept</th></tr></thead>
+          <tbody>
+            {Object.entries(factMap).map(([name, fact]) => (
+              <tr key={name}>
+                <td>{displayKey(name)}</td>
+                <td>{fact ? `${displayValue(fact.value)} ${fact.unit ?? ''}` : 'Missing'}</td>
+                <td>{fact?.period ?? 'N/A'}</td>
+                <td>{fact?.form ?? 'N/A'}</td>
+                <td>{fact?.concept ?? 'N/A'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {!!missingData.length && <p className="sourceWarning">Missing SEC concepts: {missingData.join(', ')}</p>}
+    </section>
+  );
+}
+
+export function FundamentalsCrossCheckSection({ crossCheck }: { crossCheck?: Record<string, unknown> }) {
+  if (!crossCheck) return null;
+  const sourceStatus = crossCheck.source_status as DataSourceStatus | undefined;
+  const metrics = Array.isArray(crossCheck.checked_metrics) ? crossCheck.checked_metrics as Array<Record<string, unknown>> : [];
+  const agreement = String(crossCheck.agreement_level ?? 'insufficient');
+  return (
+    <section className="pageSection">
+      <h2>Fundamentals Cross-Check</h2>
+      <div className="summaryMain">
+        <span className="smallPill">{agreement}</span>
+        {sourceStatus && <DataSourceBadge status={sourceStatus} />}
+      </div>
+      {agreement === 'low' && <p className="sourceWarning">SEC/yfinance discrepancy requires manual review.</p>}
+      <p>{String(crossCheck.summary ?? '')}</p>
+      <div className="tableWrap">
+        <table>
+          <thead><tr><th>Metric</th><th>yfinance</th><th>SEC</th><th>Difference</th><th>Status</th></tr></thead>
+          <tbody>
+            {metrics.map((metric) => (
+              <tr key={String(metric.name)}>
+                <td>{displayKey(String(metric.name))}</td>
+                <td>{displayValue(metric.yfinance_value)}</td>
+                <td>{displayValue(metric.sec_value)}</td>
+                <td>{metric.difference_pct === null || metric.difference_pct === undefined ? 'N/A' : `${displayValue(metric.difference_pct)}%`}</td>
+                <td>{String(metric.status ?? 'insufficient')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
@@ -411,6 +492,8 @@ export default function StockResearch() {
           <AnalyzeDataQualitySection dataQuality={result.data_quality_summary} />
           <JaneCompanyQualitySection quality={result.jane_company_quality} profile={result.company_profile} />
           <FinancialStatementSignalsSection signals={result.financial_statement_signals} />
+          <SecFinancialFactsSection facts={result.sec_financial_facts} />
+          <FundamentalsCrossCheckSection crossCheck={result.fundamentals_cross_check} />
           <CompanyFundamentalsSection result={result} />
           <EvidenceMatrixSection rows={result.evidence_matrix} />
           <ScoreDriverSection result={result} />
@@ -492,6 +575,8 @@ export default function StockResearch() {
             <RawDataPanel title="Leadership raw evidence" rawData={result.leadership_score?.raw_data} derivedMetrics={result.leadership_score?.derived_metrics} benchmark={result.leadership_score?.benchmark} trend={result.leadership_score?.trend} limitations={result.leadership_score?.limitations} missingData={result.leadership_score?.missing_data} sourceStatus={resolveScoreSourceStatus(result.leadership_score)} />
             <RawDataPanel title="Jane company quality raw evidence" rawData={{ criteria: result.jane_company_quality?.criteria }} derivedMetrics={{ score: result.jane_company_quality?.score, label: result.jane_company_quality?.label }} limitations={result.jane_company_quality?.limitations} missingData={result.jane_company_quality?.missing_data} sourceStatus={result.jane_company_quality?.source_status} />
             <RawDataPanel title="Financial statement signals raw evidence" rawData={{ signals: result.financial_statement_signals?.signals }} derivedMetrics={{ score: result.financial_statement_signals?.score, label: result.financial_statement_signals?.label }} limitations={result.financial_statement_signals?.limitations} missingData={result.financial_statement_signals?.missing_data} sourceStatus={result.financial_statement_signals?.source_status} />
+            <RawDataPanel title="SEC financial facts raw evidence" rawData={result.sec_financial_facts} derivedMetrics={(result.sec_financial_facts?.derived_metrics as Record<string, unknown>) ?? {}} limitations={(result.sec_financial_facts?.limitations as string[]) ?? []} missingData={(result.sec_financial_facts?.missing_data as string[]) ?? []} sourceStatus={result.sec_financial_facts?.source_status as DataSourceStatus | undefined} />
+            <RawDataPanel title="Fundamentals cross-check raw evidence" rawData={result.fundamentals_cross_check} derivedMetrics={{ agreement_level: result.fundamentals_cross_check?.agreement_level }} limitations={(result.fundamentals_cross_check?.limitations as string[]) ?? []} missingData={(result.fundamentals_cross_check?.missing_data as string[]) ?? []} sourceStatus={result.fundamentals_cross_check?.source_status as DataSourceStatus | undefined} />
             <RawDataPanel title="Smart money raw evidence" rawData={result.smart_money?.raw_data} derivedMetrics={result.smart_money?.derived_metrics} benchmark={result.smart_money?.benchmark} trend={result.smart_money?.trend} limitations={result.smart_money?.limitations} missingData={result.smart_money?.missing_data} sourceStatus={resolveScoreSourceStatus(result.smart_money)} />
             <RawDataPanel title="Insider Form 4 raw evidence" rawData={result.insider_activity?.raw_data} derivedMetrics={result.insider_activity?.derived_metrics} benchmark={result.insider_activity?.benchmark} trend={result.insider_activity?.trend} limitations={result.insider_activity?.limitations} missingData={result.insider_activity?.missing_data} sourceStatus={resolveScoreSourceStatus(result.insider_activity)} />
             <RawDataPanel title="Institutional 13F raw evidence" rawData={result.institutional_13f?.raw_data} derivedMetrics={result.institutional_13f?.derived_metrics} benchmark={result.institutional_13f?.benchmark} trend={result.institutional_13f?.trend} limitations={result.institutional_13f?.limitations} missingData={result.institutional_13f?.missing_data} sourceStatus={resolveScoreSourceStatus(result.institutional_13f)} />

@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { DataSourceStatus, ScoreLike, StockAnalysis } from '../types';
-import { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, EvidenceMatrixSection, FinancialStatementSignalsSection, JaneCompanyQualitySection, ManualChecksSection, ProfileGrid, ScoreBlock } from './StockResearch';
+import { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, ManualChecksSection, ProfileGrid, ScoreBlock, SecFinancialFactsSection } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -121,6 +121,16 @@ describe('StockResearch presentation helpers', () => {
             mock_criteria_count: 0,
             derived_live_criteria_count: 3,
             user_context_criteria_count: 1,
+            filing_backed_criteria_count: 1,
+          },
+          sec_companyfacts: {
+            available: true,
+            source_type: 'live',
+            filing_backed_metric_count: 8,
+            missing_concept_count: 2,
+            latest_filing_date: '2026-03-15',
+            latest_report_period: '2026-01-31',
+            agreement_level_with_yfinance: 'high',
           },
         }}
       />,
@@ -129,6 +139,7 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Grade C');
     expect(html).toContain('leadership_score');
     expect(html).toContain('Quality backed');
+    expect(html).toContain('SEC facts');
     expect(html).toContain('monopoly_power');
     expect(html).not.toContain('[object Object]');
   });
@@ -220,7 +231,7 @@ describe('StockResearch presentation helpers', () => {
             {
               name: 'revenue_growth_quality',
               status: 'supportive',
-              source_quality: 'derived_live',
+              source_quality: 'filing_backed',
               evidence: ['Revenue YoY growth pct: 80.2'],
               limitations: [],
               missing_data: [],
@@ -239,7 +250,50 @@ describe('StockResearch presentation helpers', () => {
     );
     expect(html).toContain('Financial Statement Signals');
     expect(html).toContain('revenue growth quality');
+    expect(html).toContain('filing_backed');
     expect(html).toContain('accounts_receivable');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders SEC Financial Facts and missing concepts', () => {
+    const html = renderToStaticMarkup(
+      <SecFinancialFactsSection
+        facts={{
+          ticker: 'NVDA',
+          cik: '0001045810',
+          latest_filing_date: '2026-03-15',
+          latest_report_period: '2026-01-31',
+          source_status: { ...mockStatus, source_type: 'live', provider: 'SEC EDGAR companyfacts' },
+          facts: {
+            revenue: { value: 130000000000, unit: 'USD', period: '2026-01-31', form: '10-K', filed: '2026-03-15', concept: 'us-gaap:Revenues' },
+            inventory: null,
+          },
+          missing_data: ['SEC Companyfacts concept unavailable for inventory'],
+        }}
+      />,
+    );
+    expect(html).toContain('SEC Financial Facts');
+    expect(html).toContain('revenue');
+    expect(html).toContain('Missing SEC concepts');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders Fundamentals Cross-Check discrepancy warnings', () => {
+    const html = renderToStaticMarkup(
+      <FundamentalsCrossCheckSection
+        crossCheck={{
+          agreement_level: 'low',
+          summary: 'SEC/yfinance cross-check found material metric discrepancies that need review.',
+          source_status: { ...mockStatus, source_type: 'derived', provider: 'mixed_SEC_companyfacts_and_yfinance' },
+          checked_metrics: [
+            { name: 'revenue_ttm', yfinance_value: 80, sec_value: 130, difference_pct: 62.5, status: 'divergent' },
+          ],
+        }}
+      />,
+    );
+    expect(html).toContain('Fundamentals Cross-Check');
+    expect(html).toContain('SEC/yfinance discrepancy requires manual review');
+    expect(html).toContain('divergent');
     expect(html).not.toContain('[object Object]');
   });
 

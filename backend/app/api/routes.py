@@ -98,6 +98,15 @@ def data_health() -> DataHealthResponse:
                 "lookback_quarters": config.SEC_13F_LOOKBACK_QUARTERS,
                 "freshness_window": "quarterly_filing_delay",
             },
+            "SEC EDGAR Companyfacts": {
+                "enabled": config.USE_LIVE_SEC_COMPANYFACTS,
+                "provider": "SEC EDGAR companyfacts",
+                "source_type": "live" if config.USE_LIVE_SEC_COMPANYFACTS and bool(config.SEC_EDGAR_USER_AGENT) else "mock",
+                "requires_secret": False,
+                "user_agent_configured": bool(config.SEC_EDGAR_USER_AGENT),
+                "cache_ttl_days": config.SEC_COMPANYFACTS_CACHE_TTL_DAYS,
+                "freshness_window": "latest_company_filing",
+            },
             "mock sources": {
                 "enabled": True,
                 "provider": "phase1_mock_dataset",
@@ -184,6 +193,8 @@ def raw_data_by_ticker(ticker: str) -> RawDataResponse:
     market_snapshot = get_market_data(normalized_ticker)
     company_profile = get_company_profile(normalized_ticker)
     company_fundamentals = get_company_fundamentals(normalized_ticker)
+    from backend.app.raw_store.repository import get_sec_companyfacts
+    sec_companyfacts = get_sec_companyfacts(normalized_ticker)
     sec_filings = read_sec_filings(normalized_ticker)
     source_status = build_source_status(market_snapshot)
     form4_live = sec_filings.get("form4_source_status", {}).get("source_type") in {"live", "cached_live"}
@@ -194,10 +205,11 @@ def raw_data_by_ticker(ticker: str) -> RawDataResponse:
             "company_fixture": fixture,
             "company_profile_snapshot": company_profile,
             "company_fundamentals_snapshot": company_fundamentals,
+            "sec_companyfacts_snapshot": sec_companyfacts,
             "market_price_snapshot": market_snapshot,
             "sec_form4_snapshot": sec_filings.get("form4_snapshot", {}),
             "sec_13f_snapshot": sec_filings.get("institutional_13f_snapshot", {}),
-            "note": "Company profile, company fundamentals, market price, SEC Form 4, and SEC 13F snapshots may be live when enabled.",
+            "note": "Company profile, company fundamentals, SEC Companyfacts, market price, SEC Form 4, and SEC 13F snapshots may be live when enabled.",
         },
         source=MOCK_SOURCE,
         source_date=MOCK_SOURCE_DATE,

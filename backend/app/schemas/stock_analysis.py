@@ -65,6 +65,8 @@ class EvidenceMatrixItem(BaseModel):
         "company_profile",
         "financial_quality",
         "valuation_context",
+        "sec_financial_facts",
+        "fundamentals_cross_check",
         "jane_company_quality",
         "financial_statement_signals",
         "leadership_score",
@@ -77,7 +79,7 @@ class EvidenceMatrixItem(BaseModel):
     status: Literal["supportive", "neutral", "caution", "insufficient"]
     score: float | None = None
     confidence: float = Field(ge=0, le=1)
-    source_quality: Literal["live_backed", "derived_live", "cached_live", "mixed_with_fallback", "user_context", "mock_only", "insufficient"]
+    source_quality: Literal["live_backed", "derived_live", "cached_live", "mixed_with_fallback", "user_context", "mock_only", "filing_backed", "provider_backed", "derived_from_mixed_sources", "insufficient"]
     summary: str
     key_evidence: list[str]
     limitations: list[str]
@@ -100,6 +102,7 @@ class AnalyzeStockDataQualitySummary(BaseModel):
     excluded_from_scoring: list[str]
     insufficient_evidence_categories: list[str] = Field(default_factory=list)
     company_quality: dict[str, int] = Field(default_factory=dict)
+    sec_companyfacts: dict[str, Any] = Field(default_factory=dict)
 
 
 class JaneCompanyQualityCriterion(BaseModel):
@@ -108,7 +111,7 @@ class JaneCompanyQualityCriterion(BaseModel):
     score: float | None = Field(default=None, ge=0, le=100)
     max_score: float = 10
     status: Literal["supportive", "neutral", "caution", "insufficient"]
-    source_quality: Literal["live_backed", "derived_live", "cached_live", "user_context", "insufficient", "mock_only"]
+    source_quality: Literal["live_backed", "derived_live", "cached_live", "user_context", "filing_backed", "derived_from_mixed_sources", "insufficient", "mock_only"]
     affects_score: bool
     evidence: list[str]
     limitations: list[str]
@@ -130,7 +133,7 @@ class JaneCompanyQuality(BaseModel):
 class FinancialStatementSignal(BaseModel):
     name: str
     status: Literal["supportive", "neutral", "caution", "insufficient"]
-    source_quality: Literal["live_backed", "derived_live", "insufficient"]
+    source_quality: Literal["live_backed", "derived_live", "filing_backed", "yfinance_backed", "derived_from_mixed_sources", "insufficient"]
     evidence: list[str]
     limitations: list[str]
     missing_data: list[str]
@@ -191,6 +194,8 @@ class AnalyzeStockResponse(BaseModel):
     leadership_score: LeadershipScore
     jane_company_quality: JaneCompanyQuality
     financial_statement_signals: FinancialStatementSignals
+    sec_financial_facts: dict[str, Any] = Field(default_factory=dict)
+    fundamentals_cross_check: dict[str, Any] = Field(default_factory=dict)
     market_timing_context: ScoreObject
     overheat_risk: ScoreObject
     smart_money: ScoreObject

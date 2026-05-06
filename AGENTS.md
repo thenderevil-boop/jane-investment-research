@@ -226,6 +226,16 @@ Phase 15.5 architecture notes:
 - `_enrich_source_status` is legacy compatibility only. New engines must emit `source_status` directly.
 - `smart_money` is canonical; `smart_money_summary` is deprecated and retained for backward compatibility.
 
+Phase 17 SEC Companyfacts notes:
+
+- SEC Companyfacts is the official filing-backed cross-check layer for financial statement signals.
+- Yfinance remains the MVP company/fundamentals provider; SEC Companyfacts complements it and does not replace it.
+- Missing SEC concepts must be reported as `missing_data` and must not be fabricated.
+- SEC Companyfacts derived financial metrics must be period-aligned; invalid SEC ratios must be nulled and disclosed instead of used as supportive evidence.
+- SEC/yfinance discrepancies are review signals for human verification.
+- `SEC_EDGAR_USER_AGENT` is required for live SEC Companyfacts fetches and must never appear in API responses, snapshots, logs, fallback reasons, or tests.
+- Qualitative Jane criteria remain insufficient unless independent qualitative evidence exists.
+
 Phase 16 company-quality notes:
 
 - `jane_company_quality` replaces mock leadership as the primary company-quality model.
@@ -233,7 +243,7 @@ Phase 16 company-quality notes:
 - User-provided `research_context.theme` is context only and must not be treated as independently verified evidence.
 - Qualitative evidence is marked insufficient when not available.
 - Financial statement signals derive from live/cached yfinance fundamentals in the MVP.
-- SEC companyfacts is a future enhancement for stronger filing validation.
+- SEC Companyfacts is now the Phase 17 filing-backed financial cross-check layer.
 - Legacy `leadership_score` is mock-only and backward compatible; it must not act as a positive score driver.
 
 1. macro regime

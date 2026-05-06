@@ -133,6 +133,17 @@ Phase 16 company quality behavior:
 - Missing receivables, inventory, operating cash flow, CapEx, dilution, or R&D fields are marked insufficient and listed in `missing_data`.
 - `leadership_score` is retained for backward compatibility only, marked `deprecated_by="jane_company_quality"`, `source_quality="mock_only"`, and `affects_score=false`.
 
+Phase 17 SEC Companyfacts behavior:
+
+- `sec_financial_facts` is added as a top-level object for SEC EDGAR Companyfacts filing-backed fundamentals.
+- `fundamentals_cross_check` is added as a top-level object comparing comparable SEC Companyfacts and yfinance values.
+- SEC Companyfacts uses only `https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json` and requires `SEC_EDGAR_USER_AGENT` for live fetches.
+- `SEC_EDGAR_USER_AGENT`, raw provider URLs, and request headers are never exposed in API responses.
+- Missing SEC concepts appear in `missing_data`; missing facts and share dilution are not inferred from price or market cap.
+- Phase 17a requires period-aligned annual facts for SEC-derived margins, OCF, CapEx, FCF, and CapEx/OCF. Invalid period alignment is reported through `invalid_derived_metrics` and affected derived metrics are null.
+- `source_type` remains one of `live`, `cached_live`, `mock`, `fallback`, `derived`, or `unknown`; mixed provider summaries use `source_type="derived"` with descriptive providers.
+- SEC/yfinance discrepancies are human-review signals, not automatic failures or investment instructions.
+
 Request:
 
 ```json
@@ -201,6 +212,65 @@ Response:
     "confidence": 0.5,
     "label": "adequate",
     "signals": [],
+    "source_status": {},
+    "limitations": [],
+    "missing_data": []
+  },
+  "sec_financial_facts": {
+    "ticker": "NVDA",
+    "cik": "0001045810",
+    "latest_filing_date": "2026-03-15",
+    "latest_report_period": "2026-01-31",
+    "facts": {
+      "revenue": {
+        "value": 130000000000,
+        "unit": "USD",
+        "period": "2026-01-31",
+        "form": "10-K",
+        "filed": "2026-03-15",
+        "concept": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax"
+      }
+    },
+    "derived_metrics": {
+      "revenue_yoy_growth_pct": 30.0,
+      "revenue_3y_cagr_pct": 29.4,
+      "gross_margin_pct": 70.0,
+      "operating_margin_pct": 60.0,
+      "net_income_margin_pct": 42.3,
+      "ocf_margin_pct": 49.2,
+      "capex_as_pct_of_ocf": 6.2,
+      "fcf": 60000000000,
+      "fcf_margin_pct": 46.2,
+      "receivables_to_revenue_pct": 11.5,
+      "inventory_to_revenue_pct": 6.2,
+      "debt_to_equity": 0.25,
+      "net_cash_or_debt": 34000000000,
+      "share_dilution_3y_pct": null
+    },
+    "source_status": {},
+    "limitations": [],
+    "missing_data": []
+  },
+  "fundamentals_cross_check": {
+    "provider": "mixed_SEC_companyfacts_and_yfinance",
+    "source_type": "derived",
+    "summary": "SEC/yfinance cross-check is directionally consistent for comparable metrics.",
+    "agreement_level": "high",
+    "checked_metrics": [
+      {
+        "name": "revenue_ttm",
+        "yfinance_value": 130000000000,
+        "sec_value": 130000000000,
+        "difference_pct": 0,
+        "status": "consistent",
+        "source_quality": "filing_backed"
+      }
+    ],
+    "confidence_adjustment": {
+      "boost_applied": true,
+      "penalty_applied": false,
+      "reason": "SEC/yfinance cross-check is directionally consistent for comparable metrics."
+    },
     "source_status": {},
     "limitations": [],
     "missing_data": []

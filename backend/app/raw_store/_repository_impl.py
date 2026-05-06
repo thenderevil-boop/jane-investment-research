@@ -21,6 +21,7 @@ from backend.app.engines.sec_13f_target_matching import match_13f_targets, norma
 from backend.app.features.market_features import build_market_snapshot_features
 from backend.app.utils.freshness import (
     DAILY_RATE_FRESHNESS_WINDOW,
+    COMPANY_FILING_FRESHNESS_WINDOW,
     DERIVED_FRED_FRESHNESS_WINDOW,
     FORM4_FRESHNESS_WINDOW,
     MONTHLY_MACRO_FRESHNESS_WINDOW,
@@ -63,6 +64,12 @@ def _sec_cache_dir() -> Path:
 
 def _sec_13f_cache_dir() -> Path:
     path = config.SEC_13F_CACHE_DIR
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _sec_companyfacts_cache_dir() -> Path:
+    path = config.SEC_COMPANYFACTS_CACHE_DIR
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -551,6 +558,172 @@ def read_sec_13f_data(manager_or_cik: str) -> dict[str, Any] | None:
     if not target.exists():
         return None
     return json.loads(target.read_text(encoding="utf-8"))
+
+
+def read_sec_companyfacts_data(ticker: str) -> dict[str, Any] | None:
+    target = _sec_companyfacts_cache_dir() / f"{_cache_key(ticker)}_companyfacts.json"
+    if not target.exists():
+        return None
+    return json.loads(target.read_text(encoding="utf-8"))
+
+
+def read_sec_companyfacts_raw_data(ticker: str) -> dict[str, Any] | None:
+    target = _sec_companyfacts_cache_dir() / f"{_cache_key(ticker)}_companyfacts_raw.json"
+    if not target.exists():
+        return None
+    return json.loads(target.read_text(encoding="utf-8"))
+
+
+def write_sec_companyfacts_data(ticker: str, data: dict[str, Any]) -> dict[str, Any]:
+    normalized_ticker = ticker.strip().upper()
+    payload = deepcopy(data)
+    raw_payload = payload.pop("_raw_companyfacts_payload", None)
+    payload["ticker"] = normalized_ticker
+    payload["provider"] = "SEC EDGAR companyfacts"
+    payload["cached_at"] = datetime.now(timezone.utc).isoformat()
+    payload.pop("request_url", None)
+    payload.pop("headers", None)
+    if isinstance(raw_payload, dict):
+        raw_target = _sec_companyfacts_cache_dir() / f"{_cache_key(normalized_ticker)}_companyfacts_raw.json"
+        raw_target.write_text(
+            json.dumps(
+                {
+                    "ticker": normalized_ticker,
+                    "cik": payload.get("cik"),
+                    "cached_at": payload["cached_at"],
+                    "provider": "SEC EDGAR companyfacts",
+                    "raw_payload": raw_payload,
+                },
+                indent=2,
+                sort_keys=True,
+            ),
+            encoding="utf-8",
+        )
+    target = _sec_companyfacts_cache_dir() / f"{_cache_key(normalized_ticker)}_companyfacts.json"
+    target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    return payload
+
+
+def _sanitize_sec_companyfacts_payload(cached: dict[str, Any]) -> dict[str, Any]:
+    payload = deepcopy(cached)
+    payload.pop("request_url", None)
+    payload.pop("headers", None)
+    payload["provider"] = "SEC EDGAR companyfacts"
+    status = payload.get("source_status")
+    if isinstance(status, dict):
+        status["provider"] = "SEC EDGAR companyfacts"
+        if status.get("fallback_reason"):
+            status["fallback_reason"] = "SEC Companyfacts fetch failed; cached or provider fallback used."
+    return payload
+
+
+def _sec_companyfacts_cache_is_compatible(payload: dict[str, Any]) -> bool:
+    try:
+        from backend.app.data_sources.sec_companyfacts import PARSER_VERSION
+    except Exception:
+        return False
+    if payload.get("parser_version") != PARSER_VERSION:
+        return False
+    derived = payload.get("derived_metrics") if isinstance(payload.get("derived_metrics"), dict) else {}
+    invalid = payload.get("invalid_derived_metrics") if isinstance(payload.get("invalid_derived_metrics"), dict) else {}
+    facts = payload.get("facts") if isinstance(payload.get("facts"), dict) else {}
+    for metric in ["gross_margin_pct", "operating_margin_pct", "net_income_margin_pct", "fcf_margin_pct"]:
+        value = derived.get(metric)
+        if isinstance(value, (int, float)) and value > 100 and metric not in invalid:
+            return False
+    revenue = facts.get("revenue") if isinstance(facts.get("revenue"), dict) else None
+    margin_by_fact = {
+        "gross_profit": "gross_margin_pct",
+        "operating_income": "operating_margin_pct",
+        "net_income": "net_income_margin_pct",
+        "operating_cash_flow": "ocf_margin_pct",
+    }
+    for metric, margin_metric in margin_by_fact.items():
+        fact = facts.get(metric) if isinstance(facts.get(metric), dict) else None
+        if revenue and fact and revenue.get("period") != fact.get("period") and derived.get(margin_metric) is not None:
+            return False
+    ocf = facts.get("operating_cash_flow") if isinstance(facts.get("operating_cash_flow"), dict) else None
+    capex = facts.get("capex") if isinstance(facts.get("capex"), dict) else None
+    if ocf and capex and ocf.get("period") != capex.get("period") and (derived.get("fcf") is not None or derived.get("capex_as_pct_of_ocf") is not None):
+        return False
+    return True
+
+
+def _reparse_sec_companyfacts_raw_cache(ticker: str, *, source_type: str = "cached_live") -> dict[str, Any] | None:
+    raw_cached = read_sec_companyfacts_raw_data(ticker)
+    if not raw_cached:
+        return None
+    raw_payload = raw_cached.get("raw_payload")
+    if not isinstance(raw_payload, dict):
+        return None
+    cik = str(raw_cached.get("cik") or raw_payload.get("cik") or "").strip()
+    if not cik:
+        return None
+    try:
+        from backend.app.data_sources.sec_companyfacts import parse_companyfacts
+
+        parsed = parse_companyfacts(ticker, cik, raw_payload, source_type=source_type)
+        return write_sec_companyfacts_data(ticker, parsed)
+    except Exception:
+        return None
+
+
+def _cached_sec_companyfacts_if_fresh(ticker: str) -> dict[str, Any] | None:
+    cached = read_sec_companyfacts_data(ticker)
+    if not cached:
+        increment_metric("cache_miss_count")
+        return None
+    if not _sec_companyfacts_cache_is_compatible(cached):
+        reparsed = _reparse_sec_companyfacts_raw_cache(ticker)
+        if reparsed and _sec_companyfacts_cache_is_compatible(reparsed):
+            cached = reparsed
+        else:
+            increment_metric("cache_miss_count")
+            return None
+    cached_at = cached.get("cached_at") or cached.get("fetched_at")
+    try:
+        cached_dt = datetime.fromisoformat(str(cached_at).replace("Z", "+00:00"))
+    except ValueError:
+        increment_metric("cache_miss_count")
+        return None
+    if datetime.now(timezone.utc) - cached_dt.astimezone(timezone.utc) > timedelta(days=config.SEC_COMPANYFACTS_CACHE_TTL_DAYS):
+        increment_metric("cache_miss_count")
+        return None
+    increment_metric("cache_hit_count")
+    payload = _sanitize_sec_companyfacts_payload(cached)
+    payload["source_type"] = "cached_live"
+    payload["provider"] = "SEC EDGAR companyfacts"
+    payload["source_status"] = build_source_status(
+        {**payload, "source_type": "cached_live", "provider": "SEC EDGAR companyfacts", "fallback_used": False},
+        freshness_window=COMPANY_FILING_FRESHNESS_WINDOW,
+    ).model_dump(mode="json")
+    return payload
+
+
+def _cached_sec_companyfacts_after_failure(ticker: str) -> dict[str, Any] | None:
+    cached = read_sec_companyfacts_data(ticker)
+    if not cached:
+        increment_metric("cache_miss_count")
+        return None
+    if not _sec_companyfacts_cache_is_compatible(cached):
+        reparsed = _reparse_sec_companyfacts_raw_cache(ticker)
+        if reparsed and _sec_companyfacts_cache_is_compatible(reparsed):
+            cached = reparsed
+        else:
+            increment_metric("cache_miss_count")
+            return None
+    increment_metric("cache_hit_count")
+    payload = _sanitize_sec_companyfacts_payload(cached)
+    payload["source_type"] = "cached_live"
+    payload["provider"] = "SEC EDGAR companyfacts"
+    payload["fallback_used"] = True
+    payload["fallback_reason"] = "SEC Companyfacts fetch failed; cached or provider fallback used."
+    payload.setdefault("limitations", []).append("SEC Companyfacts fetch failed; cached filing-backed data used.")
+    payload["source_status"] = build_source_status(
+        {**payload, "source_type": "cached_live", "provider": "SEC EDGAR companyfacts"},
+        freshness_window=COMPANY_FILING_FRESHNESS_WINDOW,
+    ).model_dump(mode="json")
+    return payload
 
 
 def write_sec_13f_data(manager_or_cik: str, data: dict[str, Any]) -> dict[str, Any]:
@@ -1349,6 +1522,35 @@ def get_company_fundamentals(ticker: str = "NVDA", use_live: bool | None = None)
             cached_after_failure["source_status"] = build_source_status(cached_after_failure, source_type="cached_live", fallback_used=True).model_dump(mode="json")
             return cached_after_failure
         return _mock_company_fundamentals(normalized_ticker, safe_reason)
+
+
+def get_sec_companyfacts(ticker: str = "NVDA", use_live: bool | None = None) -> dict[str, Any]:
+    normalized_ticker = ticker.strip().upper()
+    enabled = config.USE_LIVE_SEC_COMPANYFACTS if use_live is None else use_live
+    if not enabled:
+        from backend.app.data_sources.sec_companyfacts import unavailable_companyfacts
+
+        return unavailable_companyfacts(normalized_ticker, "SEC Companyfacts live fetch disabled")
+    cached = _cached_sec_companyfacts_if_fresh(normalized_ticker)
+    if cached:
+        return cached
+    if not config.SEC_EDGAR_USER_AGENT:
+        from backend.app.data_sources.sec_companyfacts import unavailable_companyfacts
+
+        return unavailable_companyfacts(normalized_ticker, "SEC_EDGAR_USER_AGENT missing")
+    try:
+        from backend.app.data_sources.sec_companyfacts import fetch_companyfacts_for_ticker
+
+        snapshot = fetch_companyfacts_for_ticker(normalized_ticker)
+        snapshot["source_status"] = build_source_status(snapshot, freshness_window=COMPANY_FILING_FRESHNESS_WINDOW).model_dump(mode="json")
+        return write_sec_companyfacts_data(normalized_ticker, snapshot)
+    except Exception:
+        cached_after_failure = _cached_sec_companyfacts_after_failure(normalized_ticker)
+        if cached_after_failure:
+            return cached_after_failure
+        from backend.app.data_sources.sec_companyfacts import unavailable_companyfacts
+
+        return unavailable_companyfacts(normalized_ticker, "SEC Companyfacts fetch failed")
 
 
 def read_company_fundamentals(ticker: str = "NVDA") -> dict[str, Any]:

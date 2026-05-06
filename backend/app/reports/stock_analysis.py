@@ -8,7 +8,7 @@ from backend.app.engines.overheat_engine import evaluate_overheat
 from backend.app.engines.sec_13f_target_matching import build_candidate_13f_evidence
 from backend.app.engines.smart_money_engine import evaluate_smart_money
 from backend.app.pipelines.research_pipeline import _build_jane_reference_conditions, _enrich_source_status, score_object
-from backend.app.raw_store.repository import get_company_fundamentals, get_company_profile, read_macro_data, read_market_data, read_sec_filings
+from backend.app.raw_store.repository import get_company_fundamentals, get_company_profile, get_sec_companyfacts, read_macro_data, read_market_data, read_sec_filings
 from backend.app.schemas.common import ScoreObject
 from backend.app.schemas.stock_analysis import (
     AnalyzeStockDataQualitySummary,
@@ -110,6 +110,16 @@ def _status_dict(value) -> dict:
     return {}
 
 
+def _sanitize_api_secret_markers(value):
+    if isinstance(value, str):
+        return value.replace("SEC_EDGAR_USER_AGENT", "SEC EDGAR User-Agent")
+    if isinstance(value, list):
+        return [_sanitize_api_secret_markers(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _sanitize_api_secret_markers(child) for key, child in value.items()}
+    return value
+
+
 def _source_quality_from_status(status: dict, *, category: str = "") -> str:
     source_type = status.get("source_type")
     provider = str(status.get("provider") or "")
@@ -118,6 +128,12 @@ def _source_quality_from_status(status: dict, *, category: str = "") -> str:
         return "derived_live"
     if fallback_used:
         return "mixed_with_fallback"
+    if category in {"sec_financial_facts"} and source_type in {"live", "cached_live"}:
+        return "filing_backed"
+    if category == "fundamentals_cross_check":
+        return "derived_from_mixed_sources"
+    if "SEC_companyfacts" in provider or "SEC companyfacts" in provider:
+        return "derived_from_mixed_sources" if source_type == "derived" else "filing_backed"
     if source_type == "mock":
         return "mock_only"
     if source_type == "cached_live":
@@ -133,6 +149,133 @@ def _source_quality_from_status(status: dict, *, category: str = "") -> str:
     if category == "risk_flags":
         return "derived_live"
     return "insufficient"
+
+
+def _sec_available(sec_facts: dict) -> bool:
+    return _status_dict(sec_facts.get("source_status")).get("source_type") in {"live", "cached_live"} and any(sec_facts.get("facts", {}).values())
+
+
+def _sec_metric(sec_facts: dict, metric: str):
+    return (sec_facts.get("derived_metrics") or {}).get(metric)
+
+
+def _sec_fact_value(sec_facts: dict, fact_name: str):
+    fact = (sec_facts.get("facts") or {}).get(fact_name)
+    return fact.get("value") if isinstance(fact, dict) else None
+
+
+def _sec_source_quality(sec_facts: dict, fallback: str) -> str:
+    if _sec_available(sec_facts):
+        return "filing_backed"
+    return fallback
+
+
+def _build_fundamentals_cross_check(sec_facts: dict, yfinance_fundamentals: dict) -> dict:
+    sec_status = _status_dict(sec_facts.get("source_status"))
+    yf_status = _status_dict(yfinance_fundamentals.get("source_status"))
+    limitations = [
+        "SEC Companyfacts complements yfinance and does not replace provider-normalized MVP fundamentals.",
+        "Provider normalization differences are expected; discrepancies are review signals.",
+    ]
+    invalid = sec_facts.get("invalid_derived_metrics") or {}
+    metrics = [
+        ("revenue_ttm", yfinance_fundamentals.get("revenue_ttm"), _sec_fact_value(sec_facts, "revenue"), "revenue"),
+        ("gross_margin_pct", yfinance_fundamentals.get("gross_margin_pct"), _sec_metric(sec_facts, "gross_margin_pct"), "gross_margin_pct"),
+        ("operating_margin_pct", yfinance_fundamentals.get("operating_margin_pct"), _sec_metric(sec_facts, "operating_margin_pct"), "operating_margin_pct"),
+        ("free_cash_flow_ttm", yfinance_fundamentals.get("free_cash_flow_ttm"), _sec_metric(sec_facts, "fcf"), "fcf"),
+        ("cash_and_equivalents", yfinance_fundamentals.get("cash_and_equivalents"), _sec_fact_value(sec_facts, "cash_and_equivalents"), "cash_and_equivalents"),
+        ("total_debt", yfinance_fundamentals.get("total_debt"), _sec_fact_value(sec_facts, "total_debt"), "total_debt"),
+        ("shares_outstanding", yfinance_fundamentals.get("shares_outstanding"), _sec_fact_value(sec_facts, "shares_outstanding"), "shares_outstanding"),
+    ]
+    checked = []
+    for name, yf_value, sec_value, sec_metric_name in metrics:
+        difference = None
+        if sec_metric_name in invalid:
+            status = "sec_invalid_period_alignment"
+        elif _metric_available(yf_value) and _metric_available(sec_value) and yf_value != 0:
+            difference = round(abs(float(sec_value) - float(yf_value)) / abs(float(yf_value)) * 100, 4)
+            status = "consistent" if difference <= 5 else "moderate_difference" if difference <= 15 else "divergent"
+        elif not _metric_available(sec_value) and not _metric_available(yf_value):
+            status = "insufficient"
+        elif not _metric_available(sec_value):
+            status = "sec_missing"
+        else:
+            status = "yfinance_missing"
+        checked.append(
+            {
+                "name": name,
+                "yfinance_value": yf_value if _metric_available(yf_value) else None,
+                "sec_value": sec_value if _metric_available(sec_value) else None,
+                "difference_pct": difference,
+                "status": status,
+                "source_quality": "filing_backed" if status in {"consistent", "moderate_difference", "divergent"} else "provider_backed" if status in {"sec_missing", "sec_invalid_period_alignment"} and _metric_available(yf_value) else "insufficient",
+            }
+        )
+    comparable = [item for item in checked if item["status"] in {"consistent", "moderate_difference", "divergent"}]
+    divergent = [item for item in comparable if item["status"] == "divergent"]
+    consistent = [item for item in comparable if item["status"] == "consistent"]
+    consistent_names = {item["name"] for item in consistent}
+    divergent_names = {item["name"] for item in divergent}
+    parser_period_alignment_valid = not bool(invalid)
+    provider_normalization_discrepancies = bool(divergent) and parser_period_alignment_valid
+    revenue_and_margin_consistent = {"revenue_ttm", "gross_margin_pct"}.issubset(consistent_names)
+    divergent_category = "none"
+    if invalid:
+        divergent_category = "invalid_sec_period_alignment"
+    elif divergent_names & {"free_cash_flow_ttm"}:
+        divergent_category = "cash_flow_provider_normalization"
+    elif divergent_names & {"cash_and_equivalents", "total_debt"}:
+        divergent_category = "balance_sheet_provider_normalization"
+    elif divergent:
+        divergent_category = "provider_normalization_or_classification"
+    if not comparable:
+        agreement = "insufficient"
+        summary = "SEC/yfinance cross-check has insufficient comparable filing-backed metrics."
+    elif divergent:
+        agreement = "low"
+        if revenue_and_margin_consistent:
+            summary = "SEC and yfinance agree on revenue and gross margin; some balance-sheet or cash-flow fields differ due to provider normalization or statement classification differences."
+        else:
+            summary = "SEC/yfinance cross-check found material comparable metric differences that need provider-normalization review."
+    elif len(consistent) >= max(1, len(comparable) - 1):
+        agreement = "high"
+        summary = "SEC/yfinance cross-check is directionally consistent for comparable metrics."
+    else:
+        agreement = "moderate"
+        summary = "SEC/yfinance cross-check is partly consistent with some provider-period differences."
+    if sec_status.get("source_type") in {"live", "cached_live"} and yf_status.get("source_type") in {"live", "cached_live", "derived"}:
+        limitations.append("SEC latest FY values may be compared with yfinance TTM/provider-normalized values; period mismatch can create differences.")
+    if invalid:
+        limitations.append("SEC Companyfacts is available, but some derived metrics require period-alignment review.")
+    source_status = build_source_status(
+        {
+            "source_type": "derived",
+            "provider": "mixed_SEC_companyfacts_and_yfinance",
+            "source_date": max([item for item in [sec_status.get("source_date"), yf_status.get("source_date")] if item], default=""),
+            "fallback_used": bool(sec_status.get("fallback_used") or yf_status.get("fallback_used")),
+            "fallback_reason": sec_status.get("fallback_reason") or yf_status.get("fallback_reason"),
+            "limitations": limitations,
+            "missing_data": sorted(set([*sec_facts.get("missing_data", []), *yfinance_fundamentals.get("missing_data", [])])),
+        }
+    ).model_dump(mode="json")
+    return {
+        "provider": "mixed_SEC_companyfacts_and_yfinance",
+        "source_type": "derived",
+        "summary": summary,
+        "agreement_level": agreement,
+        "divergence_reason": divergent_category,
+        "parser_period_alignment_valid": parser_period_alignment_valid,
+        "provider_normalization_discrepancies": provider_normalization_discrepancies,
+        "checked_metrics": checked,
+        "confidence_adjustment": {
+            "boost_applied": agreement in {"high", "moderate"} and bool(comparable),
+            "penalty_applied": agreement == "low",
+            "reason": summary,
+        },
+        "source_status": source_status,
+        "limitations": limitations,
+        "missing_data": source_status["missing_data"],
+    }
 
 
 def _score_status(score: float | None) -> str:
@@ -342,6 +485,11 @@ def _metric_evidence(label: str, value) -> str:
 
 
 def _quality_source(financial_status: dict) -> str:
+    provider = str(financial_status.get("provider") or "")
+    if "SEC_companyfacts" in provider or "sec_companyfacts" in provider:
+        return "derived_from_mixed_sources"
+    if "SEC" in provider:
+        return "filing_backed"
     source_type = financial_status.get("source_type")
     if source_type == "live":
         return "derived_live"
@@ -352,6 +500,76 @@ def _quality_source(financial_status: dict) -> str:
     if source_type == "mock":
         return "mock_only"
     return "insufficient"
+
+
+def _merge_financials_with_sec(yfinance_fundamentals: dict, sec_facts: dict, cross_check: dict) -> dict:
+    merged = dict(yfinance_fundamentals)
+    if not _sec_available(sec_facts):
+        merged["sec_source_basis"] = "insufficient"
+        return merged
+    mapping = {
+        "revenue_yoy_growth_pct": ("derived_metrics", "revenue_yoy_growth_pct"),
+        "revenue_3y_cagr_pct": ("derived_metrics", "revenue_3y_cagr_pct"),
+        "gross_margin_pct": ("derived_metrics", "gross_margin_pct"),
+        "operating_margin_pct": ("derived_metrics", "operating_margin_pct"),
+        "net_income_margin_pct": ("derived_metrics", "net_income_margin_pct"),
+        "operating_cash_flow_ttm": ("facts", "operating_cash_flow"),
+        "capex_ttm": ("facts", "capex"),
+        "free_cash_flow_ttm": ("derived_metrics", "fcf"),
+        "free_cash_flow_margin_pct": ("derived_metrics", "fcf_margin_pct"),
+        "cash_and_equivalents": ("facts", "cash_and_equivalents"),
+        "total_debt": ("facts", "total_debt"),
+        "net_cash_or_debt": ("derived_metrics", "net_cash_or_debt"),
+        "debt_to_equity": ("derived_metrics", "debt_to_equity"),
+        "accounts_receivable": ("facts", "accounts_receivable"),
+        "receivables_to_revenue_pct": ("derived_metrics", "receivables_to_revenue_pct"),
+        "inventory": ("facts", "inventory"),
+        "inventory_to_revenue_pct": ("derived_metrics", "inventory_to_revenue_pct"),
+        "shares_outstanding": ("facts", "shares_outstanding"),
+        "share_dilution_3y_pct": ("derived_metrics", "share_dilution_3y_pct"),
+    }
+    filing_backed_fields = []
+    for target, (section, key) in mapping.items():
+        value = (sec_facts.get(section) or {}).get(key)
+        if section == "facts" and isinstance(value, dict):
+            value = value.get("value")
+        if _metric_available(value):
+            merged[target] = value
+            filing_backed_fields.append(target)
+    sec_status = _status_dict(sec_facts.get("source_status"))
+    yf_status = _status_dict(yfinance_fundamentals.get("source_status"))
+    limitations = sorted(set([
+        *yfinance_fundamentals.get("limitations", []),
+        *sec_facts.get("limitations", []),
+        *cross_check.get("limitations", []),
+    ]))
+    missing = sorted(set([*yfinance_fundamentals.get("missing_data", []), *sec_facts.get("missing_data", [])]))
+    source_status = build_source_status(
+        {
+            "source_type": "derived",
+            "provider": "derived_from_SEC_companyfacts_and_yfinance",
+            "source_date": max([item for item in [sec_status.get("source_date"), yf_status.get("source_date")] if item], default=""),
+            "limitations": limitations,
+            "missing_data": missing,
+            "fallback_used": bool(sec_status.get("fallback_used") or yf_status.get("fallback_used")),
+            "fallback_reason": sec_status.get("fallback_reason") or yf_status.get("fallback_reason"),
+        }
+    ).model_dump(mode="json")
+    merged.update(
+        {
+            "source_type": "derived",
+            "provider": "derived_from_SEC_companyfacts_and_yfinance",
+            "source": ["SEC EDGAR companyfacts", "yfinance"],
+            "source_date": source_status.get("source_date", ""),
+            "source_status": source_status,
+            "sec_source_basis": "derived_from_mixed_sources",
+            "filing_backed_fields": filing_backed_fields,
+            "fundamentals_cross_check_agreement": cross_check.get("agreement_level"),
+            "limitations": limitations,
+            "missing_data": missing,
+        }
+    )
+    return merged
 
 
 def _criterion(
@@ -395,7 +613,8 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
     financial_status = _status_dict(financial_quality.source_status)
     source_quality = _quality_source(financial_status)
     yfinance_limitations = list(financial_quality.limitations or [])
-    if source_quality in {"derived_live", "cached_live"}:
+    financial_source_usable = source_quality in {"derived_live", "cached_live", "filing_backed", "derived_from_mixed_sources"}
+    if financial_source_usable:
         yfinance_limitations = sorted(set([*yfinance_limitations, "Yfinance fundamentals may combine company-reported values with provider-normalized fields."]))
 
     revenue_growth = financials.get("revenue_yoy_growth_pct")
@@ -413,7 +632,7 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
 
     scalability_available = sum(_metric_available(item) for item in [revenue_growth, revenue_cagr, gross_margin, operating_margin, fcf_margin])
     scalability_score = None
-    if source_quality in {"derived_live", "cached_live"} and scalability_available >= 3:
+    if financial_source_usable and scalability_available >= 3:
         scalability_score = 45
         if (revenue_growth or 0) >= 15 or (revenue_cagr or 0) >= 15:
             scalability_score += 20
@@ -426,7 +645,7 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
         if (revenue_growth or 0) > 10 and (operating_margin or 0) < 5:
             scalability_score -= 20
     financial_statement_score = None
-    if source_quality in {"derived_live", "cached_live"} and sum(_metric_available(item) for item in [revenue_growth, revenue_cagr, gross_margin, operating_margin, fcf]) >= 3:
+    if financial_source_usable and sum(_metric_available(item) for item in [revenue_growth, revenue_cagr, gross_margin, operating_margin, fcf]) >= 3:
         financial_statement_score = 45
         if (revenue_growth or 0) > 10 or (revenue_cagr or 0) > 10:
             financial_statement_score += 20
@@ -437,7 +656,7 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
         if (fcf or 0) > 0:
             financial_statement_score += 15
     balance_sheet_score = None
-    if source_quality in {"derived_live", "cached_live"} and sum(_metric_available(item) for item in [cash, debt, net_cash, debt_to_equity]) >= 2:
+    if financial_source_usable and sum(_metric_available(item) for item in [cash, debt, net_cash, debt_to_equity]) >= 2:
         balance_sheet_score = 50
         if (net_cash or 0) >= 0:
             balance_sheet_score += 25
@@ -451,7 +670,7 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
         cash_flow_missing.append("operating cash flow detail")
     if financials.get("capex_ttm") is None:
         cash_flow_missing.append("capex detail")
-    if source_quality in {"derived_live", "cached_live"} and _metric_available(fcf):
+    if financial_source_usable and _metric_available(fcf):
         cash_flow_score = 50
         if (fcf or 0) > 0:
             cash_flow_score += 25
@@ -463,7 +682,7 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
     rd_score = None
     rd_status = "insufficient"
     rd_source_quality = "insufficient"
-    if source_quality in {"derived_live", "cached_live"} and (_metric_available(rd_expense) or _metric_available(rd_to_revenue)):
+    if financial_source_usable and (_metric_available(rd_expense) or _metric_available(rd_to_revenue)):
         rd_source_quality = source_quality
         rd_score = 55
         if (rd_to_revenue or 0) >= 8:
@@ -602,7 +821,7 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
     ]
     affecting = [item for item in criteria if item["affects_score"] and item["score"] is not None]
     score = round(sum(float(item["score"]) for item in affecting) / len(criteria), 2) if affecting else 0
-    evidence_count = sum(1 for item in criteria if item["source_quality"] in {"derived_live", "live_backed", "cached_live"} and item["affects_score"])
+    evidence_count = sum(1 for item in criteria if item["source_quality"] in {"derived_live", "live_backed", "cached_live", "filing_backed", "derived_from_mixed_sources"} and item["affects_score"])
     insufficient_count = sum(1 for item in criteria if item["status"] == "insufficient")
     confidence = round(min(0.78, 0.25 + evidence_count * 0.08), 2)
     label = "evidence_backed" if evidence_count >= 7 and confidence >= 0.70 else "preliminary" if evidence_count else "insufficient_data"
@@ -610,7 +829,7 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
     source_status = build_source_status(
         {
             "source_type": "derived" if evidence_count else "unknown",
-            "provider": "derived_from_yfinance_company_quality" if evidence_count else "insufficient_company_quality_evidence",
+            "provider": "derived_from_SEC_companyfacts_and_yfinance_company_quality" if source_quality == "derived_from_mixed_sources" else "derived_from_yfinance_company_quality" if evidence_count else "insufficient_company_quality_evidence",
             "source_date": financial_status.get("source_date", ""),
             "is_fresh": financial_status.get("is_fresh", False),
             "limitations": ["Qualitative principles require evidence and are marked insufficient when not verifiable.", *yfinance_limitations],
@@ -645,8 +864,16 @@ def _build_financial_statement_signals(financial_quality: ScoreObject) -> Financ
     financials = financial_quality.raw_data
     status = _status_dict(financial_quality.source_status)
     live_like = status.get("source_type") in {"live", "cached_live", "derived"}
-    source_quality = "derived_live" if live_like else "insufficient"
+    filing_fields = set(financials.get("filing_backed_fields") or [])
+    default_source_quality = "derived_from_mixed_sources" if filing_fields else "derived_live" if live_like else "insufficient"
     limitations = list(financial_quality.limitations or [])
+
+    def signal_source_quality(relevant_fields: set[str], *, mixed: bool = False) -> str:
+        if relevant_fields & filing_fields:
+            return "derived_from_mixed_sources" if mixed else "filing_backed"
+        if filing_fields and live_like:
+            return "yfinance_backed"
+        return default_source_quality
 
     def available_metric(name: str):
         return financials.get(name) if _metric_available(financials.get(name)) else None
@@ -656,26 +883,35 @@ def _build_financial_statement_signals(financial_quality: ScoreObject) -> Financ
     revenue_cagr = available_metric("revenue_3y_cagr_pct")
     if live_like and (revenue_growth is not None or revenue_cagr is not None):
         status_name = "supportive" if (revenue_growth or 0) >= 10 or (revenue_cagr or 0) >= 10 else "neutral"
-        signals.append(_signal("revenue_growth_quality", status_name, source_quality, [_metric_evidence("Revenue YoY growth pct", revenue_growth), _metric_evidence("Revenue 3Y CAGR pct", revenue_cagr)], limitations, []))
+        signal_quality = signal_source_quality({"revenue_yoy_growth_pct", "revenue_3y_cagr_pct"})
+        signals.append(_signal("revenue_growth_quality", status_name, signal_quality, [_metric_evidence("Revenue YoY growth pct", revenue_growth), _metric_evidence("Revenue 3Y CAGR pct", revenue_cagr)], limitations, []))
     else:
         signals.append(_signal("revenue_growth_quality", "insufficient", "insufficient", [], limitations, ["revenue_yoy_growth_pct", "revenue_3y_cagr_pct"]))
 
     operating_margin = available_metric("operating_margin_pct")
     if live_like and operating_margin is not None:
-        signals.append(_signal("operating_margin_strength", "supportive" if operating_margin >= 15 else "neutral" if operating_margin >= 5 else "caution", source_quality, [_metric_evidence("Operating margin pct", operating_margin)], limitations, []))
+        signal_quality = signal_source_quality({"operating_margin_pct"})
+        signals.append(_signal("operating_margin_strength", "supportive" if operating_margin >= 15 else "neutral" if operating_margin >= 5 else "caution", signal_quality, [_metric_evidence("Operating margin pct", operating_margin)], limitations, []))
     else:
         signals.append(_signal("operating_margin_strength", "insufficient", "insufficient", [], limitations, ["operating_margin_pct"]))
 
     net_income = available_metric("net_income_ttm")
     net_income_margin = available_metric("net_income_margin_pct")
     if live_like and (net_income is not None or net_income_margin is not None):
-        signals.append(_signal("net_income_quality", "supportive" if (net_income or 0) > 0 and (net_income_margin or 0) >= 10 else "neutral" if (net_income or 0) > 0 else "caution", source_quality, [_metric_evidence("Net income TTM", net_income), _metric_evidence("Net income margin pct", net_income_margin)], limitations, []))
+        ocf = available_metric("operating_cash_flow_ttm")
+        if net_income is not None and ocf is not None and net_income > 0 and ocf < net_income * 0.8:
+            ni_status = "caution"
+        else:
+            ni_status = "supportive" if (net_income or 0) > 0 and (net_income_margin or 0) >= 10 else "neutral" if (net_income or 0) > 0 else "caution"
+        signal_quality = signal_source_quality({"net_income_margin_pct", "operating_cash_flow_ttm"}, mixed=True)
+        signals.append(_signal("net_income_quality", ni_status, signal_quality, [_metric_evidence("Net income TTM", net_income), _metric_evidence("Net income margin pct", net_income_margin), _metric_evidence("Operating cash flow TTM", ocf)], limitations, []))
     else:
         signals.append(_signal("net_income_quality", "insufficient", "insufficient", [], limitations, ["net_income_ttm", "net_income_margin_pct"]))
 
     ocf = available_metric("operating_cash_flow_ttm")
     if live_like and ocf is not None:
-        signals.append(_signal("operating_cash_flow_quality", "supportive" if ocf > 0 else "caution", source_quality, [_metric_evidence("Operating cash flow TTM", ocf)], limitations, []))
+        signal_quality = signal_source_quality({"operating_cash_flow_ttm"})
+        signals.append(_signal("operating_cash_flow_quality", "supportive" if ocf > 0 else "caution", signal_quality, [_metric_evidence("Operating cash flow TTM", ocf)], limitations, []))
     else:
         signals.append(_signal("operating_cash_flow_quality", "insufficient", "insufficient", [], limitations, ["operating_cash_flow_ttm"]))
 
@@ -683,13 +919,15 @@ def _build_financial_statement_signals(financial_quality: ScoreObject) -> Financ
     debt = available_metric("total_debt")
     net_cash = available_metric("net_cash_or_debt")
     if live_like and (cash is not None or net_cash is not None):
-        signals.append(_signal("cash_safety_buffer", "supportive" if (net_cash or 0) >= 0 else "neutral", source_quality, [_metric_evidence("Cash and equivalents", cash), _metric_evidence("Net cash or debt", net_cash)], limitations, []))
+        signal_quality = signal_source_quality({"cash_and_equivalents", "net_cash_or_debt"})
+        signals.append(_signal("cash_safety_buffer", "supportive" if (net_cash or 0) >= 0 else "neutral", signal_quality, [_metric_evidence("Cash and equivalents", cash), _metric_evidence("Net cash or debt", net_cash)], limitations, []))
     else:
         signals.append(_signal("cash_safety_buffer", "insufficient", "insufficient", [], limitations, ["cash_and_equivalents", "net_cash_or_debt"]))
 
     debt_to_equity = available_metric("debt_to_equity")
     if live_like and (debt is not None or debt_to_equity is not None):
-        signals.append(_signal("debt_risk", "supportive" if (net_cash or 0) >= 0 or (debt_to_equity is not None and debt_to_equity <= 80) else "caution" if debt_to_equity and debt_to_equity > 150 else "neutral", source_quality, [_metric_evidence("Total debt", debt), _metric_evidence("Debt to equity", debt_to_equity)], limitations, []))
+        signal_quality = signal_source_quality({"total_debt", "debt_to_equity"})
+        signals.append(_signal("debt_risk", "supportive" if (net_cash or 0) >= 0 or (debt_to_equity is not None and debt_to_equity <= 0.8) else "caution" if debt_to_equity and debt_to_equity > 1.5 else "neutral", signal_quality, [_metric_evidence("Total debt", debt), _metric_evidence("Debt to equity", debt_to_equity)], limitations, []))
     else:
         signals.append(_signal("debt_risk", "insufficient", "insufficient", [], limitations, ["total_debt", "debt_to_equity"]))
 
@@ -700,20 +938,23 @@ def _build_financial_statement_signals(financial_quality: ScoreObject) -> Financ
         ratio = available_metric(ratio_field)
         raw = available_metric(raw_field)
         if live_like and ratio is not None:
-            signals.append(_signal(signal_name, "caution" if ratio >= 30 else "neutral", source_quality, [_metric_evidence(displayKey := raw_field.replace("_", " ").title(), raw), _metric_evidence(ratio_field, ratio)], limitations, []))
+            signal_quality = signal_source_quality({ratio_field, raw_field})
+            signals.append(_signal(signal_name, "caution" if ratio >= 30 else "neutral", signal_quality, [_metric_evidence(raw_field.replace("_", " ").title(), raw), _metric_evidence(ratio_field, ratio)], limitations, []))
         else:
             signals.append(_signal(signal_name, "insufficient", "insufficient", [], limitations, missing))
 
     capex = available_metric("capex_ttm")
     if live_like and ocf is not None and capex is not None:
         capex_ratio = round(abs(capex) / ocf * 100, 2) if ocf > 0 else None
-        signals.append(_signal("capex_vs_ocf_risk", "caution" if capex_ratio is not None and capex_ratio >= 80 else "neutral", source_quality, [_metric_evidence("Operating cash flow TTM", ocf), _metric_evidence("CapEx TTM", capex), _metric_evidence("CapEx as pct of OCF", capex_ratio)], limitations, []))
+        signal_quality = signal_source_quality({"operating_cash_flow_ttm", "capex_ttm"})
+        signals.append(_signal("capex_vs_ocf_risk", "caution" if capex_ratio is not None and capex_ratio >= 80 else "neutral", signal_quality, [_metric_evidence("Operating cash flow TTM", ocf), _metric_evidence("CapEx TTM", capex), _metric_evidence("CapEx as pct of OCF", capex_ratio)], limitations, []))
     else:
         signals.append(_signal("capex_vs_ocf_risk", "insufficient", "insufficient", [], limitations, ["operating_cash_flow_ttm", "capex_ttm"]))
 
     dilution = available_metric("share_dilution_3y_pct")
     if live_like and dilution is not None:
-        signals.append(_signal("share_dilution_risk", "caution" if dilution >= 10 else "neutral", source_quality, [_metric_evidence("Share dilution 3Y pct", dilution)], limitations, []))
+        signal_quality = signal_source_quality({"share_dilution_3y_pct"})
+        signals.append(_signal("share_dilution_risk", "caution" if dilution >= 10 else "neutral", signal_quality, [_metric_evidence("Share dilution 3Y pct", dilution)], limitations, []))
     else:
         signals.append(_signal("share_dilution_risk", "insufficient", "insufficient", [], limitations, ["share_dilution_3y_pct"]))
 
@@ -726,7 +967,7 @@ def _build_financial_statement_signals(financial_quality: ScoreObject) -> Financ
     source_status = build_source_status(
         {
             "source_type": "derived" if scored else "unknown",
-            "provider": "derived_from_yfinance_financial_statement_signals" if scored else "insufficient_financial_statement_evidence",
+            "provider": "derived_from_SEC_companyfacts_and_yfinance_financial_statement_signals" if filing_fields else "derived_from_yfinance_financial_statement_signals" if scored else "insufficient_financial_statement_evidence",
             "source_date": status.get("source_date", ""),
             "is_fresh": status.get("is_fresh", False),
             "limitations": limitations,
@@ -770,6 +1011,8 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "company_profile": _status_dict(response.company_profile.get("source_status")),
         "financial_quality": _status_dict(response.financial_quality.source_status),
         "valuation_context": _status_dict(response.valuation_context.source_status),
+        "sec_financial_facts": _status_dict(response.sec_financial_facts.get("source_status")),
+        "fundamentals_cross_check": _status_dict(response.fundamentals_cross_check.get("source_status")),
         "jane_company_quality": _status_dict(response.jane_company_quality.source_status),
         "financial_statement_signals": _status_dict(response.financial_statement_signals.source_status),
         "legacy_leadership_score": _status_dict(response.leadership_score.source_status),
@@ -782,11 +1025,13 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         criterion.name for criterion in quality_criteria if criterion.status == "insufficient"
     )
     company_quality_breakdown = {
-        "evidence_backed_criteria_count": sum(1 for criterion in quality_criteria if criterion.affects_score and criterion.source_quality in {"live_backed", "derived_live", "cached_live"}),
+        "evidence_backed_criteria_count": sum(1 for criterion in quality_criteria if criterion.affects_score and criterion.source_quality in {"live_backed", "derived_live", "cached_live", "filing_backed", "derived_from_mixed_sources"}),
         "insufficient_criteria_count": sum(1 for criterion in quality_criteria if criterion.status == "insufficient"),
         "mock_criteria_count": sum(1 for criterion in quality_criteria if criterion.source_quality == "mock_only"),
         "derived_live_criteria_count": sum(1 for criterion in quality_criteria if criterion.source_quality == "derived_live"),
         "user_context_criteria_count": sum(1 for criterion in quality_criteria if criterion.source_quality == "user_context"),
+        "filing_backed_criteria_count": sum(1 for criterion in quality_criteria if criterion.source_quality == "filing_backed"),
+        "mixed_source_criteria_count": sum(1 for criterion in quality_criteria if criterion.source_quality == "derived_from_mixed_sources"),
     }
     mock_categories = sorted(
         name for name, status in component_statuses.items() if status.get("source_type") == "mock"
@@ -795,7 +1040,7 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         name for name, status in component_statuses.items() if status.get("fallback_used") or status.get("source_type") == "fallback"
     )
     missing_source_date_categories = sorted(
-        name for name, status in component_statuses.items() if not status.get("source_date")
+        name for name, status in component_statuses.items() if not status.get("source_date") and status.get("source_type") != "unknown"
     )
     live_components = sum(1 for status in component_statuses.values() if status.get("source_type") in {"live", "cached_live", "derived"})
     mock_components = len(mock_categories)
@@ -852,6 +1097,15 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "excluded_from_scoring": _excluded_indicator_names(response.macro_regime),
         "insufficient_evidence_categories": insufficient_evidence_categories,
         "company_quality": company_quality_breakdown,
+        "sec_companyfacts": {
+            "available": _status_dict(response.sec_financial_facts.get("source_status")).get("source_type") in {"live", "cached_live"},
+            "source_type": _status_dict(response.sec_financial_facts.get("source_status")).get("source_type") or "insufficient",
+            "filing_backed_metric_count": sum(1 for item in (response.sec_financial_facts.get("facts") or {}).values() if item),
+            "missing_concept_count": len(response.sec_financial_facts.get("missing_data", [])),
+            "latest_filing_date": response.sec_financial_facts.get("latest_filing_date"),
+            "latest_report_period": response.sec_financial_facts.get("latest_report_period"),
+            "agreement_level_with_yfinance": response.fundamentals_cross_check.get("agreement_level", "insufficient"),
+        },
     }
 
 
@@ -919,6 +1173,8 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
     company_status = _status_dict(response.company_profile.get("source_status"))
     financial_status = _status_dict(response.financial_quality.source_status)
     valuation_status = _status_dict(response.valuation_context.source_status)
+    sec_status = _status_dict(response.sec_financial_facts.get("source_status"))
+    cross_status = _status_dict(response.fundamentals_cross_check.get("source_status"))
     leadership_status = _status_dict(response.leadership_score.source_status)
     smart_status = _status_dict(response.smart_money.source_status)
     insider_status = _status_dict(response.insider_activity.get("source_status"))
@@ -1000,6 +1256,47 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
             "limitations": _limited(response.valuation_context.limitations, "Valuation source limitations unavailable."),
         },
         {
+            "category": "sec_financial_facts",
+            "status": "neutral" if sec_status.get("source_type") in {"live", "cached_live"} else "insufficient",
+            "score": None,
+            "confidence": 0.72 if sec_status.get("source_type") in {"live", "cached_live"} else 0.25,
+            "source_quality": _source_quality_from_status(sec_status, category="sec_financial_facts"),
+            "summary": "SEC Companyfacts provides official filing-backed financial metric cross-checks.",
+            "key_evidence": _limited(
+                [
+                    f"Filing-backed facts: {sum(1 for item in (response.sec_financial_facts.get('facts') or {}).values() if item)}",
+                    f"Invalid derived metrics: {len(response.sec_financial_facts.get('invalid_derived_metrics') or {})}",
+                    f"Aligned statement period: {response.sec_financial_facts.get('aligned_statement_period')}",
+                    f"Aligned balance sheet period: {response.sec_financial_facts.get('aligned_balance_sheet_period')}",
+                    f"Latest filing date: {response.sec_financial_facts.get('latest_filing_date')}",
+                ],
+                "SEC Companyfacts evidence unavailable.",
+                limit=5,
+            ),
+            "limitations": _limited(response.sec_financial_facts.get("limitations", []), "SEC Companyfacts concept coverage varies by issuer."),
+        },
+        {
+            "category": "fundamentals_cross_check",
+            "status": "caution" if response.fundamentals_cross_check.get("agreement_level") == "low" else "neutral" if response.fundamentals_cross_check.get("agreement_level") in {"high", "moderate"} else "insufficient",
+            "score": None,
+            "confidence": 0.70 if response.fundamentals_cross_check.get("agreement_level") in {"high", "moderate"} else 0.35,
+            "source_quality": _source_quality_from_status(cross_status, category="fundamentals_cross_check"),
+            "summary": response.fundamentals_cross_check.get("summary", "SEC/yfinance cross-check unavailable."),
+            "key_evidence": _limited(
+                [
+                    f"Agreement level: {response.fundamentals_cross_check.get('agreement_level')}",
+                    f"Parser period alignment valid: {bool(response.fundamentals_cross_check.get('parser_period_alignment_valid'))}",
+                    f"Provider normalization discrepancies: {bool(response.fundamentals_cross_check.get('provider_normalization_discrepancies'))}",
+                    f"Divergence reason: {response.fundamentals_cross_check.get('divergence_reason')}",
+                    f"Checked metrics: {len(response.fundamentals_cross_check.get('checked_metrics', []))}",
+                    f"Divergent metrics: {sum(1 for item in response.fundamentals_cross_check.get('checked_metrics', []) if item.get('status') == 'divergent')}",
+                ],
+                "Cross-check evidence unavailable.",
+                limit=6,
+            ),
+            "limitations": _limited(response.fundamentals_cross_check.get("limitations", []), "Cross-check limitations unavailable."),
+        },
+        {
             "category": "jane_company_quality",
             "status": _score_status(response.jane_company_quality.score),
             "score": response.jane_company_quality.score,
@@ -1009,6 +1306,7 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
             "key_evidence": _limited(
                 [
                     f"Evidence-backed criteria: {len(quality_supportive)} supportive",
+                    f"Filing-backed criteria: {sum(1 for criterion in response.jane_company_quality.criteria if criterion.source_quality in {'filing_backed', 'derived_from_mixed_sources'})}",
                     f"Insufficient criteria: {len(quality_insufficient)}",
                     f"Label: {response.jane_company_quality.label}",
                 ],
@@ -1106,6 +1404,25 @@ def _build_manual_checks(response: AnalyzeStockResponse) -> list[dict]:
     profile_live = "company_profile" not in dq.mock_evidence_categories and "company_profile" not in dq.fallback_evidence_categories
     fundamentals_live = "financial_quality" not in dq.mock_evidence_categories and "financial_quality" not in dq.fallback_evidence_categories
     checks = []
+    sec_available = _status_dict(response.sec_financial_facts.get("source_status")).get("source_type") in {"live", "cached_live"}
+    if sec_available:
+        checks.append(
+            {
+                "priority": "medium",
+                "area": "filings",
+                "check": "Review SEC Companyfacts-derived trends against latest 10-K/10-Q narrative.",
+                "reason": "Filing-backed numeric trends should be checked against management discussion and notes.",
+            }
+        )
+    if response.sec_financial_facts.get("missing_data"):
+        checks.append(
+            {
+                "priority": "medium",
+                "area": "filings",
+                "check": "Manually verify missing SEC concepts in latest filing.",
+                "reason": "SEC Companyfacts concept coverage varies and missing concepts are not inferred.",
+            }
+        )
     if has_mock and not profile_live:
         checks.append(
             {
@@ -1196,6 +1513,48 @@ def _build_score_driver_breakdown(response: AnalyzeStockResponse) -> dict:
                 "effect": "positive",
                 "source_quality": macro_quality.get("source_quality", "derived_live"),
                 "summary": "Macro environment is neutral-to-constructive using active scored components.",
+            }
+        )
+    sec_metric_count = sum(1 for item in (response.sec_financial_facts.get("facts") or {}).values() if item)
+    agreement = response.fundamentals_cross_check.get("agreement_level")
+    if sec_metric_count >= 4:
+        positive.append(
+            {
+                "name": "sec_filing_backed_financial_quality",
+                "category": "sec_financial_facts",
+                "effect": "positive",
+                "source_quality": "filing_backed",
+                "summary": "SEC Companyfacts provides filing-backed support for multiple financial metrics.",
+            }
+        )
+    if agreement in {"high", "moderate"}:
+        positive.append(
+            {
+                "name": "fundamentals_cross_check_consistent",
+                "category": "fundamentals_cross_check",
+                "effect": "positive",
+                "source_quality": "derived_from_mixed_sources",
+                "summary": "Comparable SEC Companyfacts and yfinance metrics are directionally consistent.",
+            }
+        )
+    elif agreement == "low":
+        limiting.append(
+            {
+                "name": "fundamentals_cross_check_divergent",
+                "category": "fundamentals_cross_check",
+                "effect": "limiting",
+                "source_quality": "derived_from_mixed_sources",
+                "summary": response.fundamentals_cross_check.get("summary") or "SEC Companyfacts and yfinance show material comparable differences that need review.",
+            }
+        )
+    if response.sec_financial_facts.get("missing_data"):
+        limiting.append(
+            {
+                "name": "sec_companyfacts_missing_concepts",
+                "category": "sec_financial_facts",
+                "effect": "insufficient",
+                "source_quality": "filing_backed" if sec_metric_count else "insufficient",
+                "summary": "Some SEC Companyfacts concepts are unavailable and are listed as missing data.",
             }
         )
     else:
@@ -1341,6 +1700,9 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
     fundamentals_mock = "financial_quality" in dq.mock_evidence_categories
     company_live = not company_mock and "company_profile" not in dq.fallback_evidence_categories
     fundamentals_live = not fundamentals_mock and "financial_quality" not in dq.fallback_evidence_categories
+    sec_available = bool(dq.sec_companyfacts.get("available"))
+    sec_agreement = dq.sec_companyfacts.get("agreement_level_with_yfinance", "insufficient")
+    sec_invalid = bool(response.sec_financial_facts.get("invalid_derived_metrics"))
     smart_limited = "smart_money" in dq.fallback_evidence_categories or "insider_activity" in dq.fallback_evidence_categories
     strengths = []
     if response.macro_regime.score >= 56:
@@ -1351,6 +1713,10 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
         strengths.append("Company profile is live or cached-live instead of mock-only.")
     if fundamentals_live:
         strengths.append("Financial quality includes live or cached fundamentals context.")
+    if sec_available:
+        strengths.append("SEC Companyfacts filing-backed financial facts are available for cross-checking.")
+    if sec_agreement in {"high", "moderate"}:
+        strengths.append("SEC Companyfacts and yfinance are directionally consistent for comparable metrics.")
     supportive_quality = [criterion for criterion in response.jane_company_quality.criteria if criterion.status == "supportive"]
     if any(criterion.name == "scalability" for criterion in supportive_quality):
         strengths.append("Live financial quality supports scalability under Jane company quality criteria.")
@@ -1365,6 +1731,10 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
         risks.append("Company profile remains mock-based.")
     if fundamentals_mock:
         risks.append("Financial quality remains mock-based or incomplete.")
+    if sec_invalid:
+        risks.append("SEC Companyfacts is available, but some derived metrics require period-alignment review.")
+    if sec_agreement == "low":
+        risks.append("SEC Companyfacts and yfinance show material discrepancies requiring review.")
     if smart_limited:
         risks.append("Smart-money evidence includes fallback or cached-limited components.")
     if response.risk_flags:
@@ -1384,7 +1754,10 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
     )
     env = f"Macro environment is {response.macro_regime.label} with {response.macro_regime.confidence:.2f} confidence."
     if company_live and fundamentals_live:
-        company = "Live company profile and fundamentals are available; Jane company quality is partially evidence-backed by financial metrics, while qualitative moat/founder/network/disruption evidence remains insufficient."
+        company = "Live company profile and fundamentals are available; SEC filing-backed financial facts are available." if sec_available else "Live company profile and fundamentals are available; Jane company quality is partially evidence-backed by financial metrics, while qualitative moat/founder/network/disruption evidence remains insufficient."
+        if sec_invalid:
+            company = f"{company} SEC Companyfacts is available, but some derived metrics require period-alignment review."
+        company = f"{company} SEC/yfinance agreement is {sec_agreement}; qualitative moat/founder/network/disruption evidence remains insufficient."
     elif company_live:
         company = "Live company profile is available; fundamentals and qualitative Jane company quality evidence still need verification."
     else:
@@ -1425,7 +1798,10 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     macro_regime = evaluate_macro_regime(macro_snapshot)
     sec_filings = read_sec_filings(request.ticker)
     company_profile = get_company_profile(request.ticker)
-    company_fundamentals = get_company_fundamentals(request.ticker)
+    yfinance_fundamentals = get_company_fundamentals(request.ticker)
+    sec_financial_facts = get_sec_companyfacts(request.ticker)
+    fundamentals_cross_check = _build_fundamentals_cross_check(sec_financial_facts, yfinance_fundamentals)
+    company_fundamentals = _merge_financials_with_sec(yfinance_fundamentals, sec_financial_facts, fundamentals_cross_check)
     smart_money_data = {**fixture["smart_money"], **sec_filings}
     engine_context = {
         **fixture,
@@ -1438,6 +1814,8 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         missing_data.append("live yfinance company profile")
     if company_fundamentals.get("source_status", {}).get("source_type") not in {"live", "cached_live", "derived"}:
         missing_data.append("live yfinance fundamentals")
+    if sec_financial_facts.get("source_status", {}).get("source_type") not in {"live", "cached_live"}:
+        missing_data.append("SEC Companyfacts filing-backed fundamentals")
     missing_data.extend(company_profile.get("missing_data", []))
     missing_data.extend(company_fundamentals.get("missing_data", []))
     if market_context.get("source_type") != "live":
@@ -1579,6 +1957,8 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         leadership_score=leadership_score,
         jane_company_quality=jane_company_quality,
         financial_statement_signals=financial_statement_signals,
+        sec_financial_facts=sec_financial_facts,
+        fundamentals_cross_check=fundamentals_cross_check,
         market_timing_context=market_timing_context,
         overheat_risk=overheat_risk,
         smart_money=smart_money,
@@ -1648,4 +2028,4 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     response.next_manual_checks = [NextManualCheck.model_validate(item) for item in _build_manual_checks(response)]
     response.score_driver_breakdown = ScoreDriverBreakdown.model_validate(_build_score_driver_breakdown(response))
     response.candidate_validation_summary = CandidateValidationSummary.model_validate(_build_candidate_summary(response))
-    return response
+    return AnalyzeStockResponse.model_validate(_sanitize_api_secret_markers(response.model_dump(mode="json")))

@@ -2,7 +2,7 @@
 
 ## MVP Rule
 
-Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions, and Phase 11 adds opt-in official SEC EDGAR 13F institutional holdings. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
+Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions, Phase 11 adds opt-in official SEC EDGAR 13F institutional holdings, and Phase 17 adds opt-in official SEC EDGAR Companyfacts financial cross-checks. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
 
 ## Phase 13 Endpoint Roles
 
@@ -16,7 +16,9 @@ Phase 14 adds user-facing source-quality composition for analyze-stock without a
 
 Phase 15 live-enables company profile and fundamentals through the existing repository-backed yfinance dependency. `company_profile` may be live or cached-live with `provider: "yfinance"`. `financial_quality` may use yfinance fundamentals and provider-normalized fields. `valuation_context` is derived from yfinance profile and fundamentals inputs with `provider: "derived_from_yfinance"`. Valuation context is risk context only. Missing financial fields are listed in `missing_data` and are not fabricated. If yfinance is unavailable after a live attempt, mock fallback data is clearly labeled with `fallback_used=true`. Leadership evidence remains mock-disclosed until a later live leadership phase.
 
-Phase 16 uses the same yfinance fundamentals path to harden company-quality evidence without adding providers. `jane_company_quality` is derived from explicit Jane criteria and only scores criteria that have available evidence. Qualitative moat, founder/CEO, network effect, and disruption evidence is marked insufficient when unavailable. `research_context.theme` is user context only and does not verify mega-trend fit. `financial_statement_signals` derives revenue growth, operating margin, net income, operating cash flow, cash buffer, debt, receivables, inventory, CapEx/OCF, and dilution checks from yfinance fields when present. Missing fields are not fabricated. SEC companyfacts remains the preferred future official source for stronger filing validation.
+Phase 16 uses the same yfinance fundamentals path to harden company-quality evidence. `jane_company_quality` is derived from explicit Jane criteria and only scores criteria that have available evidence. Qualitative moat, founder/CEO, network effect, and disruption evidence is marked insufficient when unavailable. `research_context.theme` is user context only and does not verify mega-trend fit. `financial_statement_signals` derives revenue growth, operating margin, net income, operating cash flow, cash buffer, debt, receivables, inventory, CapEx/OCF, and dilution checks from available fundamentals. Missing fields are not fabricated.
+
+Phase 17 adds official SEC EDGAR Companyfacts as a filing-backed cross-check for financial statement signals. SEC Companyfacts uses `https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json`, requires `SEC_EDGAR_USER_AGENT`, caches raw/parsed snapshots, and never exposes the User-Agent, headers, or raw provider URL in responses or fallback reasons. SEC Companyfacts complements yfinance; it does not replace yfinance as the MVP market/company provider. Concept coverage varies by issuer and reporting period, so missing concepts are listed in `missing_data` and are not guessed. SEC/yfinance discrepancies appear as review signals in `fundamentals_cross_check`.
 
 Legacy `leadership_score` remains mock-only for backward compatibility and is deprecated by `jane_company_quality`; it must not boost candidate confidence as live company-quality evidence.
 
@@ -24,7 +26,58 @@ Phase 15.5 stabilizes source architecture without adding providers or changing s
 
 `USE_LIVE_COMPANY_DATA=true` enables this company-data path directly. If unset, it follows `USE_LIVE_MARKET_DATA`. `COMPANY_DATA_PROVIDER` defaults to `yfinance`. No paid provider is added, and no website scraping is used.
 
-SEC companyfacts remains a preferred future official source for filed fundamentals. When added later, it must use official SEC EDGAR endpoints, require `SEC_EDGAR_USER_AGENT`, and never expose the User-Agent value in API responses, snapshots, logs, fallback reasons, or tests.
+SEC Companyfacts now supplies the official filing-backed financial cross-check layer for analyze-stock. Qualitative Jane criteria still require independent qualitative evidence and are not inferred from Companyfacts.
+
+## Phase 17 Official SEC EDGAR Companyfacts
+
+Default:
+
+- `USE_LIVE_SEC_COMPANYFACTS` follows `USE_LIVE_COMPANY_DATA`
+- live Companyfacts fetches require `SEC_EDGAR_USER_AGENT`
+- if unavailable, analyze-stock remains usable and lists SEC Companyfacts items in `missing_data`
+
+Opt-in:
+
+```powershell
+$env:USE_LIVE_SEC_COMPANYFACTS="true"
+$env:SEC_EDGAR_USER_AGENT="Your Name your.email@example.com"
+uvicorn backend.app.main:app --reload
+```
+
+Implemented SEC endpoint:
+
+- `https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json`
+
+Mapped concepts:
+
+- revenue, gross profit, operating income, net income
+- operating cash flow and CapEx
+- cash, debt, stockholders' equity
+- receivables and inventory
+- shares when a reliable share concept exists
+
+Repository behavior:
+
+- live Companyfacts fetches are made only through the raw-store/repository boundary
+- successful snapshots are cached under `backend/raw_store/cache/sec_companyfacts` unless `SEC_COMPANYFACTS_CACHE_DIR` overrides it
+- cached live data within `SEC_COMPANYFACTS_CACHE_TTL_DAYS` returns `source_type: "cached_live"`
+- fallback reasons are sanitized as `SEC Companyfacts fetch failed; cached or provider fallback used.`
+- no User-Agent value, request header, or raw Companyfacts URL is stored or returned
+
+Freshness:
+
+- `freshness_window: "latest_company_filing"`
+- `source_date` is the latest filing date used when available, otherwise the latest report period
+
+Limitations:
+
+- SEC Companyfacts concept coverage varies by issuer and period
+- SEC FY values may differ from yfinance TTM/provider-normalized values
+- Phase 17a aligns income-statement and cash-flow facts by annual fiscal period before computing margins, FCF, and CapEx/OCF ratios
+- stale revenue, CapEx, or balance-sheet facts are not mixed into current-period derived metrics
+- invalid SEC derived ratios are marked with `invalid_period_alignment` and yfinance may remain the provider-backed fallback for financial signals
+- discrepancies are human-review signals, not automatic failures
+- share dilution is not fabricated when reliable share series are unavailable
 
 ## Phase 11 Official SEC EDGAR 13F
 

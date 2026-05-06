@@ -103,6 +103,11 @@
           },
           "title": "Company Quality",
           "type": "object"
+        },
+        "sec_companyfacts": {
+          "additionalProperties": true,
+          "title": "Sec Companyfacts",
+          "type": "object"
         }
       },
       "required": [
@@ -370,6 +375,8 @@
             "company_profile",
             "financial_quality",
             "valuation_context",
+            "sec_financial_facts",
+            "fundamentals_cross_check",
             "jane_company_quality",
             "financial_statement_signals",
             "leadership_score",
@@ -418,6 +425,9 @@
             "mixed_with_fallback",
             "user_context",
             "mock_only",
+            "filing_backed",
+            "provider_backed",
+            "derived_from_mixed_sources",
             "insufficient"
           ],
           "title": "Source Quality",
@@ -474,6 +484,9 @@
           "enum": [
             "live_backed",
             "derived_live",
+            "filing_backed",
+            "yfinance_backed",
+            "derived_from_mixed_sources",
             "insufficient"
           ],
           "title": "Source Quality",
@@ -688,6 +701,8 @@
             "derived_live",
             "cached_live",
             "user_context",
+            "filing_backed",
+            "derived_from_mixed_sources",
             "insufficient",
             "mock_only"
           ],
@@ -1775,6 +1790,16 @@
     },
     "financial_statement_signals": {
       "$ref": "#/$defs/FinancialStatementSignals"
+    },
+    "sec_financial_facts": {
+      "additionalProperties": true,
+      "title": "Sec Financial Facts",
+      "type": "object"
+    },
+    "fundamentals_cross_check": {
+      "additionalProperties": true,
+      "title": "Fundamentals Cross Check",
+      "type": "object"
     },
     "market_timing_context": {
       "$ref": "#/$defs/ScoreObject"

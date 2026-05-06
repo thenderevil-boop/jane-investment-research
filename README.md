@@ -8,6 +8,28 @@ Build a US-market-only investment research automation system based on Jane's Mar
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
+## Phase 17 SEC Companyfacts Financial Cross-Check
+
+Phase 17 adds official SEC EDGAR Companyfacts as a filing-backed cross-check layer for `POST /api/analyze-stock`:
+
+- `sec_financial_facts` exposes parsed Companyfacts concepts for revenue, gross profit, operating income, net income, operating cash flow, CapEx, cash, debt, stockholders' equity, receivables, inventory, and shares when SEC concepts are available.
+- `fundamentals_cross_check` compares comparable SEC Companyfacts and yfinance metrics with tolerant thresholds. Discrepancies are review signals, not automatic failures.
+- SEC Companyfacts complements yfinance. Yfinance remains the MVP market/company provider, while SEC facts improve source quality for financial statement signals only where mapped concepts exist.
+- Missing SEC concepts are listed in `missing_data`; the system does not infer missing filing concepts or share dilution.
+- Jane qualitative moat/founder/network/disruption criteria remain insufficient until independent qualitative evidence sources exist.
+- `SEC_EDGAR_USER_AGENT` is required for live Companyfacts fetches and is never exposed in API responses, snapshots, logs, fallback reasons, or tests.
+- Phase 17a aligns SEC Companyfacts derived metrics by fiscal period. Income statement and cash-flow margins only use same-period annual facts, CapEx must align with OCF, and invalid period-alignment ratios are nulled with `invalid_period_alignment` rather than used as supportive evidence.
+
+Enable live Companyfacts:
+
+```powershell
+cd D:\jane-investment-research
+.\.venv\Scripts\Activate.ps1
+$env:USE_LIVE_SEC_COMPANYFACTS="true"
+$env:SEC_EDGAR_USER_AGENT="Your Name your.email@example.com"
+uvicorn backend.app.main:app --reload
+```
+
 ## Phase 16 Jane Company Quality Evidence Hardening
 
 Phase 16 replaces mock leadership as the primary company-quality framing for `POST /api/analyze-stock`:
@@ -19,7 +41,7 @@ Phase 16 replaces mock leadership as the primary company-quality framing for `PO
 - User-provided `research_context.theme` is context only and is not independently verified evidence.
 - Qualitative moat, founder/CEO, network effect, and disruption items are marked insufficient when evidence is unavailable instead of receiving mock-positive credit.
 - Legacy `leadership_score` remains mock-only for backward compatibility and is marked `deprecated_by="jane_company_quality"` with `affects_score=false`.
-- SEC companyfacts remains a future enhancement for stronger official filing validation.
+- SEC Companyfacts now provides the Phase 17 filing-backed financial cross-check layer.
 
 ## Phase 15.5 Architecture Stabilization
 
@@ -64,6 +86,7 @@ Completed live integrations now documented in this README:
 - Phase 14: analyze-stock response composition and data-quality cleanup
 - Phase 15: yfinance-backed company profile, fundamentals, and derived valuation context
 - Phase 16: evidence-based Jane company quality and financial statement signals
+- Phase 17: official SEC Companyfacts financial statement cross-check
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 
@@ -169,6 +192,9 @@ None of these are direct investment recommendations.
 | SEC_FORM4_MAX_XML_DISCOVERY_PER_REPORT | 20 | SEC EDGAR Form 4 | performance guardrail |
 | SEC_FORM4_NETWORK_TIMEOUT_SECONDS | 10 | SEC EDGAR Form 4 | per-request timeout |
 | SEC_FORM4_TOTAL_BUDGET_SECONDS | 20 | SEC EDGAR Form 4 | per-ticker fetch budget |
+| USE_LIVE_SEC_COMPANYFACTS | follows USE_LIVE_COMPANY_DATA | SEC Companyfacts financial cross-check | |
+| SEC_COMPANYFACTS_CACHE_TTL_DAYS | 7 | SEC Companyfacts cache | |
+| SEC_COMPANYFACTS_NETWORK_TIMEOUT_SECONDS | 10 | SEC Companyfacts fetch | |
 | USE_LIVE_SEC_13F | false | SEC EDGAR 13F | |
 | SEC_13F_PROVIDER | sec_edgar | SEC EDGAR 13F | official SEC EDGAR only |
 | SEC_13F_CACHE_TTL_DAYS | 7 | SEC EDGAR 13F cache | TTL is days, not hours |

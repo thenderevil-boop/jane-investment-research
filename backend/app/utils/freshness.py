@@ -11,6 +11,7 @@ MONTHLY_MACRO_FRESHNESS_WINDOW = "monthly_macro_latest_observation"
 DERIVED_FRED_FRESHNESS_WINDOW = "derived_from_FRED"
 FORM4_FRESHNESS_WINDOW = "form4_recent_180_days"
 THIRTEEN_F_FRESHNESS_WINDOW = "quarterly_filing_delay"
+COMPANY_FILING_FRESHNESS_WINDOW = "latest_company_filing"
 MOCK_LIMITATION = "Mock data is a non-live research reference and is excluded from stale-data counts."
 FALLBACK_LIMITATION = "Live market data unavailable; mock fallback used."
 MONTHLY_FRED_LIMITATION = "Monthly FRED series are evaluated using observation-month freshness, not latest trading-day freshness."
@@ -111,6 +112,8 @@ def is_13f_data_fresh(source_date: Any, lookback_quarters: int = 4, as_of: date 
 
 
 def is_source_fresh_for_window(source_date: Any, freshness_window: str, as_of: date | datetime | None = None) -> bool:
+    if freshness_window == COMPANY_FILING_FRESHNESS_WINDOW:
+        return parse_source_date(source_date) is not None
     if freshness_window == THIRTEEN_F_FRESHNESS_WINDOW:
         return is_13f_data_fresh(source_date, as_of=as_of)
     if freshness_window == FORM4_FRESHNESS_WINDOW:

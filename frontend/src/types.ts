@@ -61,7 +61,7 @@ export type EvidenceMatrixItem = {
   status: 'supportive' | 'neutral' | 'caution' | 'insufficient';
   score?: number | null;
   confidence: number;
-  source_quality: 'live_backed' | 'derived_live' | 'cached_live' | 'mixed_with_fallback' | 'user_context' | 'mock_only' | 'insufficient';
+  source_quality: 'live_backed' | 'derived_live' | 'cached_live' | 'mixed_with_fallback' | 'user_context' | 'mock_only' | 'filing_backed' | 'provider_backed' | 'derived_from_mixed_sources' | 'insufficient';
   summary: string;
   key_evidence: string[];
   limitations: string[];
@@ -89,6 +89,17 @@ export type AnalyzeStockDataQualitySummary = {
     mock_criteria_count: number;
     derived_live_criteria_count: number;
     user_context_criteria_count: number;
+    filing_backed_criteria_count?: number;
+    mixed_source_criteria_count?: number;
+  };
+  sec_companyfacts?: {
+    available: boolean;
+    source_type: SourceType | 'insufficient';
+    filing_backed_metric_count: number;
+    missing_concept_count: number;
+    latest_filing_date?: string | null;
+    latest_report_period?: string | null;
+    agreement_level_with_yfinance: 'high' | 'moderate' | 'low' | 'insufficient';
   };
 };
 
@@ -98,7 +109,7 @@ export type JaneCompanyQualityCriterion = {
   score?: number | null;
   max_score: number;
   status: 'supportive' | 'neutral' | 'caution' | 'insufficient';
-  source_quality: 'live_backed' | 'derived_live' | 'cached_live' | 'user_context' | 'insufficient' | 'mock_only';
+  source_quality: 'live_backed' | 'derived_live' | 'cached_live' | 'user_context' | 'filing_backed' | 'derived_from_mixed_sources' | 'insufficient' | 'mock_only';
   affects_score: boolean;
   evidence: string[];
   limitations: string[];
@@ -120,7 +131,7 @@ export type JaneCompanyQuality = {
 export type FinancialStatementSignal = {
   name: string;
   status: 'supportive' | 'neutral' | 'caution' | 'insufficient';
-  source_quality: 'live_backed' | 'derived_live' | 'insufficient';
+  source_quality: 'live_backed' | 'derived_live' | 'filing_backed' | 'yfinance_backed' | 'derived_from_mixed_sources' | 'insufficient';
   evidence: string[];
   limitations: string[];
   missing_data: string[];
@@ -429,6 +440,8 @@ export type StockAnalysis = {
   leadership_score?: ScoreLike;
   jane_company_quality?: JaneCompanyQuality;
   financial_statement_signals?: FinancialStatementSignals;
+  sec_financial_facts?: Record<string, unknown>;
+  fundamentals_cross_check?: Record<string, unknown>;
   market_timing_context?: ScoreLike;
   overheat_risk?: ScoreLike;
   smart_money?: ScoreLike;
