@@ -8,6 +8,19 @@ Build a US-market-only investment research automation system based on Jane's Mar
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
+## Phase 16 Jane Company Quality Evidence Hardening
+
+Phase 16 replaces mock leadership as the primary company-quality framing for `POST /api/analyze-stock`:
+
+- `jane_company_quality` is now the top-level evidence-backed Jane company quality model.
+- The seven Jane qualitative principles are explicit: Market Monopoly / Moat, Mega Trend Fit, Visionary Founder / CEO, Disruptive Innovation, Scalability, Network Effect, and Continuous R&D.
+- Financial statement criteria are added for financial statement quality, balance sheet strength, and cash-flow quality.
+- `financial_statement_signals` derives revenue growth, margin, income, cash-flow, cash buffer, debt, receivables, inventory, CapEx/OCF, and dilution checks from live/cached yfinance fundamentals when available.
+- User-provided `research_context.theme` is context only and is not independently verified evidence.
+- Qualitative moat, founder/CEO, network effect, and disruption items are marked insufficient when evidence is unavailable instead of receiving mock-positive credit.
+- Legacy `leadership_score` remains mock-only for backward compatibility and is marked `deprecated_by="jane_company_quality"` with `affects_score=false`.
+- SEC companyfacts remains a future enhancement for stronger official filing validation.
+
 ## Phase 15.5 Architecture Stabilization
 
 Phase 15.5 stabilizes the Phase 15 architecture before Jane Company Quality expansion:
@@ -27,12 +40,12 @@ Phase 15.5 stabilizes the Phase 15 architecture before Jane Company Quality expa
 Analyze-stock responses now lead with a readable candidate validation report:
 
 - `candidate_validation_summary` is the main user-facing summary.
-- `evidence_matrix` is the main explanation layer across macro, company profile, financial quality, valuation context, leadership, smart money, Form 4, 13F, and risk flags.
+- `evidence_matrix` is the main explanation layer across macro, company profile, financial quality, valuation context, Jane company quality, financial statement signals, legacy leadership, smart money, Form 4, 13F, and risk flags.
 - `data_quality_summary` converts raw source-quality counts into a source-quality grade and confidence-cap explanation.
 - `score_driver_breakdown` separates positive, limiting, and neutral score drivers.
 - `next_manual_checks` lists research-oriented follow-up checks.
 
-Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, and valuation context use live or cached yfinance data when available and fall back to clearly labeled mock fixtures when unavailable. Valuation context is risk context only, not an investment instruction. Leadership remains mock-disclosed until a later live leadership evidence phase. Future Industry Radar is not required for analyze-stock.
+Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
 
@@ -50,6 +63,7 @@ Completed live integrations now documented in this README:
 - Phase 13: analyze-stock first architecture
 - Phase 14: analyze-stock response composition and data-quality cleanup
 - Phase 15: yfinance-backed company profile, fundamentals, and derived valuation context
+- Phase 16: evidence-based Jane company quality and financial statement signals
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 
@@ -126,7 +140,7 @@ Frontend:
 ## Product Rule
 
 Analyze-stock validates user-provided ticker ideas.
-Leadership Score and smart-money evidence help prioritize deeper research.
+Jane Company Quality, financial statement signals, and smart-money evidence help prioritize deeper research.
 Market Timing and Macro Regime tell us whether the current research environment is favorable, neutral, fearful, or overheated.
 None of these are direct investment recommendations.
 

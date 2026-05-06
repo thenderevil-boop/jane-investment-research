@@ -89,6 +89,20 @@
           },
           "title": "Excluded From Scoring",
           "type": "array"
+        },
+        "insufficient_evidence_categories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Insufficient Evidence Categories",
+          "type": "array"
+        },
+        "company_quality": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Company Quality",
+          "type": "object"
         }
       },
       "required": [
@@ -356,7 +370,10 @@
             "company_profile",
             "financial_quality",
             "valuation_context",
+            "jane_company_quality",
+            "financial_statement_signals",
             "leadership_score",
+            "legacy_leadership_score",
             "smart_money",
             "insider_activity",
             "institutional_13f",
@@ -399,6 +416,7 @@
             "derived_live",
             "cached_live",
             "mixed_with_fallback",
+            "user_context",
             "mock_only",
             "insufficient"
           ],
@@ -434,6 +452,319 @@
         "limitations"
       ],
       "title": "EvidenceMatrixItem",
+      "type": "object"
+    },
+    "FinancialStatementSignal": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "supportive",
+            "neutral",
+            "caution",
+            "insufficient"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "source_quality": {
+          "enum": [
+            "live_backed",
+            "derived_live",
+            "insufficient"
+          ],
+          "title": "Source Quality",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "status",
+        "source_quality",
+        "evidence",
+        "limitations",
+        "missing_data"
+      ],
+      "title": "FinancialStatementSignal",
+      "type": "object"
+    },
+    "FinancialStatementSignals": {
+      "properties": {
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "label": {
+          "enum": [
+            "strong",
+            "adequate",
+            "caution",
+            "insufficient"
+          ],
+          "title": "Label",
+          "type": "string"
+        },
+        "signals": {
+          "items": {
+            "$ref": "#/$defs/FinancialStatementSignal"
+          },
+          "title": "Signals",
+          "type": "array"
+        },
+        "source_status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "required": [
+        "score",
+        "confidence",
+        "label",
+        "signals",
+        "source_status",
+        "limitations",
+        "missing_data"
+      ],
+      "title": "FinancialStatementSignals",
+      "type": "object"
+    },
+    "JaneCompanyQuality": {
+      "properties": {
+        "name": {
+          "default": "jane_company_quality_score",
+          "title": "Name",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "max_score": {
+          "default": 100,
+          "title": "Max Score",
+          "type": "number"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "label": {
+          "enum": [
+            "evidence_backed",
+            "preliminary",
+            "insufficient_data"
+          ],
+          "title": "Label",
+          "type": "string"
+        },
+        "criteria": {
+          "items": {
+            "$ref": "#/$defs/JaneCompanyQualityCriterion"
+          },
+          "title": "Criteria",
+          "type": "array"
+        },
+        "source_status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "required": [
+        "score",
+        "confidence",
+        "label",
+        "criteria",
+        "source_status",
+        "limitations",
+        "missing_data"
+      ],
+      "title": "JaneCompanyQuality",
+      "type": "object"
+    },
+    "JaneCompanyQualityCriterion": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "display_name": {
+          "title": "Display Name",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "max_score": {
+          "default": 10,
+          "title": "Max Score",
+          "type": "number"
+        },
+        "status": {
+          "enum": [
+            "supportive",
+            "neutral",
+            "caution",
+            "insufficient"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "source_quality": {
+          "enum": [
+            "live_backed",
+            "derived_live",
+            "cached_live",
+            "user_context",
+            "insufficient",
+            "mock_only"
+          ],
+          "title": "Source Quality",
+          "type": "string"
+        },
+        "affects_score": {
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "display_name",
+        "status",
+        "source_quality",
+        "affects_score",
+        "evidence",
+        "limitations",
+        "missing_data"
+      ],
+      "title": "JaneCompanyQualityCriterion",
+      "type": "object"
+    },
+    "JaneQualityMethodologyReference": {
+      "properties": {
+        "framework": {
+          "default": "Jane 7-principle company quality framework",
+          "title": "Framework",
+          "type": "string"
+        },
+        "principles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Principles",
+          "type": "array"
+        },
+        "affects_score": {
+          "default": true,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "principles",
+        "limitations"
+      ],
+      "title": "JaneQualityMethodologyReference",
       "type": "object"
     },
     "JaneReferenceCondition": {
@@ -721,6 +1052,40 @@
             }
           ],
           "default": null
+        },
+        "deprecated_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deprecated By"
+        },
+        "affects_score": {
+          "default": true,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "legacy_affects_score": {
+          "default": true,
+          "title": "Legacy Affects Score",
+          "type": "boolean"
+        },
+        "source_quality": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Quality"
         }
       },
       "required": [
@@ -1405,6 +1770,12 @@
     "leadership_score": {
       "$ref": "#/$defs/LeadershipScore"
     },
+    "jane_company_quality": {
+      "$ref": "#/$defs/JaneCompanyQuality"
+    },
+    "financial_statement_signals": {
+      "$ref": "#/$defs/FinancialStatementSignals"
+    },
     "market_timing_context": {
       "$ref": "#/$defs/ScoreObject"
     },
@@ -1441,6 +1812,17 @@
       "anyOf": [
         {
           "$ref": "#/$defs/JaneReferenceConditions"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "jane_quality_methodology_reference": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/JaneQualityMethodologyReference"
         },
         {
           "type": "null"
@@ -1501,6 +1883,8 @@
     "company_profile",
     "macro_regime",
     "leadership_score",
+    "jane_company_quality",
+    "financial_statement_signals",
     "market_timing_context",
     "overheat_risk",
     "smart_money",

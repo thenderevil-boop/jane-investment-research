@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { DataSourceStatus, ScoreLike, StockAnalysis } from '../types';
-import { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, EvidenceMatrixSection, ManualChecksSection, ProfileGrid, ScoreBlock } from './StockResearch';
+import { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, EvidenceMatrixSection, FinancialStatementSignalsSection, JaneCompanyQualitySection, ManualChecksSection, ProfileGrid, ScoreBlock } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -114,12 +114,22 @@ describe('StockResearch presentation helpers', () => {
           fallback_evidence_categories: ['smart_money'],
           missing_source_date_categories: [],
           excluded_from_scoring: ['ISM Manufacturing PMI', 'CNN Fear & Greed'],
+          insufficient_evidence_categories: ['monopoly_power', 'network_effect'],
+          company_quality: {
+            evidence_backed_criteria_count: 3,
+            insufficient_criteria_count: 4,
+            mock_criteria_count: 0,
+            derived_live_criteria_count: 3,
+            user_context_criteria_count: 1,
+          },
         }}
       />,
     );
     expect(html).toContain('Data Quality Summary');
     expect(html).toContain('Grade C');
     expect(html).toContain('leadership_score');
+    expect(html).toContain('Quality backed');
+    expect(html).toContain('monopoly_power');
     expect(html).not.toContain('[object Object]');
   });
 
@@ -143,6 +153,94 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Evidence Matrix');
     expect(html).toContain('mock_only');
     expect(html).toContain('Mock-only evidence');
+  });
+
+  it('renders Jane Company Quality criteria and user theme as context', () => {
+    const html = renderToStaticMarkup(
+      <JaneCompanyQualitySection
+        profile={{
+          research_context: { theme: 'AI infrastructure', user_reason: 'External trend research' },
+        }}
+        quality={{
+          name: 'jane_company_quality_score',
+          score: 32,
+          max_score: 100,
+          confidence: 0.5,
+          label: 'preliminary',
+          source_status: { ...mockStatus, source_type: 'derived', provider: 'derived_from_yfinance_company_quality' },
+          limitations: ['Qualitative principles require evidence.'],
+          missing_data: ['market share evidence'],
+          criteria: [
+            {
+              name: 'monopoly_power',
+              display_name: 'Market Monopoly / Moat',
+              score: null,
+              max_score: 10,
+              status: 'insufficient',
+              source_quality: 'insufficient',
+              affects_score: false,
+              evidence: [],
+              limitations: [],
+              missing_data: ['market share evidence', 'patent or moat evidence'],
+            },
+            {
+              name: 'mega_trend_fit',
+              display_name: 'Mega Trend Fit',
+              score: null,
+              max_score: 10,
+              status: 'neutral',
+              source_quality: 'user_context',
+              affects_score: false,
+              evidence: ['User-provided theme context: AI infrastructure'],
+              limitations: ['User-provided theme is research context and is not independently verified evidence.'],
+              missing_data: [],
+            },
+          ],
+        }}
+      />,
+    );
+    expect(html).toContain('Jane Company Quality');
+    expect(html).toContain('Market Monopoly / Moat');
+    expect(html).toContain('insufficient');
+    expect(html).toContain('This is context, not verified evidence');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders Financial Statement Signals', () => {
+    const html = renderToStaticMarkup(
+      <FinancialStatementSignalsSection
+        signals={{
+          score: 45,
+          confidence: 0.5,
+          label: 'adequate',
+          source_status: { ...mockStatus, source_type: 'derived', provider: 'derived_from_yfinance_financial_statement_signals' },
+          limitations: ['Yfinance normalization caveat.'],
+          missing_data: ['accounts_receivable'],
+          signals: [
+            {
+              name: 'revenue_growth_quality',
+              status: 'supportive',
+              source_quality: 'derived_live',
+              evidence: ['Revenue YoY growth pct: 80.2'],
+              limitations: [],
+              missing_data: [],
+            },
+            {
+              name: 'receivables_vs_revenue_risk',
+              status: 'insufficient',
+              source_quality: 'insufficient',
+              evidence: [],
+              limitations: [],
+              missing_data: ['accounts_receivable'],
+            },
+          ],
+        }}
+      />,
+    );
+    expect(html).toContain('Financial Statement Signals');
+    expect(html).toContain('revenue growth quality');
+    expect(html).toContain('accounts_receivable');
+    expect(html).not.toContain('[object Object]');
   });
 
   it('renders Company Fundamentals and valuation context', () => {

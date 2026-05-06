@@ -23,7 +23,7 @@ The system helps the user answer:
 
 Phase 13 makes `POST /api/analyze-stock` the primary product workflow.
 
-The user discovers themes and candidate tickers externally. The system validates user-provided US tickers using structured evidence, macro context, leadership scoring, SEC Form 4, SEC 13F, risk flags, source quality, and Jane methodology reference conditions.
+The user discovers themes and candidate tickers externally. The system validates user-provided US tickers using structured evidence, macro context, Jane company quality, financial statement signals, legacy leadership reference evidence, SEC Form 4, SEC 13F, risk flags, source quality, and Jane methodology reference conditions.
 
 Daily reports remain available as background context, source-health visibility, cache warmup, and environment snapshots. Daily reports must stay snapshot-first and must not become the main user workflow.
 
@@ -225,6 +225,16 @@ Phase 15.5 architecture notes:
 - Batch jobs must not mutate global config for temporary state. Use a request/job context object.
 - `_enrich_source_status` is legacy compatibility only. New engines must emit `source_status` directly.
 - `smart_money` is canonical; `smart_money_summary` is deprecated and retained for backward compatibility.
+
+Phase 16 company-quality notes:
+
+- `jane_company_quality` replaces mock leadership as the primary company-quality model.
+- Jane's seven company quality principles are explicit and evidence-gated.
+- User-provided `research_context.theme` is context only and must not be treated as independently verified evidence.
+- Qualitative evidence is marked insufficient when not available.
+- Financial statement signals derive from live/cached yfinance fundamentals in the MVP.
+- SEC companyfacts is a future enhancement for stronger filing validation.
+- Legacy `leadership_score` is mock-only and backward compatible; it must not act as a positive score driver.
 
 1. macro regime
 2. market timing environment

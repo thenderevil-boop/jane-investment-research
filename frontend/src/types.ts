@@ -61,7 +61,7 @@ export type EvidenceMatrixItem = {
   status: 'supportive' | 'neutral' | 'caution' | 'insufficient';
   score?: number | null;
   confidence: number;
-  source_quality: 'live_backed' | 'derived_live' | 'cached_live' | 'mixed_with_fallback' | 'mock_only' | 'insufficient';
+  source_quality: 'live_backed' | 'derived_live' | 'cached_live' | 'mixed_with_fallback' | 'user_context' | 'mock_only' | 'insufficient';
   summary: string;
   key_evidence: string[];
   limitations: string[];
@@ -82,6 +82,65 @@ export type AnalyzeStockDataQualitySummary = {
   fallback_evidence_categories: string[];
   missing_source_date_categories: string[];
   excluded_from_scoring: string[];
+  insufficient_evidence_categories?: string[];
+  company_quality?: {
+    evidence_backed_criteria_count: number;
+    insufficient_criteria_count: number;
+    mock_criteria_count: number;
+    derived_live_criteria_count: number;
+    user_context_criteria_count: number;
+  };
+};
+
+export type JaneCompanyQualityCriterion = {
+  name: string;
+  display_name: string;
+  score?: number | null;
+  max_score: number;
+  status: 'supportive' | 'neutral' | 'caution' | 'insufficient';
+  source_quality: 'live_backed' | 'derived_live' | 'cached_live' | 'user_context' | 'insufficient' | 'mock_only';
+  affects_score: boolean;
+  evidence: string[];
+  limitations: string[];
+  missing_data: string[];
+};
+
+export type JaneCompanyQuality = {
+  name: string;
+  score: number;
+  max_score: number;
+  confidence: number;
+  label: 'evidence_backed' | 'preliminary' | 'insufficient_data';
+  criteria: JaneCompanyQualityCriterion[];
+  source_status: DataSourceStatus;
+  limitations: string[];
+  missing_data: string[];
+};
+
+export type FinancialStatementSignal = {
+  name: string;
+  status: 'supportive' | 'neutral' | 'caution' | 'insufficient';
+  source_quality: 'live_backed' | 'derived_live' | 'insufficient';
+  evidence: string[];
+  limitations: string[];
+  missing_data: string[];
+};
+
+export type FinancialStatementSignals = {
+  score: number;
+  confidence: number;
+  label: 'strong' | 'adequate' | 'caution' | 'insufficient';
+  signals: FinancialStatementSignal[];
+  source_status: DataSourceStatus;
+  limitations: string[];
+  missing_data: string[];
+};
+
+export type JaneQualityMethodologyReference = {
+  framework: string;
+  principles: string[];
+  affects_score: boolean;
+  limitations: string[];
 };
 
 export type ScoreDriver = {
@@ -368,6 +427,8 @@ export type StockAnalysis = {
   company_profile?: Record<string, unknown>;
   macro_regime?: ScoreLike;
   leadership_score?: ScoreLike;
+  jane_company_quality?: JaneCompanyQuality;
+  financial_statement_signals?: FinancialStatementSignals;
   market_timing_context?: ScoreLike;
   overheat_risk?: ScoreLike;
   smart_money?: ScoreLike;
@@ -377,6 +438,7 @@ export type StockAnalysis = {
   valuation_context?: ScoreLike;
   risk_flags?: string[];
   jane_reference_conditions?: JaneReferenceConditions | null;
+  jane_quality_methodology_reference?: JaneQualityMethodologyReference | null;
   missing_data?: string[];
   human_verification_queue?: string[];
   data_quality?: DataQualitySummary | null;

@@ -40,3 +40,7 @@ class LeadershipScore(BaseModel):
     missing_data: list[str]
     criteria: list[LeadershipCriterion]
     source_status: DataSourceStatus | None = None
+    deprecated_by: str | None = None
+    affects_score: bool = True
+    legacy_affects_score: bool = True
+    source_quality: str | None = None

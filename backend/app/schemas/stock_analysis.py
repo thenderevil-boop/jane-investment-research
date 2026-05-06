@@ -65,7 +65,10 @@ class EvidenceMatrixItem(BaseModel):
         "company_profile",
         "financial_quality",
         "valuation_context",
+        "jane_company_quality",
+        "financial_statement_signals",
         "leadership_score",
+        "legacy_leadership_score",
         "smart_money",
         "insider_activity",
         "institutional_13f",
@@ -74,7 +77,7 @@ class EvidenceMatrixItem(BaseModel):
     status: Literal["supportive", "neutral", "caution", "insufficient"]
     score: float | None = None
     confidence: float = Field(ge=0, le=1)
-    source_quality: Literal["live_backed", "derived_live", "cached_live", "mixed_with_fallback", "mock_only", "insufficient"]
+    source_quality: Literal["live_backed", "derived_live", "cached_live", "mixed_with_fallback", "user_context", "mock_only", "insufficient"]
     summary: str
     key_evidence: list[str]
     limitations: list[str]
@@ -95,6 +98,59 @@ class AnalyzeStockDataQualitySummary(BaseModel):
     fallback_evidence_categories: list[str]
     missing_source_date_categories: list[str]
     excluded_from_scoring: list[str]
+    insufficient_evidence_categories: list[str] = Field(default_factory=list)
+    company_quality: dict[str, int] = Field(default_factory=dict)
+
+
+class JaneCompanyQualityCriterion(BaseModel):
+    name: str
+    display_name: str
+    score: float | None = Field(default=None, ge=0, le=100)
+    max_score: float = 10
+    status: Literal["supportive", "neutral", "caution", "insufficient"]
+    source_quality: Literal["live_backed", "derived_live", "cached_live", "user_context", "insufficient", "mock_only"]
+    affects_score: bool
+    evidence: list[str]
+    limitations: list[str]
+    missing_data: list[str]
+
+
+class JaneCompanyQuality(BaseModel):
+    name: str = "jane_company_quality_score"
+    score: float = Field(ge=0, le=100)
+    max_score: float = 100
+    confidence: float = Field(ge=0, le=1)
+    label: Literal["evidence_backed", "preliminary", "insufficient_data"]
+    criteria: list[JaneCompanyQualityCriterion]
+    source_status: DataSourceStatus
+    limitations: list[str]
+    missing_data: list[str]
+
+
+class FinancialStatementSignal(BaseModel):
+    name: str
+    status: Literal["supportive", "neutral", "caution", "insufficient"]
+    source_quality: Literal["live_backed", "derived_live", "insufficient"]
+    evidence: list[str]
+    limitations: list[str]
+    missing_data: list[str]
+
+
+class FinancialStatementSignals(BaseModel):
+    score: float = Field(ge=0, le=100)
+    confidence: float = Field(ge=0, le=1)
+    label: Literal["strong", "adequate", "caution", "insufficient"]
+    signals: list[FinancialStatementSignal]
+    source_status: DataSourceStatus
+    limitations: list[str]
+    missing_data: list[str]
+
+
+class JaneQualityMethodologyReference(BaseModel):
+    framework: str = "Jane 7-principle company quality framework"
+    principles: list[str]
+    affects_score: bool = True
+    limitations: list[str]
 
 
 class ScoreDriver(BaseModel):
@@ -133,6 +189,8 @@ class AnalyzeStockResponse(BaseModel):
     company_profile: dict[str, Any]
     macro_regime: MacroRegimeOutput
     leadership_score: LeadershipScore
+    jane_company_quality: JaneCompanyQuality
+    financial_statement_signals: FinancialStatementSignals
     market_timing_context: ScoreObject
     overheat_risk: ScoreObject
     smart_money: ScoreObject
@@ -142,6 +200,7 @@ class AnalyzeStockResponse(BaseModel):
     valuation_context: ScoreObject
     risk_flags: list[str]
     jane_reference_conditions: JaneReferenceConditions | None = None
+    jane_quality_methodology_reference: JaneQualityMethodologyReference | None = None
     missing_data: list[str]
     human_verification_queue: list[str]
     data_quality: DataQualitySummary | None = None

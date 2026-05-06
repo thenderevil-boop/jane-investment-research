@@ -103,10 +103,10 @@ Returns daily report by date.
 
 Primary endpoint. Validates a user-provided US ticker using structured evidence and Jane methodology. Future Industry Radar is not required for this endpoint.
 
-Phase 14 makes the response a candidate validation report rather than a loose bundle of engine outputs. Phase 15 adds live/cached company profile, financial quality, and derived valuation context through repository-backed yfinance data when company data is enabled. The main user-facing fields are:
+Phase 14 makes the response a candidate validation report rather than a loose bundle of engine outputs. Phase 15 adds live/cached company profile, financial quality, and derived valuation context through repository-backed yfinance data when company data is enabled. Phase 16 adds evidence-based Jane company quality and financial statement signals so mock leadership no longer acts as the primary company-quality driver. The main user-facing fields are:
 
 - `candidate_validation_summary`: concise research-priority summary, strengths, risks, mock/fallback disclosure, and next checks.
-- `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, leadership score, smart money, insider activity, institutional 13F, and risk flags.
+- `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, Jane company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
 - `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, and excluded scoring indicators.
 - `score_driver_breakdown`: positive, limiting, and neutral score drivers.
 - `next_manual_checks`: research-oriented checks for source quality, fundamentals, filings, valuation, and risk.
@@ -122,6 +122,16 @@ Phase 15 company data behavior:
 - `research_context` remains user-provided context and is not treated as source evidence.
 - Leadership score remains mock-only until a later phase.
 - `source_type="mixed"` is invalid; derived summaries use `source_type="derived"` with descriptive providers such as `derived_from_yfinance`.
+
+Phase 16 company quality behavior:
+
+- `jane_company_quality` is the primary company-quality model and contains 10 explicit criteria: `monopoly_power`, `mega_trend_fit`, `visionary_founder_ceo`, `disruptive_innovation`, `scalability`, `network_effect`, `continuous_r_and_d`, `financial_statement_quality`, `balance_sheet_strength`, and `cash_flow_quality`.
+- User-provided `research_context.theme` is context only. It may appear under `mega_trend_fit` with `source_quality="user_context"` and `affects_score=false`; it is not independently verified evidence.
+- Qualitative moat, founder/CEO, disruption, and network-effect criteria are marked `insufficient` unless reliable evidence is available. The system does not fabricate these criteria from mock leadership.
+- Financial criteria derive from yfinance fundamentals when available and use `source_type="derived"` with descriptive providers. Yfinance normalization limitations remain visible.
+- `financial_statement_signals` includes revenue growth quality, operating margin strength, net income quality, operating cash flow quality, cash safety buffer, debt risk, receivables vs revenue risk, inventory vs revenue risk, CapEx vs OCF risk, and share dilution risk.
+- Missing receivables, inventory, operating cash flow, CapEx, dilution, or R&D fields are marked insufficient and listed in `missing_data`.
+- `leadership_score` is retained for backward compatibility only, marked `deprecated_by="jane_company_quality"`, `source_quality="mock_only"`, and `affects_score=false`.
 
 Request:
 
@@ -175,6 +185,26 @@ Response:
   "company_profile": {},
   "macro_regime": {},
   "leadership_score": {},
+  "jane_company_quality": {
+    "name": "jane_company_quality_score",
+    "score": 32,
+    "max_score": 100,
+    "confidence": 0.5,
+    "label": "preliminary",
+    "criteria": [],
+    "source_status": {},
+    "limitations": [],
+    "missing_data": []
+  },
+  "financial_statement_signals": {
+    "score": 45,
+    "confidence": 0.5,
+    "label": "adequate",
+    "signals": [],
+    "source_status": {},
+    "limitations": [],
+    "missing_data": []
+  },
   "market_timing_context": {},
   "overheat_risk": {},
   "smart_money": {},
@@ -185,6 +215,12 @@ Response:
   "risk_flags": [],
   "data_quality": {},
   "jane_reference_conditions": {},
+  "jane_quality_methodology_reference": {
+    "framework": "Jane 7-principle company quality framework",
+    "principles": [],
+    "affects_score": true,
+    "limitations": []
+  },
   "missing_data": [],
   "human_verification_queue": [],
   "not_investment_advice": true

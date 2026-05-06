@@ -7,7 +7,7 @@ import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
-import type { AnalyzeStockDataQualitySummary, DataSourceStatus, EvidenceMatrixItem, NextManualCheck, ScoreDriver, ScoreLike, StockAnalysis } from '../types';
+import type { AnalyzeStockDataQualitySummary, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, JaneCompanyQuality, NextManualCheck, ScoreDriver, ScoreLike, StockAnalysis } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
 function scoreMax(score?: ScoreLike) {
@@ -87,6 +87,7 @@ function sourceQualityStatus(sourceQuality: EvidenceMatrixItem['source_quality']
     derived_live: 'derived',
     cached_live: 'cached_live',
     mixed_with_fallback: 'fallback',
+    user_context: 'unknown',
     mock_only: 'mock',
     insufficient: 'unknown',
   };
@@ -167,7 +168,84 @@ export function AnalyzeDataQualitySection({ dataQuality }: { dataQuality?: Analy
           <ul>{dataQuality.fallback_evidence_categories.map((item) => <li key={item}>{item}</li>)}</ul>
         </div>
       </div>
+      {dataQuality.company_quality && (
+        <dl className="qualityMetrics">
+          <div><dt>Quality backed</dt><dd>{dataQuality.company_quality.evidence_backed_criteria_count}</dd></div>
+          <div><dt>Quality insufficient</dt><dd>{dataQuality.company_quality.insufficient_criteria_count}</dd></div>
+          <div><dt>Quality derived</dt><dd>{dataQuality.company_quality.derived_live_criteria_count}</dd></div>
+          <div><dt>User context</dt><dd>{dataQuality.company_quality.user_context_criteria_count}</dd></div>
+        </dl>
+      )}
+      {!!dataQuality.insufficient_evidence_categories?.length && (
+        <p className="sourceWarning">Insufficient company quality evidence: {dataQuality.insufficient_evidence_categories.join(', ')}</p>
+      )}
       {!!dataQuality.excluded_from_scoring.length && <p className="muted">Excluded from scoring: {dataQuality.excluded_from_scoring.join(', ')}</p>}
+    </section>
+  );
+}
+
+export function JaneCompanyQualitySection({ quality, profile }: { quality?: JaneCompanyQuality; profile?: Record<string, unknown> }) {
+  if (!quality) return null;
+  const researchContext = profile?.research_context as { theme?: unknown; user_reason?: unknown } | undefined;
+  return (
+    <section className="pageSection">
+      <h2>Jane Company Quality</h2>
+      <div className="summaryMain">
+        <span className="smallPill">{quality.label}</span>
+        <strong>{quality.score.toFixed(0)} / {quality.max_score}</strong>
+        <span>Confidence {(quality.confidence * 100).toFixed(0)}%</span>
+        <DataSourceBadge status={quality.source_status} />
+      </div>
+      {Boolean(researchContext?.theme) && <p className="muted">User theme context: {String(researchContext?.theme)}. This is context, not verified evidence.</p>}
+      <div className="tableWrap">
+        <table>
+          <thead><tr><th>Criterion</th><th>Status</th><th>Score</th><th>Source quality</th><th>Missing data</th></tr></thead>
+          <tbody>
+            {quality.criteria.map((criterion) => (
+              <tr key={criterion.name}>
+                <td>{criterion.display_name}</td>
+                <td><SignalBadge label={criterion.status} variant={criterion.status === 'supportive' ? 'positive' : criterion.status === 'insufficient' || criterion.status === 'caution' ? 'warning' : 'neutral'} /></td>
+                <td>{criterion.score === null || criterion.score === undefined ? 'N/A' : `${criterion.score.toFixed(0)} / ${criterion.max_score}`}</td>
+                <td>{criterion.source_quality}</td>
+                <td>{criterion.missing_data.length ? criterion.missing_data.join(', ') : 'None listed'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {!!quality.limitations.length && <p className="muted">Limitations: {quality.limitations.join(' ')}</p>}
+    </section>
+  );
+}
+
+export function FinancialStatementSignalsSection({ signals }: { signals?: FinancialStatementSignals }) {
+  if (!signals) return null;
+  return (
+    <section className="pageSection">
+      <h2>Financial Statement Signals</h2>
+      <div className="summaryMain">
+        <span className="smallPill">{signals.label}</span>
+        <strong>{signals.score.toFixed(0)} / 100</strong>
+        <span>Confidence {(signals.confidence * 100).toFixed(0)}%</span>
+        <DataSourceBadge status={signals.source_status} />
+      </div>
+      <div className="tableWrap">
+        <table>
+          <thead><tr><th>Signal</th><th>Status</th><th>Source quality</th><th>Evidence</th><th>Missing data</th></tr></thead>
+          <tbody>
+            {signals.signals.map((signal) => (
+              <tr key={signal.name}>
+                <td>{displayKey(signal.name)}</td>
+                <td><SignalBadge label={signal.status} variant={signal.status === 'supportive' ? 'positive' : signal.status === 'insufficient' || signal.status === 'caution' ? 'warning' : 'neutral'} /></td>
+                <td>{signal.source_quality}</td>
+                <td>{signal.evidence.length ? signal.evidence.join(', ') : 'N/A'}</td>
+                <td>{signal.missing_data.length ? signal.missing_data.join(', ') : 'None listed'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {!!signals.limitations.length && <p className="muted">Limitations: {signals.limitations.join(' ')}</p>}
     </section>
   );
 }
@@ -331,6 +409,8 @@ export default function StockResearch() {
         <>
           <CandidateSummarySection result={result} />
           <AnalyzeDataQualitySection dataQuality={result.data_quality_summary} />
+          <JaneCompanyQualitySection quality={result.jane_company_quality} profile={result.company_profile} />
+          <FinancialStatementSignalsSection signals={result.financial_statement_signals} />
           <CompanyFundamentalsSection result={result} />
           <EvidenceMatrixSection rows={result.evidence_matrix} />
           <ScoreDriverSection result={result} />
@@ -410,6 +490,8 @@ export default function StockResearch() {
             <h2>Raw Evidence Panels</h2>
             <RawDataPanel title="Macro raw evidence" rawData={result.macro_regime?.raw_data} derivedMetrics={result.macro_regime?.derived_metrics} benchmark={result.macro_regime?.benchmark} trend={result.macro_regime?.trend} limitations={result.macro_regime?.limitations} missingData={result.macro_regime?.missing_data} sourceStatus={resolveScoreSourceStatus(result.macro_regime)} />
             <RawDataPanel title="Leadership raw evidence" rawData={result.leadership_score?.raw_data} derivedMetrics={result.leadership_score?.derived_metrics} benchmark={result.leadership_score?.benchmark} trend={result.leadership_score?.trend} limitations={result.leadership_score?.limitations} missingData={result.leadership_score?.missing_data} sourceStatus={resolveScoreSourceStatus(result.leadership_score)} />
+            <RawDataPanel title="Jane company quality raw evidence" rawData={{ criteria: result.jane_company_quality?.criteria }} derivedMetrics={{ score: result.jane_company_quality?.score, label: result.jane_company_quality?.label }} limitations={result.jane_company_quality?.limitations} missingData={result.jane_company_quality?.missing_data} sourceStatus={result.jane_company_quality?.source_status} />
+            <RawDataPanel title="Financial statement signals raw evidence" rawData={{ signals: result.financial_statement_signals?.signals }} derivedMetrics={{ score: result.financial_statement_signals?.score, label: result.financial_statement_signals?.label }} limitations={result.financial_statement_signals?.limitations} missingData={result.financial_statement_signals?.missing_data} sourceStatus={result.financial_statement_signals?.source_status} />
             <RawDataPanel title="Smart money raw evidence" rawData={result.smart_money?.raw_data} derivedMetrics={result.smart_money?.derived_metrics} benchmark={result.smart_money?.benchmark} trend={result.smart_money?.trend} limitations={result.smart_money?.limitations} missingData={result.smart_money?.missing_data} sourceStatus={resolveScoreSourceStatus(result.smart_money)} />
             <RawDataPanel title="Insider Form 4 raw evidence" rawData={result.insider_activity?.raw_data} derivedMetrics={result.insider_activity?.derived_metrics} benchmark={result.insider_activity?.benchmark} trend={result.insider_activity?.trend} limitations={result.insider_activity?.limitations} missingData={result.insider_activity?.missing_data} sourceStatus={resolveScoreSourceStatus(result.insider_activity)} />
             <RawDataPanel title="Institutional 13F raw evidence" rawData={result.institutional_13f?.raw_data} derivedMetrics={result.institutional_13f?.derived_metrics} benchmark={result.institutional_13f?.benchmark} trend={result.institutional_13f?.trend} limitations={result.institutional_13f?.limitations} missingData={result.institutional_13f?.missing_data} sourceStatus={resolveScoreSourceStatus(result.institutional_13f)} />

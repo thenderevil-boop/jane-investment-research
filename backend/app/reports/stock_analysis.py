@@ -16,6 +16,8 @@ from backend.app.schemas.stock_analysis import (
     AnalyzeStockResponse,
     CandidateValidationSummary,
     EvidenceMatrixItem,
+    FinancialStatementSignals,
+    JaneCompanyQuality,
     NextManualCheck,
     ResearchVerdict,
     ScoreDriverBreakdown,
@@ -28,7 +30,9 @@ MOCK_EVIDENCE_LIMITATION = "Mock evidence limits analyze-stock confidence; treat
 
 def _research_verdict(
     *,
-    leadership_percent: float,
+    company_quality_score: float,
+    company_quality_confidence: float,
+    key_qualitative_insufficient: bool,
     smart_money_score: float,
     macro_score: float,
     overheat_score: float,
@@ -38,14 +42,16 @@ def _research_verdict(
     fallback_evidence_present: bool = False,
     live_macro_present: bool = False,
 ) -> ResearchVerdict:
-    raw_score = leadership_percent * 0.45 + smart_money_score * 0.25 + macro_score * 0.20 + max(0, 100 - overheat_score) * 0.10
+    raw_score = company_quality_score * 0.45 + smart_money_score * 0.25 + macro_score * 0.20 + max(0, 100 - overheat_score) * 0.10
     missing_penalty = min(25, missing_data_count * 3)
     score = round(max(0, min(100, raw_score - missing_penalty)), 2)
-    confidence = max(0.15, min(1, (sum(confidence_inputs) / len(confidence_inputs)) - min(0.35, missing_data_count * 0.03)))
+    confidence = max(0.15, min(1, (sum([*confidence_inputs, company_quality_confidence]) / (len(confidence_inputs) + 1)) - min(0.35, missing_data_count * 0.03)))
     if mock_evidence_present:
         confidence = min(confidence, MOCK_LEADERSHIP_CONFIDENCE_CAP)
     if fallback_evidence_present:
         confidence = min(confidence, 0.75)
+    if key_qualitative_insufficient:
+        confidence = min(confidence, 0.80)
     confidence = round(confidence, 2)
     if missing_data_count >= 7 or confidence < 0.35:
         label = "insufficient_data"
@@ -72,8 +78,12 @@ def _research_verdict(
         boosters.append("Macro score is neutral-to-constructive under macro_v12_5.")
     if smart_money_score >= 50:
         boosters.append("Aggregate smart-money evidence is at least neutral in the current framework.")
+    if company_quality_score >= 60 and company_quality_confidence >= 0.45:
+        boosters.append("Jane company quality has partial evidence from financial metrics.")
     if mock_evidence_present:
-        limiters.append("Leadership or company-related evidence is mock-based.")
+        limiters.append("Legacy leadership or company-related evidence is mock-based.")
+    if key_qualitative_insufficient:
+        limiters.append("Key qualitative Jane company quality criteria remain insufficient.")
     if fallback_evidence_present:
         limiters.append("One or more smart-money or filing components use fallback or cached-after-failure evidence.")
     if missing_data_count:
@@ -316,6 +326,426 @@ def _build_valuation_context(profile: dict, financials: dict) -> ScoreObject:
     )
 
 
+JANE_QUALITY_PRINCIPLES = [
+    "Market Monopoly / Moat",
+    "Mega Trend Fit",
+    "Visionary Founder / CEO",
+    "Disruptive Innovation",
+    "Scalability",
+    "Network Effect",
+    "Continuous R&D",
+]
+
+
+def _metric_evidence(label: str, value) -> str:
+    return f"{label}: {value if value is not None else 'unavailable'}"
+
+
+def _quality_source(financial_status: dict) -> str:
+    source_type = financial_status.get("source_type")
+    if source_type == "live":
+        return "derived_live"
+    if source_type == "cached_live":
+        return "cached_live"
+    if source_type == "derived":
+        return "derived_live"
+    if source_type == "mock":
+        return "mock_only"
+    return "insufficient"
+
+
+def _criterion(
+    name: str,
+    display_name: str,
+    *,
+    score: float | None,
+    status: str,
+    source_quality: str,
+    affects_score: bool,
+    evidence: list[str] | None = None,
+    limitations: list[str] | None = None,
+    missing_data: list[str] | None = None,
+) -> dict:
+    return {
+        "name": name,
+        "display_name": display_name,
+        "score": None if score is None else round(max(0, min(100, score)), 2),
+        "max_score": 10,
+        "status": status,
+        "source_quality": source_quality,
+        "affects_score": affects_score,
+        "evidence": evidence or [],
+        "limitations": limitations or [],
+        "missing_data": missing_data or [],
+    }
+
+
+def _financial_metric_status(score: float | None) -> str:
+    if score is None:
+        return "insufficient"
+    if score >= 70:
+        return "supportive"
+    if score >= 45:
+        return "neutral"
+    return "caution"
+
+
+def _build_jane_company_quality(financial_quality: ScoreObject, research_context: dict) -> JaneCompanyQuality:
+    financials = financial_quality.raw_data
+    financial_status = _status_dict(financial_quality.source_status)
+    source_quality = _quality_source(financial_status)
+    yfinance_limitations = list(financial_quality.limitations or [])
+    if source_quality in {"derived_live", "cached_live"}:
+        yfinance_limitations = sorted(set([*yfinance_limitations, "Yfinance fundamentals may combine company-reported values with provider-normalized fields."]))
+
+    revenue_growth = financials.get("revenue_yoy_growth_pct")
+    revenue_cagr = financials.get("revenue_3y_cagr_pct")
+    gross_margin = financials.get("gross_margin_pct")
+    operating_margin = financials.get("operating_margin_pct")
+    fcf_margin = financials.get("free_cash_flow_margin_pct")
+    fcf = financials.get("free_cash_flow_ttm")
+    net_cash = financials.get("net_cash_or_debt")
+    debt_to_equity = financials.get("debt_to_equity")
+    cash = financials.get("cash_and_equivalents")
+    debt = financials.get("total_debt")
+    rd_to_revenue = financials.get("rd_to_revenue_pct")
+    rd_expense = financials.get("rd_expense_ttm")
+
+    scalability_available = sum(_metric_available(item) for item in [revenue_growth, revenue_cagr, gross_margin, operating_margin, fcf_margin])
+    scalability_score = None
+    if source_quality in {"derived_live", "cached_live"} and scalability_available >= 3:
+        scalability_score = 45
+        if (revenue_growth or 0) >= 15 or (revenue_cagr or 0) >= 15:
+            scalability_score += 20
+        if (gross_margin or 0) >= 45:
+            scalability_score += 12
+        if (operating_margin or 0) >= 20:
+            scalability_score += 12
+        if (fcf_margin or 0) >= 10:
+            scalability_score += 11
+        if (revenue_growth or 0) > 10 and (operating_margin or 0) < 5:
+            scalability_score -= 20
+    financial_statement_score = None
+    if source_quality in {"derived_live", "cached_live"} and sum(_metric_available(item) for item in [revenue_growth, revenue_cagr, gross_margin, operating_margin, fcf]) >= 3:
+        financial_statement_score = 45
+        if (revenue_growth or 0) > 10 or (revenue_cagr or 0) > 10:
+            financial_statement_score += 20
+        if (gross_margin or 0) >= 40:
+            financial_statement_score += 10
+        if (operating_margin or 0) >= 15:
+            financial_statement_score += 10
+        if (fcf or 0) > 0:
+            financial_statement_score += 15
+    balance_sheet_score = None
+    if source_quality in {"derived_live", "cached_live"} and sum(_metric_available(item) for item in [cash, debt, net_cash, debt_to_equity]) >= 2:
+        balance_sheet_score = 50
+        if (net_cash or 0) >= 0:
+            balance_sheet_score += 25
+        if debt_to_equity is not None and debt_to_equity <= 80:
+            balance_sheet_score += 15
+        if debt_to_equity is not None and debt_to_equity > 150:
+            balance_sheet_score -= 20
+    cash_flow_score = None
+    cash_flow_missing = []
+    if financials.get("operating_cash_flow_ttm") is None:
+        cash_flow_missing.append("operating cash flow detail")
+    if financials.get("capex_ttm") is None:
+        cash_flow_missing.append("capex detail")
+    if source_quality in {"derived_live", "cached_live"} and _metric_available(fcf):
+        cash_flow_score = 50
+        if (fcf or 0) > 0:
+            cash_flow_score += 25
+        if (fcf_margin or 0) >= 10:
+            cash_flow_score += 15
+        if not cash_flow_missing:
+            cash_flow_score += 10
+
+    rd_score = None
+    rd_status = "insufficient"
+    rd_source_quality = "insufficient"
+    if source_quality in {"derived_live", "cached_live"} and (_metric_available(rd_expense) or _metric_available(rd_to_revenue)):
+        rd_source_quality = source_quality
+        rd_score = 55
+        if (rd_to_revenue or 0) >= 8:
+            rd_score += 25
+        elif (rd_to_revenue or 0) >= 3:
+            rd_score += 10
+        rd_status = _financial_metric_status(rd_score)
+
+    theme = str(research_context.get("theme") or "").strip()
+    criteria = [
+        _criterion(
+            "monopoly_power",
+            "Market Monopoly / Moat",
+            score=None,
+            status="insufficient",
+            source_quality="insufficient",
+            affects_score=False,
+            evidence=([f"User context theme: {theme}"] if "moat" in theme.lower() else []),
+            missing_data=["market share evidence", "patent or moat evidence"],
+        ),
+        _criterion(
+            "mega_trend_fit",
+            "Mega Trend Fit",
+            score=None,
+            status="neutral" if theme else "insufficient",
+            source_quality="user_context" if theme else "insufficient",
+            affects_score=False,
+            evidence=([f"User-provided theme context: {theme}"] if theme else []),
+            limitations=["User-provided theme is research context and is not independently verified evidence."],
+            missing_data=[] if theme else ["independently verified trend evidence"],
+        ),
+        _criterion(
+            "visionary_founder_ceo",
+            "Visionary Founder / CEO",
+            score=None,
+            status="insufficient",
+            source_quality="insufficient",
+            affects_score=False,
+            missing_data=["CEO/founder live evidence", "management tenure evidence"],
+        ),
+        _criterion(
+            "disruptive_innovation",
+            "Disruptive Innovation",
+            score=None,
+            status="insufficient",
+            source_quality="insufficient",
+            affects_score=False,
+            missing_data=["product disruption evidence", "patent evidence", "technology differentiation evidence"],
+        ),
+        _criterion(
+            "scalability",
+            "Scalability",
+            score=scalability_score,
+            status=_financial_metric_status(scalability_score),
+            source_quality=source_quality if scalability_score is not None else "insufficient",
+            affects_score=scalability_score is not None,
+            evidence=[
+                _metric_evidence("Revenue YoY growth pct", revenue_growth),
+                _metric_evidence("Revenue 3Y CAGR pct", revenue_cagr),
+                _metric_evidence("Gross margin pct", gross_margin),
+                _metric_evidence("Operating margin pct", operating_margin),
+                _metric_evidence("Free cash flow margin pct", fcf_margin),
+            ],
+            limitations=yfinance_limitations,
+            missing_data=[] if scalability_score is not None else ["revenue growth, margin, and free cash flow margin metrics"],
+        ),
+        _criterion(
+            "network_effect",
+            "Network Effect",
+            score=None,
+            status="insufficient",
+            source_quality="insufficient",
+            affects_score=False,
+            missing_data=["network effect evidence", "ecosystem usage evidence"],
+        ),
+        _criterion(
+            "continuous_r_and_d",
+            "Continuous R&D",
+            score=rd_score,
+            status=rd_status,
+            source_quality=rd_source_quality,
+            affects_score=rd_score is not None,
+            evidence=[_metric_evidence("R&D expense TTM", rd_expense), _metric_evidence("R&D as pct of revenue", rd_to_revenue)] if rd_score is not None else [],
+            limitations=yfinance_limitations if rd_score is not None else [],
+            missing_data=[] if rd_score is not None else ["R&D expense", "R&D as percentage of revenue"],
+        ),
+        _criterion(
+            "financial_statement_quality",
+            "Financial Statement Quality",
+            score=financial_statement_score,
+            status=_financial_metric_status(financial_statement_score),
+            source_quality=source_quality if financial_statement_score is not None else "insufficient",
+            affects_score=financial_statement_score is not None,
+            evidence=[
+                _metric_evidence("Revenue YoY growth pct", revenue_growth),
+                _metric_evidence("Revenue 3Y CAGR pct", revenue_cagr),
+                _metric_evidence("Gross margin pct", gross_margin),
+                _metric_evidence("Operating margin pct", operating_margin),
+                _metric_evidence("Free cash flow TTM", fcf),
+            ],
+            limitations=yfinance_limitations,
+            missing_data=[] if financial_statement_score is not None else ["revenue growth, margin, and free cash flow metrics"],
+        ),
+        _criterion(
+            "balance_sheet_strength",
+            "Balance Sheet Strength",
+            score=balance_sheet_score,
+            status=_financial_metric_status(balance_sheet_score),
+            source_quality=source_quality if balance_sheet_score is not None else "insufficient",
+            affects_score=balance_sheet_score is not None,
+            evidence=[
+                _metric_evidence("Cash and equivalents", cash),
+                _metric_evidence("Total debt", debt),
+                _metric_evidence("Net cash or debt", net_cash),
+                _metric_evidence("Debt to equity", debt_to_equity),
+            ],
+            limitations=yfinance_limitations,
+            missing_data=[] if balance_sheet_score is not None else ["cash and debt metrics"],
+        ),
+        _criterion(
+            "cash_flow_quality",
+            "Cash Flow Quality",
+            score=cash_flow_score,
+            status=_financial_metric_status(cash_flow_score),
+            source_quality=source_quality if cash_flow_score is not None else "insufficient",
+            affects_score=cash_flow_score is not None,
+            evidence=[
+                _metric_evidence("Free cash flow TTM", fcf),
+                _metric_evidence("Free cash flow margin pct", fcf_margin),
+                _metric_evidence("Operating cash flow TTM", financials.get("operating_cash_flow_ttm")),
+                _metric_evidence("CapEx TTM", financials.get("capex_ttm")),
+            ],
+            limitations=sorted(set([*yfinance_limitations, "Cash-flow quality is conservative when OCF and CapEx detail is unavailable."])),
+            missing_data=cash_flow_missing,
+        ),
+    ]
+    affecting = [item for item in criteria if item["affects_score"] and item["score"] is not None]
+    score = round(sum(float(item["score"]) for item in affecting) / len(criteria), 2) if affecting else 0
+    evidence_count = sum(1 for item in criteria if item["source_quality"] in {"derived_live", "live_backed", "cached_live"} and item["affects_score"])
+    insufficient_count = sum(1 for item in criteria if item["status"] == "insufficient")
+    confidence = round(min(0.78, 0.25 + evidence_count * 0.08), 2)
+    label = "evidence_backed" if evidence_count >= 7 and confidence >= 0.70 else "preliminary" if evidence_count else "insufficient_data"
+    missing = sorted({missing for item in criteria for missing in item["missing_data"]})
+    source_status = build_source_status(
+        {
+            "source_type": "derived" if evidence_count else "unknown",
+            "provider": "derived_from_yfinance_company_quality" if evidence_count else "insufficient_company_quality_evidence",
+            "source_date": financial_status.get("source_date", ""),
+            "is_fresh": financial_status.get("is_fresh", False),
+            "limitations": ["Qualitative principles require evidence and are marked insufficient when not verifiable.", *yfinance_limitations],
+            "missing_data": missing,
+            "fallback_used": financial_status.get("fallback_used", False),
+            "fallback_reason": financial_status.get("fallback_reason"),
+        }
+    )
+    return JaneCompanyQuality(
+        score=score,
+        confidence=confidence,
+        label=label,
+        criteria=criteria,
+        source_status=source_status,
+        limitations=source_status.limitations,
+        missing_data=missing,
+    )
+
+
+def _signal(name: str, status: str, source_quality: str, evidence: list[str], limitations: list[str], missing_data: list[str]) -> dict:
+    return {
+        "name": name,
+        "status": status,
+        "source_quality": source_quality,
+        "evidence": evidence,
+        "limitations": limitations,
+        "missing_data": missing_data,
+    }
+
+
+def _build_financial_statement_signals(financial_quality: ScoreObject) -> FinancialStatementSignals:
+    financials = financial_quality.raw_data
+    status = _status_dict(financial_quality.source_status)
+    live_like = status.get("source_type") in {"live", "cached_live", "derived"}
+    source_quality = "derived_live" if live_like else "insufficient"
+    limitations = list(financial_quality.limitations or [])
+
+    def available_metric(name: str):
+        return financials.get(name) if _metric_available(financials.get(name)) else None
+
+    signals = []
+    revenue_growth = available_metric("revenue_yoy_growth_pct")
+    revenue_cagr = available_metric("revenue_3y_cagr_pct")
+    if live_like and (revenue_growth is not None or revenue_cagr is not None):
+        status_name = "supportive" if (revenue_growth or 0) >= 10 or (revenue_cagr or 0) >= 10 else "neutral"
+        signals.append(_signal("revenue_growth_quality", status_name, source_quality, [_metric_evidence("Revenue YoY growth pct", revenue_growth), _metric_evidence("Revenue 3Y CAGR pct", revenue_cagr)], limitations, []))
+    else:
+        signals.append(_signal("revenue_growth_quality", "insufficient", "insufficient", [], limitations, ["revenue_yoy_growth_pct", "revenue_3y_cagr_pct"]))
+
+    operating_margin = available_metric("operating_margin_pct")
+    if live_like and operating_margin is not None:
+        signals.append(_signal("operating_margin_strength", "supportive" if operating_margin >= 15 else "neutral" if operating_margin >= 5 else "caution", source_quality, [_metric_evidence("Operating margin pct", operating_margin)], limitations, []))
+    else:
+        signals.append(_signal("operating_margin_strength", "insufficient", "insufficient", [], limitations, ["operating_margin_pct"]))
+
+    net_income = available_metric("net_income_ttm")
+    net_income_margin = available_metric("net_income_margin_pct")
+    if live_like and (net_income is not None or net_income_margin is not None):
+        signals.append(_signal("net_income_quality", "supportive" if (net_income or 0) > 0 and (net_income_margin or 0) >= 10 else "neutral" if (net_income or 0) > 0 else "caution", source_quality, [_metric_evidence("Net income TTM", net_income), _metric_evidence("Net income margin pct", net_income_margin)], limitations, []))
+    else:
+        signals.append(_signal("net_income_quality", "insufficient", "insufficient", [], limitations, ["net_income_ttm", "net_income_margin_pct"]))
+
+    ocf = available_metric("operating_cash_flow_ttm")
+    if live_like and ocf is not None:
+        signals.append(_signal("operating_cash_flow_quality", "supportive" if ocf > 0 else "caution", source_quality, [_metric_evidence("Operating cash flow TTM", ocf)], limitations, []))
+    else:
+        signals.append(_signal("operating_cash_flow_quality", "insufficient", "insufficient", [], limitations, ["operating_cash_flow_ttm"]))
+
+    cash = available_metric("cash_and_equivalents")
+    debt = available_metric("total_debt")
+    net_cash = available_metric("net_cash_or_debt")
+    if live_like and (cash is not None or net_cash is not None):
+        signals.append(_signal("cash_safety_buffer", "supportive" if (net_cash or 0) >= 0 else "neutral", source_quality, [_metric_evidence("Cash and equivalents", cash), _metric_evidence("Net cash or debt", net_cash)], limitations, []))
+    else:
+        signals.append(_signal("cash_safety_buffer", "insufficient", "insufficient", [], limitations, ["cash_and_equivalents", "net_cash_or_debt"]))
+
+    debt_to_equity = available_metric("debt_to_equity")
+    if live_like and (debt is not None or debt_to_equity is not None):
+        signals.append(_signal("debt_risk", "supportive" if (net_cash or 0) >= 0 or (debt_to_equity is not None and debt_to_equity <= 80) else "caution" if debt_to_equity and debt_to_equity > 150 else "neutral", source_quality, [_metric_evidence("Total debt", debt), _metric_evidence("Debt to equity", debt_to_equity)], limitations, []))
+    else:
+        signals.append(_signal("debt_risk", "insufficient", "insufficient", [], limitations, ["total_debt", "debt_to_equity"]))
+
+    for signal_name, ratio_field, raw_field, missing in [
+        ("receivables_vs_revenue_risk", "receivables_to_revenue_pct", "accounts_receivable", ["accounts_receivable", "receivables_to_revenue_pct"]),
+        ("inventory_vs_revenue_risk", "inventory_to_revenue_pct", "inventory", ["inventory", "inventory_to_revenue_pct"]),
+    ]:
+        ratio = available_metric(ratio_field)
+        raw = available_metric(raw_field)
+        if live_like and ratio is not None:
+            signals.append(_signal(signal_name, "caution" if ratio >= 30 else "neutral", source_quality, [_metric_evidence(displayKey := raw_field.replace("_", " ").title(), raw), _metric_evidence(ratio_field, ratio)], limitations, []))
+        else:
+            signals.append(_signal(signal_name, "insufficient", "insufficient", [], limitations, missing))
+
+    capex = available_metric("capex_ttm")
+    if live_like and ocf is not None and capex is not None:
+        capex_ratio = round(abs(capex) / ocf * 100, 2) if ocf > 0 else None
+        signals.append(_signal("capex_vs_ocf_risk", "caution" if capex_ratio is not None and capex_ratio >= 80 else "neutral", source_quality, [_metric_evidence("Operating cash flow TTM", ocf), _metric_evidence("CapEx TTM", capex), _metric_evidence("CapEx as pct of OCF", capex_ratio)], limitations, []))
+    else:
+        signals.append(_signal("capex_vs_ocf_risk", "insufficient", "insufficient", [], limitations, ["operating_cash_flow_ttm", "capex_ttm"]))
+
+    dilution = available_metric("share_dilution_3y_pct")
+    if live_like and dilution is not None:
+        signals.append(_signal("share_dilution_risk", "caution" if dilution >= 10 else "neutral", source_quality, [_metric_evidence("Share dilution 3Y pct", dilution)], limitations, []))
+    else:
+        signals.append(_signal("share_dilution_risk", "insufficient", "insufficient", [], limitations, ["share_dilution_3y_pct"]))
+
+    scored = [signal for signal in signals if signal["status"] != "insufficient"]
+    score_by_status = {"supportive": 85, "neutral": 60, "caution": 35}
+    score = round(sum(score_by_status[signal["status"]] for signal in scored) / len(signals), 2) if scored else 0
+    confidence = round(min(0.78, 0.25 + len(scored) * 0.055), 2)
+    label = "strong" if score >= 70 and confidence >= 0.55 else "adequate" if score >= 45 else "caution" if scored else "insufficient"
+    missing = sorted({item for signal in signals for item in signal["missing_data"]})
+    source_status = build_source_status(
+        {
+            "source_type": "derived" if scored else "unknown",
+            "provider": "derived_from_yfinance_financial_statement_signals" if scored else "insufficient_financial_statement_evidence",
+            "source_date": status.get("source_date", ""),
+            "is_fresh": status.get("is_fresh", False),
+            "limitations": limitations,
+            "missing_data": missing,
+            "fallback_used": status.get("fallback_used", False),
+            "fallback_reason": status.get("fallback_reason"),
+        }
+    )
+    return FinancialStatementSignals(
+        score=score,
+        confidence=confidence,
+        label=label,
+        signals=signals,
+        source_status=source_status,
+        limitations=limitations,
+        missing_data=missing,
+    )
+
+
 def _limited(items: list[str], fallback: str, limit: int = 3) -> list[str]:
     clean = [str(item) for item in items if item]
     return clean[:limit] or [fallback]
@@ -340,10 +770,23 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "company_profile": _status_dict(response.company_profile.get("source_status")),
         "financial_quality": _status_dict(response.financial_quality.source_status),
         "valuation_context": _status_dict(response.valuation_context.source_status),
-        "leadership_score": _status_dict(response.leadership_score.source_status),
+        "jane_company_quality": _status_dict(response.jane_company_quality.source_status),
+        "financial_statement_signals": _status_dict(response.financial_statement_signals.source_status),
+        "legacy_leadership_score": _status_dict(response.leadership_score.source_status),
         "smart_money": _status_dict(response.smart_money.source_status),
         "insider_activity": _status_dict(response.insider_activity.get("source_status")),
         "institutional_13f": _status_dict(response.institutional_13f.get("source_status")),
+    }
+    quality_criteria = response.jane_company_quality.criteria
+    insufficient_evidence_categories = sorted(
+        criterion.name for criterion in quality_criteria if criterion.status == "insufficient"
+    )
+    company_quality_breakdown = {
+        "evidence_backed_criteria_count": sum(1 for criterion in quality_criteria if criterion.affects_score and criterion.source_quality in {"live_backed", "derived_live", "cached_live"}),
+        "insufficient_criteria_count": sum(1 for criterion in quality_criteria if criterion.status == "insufficient"),
+        "mock_criteria_count": sum(1 for criterion in quality_criteria if criterion.source_quality == "mock_only"),
+        "derived_live_criteria_count": sum(1 for criterion in quality_criteria if criterion.source_quality == "derived_live"),
+        "user_context_criteria_count": sum(1 for criterion in quality_criteria if criterion.source_quality == "user_context"),
     }
     mock_categories = sorted(
         name for name, status in component_statuses.items() if status.get("source_type") == "mock"
@@ -362,14 +805,17 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         for status in component_statuses.values()
         if status.get("source_type") in {"live", "cached_live", "fallback", "derived"} and status.get("is_fresh") is False
     )
-    critical_mock = {"company_profile", "financial_quality", "leadership_score"} & set(mock_categories)
+    legacy_only_mock = set(mock_categories) <= {"legacy_leadership_score"}
+    critical_mock = {"company_profile", "financial_quality"} & set(mock_categories)
     if mock_components >= 4 or missing_source_date_categories:
         grade = "D"
     elif {"company_profile", "financial_quality"} & set(mock_categories):
         grade = "C"
     elif critical_mock and fallback_components:
         grade = "B"
-    elif critical_mock or fallback_components:
+    elif critical_mock or fallback_components or fallback_components:
+        grade = "B"
+    elif legacy_only_mock:
         grade = "B"
     else:
         grade = "A"
@@ -385,10 +831,10 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
     else:
         mode = "mostly_mock" if mock_components else "insufficient"
         summary = "Source quality is too limited for more than preliminary research triage."
-    confidence_cap_applied = response.research_verdict.confidence <= MOCK_LEADERSHIP_CONFIDENCE_CAP and bool(critical_mock or fallback_components)
+    confidence_cap_applied = response.research_verdict.confidence <= MOCK_LEADERSHIP_CONFIDENCE_CAP and bool(critical_mock or fallback_components or insufficient_evidence_categories)
     cap_reason = None
     if confidence_cap_applied:
-        cap_reason = "Mock leadership evidence or fallback/cached-limited evidence caps analyze-stock confidence."
+        cap_reason = "Legacy mock leadership, fallback/cached-limited evidence, or insufficient qualitative company-quality evidence caps analyze-stock confidence."
     return {
         "mode": mode,
         "confidence_cap_applied": confidence_cap_applied,
@@ -404,6 +850,8 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "fallback_evidence_categories": fallback_categories,
         "missing_source_date_categories": missing_source_date_categories,
         "excluded_from_scoring": _excluded_indicator_names(response.macro_regime),
+        "insufficient_evidence_categories": insufficient_evidence_categories,
+        "company_quality": company_quality_breakdown,
     }
 
 
@@ -477,6 +925,10 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
     thirteen_f_status = _status_dict(response.institutional_13f.get("source_status"))
     macro_quality = response.macro_regime.macro_data_quality
     thirteen_f_candidate = response.institutional_13f.get("candidate_specific_evidence") or {}
+    quality_supportive = [criterion for criterion in response.jane_company_quality.criteria if criterion.status == "supportive"]
+    quality_insufficient = [criterion for criterion in response.jane_company_quality.criteria if criterion.status == "insufficient"]
+    signal_supportive = [signal for signal in response.financial_statement_signals.signals if signal.status == "supportive"]
+    signal_insufficient = [signal for signal in response.financial_statement_signals.signals if signal.status == "insufficient"]
     return [
         {
             "category": "macro_environment",
@@ -548,18 +1000,52 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
             "limitations": _limited(response.valuation_context.limitations, "Valuation source limitations unavailable."),
         },
         {
-            "category": "leadership_score",
-            "status": _score_status(response.leadership_score.score / response.leadership_score.max_score * 100),
+            "category": "jane_company_quality",
+            "status": _score_status(response.jane_company_quality.score),
+            "score": response.jane_company_quality.score,
+            "confidence": response.jane_company_quality.confidence,
+            "source_quality": _source_quality_from_status(_status_dict(response.jane_company_quality.source_status)),
+            "summary": "Jane company quality replaces mock leadership as the primary company-quality model.",
+            "key_evidence": _limited(
+                [
+                    f"Evidence-backed criteria: {len(quality_supportive)} supportive",
+                    f"Insufficient criteria: {len(quality_insufficient)}",
+                    f"Label: {response.jane_company_quality.label}",
+                ],
+                "Jane company quality evidence unavailable.",
+            ),
+            "limitations": _limited(response.jane_company_quality.limitations, "Jane company quality limitations unavailable."),
+        },
+        {
+            "category": "financial_statement_signals",
+            "status": _score_status(response.financial_statement_signals.score),
+            "score": response.financial_statement_signals.score,
+            "confidence": response.financial_statement_signals.confidence,
+            "source_quality": _source_quality_from_status(_status_dict(response.financial_statement_signals.source_status)),
+            "summary": "Financial statement signals derive from available yfinance fundamentals and mark unavailable filing detail as insufficient.",
+            "key_evidence": _limited(
+                [
+                    f"Supportive signals: {len(signal_supportive)}",
+                    f"Insufficient signals: {len(signal_insufficient)}",
+                    f"Label: {response.financial_statement_signals.label}",
+                ],
+                "Financial statement signal evidence unavailable.",
+            ),
+            "limitations": _limited(response.financial_statement_signals.limitations, "Financial statement signal limitations unavailable."),
+        },
+        {
+            "category": "legacy_leadership_score",
+            "status": "insufficient",
             "score": response.leadership_score.score,
             "confidence": response.leadership_score.confidence,
-            "source_quality": _source_quality_from_status(leadership_status),
-            "summary": "Jane 20-item leadership score is preliminary while source evidence remains mock-based.",
+            "source_quality": "mock_only",
+            "summary": "Legacy leadership score is mock-based and replaced by jane_company_quality.",
             "key_evidence": _limited(
                 [
                     f"{response.leadership_score.derived_metrics.get('full_score_criteria', 0)} full-score criteria",
                     f"{response.leadership_score.derived_metrics.get('partial_score_criteria', 0)} partial-score criteria",
                 ],
-                "Leadership evidence unavailable.",
+                "Legacy leadership evidence unavailable.",
             ),
             "limitations": _limited(response.leadership_score.limitations, "Leadership source limitations unavailable."),
         },
@@ -632,22 +1118,40 @@ def _build_manual_checks(response: AnalyzeStockResponse) -> list[dict]:
     checks.extend(
         [
             {
-                "priority": "high" if "leadership_score" in dq.mock_evidence_categories else "medium",
+                "priority": "high",
                 "area": "leadership",
-                "check": "Replace mock leadership evidence with live public evidence.",
-                "reason": "Jane 20-item leadership quality should not be treated as live-confirmed while mock-based.",
+                "check": "Verify moat / monopoly power through market share, patents, or ecosystem evidence.",
+                "reason": "Monopoly and moat criteria are insufficient until public evidence is reviewed.",
+            },
+            {
+                "priority": "high",
+                "area": "leadership",
+                "check": "Verify founder/CEO quality and management tenure from public company sources.",
+                "reason": "Legacy leadership_score is mock-based and retained only for backward compatibility.",
             },
             {
                 "priority": "medium" if fundamentals_live else "high",
                 "area": "filings",
-                "check": "Review latest 10-K/10-Q footnotes and segment trends.",
-                "reason": "Automated fundamentals require human review against filed disclosures and segment context.",
+                "check": "Verify R&D intensity and product roadmap from latest 10-K/10-Q.",
+                "reason": "Continuous R&D and product evidence require filing-level validation.",
             },
             {
                 "priority": "medium",
                 "area": "company_fundamentals",
-                "check": "Confirm whether reported fundamentals align with external thesis.",
-                "reason": "User-provided research context remains separate from source evidence.",
+                "check": "Check whether network effects are supported by customer/platform/ecosystem evidence.",
+                "reason": "Network effect is insufficient without ecosystem or usage evidence.",
+            },
+            {
+                "priority": "medium",
+                "area": "filings",
+                "check": "Cross-check yfinance fundamentals against SEC filings.",
+                "reason": "Yfinance fundamentals are MVP research reference data and should be checked against official filings.",
+            },
+            {
+                "priority": "medium",
+                "area": "filings",
+                "check": "Review receivables, inventory, OCF, and CapEx trends from official filings.",
+                "reason": "Missing detailed statement fields are marked insufficient instead of inferred.",
             },
             {
                 "priority": "medium",
@@ -704,27 +1208,49 @@ def _build_score_driver_breakdown(response: AnalyzeStockResponse) -> dict:
                 "summary": "Macro environment is not a strong positive driver in the current score.",
             }
         )
-    leadership_quality = _source_quality_from_status(_status_dict(response.leadership_score.source_status))
-    if leadership_quality == "mock_only":
-        limiting.append(
-            {
-                "name": "preliminary_positive_but_mock_limited",
-                "category": "leadership_score",
-                "effect": "limiting",
-                "source_quality": leadership_quality,
-                "summary": "Leadership score is numerically supportive but mock-only, so it limits conviction instead of acting as live-confirmed evidence.",
-            }
-        )
-    elif response.leadership_score.score >= 12:
-        positive.append(
-            {
-                "name": "leadership_score",
-                "category": "leadership_score",
-                "effect": "positive",
-                "source_quality": leadership_quality,
-                "summary": "Leadership evidence clears the watchlist-level threshold.",
-            }
-        )
+    limiting.append(
+        {
+            "name": "legacy_leadership_mock_replaced",
+            "category": "legacy_leadership_score",
+            "effect": "limiting",
+            "source_quality": "mock_only",
+            "summary": "Legacy leadership evidence remains mock-only and is replaced by evidence-based Jane company quality criteria.",
+        }
+    )
+    criteria_by_name = {criterion.name: criterion for criterion in response.jane_company_quality.criteria}
+    for criterion_name, driver_name in [
+        ("monopoly_power", "qualitative_moat_evidence_insufficient"),
+        ("visionary_founder_ceo", "founder_ceo_evidence_insufficient"),
+        ("network_effect", "network_effect_evidence_insufficient"),
+        ("disruptive_innovation", "disruptive_innovation_evidence_insufficient"),
+    ]:
+        criterion = criteria_by_name.get(criterion_name)
+        if criterion and criterion.status == "insufficient":
+            limiting.append(
+                {
+                    "name": driver_name,
+                    "category": "jane_company_quality",
+                    "effect": "insufficient",
+                    "source_quality": criterion.source_quality,
+                    "summary": f"{criterion.display_name} is marked insufficient because required qualitative evidence is unavailable.",
+                }
+            )
+    for criterion_name, driver_name in [
+        ("scalability", "scalability_from_financials"),
+        ("balance_sheet_strength", "balance_sheet_strength"),
+        ("cash_flow_quality", "cash_flow_quality"),
+    ]:
+        criterion = criteria_by_name.get(criterion_name)
+        if criterion and criterion.status == "supportive":
+            positive.append(
+                {
+                    "name": driver_name,
+                    "category": "jane_company_quality",
+                    "effect": "positive",
+                    "source_quality": criterion.source_quality,
+                    "summary": f"{criterion.display_name} is supported by available financial metrics.",
+                }
+            )
     thirteen_f = response.institutional_13f.get("candidate_specific_evidence") or {}
     if thirteen_f.get("matched_in_13f") and thirteen_f.get("score_contribution_allowed"):
         positive.append(
@@ -810,7 +1336,7 @@ def _build_score_driver_breakdown(response: AnalyzeStockResponse) -> dict:
 
 def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
     dq = response.data_quality_summary
-    leadership_mock = "leadership_score" in dq.mock_evidence_categories
+    leadership_mock = "legacy_leadership_score" in dq.mock_evidence_categories
     company_mock = "company_profile" in dq.mock_evidence_categories
     fundamentals_mock = "financial_quality" in dq.mock_evidence_categories
     company_live = not company_mock and "company_profile" not in dq.fallback_evidence_categories
@@ -821,17 +1347,20 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
         strengths.append("Macro context is neutral-to-constructive under macro_v12_5.")
     if response.smart_money.score >= 50:
         strengths.append("Aggregate smart-money score is neutral or better, with source limitations disclosed.")
-    if response.leadership_score.score >= 12 and not leadership_mock:
-        strengths.append("Leadership score clears watchlist-level threshold with non-mock source context.")
-    elif response.leadership_score.score >= 12:
-        strengths.append("Mock leadership score clears watchlist-level threshold but remains preliminary.")
     if company_live:
         strengths.append("Company profile is live or cached-live instead of mock-only.")
     if fundamentals_live:
         strengths.append("Financial quality includes live or cached fundamentals context.")
+    supportive_quality = [criterion for criterion in response.jane_company_quality.criteria if criterion.status == "supportive"]
+    if any(criterion.name == "scalability" for criterion in supportive_quality):
+        strengths.append("Live financial quality supports scalability under Jane company quality criteria.")
+    if any(criterion.name == "financial_statement_quality" for criterion in supportive_quality):
+        strengths.append("Revenue growth, margin, or free cash flow metrics support financial statement quality.")
     risks = []
     if leadership_mock:
-        risks.append("Leadership evidence is mock-based and cannot confirm live leadership quality.")
+        risks.append("Legacy leadership evidence is mock-based and cannot confirm live leadership quality.")
+    if "monopoly_power" in dq.insufficient_evidence_categories:
+        risks.append("Qualitative moat/founder/network/disruption evidence remains insufficient.")
     if company_mock:
         risks.append("Company profile remains mock-based.")
     if fundamentals_mock:
@@ -840,20 +1369,32 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
         risks.append("Smart-money evidence includes fallback or cached-limited components.")
     if response.risk_flags:
         risks.extend(response.risk_flags[:3])
-    missing_or_mock = sorted(set([*dq.mock_evidence_categories, *dq.fallback_evidence_categories, *response.missing_data[:5]]))
+    missing_or_mock = sorted(
+        set(
+            [
+                *dq.fallback_evidence_categories,
+                *response.missing_data[:5],
+                *(["founder_ceo_evidence"] if "visionary_founder_ceo" in dq.insufficient_evidence_categories else []),
+                *(["moat_or_patent_evidence"] if "monopoly_power" in dq.insufficient_evidence_categories else []),
+                *(["network_effect_evidence"] if "network_effect" in dq.insufficient_evidence_categories else []),
+                *(["disruptive_innovation_evidence"] if "disruptive_innovation" in dq.insufficient_evidence_categories else []),
+                *(["R&D evidence"] if "continuous_r_and_d" in dq.insufficient_evidence_categories else []),
+            ]
+        )
+    )
     env = f"Macro environment is {response.macro_regime.label} with {response.macro_regime.confidence:.2f} confidence."
-    if company_live and fundamentals_live and leadership_mock:
-        company = "Live company profile and fundamentals are available; leadership evidence remains mock-based until a later phase."
+    if company_live and fundamentals_live:
+        company = "Live company profile and fundamentals are available; Jane company quality is partially evidence-backed by financial metrics, while qualitative moat/founder/network/disruption evidence remains insufficient."
     elif company_live:
-        company = "Live company profile is available; fundamentals or leadership evidence still needs verification."
+        company = "Live company profile is available; fundamentals and qualitative Jane company quality evidence still need verification."
     else:
-        company = "Company evidence remains preliminary because profile, fundamentals, or leadership data is mock-based."
+        company = "Company evidence remains preliminary because profile, fundamentals, or qualitative company-quality data is incomplete."
     smart = "Smart-money assessment is limited by fallback or cached components." if smart_limited else f"Smart-money assessment is {response.smart_money.label}."
     overall = (
         f"{response.ticker} qualifies as a {response.research_verdict.label} research candidate under the current validation framework. "
         f"Macro context is {response.macro_regime.label}, company profile/fundamentals evidence "
-        f"{'uses live or cached sources' if company_live and fundamentals_live else 'remains partly preliminary'}, leadership evidence "
-        f"{'remains mock-based' if leadership_mock else 'has source metadata'}, and smart-money evidence "
+        f"{'uses live or cached sources' if company_live and fundamentals_live else 'remains partly preliminary'}, Jane company quality "
+        f"{'is partially evidence-backed by financial metrics' if response.jane_company_quality.label == 'preliminary' else response.jane_company_quality.label}, and smart-money evidence "
         f"{'includes fallback or cached-limited components' if smart_limited else 'is available with disclosed limitations'}. "
         "Further manual validation is required before treating the candidate as high conviction."
     )
@@ -908,6 +1449,13 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     missing_data.extend(macro_regime.missing_data)
     missing_data = sorted(set(missing_data))
     leadership_score = evaluate_leadership({"ticker": request.ticker, **fixture})
+    legacy_limitation = "Legacy leadership_score is mock-based and is retained for backward compatibility only."
+    if legacy_limitation not in leadership_score.limitations:
+        leadership_score.limitations.append(legacy_limitation)
+    leadership_score.deprecated_by = "jane_company_quality"
+    leadership_score.affects_score = False
+    leadership_score.legacy_affects_score = False
+    leadership_score.source_quality = "mock_only"
     market_timing_context = evaluate_market_timing(engine_context)
     overheat_risk = evaluate_overheat(engine_context)
     smart_money = evaluate_smart_money(smart_money_data)
@@ -917,11 +1465,25 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         insider_activity = ScoreObject.model_validate(insider_activity)
     if not hasattr(institutional_13f, "model_dump"):
         institutional_13f = ScoreObject.model_validate(institutional_13f)
-    leadership_percent = leadership_score.score / leadership_score.max_score * 100
     leadership_status = build_source_status(leadership_score.model_dump(mode="json"))
+    leadership_score.source_status = leadership_status
     company_profile_status = build_source_status(company_profile)
     financial_quality = _build_financial_quality_score(company_fundamentals)
     valuation_context = _build_valuation_context(company_profile, company_fundamentals)
+    research_context = request.research_context.model_dump(exclude_none=True) if request.research_context else {}
+    jane_company_quality = _build_jane_company_quality(financial_quality, research_context)
+    financial_statement_signals = _build_financial_statement_signals(financial_quality)
+    quality_insufficient = [criterion.name for criterion in jane_company_quality.criteria if criterion.status == "insufficient"]
+    missing_data.extend(
+        [
+            *(["founder_ceo_evidence"] if "visionary_founder_ceo" in quality_insufficient else []),
+            *(["moat_or_patent_evidence"] if "monopoly_power" in quality_insufficient else []),
+            *(["network_effect_evidence"] if "network_effect" in quality_insufficient else []),
+            *(["disruptive_innovation_evidence"] if "disruptive_innovation" in quality_insufficient else []),
+            *(["R&D evidence"] if "continuous_r_and_d" in quality_insufficient else []),
+        ]
+    )
+    missing_data = sorted(set(missing_data))
     form4_status = sec_filings.get("form4_source_status", {})
     thirteen_f_status = sec_filings.get("institutional_13f_source_status", {})
     mock_evidence_present = (
@@ -944,9 +1506,13 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     )
     macro_provider = macro_regime.source_status.provider if macro_regime.source_status else ""
     live_macro_present = macro_provider == "mixed_FRED_and_yfinance_macro" or macro_regime.source_status and macro_regime.source_status.source_type in {"live", "cached_live", "derived"}
-    research_context = request.research_context.model_dump(exclude_none=True) if request.research_context else {}
     research_verdict = _research_verdict(
-        leadership_percent=leadership_percent,
+        company_quality_score=jane_company_quality.score,
+        company_quality_confidence=jane_company_quality.confidence,
+        key_qualitative_insufficient=any(
+            name in quality_insufficient
+            for name in ["monopoly_power", "visionary_founder_ceo", "network_effect", "disruptive_innovation"]
+        ),
         smart_money_score=smart_money.score,
         macro_score=macro_regime.score,
         overheat_score=overheat_risk.score,
@@ -1011,6 +1577,8 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         },
         macro_regime=macro_regime,
         leadership_score=leadership_score,
+        jane_company_quality=jane_company_quality,
+        financial_statement_signals=financial_statement_signals,
         market_timing_context=market_timing_context,
         overheat_risk=overheat_risk,
         smart_money=smart_money,
@@ -1029,6 +1597,15 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
             if present
         ],
         jane_reference_conditions=_build_jane_reference_conditions(macro_snapshot),
+        jane_quality_methodology_reference={
+            "framework": "Jane 7-principle company quality framework",
+            "principles": JANE_QUALITY_PRINCIPLES,
+            "affects_score": True,
+            "limitations": [
+                "Qualitative principles require evidence and are marked insufficient when not verifiable.",
+                "User-provided theme is context only and is not independently verified evidence.",
+            ],
+        },
         missing_data=missing_data,
         human_verification_queue=[
             "Verify company fundamentals with current filings.",

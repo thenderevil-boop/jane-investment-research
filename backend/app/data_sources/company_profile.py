@@ -150,12 +150,18 @@ def _normalize_fundamentals(ticker: str, info: dict[str, Any], ticker_obj: Any) 
     annual_revenue = _get_row(annual_financials, ["Total Revenue", "Operating Revenue"])
     quarterly_gross_profit = _get_row(quarterly_financials, ["Gross Profit"])
     quarterly_operating_income = _get_row(quarterly_financials, ["Operating Income", "Operating Income or Loss"])
+    quarterly_net_income = _get_row(quarterly_financials, ["Net Income", "Net Income Common Stockholders"])
+    quarterly_rd = _get_row(quarterly_financials, ["Research And Development", "Research Development"])
     operating_cashflow = _get_row(quarterly_cashflow, ["Operating Cash Flow", "Total Cash From Operating Activities"])
     capex = _get_row(quarterly_cashflow, ["Capital Expenditure", "Capital Expenditures"])
     if not operating_cashflow:
         operating_cashflow = _get_row(annual_cashflow, ["Operating Cash Flow", "Total Cash From Operating Activities"])
     if not capex:
         capex = _get_row(annual_cashflow, ["Capital Expenditure", "Capital Expenditures"])
+    if not quarterly_net_income:
+        quarterly_net_income = _get_row(annual_financials, ["Net Income", "Net Income Common Stockholders"])
+    if not quarterly_rd:
+        quarterly_rd = _get_row(annual_financials, ["Research And Development", "Research Development"])
 
     revenue_ttm = _first_number(info.get("totalRevenue"), _sum_recent(quarterly_revenue), _latest(annual_revenue))
     latest_quarter_revenue = _latest(quarterly_revenue)
@@ -182,9 +188,15 @@ def _normalize_fundamentals(ticker: str, info: dict[str, Any], ticker_obj: Any) 
     cash_values = _get_row(balance_sheet, ["Cash And Cash Equivalents", "Cash Cash Equivalents And Short Term Investments"])
     debt_values = _get_row(balance_sheet, ["Total Debt", "Long Term Debt And Capital Lease Obligation", "Long Term Debt"])
     equity_values = _get_row(balance_sheet, ["Stockholders Equity", "Total Stockholder Equity"])
+    receivable_values = _get_row(balance_sheet, ["Accounts Receivable", "Net Receivables"])
+    inventory_values = _get_row(balance_sheet, ["Inventory"])
     cash = _first_number(info.get("totalCash"), _latest(cash_values))
     debt = _first_number(info.get("totalDebt"), _latest(debt_values))
     equity = _latest(equity_values)
+    net_income_ttm = _sum_recent(quarterly_net_income)
+    rd_expense_ttm = _sum_recent(quarterly_rd)
+    receivables = _latest(receivable_values)
+    inventory = _latest(inventory_values)
     shares = _as_float(info.get("sharesOutstanding"))
 
     metrics = {
@@ -197,12 +209,22 @@ def _normalize_fundamentals(ticker: str, info: dict[str, Any], ticker_obj: Any) 
         "revenue_3y_cagr_pct": revenue_3y_cagr,
         "gross_margin_pct": gross_margin,
         "operating_margin_pct": operating_margin,
+        "net_income_ttm": net_income_ttm,
+        "net_income_margin_pct": _pct(net_income_ttm, revenue_ttm),
+        "operating_cash_flow_ttm": operating_cashflow_ttm,
+        "capex_ttm": capex_ttm,
         "free_cash_flow_ttm": free_cash_flow_ttm,
         "free_cash_flow_margin_pct": _pct(free_cash_flow_ttm, revenue_ttm),
+        "rd_expense_ttm": rd_expense_ttm,
+        "rd_to_revenue_pct": _pct(rd_expense_ttm, revenue_ttm),
         "cash_and_equivalents": cash,
         "total_debt": debt,
         "net_cash_or_debt": round((cash or 0) - (debt or 0), 6) if cash is not None or debt is not None else None,
         "debt_to_equity": _first_number(info.get("debtToEquity"), _pct(debt, equity)),
+        "accounts_receivable": receivables,
+        "receivables_to_revenue_pct": _pct(receivables, revenue_ttm),
+        "inventory": inventory,
+        "inventory_to_revenue_pct": _pct(inventory, revenue_ttm),
         "shares_outstanding": shares,
         "share_dilution_3y_pct": None,
     }

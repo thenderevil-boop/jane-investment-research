@@ -57,6 +57,10 @@ def test_analyze_stock_is_primary_ticker_validation_shape() -> None:
     assert payload["institutional_13f"]["raw_data"]["portfolio_summary"] is not None
     assert payload["smart_money"]["raw_data"]["institutional_13f"]["target_matches"] is not None
     assert payload["leadership_score"]["source_status"]["source_type"] == "mock"
+    assert payload["leadership_score"]["deprecated_by"] == "jane_company_quality"
+    assert payload["leadership_score"]["affects_score"] is False
+    assert "jane_company_quality" in payload
+    assert "financial_statement_signals" in payload
     assert payload["research_verdict"]["confidence"] <= MOCK_LEADERSHIP_CONFIDENCE_CAP
     assert "Mock evidence limits confidence." in payload["research_verdict"]["summary"]
     assert any("Mock evidence limits analyze-stock confidence" in item for item in payload["data_quality"]["limitations"])
@@ -105,19 +109,21 @@ def test_phase14_analyze_stock_composition_layers() -> None:
     for key in ["primary_strengths", "primary_risks", "missing_or_mock_evidence", "next_manual_checks"]:
         assert isinstance(summary[key], list)
         assert summary[key]
-    assert "mock" in summary["overall_summary"].lower()
+    assert "jane company quality" in summary["overall_summary"].lower()
 
     matrix = {item["category"]: item for item in payload["evidence_matrix"]}
-    for category in ["macro_environment", "company_profile", "leadership_score", "smart_money", "insider_activity", "institutional_13f"]:
+    for category in ["macro_environment", "company_profile", "jane_company_quality", "financial_statement_signals", "legacy_leadership_score", "smart_money", "insider_activity", "institutional_13f"]:
         assert category in matrix
         assert matrix[category]["summary"]
         assert isinstance(matrix[category]["key_evidence"], list)
     assert matrix["macro_environment"]["source_quality"] == "derived_live"
-    assert matrix["leadership_score"]["source_quality"] == "mock_only"
+    assert matrix["legacy_leadership_score"]["source_quality"] == "mock_only"
 
     quality = payload["data_quality_summary"]
     assert quality["source_quality_grade"] in {"A", "B", "C", "D"}
-    assert "leadership_score" in quality["mock_evidence_categories"]
+    assert "legacy_leadership_score" in quality["mock_evidence_categories"]
+    assert "insufficient_evidence_categories" in quality
+    assert "company_quality" in quality
     assert "company_profile" in quality["mock_evidence_categories"]
     assert "smart_money" in quality["fallback_evidence_categories"]
     assert "ISM Manufacturing PMI" in quality["excluded_from_scoring"]
@@ -130,7 +136,7 @@ def test_phase14_analyze_stock_composition_layers() -> None:
     drivers = payload["score_driver_breakdown"]
     assert drivers["final_score"] == verdict["score"]
     driver_text = json.dumps(drivers).lower()
-    assert "live-confirmed" in driver_text
+    assert "legacy leadership evidence remains mock-only" in driver_text
     assert not any(
         driver["category"] == "leadership_score" and driver["source_quality"] == "mock_only"
         for driver in drivers["positive_drivers"]

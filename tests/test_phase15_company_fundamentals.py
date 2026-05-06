@@ -150,10 +150,11 @@ def test_analyze_stock_uses_live_company_profile_and_fundamentals(monkeypatch):
     quality = payload["data_quality_summary"]
     assert "company_profile" not in quality["mock_evidence_categories"]
     assert "financial_quality" not in quality["mock_evidence_categories"]
-    assert "leadership_score" in quality["mock_evidence_categories"]
+    assert "legacy_leadership_score" in quality["mock_evidence_categories"]
     assert quality["source_quality_grade"] in {"A", "B", "C"}
     assert "company_profile" not in payload["candidate_validation_summary"]["missing_or_mock_evidence"]
     assert payload["leadership_score"]["source_status"]["source_type"] == "mock"
+    assert payload["leadership_score"]["deprecated_by"] == "jane_company_quality"
     assert payload["research_verdict"]["confidence"] <= 0.72
     assert any(driver["category"] == "financial_quality" for driver in payload["score_driver_breakdown"]["positive_drivers"])
     assert detect_forbidden_language(payload) == []
