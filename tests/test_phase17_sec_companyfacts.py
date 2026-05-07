@@ -217,6 +217,7 @@ def _derived_live_macro_payload() -> dict:
 
 def _analyze(monkeypatch, sec_snapshot: dict | None = None, revenue: float = 130_000_000_000, qualitative_evidence: list[dict] | None = None) -> dict:
     monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", _tmp_cache())
+    monkeypatch.setattr(config, "MANUAL_EVIDENCE_DIR", _tmp_cache() / "manual_evidence")
     monkeypatch.setattr(config, "USE_LIVE_COMPANY_DATA", True)
     monkeypatch.setattr(company_profile, "fetch_company_profile", _profile)
     monkeypatch.setattr(company_profile, "fetch_company_fundamentals", lambda ticker: _fundamentals(ticker, revenue))

@@ -16,9 +16,15 @@ describe('api client', () => {
     await expect(getLatestDailyReport()).rejects.toThrow('Malformed response');
   });
 
+  it('uses backend JSON detail in error messages', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{"detail":"evidence_id path segment is required"}', { status: 400, headers: { 'content-type': 'application/json' } })));
+    await expect(getLatestDailyReport()).rejects.toThrow('evidence_id path segment is required');
+  });
+
   it('sends qualitative evidence in analyze-stock requests', async () => {
     const fetchMock = vi.fn(async () => new Response('{"ticker":"NVDA","market":"US"}', { status: 200, headers: { 'content-type': 'application/json' } }));
     vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
     await analyzeStock(
       'nvda',
       { theme: 'AI infrastructure', user_reason: 'External trend research' },
@@ -35,6 +41,7 @@ describe('api client', () => {
           limitations: ['Manual review required.'],
         },
       ],
+      controller.signal,
     );
     const calls = (fetchMock as unknown as { mock: { calls: Array<[string, RequestInit]> } }).mock.calls;
     const init = calls[0][1];
@@ -42,6 +49,7 @@ describe('api client', () => {
     expect(body.ticker).toBe('NVDA');
     expect(body.qualitative_evidence).toHaveLength(1);
     expect(body.qualitative_evidence[0].criterion).toBe('network_effect');
+    expect(init.signal).toBe(controller.signal);
   });
 
   it('calls manual evidence library endpoints', async () => {

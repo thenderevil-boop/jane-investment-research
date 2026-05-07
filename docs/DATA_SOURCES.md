@@ -177,6 +177,7 @@ Aggregation and target matching:
 - Daily report output omits full row-level 13F data by default and keeps only portfolio summary, top holdings, target matches, capped QoQ changes, source status, limitations, and missing data.
 - Full 13F rows appear only under `raw_data_full.holdings` when `INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT=true`.
 - Capped QoQ output reports both `qoq_changes_count_total` and `qoq_changes_limit`.
+- Phase 19.5 logs sanitized warnings when cached 13F local-context enrichment fails. The warning may include manager CIK, holding ticker, and exception type, but it must not include raw SEC URLs, headers, User-Agent values, API keys, or secrets.
 
 Repository behavior:
 

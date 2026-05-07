@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
 from copy import deepcopy
@@ -32,6 +33,8 @@ from backend.app.utils.performance import add_timing, increment_metric
 from backend.app.services.daily_batch_context import get_daily_batch_context
 from backend.app.raw_store import manual_evidence as manual_evidence_store
 
+
+logger = logging.getLogger(__name__)
 
 INDEX_SYMBOLS = ["SPY", "QQQ"]
 VIX_SYMBOL = "^VIX"
@@ -787,8 +790,15 @@ def _sanitize_sec_13f_cached_payload(cached: dict[str, Any]) -> dict[str, Any]:
             from backend.app.data_sources.sec_edgar_13f import enrich_13f_holding_with_local_context
 
             holding.update(enrich_13f_holding_with_local_context(holding))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(
+                "SEC 13F local holding enrichment failed; continuing with sanitized cached holding context.",
+                extra={
+                    "manager_cik": manager_cik,
+                    "holding_ticker": str(holding.get("ticker") or ""),
+                    "exception_type": type(exc).__name__,
+                },
+            )
         if isinstance(holding.get("source_status"), dict):
             holding["source_status"]["provider"] = "SEC EDGAR"
     return payload

@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { DataSourceStatus, ScoreLike, StockAnalysis } from '../types';
-import StockResearch, { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection } from './StockResearch';
+import StockResearch, { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection, parseQualitativeEvidenceJson } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -40,6 +40,25 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Qualitative Evidence JSON');
     expect(html).toContain('Structured qualitative evidence');
     expect(html).not.toContain('[object Object]');
+  });
+
+  it('validates qualitative evidence JSON before analyze requests', () => {
+    const parsed = parseQualitativeEvidenceJson(JSON.stringify([
+      {
+        criterion: 'network_effect',
+        evidence_type: 'platform_ecosystem',
+        summary: 'CUDA developer ecosystem claim requiring manual verification.',
+        source_label: 'User research note',
+        confidence: 0.65,
+        user_provided: true,
+        limitations: ['Manual review required.'],
+      },
+    ]));
+
+    expect(parsed?.[0].criterion).toBe('network_effect');
+    expect(() => parseQualitativeEvidenceJson('[{"criterion":"unsupported","evidence_type":"platform_ecosystem","summary":"x","source_label":"note","confidence":0.5,"user_provided":true}]')).toThrow('unsupported criterion');
+    expect(() => parseQualitativeEvidenceJson('[{"criterion":"network_effect","evidence_type":"platform_ecosystem","summary":"","source_label":"note","confidence":0.5,"user_provided":true}]')).toThrow('needs a summary');
+    expect(() => parseQualitativeEvidenceJson('[{"criterion":"network_effect","evidence_type":"platform_ecosystem","summary":"x","source_label":"note","confidence":2,"user_provided":true}]')).toThrow('between 0 and 1');
   });
 
   it('does not render profile objects as [object Object]', () => {

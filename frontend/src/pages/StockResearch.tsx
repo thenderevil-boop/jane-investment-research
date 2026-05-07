@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { analyzeStock } from '../api/client';
 import DataSourceBadge from '../components/DataSourceBadge';
 import EvidencePanel from '../components/EvidencePanel';
@@ -9,6 +9,66 @@ import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
 import type { AnalyzeStockDataQualitySummary, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, JaneCompanyQuality, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
+
+const qualitativeCriteria = new Set(['monopoly_power', 'visionary_founder_ceo', 'disruptive_innovation', 'network_effect', 'continuous_r_and_d', 'mega_trend_fit']);
+const qualitativeEvidenceTypes = new Set([
+  'market_share',
+  'patent',
+  'platform_ecosystem',
+  'founder_operator',
+  'management_tenure',
+  'product_disruption',
+  'customer_adoption',
+  'developer_ecosystem',
+  'switching_cost',
+  'brand_power',
+  'r_and_d_intensity',
+  'user_provided_note',
+  'filing_reference',
+  'other',
+]);
+
+export function parseQualitativeEvidenceJson(value: string): QualitativeEvidenceInput[] | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = JSON.parse(value) as unknown;
+  if (!Array.isArray(parsed)) {
+    throw new Error('Qualitative evidence JSON must be an array.');
+  }
+  return parsed.map((item, index) => {
+    if (!item || typeof item !== 'object') {
+      throw new Error(`Qualitative evidence item ${index + 1} must be an object.`);
+    }
+    const evidence = item as Partial<QualitativeEvidenceInput>;
+    if (!qualitativeCriteria.has(String(evidence.criterion))) {
+      throw new Error(`Qualitative evidence item ${index + 1} has an unsupported criterion.`);
+    }
+    if (!qualitativeEvidenceTypes.has(String(evidence.evidence_type))) {
+      throw new Error(`Qualitative evidence item ${index + 1} has an unsupported evidence_type.`);
+    }
+    if (!String(evidence.summary ?? '').trim()) {
+      throw new Error(`Qualitative evidence item ${index + 1} needs a summary.`);
+    }
+    if (!String(evidence.source_label ?? '').trim()) {
+      throw new Error(`Qualitative evidence item ${index + 1} needs a source_label.`);
+    }
+    if (typeof evidence.confidence !== 'number' || evidence.confidence < 0 || evidence.confidence > 1) {
+      throw new Error(`Qualitative evidence item ${index + 1} confidence must be between 0 and 1.`);
+    }
+    if (evidence.user_provided !== true) {
+      throw new Error(`Qualitative evidence item ${index + 1} must set user_provided to true.`);
+    }
+    return {
+      ...evidence,
+      criterion: String(evidence.criterion),
+      evidence_type: String(evidence.evidence_type),
+      summary: String(evidence.summary),
+      source_label: String(evidence.source_label),
+      confidence: evidence.confidence,
+      user_provided: true,
+      limitations: Array.isArray(evidence.limitations) ? evidence.limitations.map(String) : [],
+    } as QualitativeEvidenceInput;
+  });
+}
 
 function scoreMax(score?: ScoreLike) {
   return score?.max_score ?? score?.maxScore ?? 100;
@@ -505,27 +565,30 @@ export default function StockResearch() {
   const [result, setResult] = useState<StockAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const analyzeAbortRef = useRef<AbortController | null>(null);
   const warningTerms = useMemo(() => detectForbiddenLanguage(result), [result]);
   const criteria = result?.leadership_score?.criteria as Array<Record<string, unknown>> | undefined;
 
+  useEffect(() => () => analyzeAbortRef.current?.abort(), []);
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
+    analyzeAbortRef.current?.abort();
+    const controller = new AbortController();
+    analyzeAbortRef.current = controller;
     setLoading(true);
     setError('');
     try {
-      let qualitativeEvidence: QualitativeEvidenceInput[] | undefined;
-      if (qualitativeEvidenceJson.trim()) {
-        const parsed = JSON.parse(qualitativeEvidenceJson) as unknown;
-        if (!Array.isArray(parsed)) {
-          throw new Error('Qualitative evidence JSON must be an array.');
-        }
-        qualitativeEvidence = parsed as QualitativeEvidenceInput[];
-      }
-      setResult(await analyzeStock(ticker, { theme, user_reason: userReason }, qualitativeEvidence));
+      const qualitativeEvidence = parseQualitativeEvidenceJson(qualitativeEvidenceJson);
+      setResult(await analyzeStock(ticker, { theme, user_reason: userReason }, qualitativeEvidence, controller.signal));
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setError(err instanceof Error ? err.message : 'Unable to analyze ticker');
     } finally {
-      setLoading(false);
+      if (analyzeAbortRef.current === controller) {
+        analyzeAbortRef.current = null;
+        setLoading(false);
+      }
     }
   }
 

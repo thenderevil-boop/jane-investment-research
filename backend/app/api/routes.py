@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 from backend.app import config
 from backend.app.data_sources.mock_data import DEFAULT_STOCK, MOCK_SOURCE, MOCK_SOURCE_DATE, STOCK_FIXTURES
@@ -27,7 +30,7 @@ from backend.app.schemas.health import HealthResponse
 from backend.app.schemas.macro_regime import MacroRegimeOutput
 from backend.app.schemas.manual_evidence import ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, ManualQualitativeEvidencePatch
 from backend.app.schemas.stock_analysis import AnalyzeStockRequest, AnalyzeStockResponse
-from backend.app.schemas.supplemental import DataHealthResponse, RawDataResponse, ThemesLatestResponse, TickerSignalsResponse
+from backend.app.schemas.supplemental import DataHealthResponse, PriceReferenceWarmupRequest, RawDataResponse, ThemesLatestResponse, TickerSignalsResponse
 from backend.app.services.daily_report_service import latest_daily_report_response
 from backend.app.services.snapshot_metadata import (
     ensure_macro_score_explanation as _ensure_macro_score_explanation,
@@ -39,8 +42,12 @@ from backend.app.utils.freshness import build_source_status
 router = APIRouter(prefix="/api")
 
 
-def _model_dict(model):
-    return model.model_dump(mode="json")
+def _model_dict(model: Any):
+    if isinstance(model, BaseModel):
+        return model.model_dump(mode="json")
+    if isinstance(model, list):
+        return [item.model_dump(mode="json") if isinstance(item, BaseModel) else item for item in model]
+    return model
 
 
 def _ensure_safe_response(model):
@@ -59,12 +66,12 @@ def _ensure_safe_response(model):
 
 @router.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
-    return HealthResponse()
+    return _ensure_safe_response(HealthResponse())
 
 
 @router.get("/data-health", response_model=DataHealthResponse)
 def data_health() -> DataHealthResponse:
-    return DataHealthResponse(
+    return _ensure_safe_response(DataHealthResponse(
         providers={
             "yfinance": {
                 "enabled": config.USE_LIVE_MARKET_DATA,
@@ -125,7 +132,7 @@ def data_health() -> DataHealthResponse:
             "Daily reports are cache-first for SEC EDGAR Form 4 and 13F unless live fetch on report request is explicitly enabled.",
         ],
         missing_data=[],
-    )
+    ))
 
 
 @router.get("/daily-report/latest", response_model=DailyResearchReport)
@@ -135,20 +142,14 @@ def latest_daily_report(use_live_market_data: bool | None = Query(default=None))
 
 @router.post("/jobs/daily-research-refresh")
 def daily_research_refresh_job() -> dict:
-    return refresh_daily_research_snapshot()
+    return _ensure_safe_response(refresh_daily_research_snapshot())
 
 
 @router.post("/price-reference/warmup")
-def price_reference_warmup(payload: dict = Body(default_factory=dict)) -> dict:
-    tickers = payload.get("tickers") or []
-    if isinstance(tickers, str):
-        tickers = [item.strip() for item in tickers.split(",") if item.strip()]
-    if not isinstance(tickers, list):
-        raise HTTPException(status_code=400, detail="tickers must be a list or comma-separated string")
-    max_tickers = int(payload.get("max_tickers") or config.PRICE_REFERENCE_CACHE_WARMUP_MAX_TICKERS)
-    allow_live_fetch = bool(payload.get("allow_live_fetch", False))
-    result = warm_price_reference_cache([str(item) for item in tickers], max_tickers=max_tickers, allow_live_fetch=allow_live_fetch)
-    return {"not_investment_advice": True, **result}
+def price_reference_warmup(payload: PriceReferenceWarmupRequest) -> dict:
+    max_tickers = payload.max_tickers or config.PRICE_REFERENCE_CACHE_WARMUP_MAX_TICKERS
+    result = warm_price_reference_cache(payload.tickers, max_tickers=max_tickers, allow_live_fetch=payload.allow_live_fetch)
+    return _ensure_safe_response({"not_investment_advice": True, **result})
 
 
 @router.get("/daily-report/{report_date}", response_model=DailyResearchReport)
@@ -169,7 +170,7 @@ def daily_report_by_date(report_date: str) -> DailyResearchReport:
     report = build_daily_report()
     if report_date != report.date:
         raise HTTPException(status_code=404, detail="Mock report date is unavailable.")
-    return report
+    return _ensure_safe_response(report)
 
 
 @router.post("/analyze-stock", response_model=AnalyzeStockResponse)
@@ -180,13 +181,13 @@ def analyze_stock_endpoint(request: AnalyzeStockRequest) -> AnalyzeStockResponse
 @router.get("/manual-evidence", response_model=list[ManualQualitativeEvidence])
 def manual_evidence_list(ticker: str | None = Query(default=None)) -> list[ManualQualitativeEvidence]:
     rows = list_manual_evidence(ticker.strip().upper() if ticker else None)
-    return [ManualQualitativeEvidence.model_validate(row) for row in rows]
+    return _ensure_safe_response([ManualQualitativeEvidence.model_validate(row) for row in rows])
 
 
 @router.get("/manual-evidence/by-ticker/{ticker}", response_model=list[ManualQualitativeEvidence])
 def manual_evidence_by_ticker(ticker: str) -> list[ManualQualitativeEvidence]:
     rows = list_manual_evidence(ticker.strip().upper())
-    return [ManualQualitativeEvidence.model_validate(row) for row in rows]
+    return _ensure_safe_response([ManualQualitativeEvidence.model_validate(row) for row in rows])
 
 
 @router.get("/manual-evidence/{evidence_id}", response_model=ManualQualitativeEvidence)
@@ -194,14 +195,14 @@ def manual_evidence_get(evidence_id: str) -> ManualQualitativeEvidence:
     row = get_manual_evidence(evidence_id)
     if not row:
         raise HTTPException(status_code=404, detail="Manual evidence item not found")
-    return ManualQualitativeEvidence.model_validate(row)
+    return _ensure_safe_response(ManualQualitativeEvidence.model_validate(row))
 
 
 @router.post("/manual-evidence", response_model=ManualQualitativeEvidence)
 def manual_evidence_create(payload: ManualQualitativeEvidenceCreate) -> ManualQualitativeEvidence:
     created = ManualQualitativeEvidence.model_validate(payload.model_dump(mode="json"))
     row = create_manual_evidence(created)
-    return ManualQualitativeEvidence.model_validate(row)
+    return _ensure_safe_response(ManualQualitativeEvidence.model_validate(row))
 
 
 @router.patch("/manual-evidence", include_in_schema=False)
@@ -214,7 +215,7 @@ def manual_evidence_patch(evidence_id: str, payload: ManualQualitativeEvidencePa
     row = update_manual_evidence(evidence_id, payload)
     if not row:
         raise HTTPException(status_code=404, detail="Manual evidence item not found")
-    return ManualQualitativeEvidence.model_validate(row)
+    return _ensure_safe_response(ManualQualitativeEvidence.model_validate(row))
 
 
 @router.delete("/manual-evidence/{evidence_id}", response_model=ManualQualitativeEvidence)
@@ -222,22 +223,23 @@ def manual_evidence_delete(evidence_id: str) -> ManualQualitativeEvidence:
     row = delete_manual_evidence(evidence_id)
     if not row:
         raise HTTPException(status_code=404, detail="Manual evidence item not found")
-    return ManualQualitativeEvidence.model_validate(row)
+    return _ensure_safe_response(ManualQualitativeEvidence.model_validate(row))
 
 
 @router.get("/themes/latest", response_model=ThemesLatestResponse)
 def latest_themes() -> ThemesLatestResponse:
-    report = build_daily_report()
-    return ThemesLatestResponse(
+    report = latest_daily_report_response(use_live_market_data=None, build_report=build_daily_report)
+    return _ensure_safe_response(ThemesLatestResponse(
         themes=report.future_themes,
         limitations=["Mock-only theme radar; live theme evidence is not connected."],
         missing_data=sorted({item for theme in report.future_themes for item in theme.missing_data}),
-    )
+    ))
 
 
 @router.get("/macro-regime/latest", response_model=MacroRegimeOutput)
 def latest_macro_regime() -> MacroRegimeOutput:
-    return build_daily_report().macro_regime
+    report = latest_daily_report_response(use_live_market_data=None, build_report=build_daily_report)
+    return _ensure_safe_response(report.macro_regime)
 
 
 @router.get("/raw-data/{ticker}", response_model=RawDataResponse)
@@ -253,7 +255,7 @@ def raw_data_by_ticker(ticker: str) -> RawDataResponse:
     source_status = build_source_status(market_snapshot)
     form4_live = sec_filings.get("form4_source_status", {}).get("source_type") in {"live", "cached_live"}
     thirteen_f_live = sec_filings.get("institutional_13f_source_status", {}).get("source_type") in {"live", "cached_live"}
-    return RawDataResponse(
+    return _ensure_safe_response(RawDataResponse(
         ticker=normalized_ticker,
         raw_data={
             "company_fixture": fixture,
@@ -270,13 +272,13 @@ def raw_data_by_ticker(ticker: str) -> RawDataResponse:
         limitations=["Company profile and fundamentals may use yfinance when enabled; live integrations also cover market prices, FRED macro data, opt-in SEC Form 4, and opt-in SEC 13F."],
         missing_data=[*([] if form4_live and thirteen_f_live else ["live SEC filings"]), "live options feed"],
         source_status=source_status,
-    )
+    ))
 
 
 @router.get("/signals/{ticker}", response_model=TickerSignalsResponse)
 def ticker_signals(ticker: str) -> TickerSignalsResponse:
     analysis = analyze_stock(AnalyzeStockRequest(ticker=ticker))
-    return TickerSignalsResponse(
+    return _ensure_safe_response(TickerSignalsResponse(
         ticker=analysis.ticker,
         leadership_score=analysis.leadership_score,
         market_timing_context=analysis.market_timing_context,
@@ -296,4 +298,4 @@ def ticker_signals(ticker: str) -> TickerSignalsResponse:
             }
         ),
         missing_data=analysis.missing_data,
-    )
+    ))

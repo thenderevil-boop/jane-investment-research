@@ -34,6 +34,8 @@ Phase 11.5a adds `daily_report_metadata` to `/api/daily-report/latest` responses
 
 Phase 15.5 keeps daily reports snapshot-first while stabilizing architecture. Daily batch refresh uses a per-job context instead of mutating global config for report live-fetch or price-reference warmup flags. Daily report candidates are config-driven through `DEFAULT_DAILY_REPORT_CANDIDATES`, with safe defaults matching the existing NVDA and TSLA background candidates. `smart_money` is canonical; `smart_money_summary` is deprecated and retained as an equal backward-compatible alias.
 
+Phase 19.5 hardens API behavior without changing scoring, data providers, SEC parsers, macro scoring, or manual evidence scoring. Normal JSON endpoint responses pass through the safety filter before returning. `/api/themes/latest` and `/api/macro-regime/latest` use the snapshot-first daily report path instead of directly rebuilding the daily report from their route handlers. Supplemental cache-warmup requests use a typed request model, and API error payloads remain sanitized.
+
 Optional query parameter:
 
 - `use_live_market_data`: boolean. Defaults to environment configuration. When `true`, the backend attempts repository-backed yfinance OHLCV fetches for market price fields and falls back to mock market data if the fetch fails.
@@ -406,6 +408,8 @@ Research verdict labels describe research priority only: `worth_deep_research`, 
 
 Returns latest Future Industry Radar.
 
+Phase 19.5 behavior: this endpoint reads through the snapshot-first daily report service and does not directly rebuild the daily report from the route handler.
+
 Response:
 
 ```json
@@ -423,6 +427,8 @@ Each item in `themes` follows the `FutureTheme` contract.
 ### GET /api/macro-regime/latest
 
 Returns latest macro regime object.
+
+Phase 19.5 behavior: this endpoint reads through the snapshot-first daily report service and does not directly rebuild the daily report from the route handler.
 
 Response:
 
@@ -1109,7 +1115,7 @@ Aggregation and portfolio summary may include `mapped_ticker`, `resolved_cusip`,
 
 Value confidence may be upgraded when local mapping and a cached/reusable price reference are available. The price-reference layer checks reusable market cache first, then uses a bounded per-ticker adapter instead of refetching for every 13F row. During daily report fast mode, price references use cached market data only unless `ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST=true`. Optional bounded cache warmup can be enabled with `PRICE_REFERENCE_CACHE_WARMUP_ON_REPORT=true`, startup warmup, or `POST /api/price-reference/warmup`; warmup is ticker-level, deduplicated, capped, and writes reusable market cache entries. Price-reference summaries may include `price_reference_grouped_holding_count`, `price_reference_row_count`, `price_reference_ticker_count`, `price_reference_cache_hit_count`, `price_reference_live_fetch_count`, `price_reference_unavailable_tickers`, and `price_reference_mode`; `price_reference_used_count` remains a backward-compatible grouped count. Price references may not match the 13F report date exactly, and confidence is capped conservatively when the reference date differs materially from the 13F report date.
 
-`POST /api/price-reference/warmup` accepts `tickers`, optional `max_tickers`, and optional `allow_live_fetch`. The response includes warmup counts and `not_investment_advice=true`. The endpoint must not expose secrets and must not call CUSIP mapping APIs.
+`POST /api/price-reference/warmup` accepts `tickers`, optional `max_tickers`, and optional `allow_live_fetch`. `tickers` may be a list or comma-separated string and is normalized by the typed request model. The response includes warmup counts and `not_investment_advice=true`. The endpoint must not expose secrets and must not call CUSIP mapping APIs.
 
 `POST /api/jobs/daily-research-refresh` runs the Phase 11.5 daily batch snapshot pipeline. The same workflow is available through `python -m backend.app.jobs.daily_research_refresh` from the repository root. The batch refreshes or reuses existing yfinance, FRED, SEC Form 4, and SEC 13F caches, warms mapped 13F price references when `DAILY_BATCH_PRICE_REFERENCE_WARMUP=true`, computes the daily report after warmup, and writes `daily_report_snapshot/latest.json` under raw store. It does not add providers, expose secrets, or change scoring semantics.
 
