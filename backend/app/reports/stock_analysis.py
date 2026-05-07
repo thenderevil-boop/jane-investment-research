@@ -23,9 +23,49 @@ from backend.app.schemas.stock_analysis import (
     ScoreDriverBreakdown,
 )
 from backend.app.utils.freshness import build_source_status, summarize_data_quality
+from backend.app.utils.forbidden_language import detect_forbidden_language
 
 MOCK_LEADERSHIP_CONFIDENCE_CAP = 0.72
 MOCK_EVIDENCE_LIMITATION = "Mock evidence limits analyze-stock confidence; treat mock-based components as preliminary validation only."
+USER_QUALITATIVE_LIMITATIONS = [
+    "User-provided evidence is not independently verified by the system.",
+    "This evidence can support preliminary qualitative assessment only.",
+    "Manual source review is required.",
+]
+QUALITATIVE_CORE_CRITERIA = ["monopoly_power", "visionary_founder_ceo", "disruptive_innovation", "network_effect"]
+SUPPORTED_QUALITATIVE_CRITERIA = {
+    "monopoly_power",
+    "visionary_founder_ceo",
+    "disruptive_innovation",
+    "network_effect",
+    "continuous_r_and_d",
+    "mega_trend_fit",
+}
+SUPPORTED_QUALITATIVE_EVIDENCE_TYPES = {
+    "market_share",
+    "patent",
+    "platform_ecosystem",
+    "founder_operator",
+    "management_tenure",
+    "product_disruption",
+    "customer_adoption",
+    "developer_ecosystem",
+    "switching_cost",
+    "brand_power",
+    "r_and_d_intensity",
+    "user_provided_note",
+    "filing_reference",
+    "other",
+}
+QUALITATIVE_ALLOWED_TYPES_BY_CRITERION = {
+    "monopoly_power": {"market_share", "switching_cost", "brand_power", "platform_ecosystem", "patent", "other"},
+    "visionary_founder_ceo": {"founder_operator", "management_tenure", "filing_reference", "other"},
+    "disruptive_innovation": {"product_disruption", "patent", "customer_adoption", "r_and_d_intensity", "filing_reference"},
+    "network_effect": {"platform_ecosystem", "developer_ecosystem", "customer_adoption", "switching_cost"},
+    "continuous_r_and_d": {"r_and_d_intensity", "patent", "filing_reference", "user_provided_note", "other"},
+    "mega_trend_fit": {"customer_adoption", "platform_ecosystem", "filing_reference", "user_provided_note", "other"},
+}
+SECRET_MARKERS = ("FRED_API_KEY", "SEC_EDGAR_USER_AGENT", "api_key", "apikey", "secret", "token=")
 
 
 def _research_verdict(
@@ -41,6 +81,7 @@ def _research_verdict(
     mock_evidence_present: bool = False,
     fallback_evidence_present: bool = False,
     live_macro_present: bool = False,
+    user_qualitative_evidence_present: bool = False,
 ) -> ResearchVerdict:
     raw_score = company_quality_score * 0.45 + smart_money_score * 0.25 + macro_score * 0.20 + max(0, 100 - overheat_score) * 0.10
     missing_penalty = min(25, missing_data_count * 3)
@@ -50,6 +91,8 @@ def _research_verdict(
         confidence = min(confidence, MOCK_LEADERSHIP_CONFIDENCE_CAP)
     if fallback_evidence_present:
         confidence = min(confidence, 0.75)
+    if user_qualitative_evidence_present:
+        confidence = min(confidence, 0.80)
     if key_qualitative_insufficient:
         confidence = min(confidence, 0.80)
     confidence = round(confidence, 2)
@@ -84,6 +127,8 @@ def _research_verdict(
         limiters.append("Legacy leadership or company-related evidence is mock-based.")
     if key_qualitative_insufficient:
         limiters.append("Key qualitative Jane company quality criteria remain insufficient.")
+    if user_qualitative_evidence_present:
+        limiters.append("User-provided qualitative evidence is preliminary until independently verified.")
     if fallback_evidence_present:
         limiters.append("One or more smart-money or filing components use fallback or cached-after-failure evidence.")
     if missing_data_count:
@@ -124,6 +169,8 @@ def _source_quality_from_status(status: dict, *, category: str = "") -> str:
     source_type = status.get("source_type")
     provider = str(status.get("provider") or "")
     fallback_used = bool(status.get("fallback_used")) or source_type == "fallback"
+    if provider == "user_provided_qualitative_evidence":
+        return "user_provided"
     if category == "macro_environment" and source_type == "derived" and provider.startswith("mixed_FRED"):
         return "derived_live"
     if fallback_used:
@@ -149,6 +196,209 @@ def _source_quality_from_status(status: dict, *, category: str = "") -> str:
     if category == "risk_flags":
         return "derived_live"
     return "insufficient"
+
+
+def _contains_secret_marker(value: str) -> bool:
+    lowered = value.lower()
+    return any(marker.lower() in lowered for marker in SECRET_MARKERS)
+
+
+def _is_promotional_without_specific_claim(summary: str) -> bool:
+    words = [word.strip(".,;:!?()[]{}").lower() for word in summary.split()]
+    if len(words) < 6:
+        return True
+    promotional = {"amazing", "best", "dominant", "revolutionary", "unstoppable", "guaranteed", "world-class", "worldclass"}
+    specific = {
+        "market",
+        "share",
+        "patent",
+        "developer",
+        "ecosystem",
+        "platform",
+        "customer",
+        "switching",
+        "founder",
+        "tenure",
+        "filing",
+        "r&d",
+        "rd",
+        "adoption",
+        "software",
+    }
+    has_promotional = bool(promotional & set(words))
+    has_specific = bool(specific & set(words)) or any(char.isdigit() for char in summary)
+    return has_promotional and not has_specific
+
+
+def _qualitative_evidence_by_criterion(assessment: dict | None) -> dict[str, list[dict]]:
+    by_criterion: dict[str, list[dict]] = {}
+    if not assessment:
+        return by_criterion
+    for item in assessment.get("evidence_items", []):
+        if item.get("accepted"):
+            by_criterion.setdefault(str(item.get("criterion")), []).append(item)
+    return by_criterion
+
+
+def _criterion_strength(items: list[dict]) -> str:
+    if not items:
+        return "none"
+    avg_confidence = sum(float(item.get("confidence") or 0) for item in items) / len(items)
+    if len(items) >= 3 and avg_confidence >= 0.68:
+        return "moderate"
+    if avg_confidence >= 0.55:
+        return "moderate"
+    return "weak"
+
+
+def _build_user_qualitative_criterion(
+    name: str,
+    display_name: str,
+    items: list[dict],
+    *,
+    default_missing: list[str],
+) -> dict | None:
+    if not items:
+        return None
+    confidence = min(0.7, max(float(item.get("confidence") or 0) for item in items))
+    score = 4.0 + min(2.0, len(items) * 0.75) + (1.0 if confidence >= 0.65 else 0)
+    evidence = []
+    for item in items:
+        if item.get("summary"):
+            display_key = str(item.get("evidence_type", "")).replace("_", " ")
+            evidence.append(f"{display_key}: {item.get('summary')}")
+    missing = sorted(set([missing for item in items for missing in item.get("missing_data", [])]))
+    if not missing:
+        missing = [f"independent verification for {display_name}"]
+    limitations = sorted(set([*USER_QUALITATIVE_LIMITATIONS, *[limitation for item in items for limitation in item.get("limitations", [])]]))
+    return _criterion(
+        name,
+        display_name,
+        score=score,
+        status="neutral",
+        source_quality="user_provided",
+        affects_score=True,
+        evidence_strength=_criterion_strength(items),
+        verification_level="user_provided",
+        evidence=evidence,
+        limitations=limitations,
+        missing_data=missing or default_missing,
+    )
+
+
+def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list) -> dict:
+    items = []
+    latest_source_date: str | None = None
+    missing_data: set[str] = set()
+    for raw_item in evidence_inputs or []:
+        item = raw_item.model_dump(mode="json") if hasattr(raw_item, "model_dump") else dict(raw_item)
+        criterion = str(item.get("criterion") or "").strip()
+        evidence_type = str(item.get("evidence_type") or "").strip()
+        summary = str(item.get("summary") or "").strip()
+        source_label = str(item.get("source_label") or "").strip()
+        source_date = item.get("source_date") or None
+        confidence = item.get("confidence")
+        limitations = [str(value) for value in item.get("limitations") or [] if value]
+        missing_item: list[str] = []
+        reason = "Accepted as preliminary user-provided qualitative evidence."
+        accepted = True
+
+        text_fields = [summary, source_label, str(item.get("source_url") or "")]
+        if not summary:
+            accepted = False
+            reason = "Rejected because summary is empty."
+        elif criterion not in SUPPORTED_QUALITATIVE_CRITERIA:
+            accepted = False
+            reason = "Rejected because criterion is unsupported."
+        elif evidence_type not in SUPPORTED_QUALITATIVE_EVIDENCE_TYPES:
+            accepted = False
+            reason = "Rejected because evidence_type is unsupported."
+        elif evidence_type not in QUALITATIVE_ALLOWED_TYPES_BY_CRITERION.get(criterion, set()):
+            accepted = False
+            reason = "Rejected because evidence_type does not support the selected criterion."
+        elif detect_forbidden_language(text_fields):
+            accepted = False
+            reason = "Rejected because the evidence contains investment-instruction language."
+        elif any(_contains_secret_marker(value) for value in text_fields):
+            accepted = False
+            reason = "Rejected because the evidence appears to include a secret or API key marker."
+        elif _is_promotional_without_specific_claim(summary):
+            accepted = False
+            reason = "Rejected because the summary is promotional or lacks a specific claim."
+        elif not isinstance(confidence, (int, float)) or confidence < 0 or confidence > 1:
+            accepted = False
+            reason = "Rejected because confidence is outside the 0 to 1 range."
+        elif not source_label and not source_date:
+            accepted = False
+            reason = "Rejected because source_label and source_date are both missing."
+
+        if not source_label:
+            missing_item.append("source_label")
+        if not source_date:
+            missing_item.append("source_date")
+        if source_date and (latest_source_date is None or str(source_date) > latest_source_date):
+            latest_source_date = str(source_date)
+        effective_confidence = 0.0 if not isinstance(confidence, (int, float)) else float(confidence)
+        if accepted and item.get("user_provided", True) and effective_confidence > 0.8:
+            effective_confidence = 0.7
+            limitations.append("User-provided confidence above 0.8 is capped to 0.7 unless independently verified.")
+        if accepted:
+            limitations = sorted(set([*limitations, *USER_QUALITATIVE_LIMITATIONS]))
+        else:
+            summary = "Rejected qualitative evidence omitted from response for safety."
+            source_label = source_label if source_label and not _contains_secret_marker(source_label) else "redacted"
+            limitations = sorted(set([*limitations, "Rejected qualitative evidence does not affect scoring."]))
+        missing_data.update(missing_item)
+        items.append(
+            {
+                "criterion": criterion or "unsupported",
+                "evidence_type": evidence_type or "unsupported",
+                "summary": summary,
+                "source_label": source_label,
+                "source_date": source_date,
+                "source_quality": "user_provided" if accepted else "rejected",
+                "accepted": accepted,
+                "acceptance_reason": reason,
+                "confidence": round(max(0.0, min(1.0, effective_confidence)), 2),
+                "limitations": limitations,
+                "missing_data": missing_item,
+            }
+        )
+
+    accepted_items = [item for item in items if item["accepted"]]
+    criteria_covered = sorted({item["criterion"] for item in accepted_items})
+    criteria_still_insufficient = [criterion for criterion in QUALITATIVE_CORE_CRITERIA if criterion not in criteria_covered]
+    if not items:
+        missing_data.update(QUALITATIVE_CORE_CRITERIA)
+    source_status = build_source_status(
+        {
+            "source_type": "derived",
+            "provider": "user_provided_qualitative_evidence",
+            "source_date": latest_source_date or "",
+            "fallback_used": False,
+            "limitations": ["User-provided qualitative evidence is not independently verified by the system."],
+            "missing_data": sorted(missing_data),
+        },
+        freshness_window="user_provided_context",
+    ).model_dump(mode="json")
+    summary = (
+        f"{len(accepted_items)} user-provided qualitative evidence item(s) accepted for preliminary review."
+        if items
+        else "No structured qualitative evidence was provided."
+    )
+    return {
+        "ticker": ticker,
+        "evidence_count": len(items),
+        "accepted_evidence_count": len(accepted_items),
+        "rejected_evidence_count": len(items) - len(accepted_items),
+        "criteria_covered": criteria_covered,
+        "criteria_still_insufficient": criteria_still_insufficient,
+        "source_quality_summary": summary,
+        "evidence_items": items,
+        "source_status": source_status,
+        "limitations": ["User-provided qualitative evidence is preliminary and requires manual verification."],
+        "missing_data": sorted(missing_data),
+    }
 
 
 def _sec_available(sec_facts: dict) -> bool:
@@ -580,6 +830,8 @@ def _criterion(
     status: str,
     source_quality: str,
     affects_score: bool,
+    evidence_strength: str = "none",
+    verification_level: str = "insufficient",
     evidence: list[str] | None = None,
     limitations: list[str] | None = None,
     missing_data: list[str] | None = None,
@@ -592,6 +844,8 @@ def _criterion(
         "status": status,
         "source_quality": source_quality,
         "affects_score": affects_score,
+        "evidence_strength": evidence_strength,
+        "verification_level": verification_level,
         "evidence": evidence or [],
         "limitations": limitations or [],
         "missing_data": missing_data or [],
@@ -608,7 +862,7 @@ def _financial_metric_status(score: float | None) -> str:
     return "caution"
 
 
-def _build_jane_company_quality(financial_quality: ScoreObject, research_context: dict) -> JaneCompanyQuality:
+def _build_jane_company_quality(financial_quality: ScoreObject, research_context: dict, qualitative_assessment: dict | None = None) -> JaneCompanyQuality:
     financials = financial_quality.raw_data
     financial_status = _status_dict(financial_quality.source_status)
     source_quality = _quality_source(financial_status)
@@ -692,8 +946,45 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
         rd_status = _financial_metric_status(rd_score)
 
     theme = str(research_context.get("theme") or "").strip()
+    qualitative_by_criterion = _qualitative_evidence_by_criterion(qualitative_assessment)
+    monopoly_criterion = _build_user_qualitative_criterion(
+        "monopoly_power",
+        "Market Monopoly / Moat",
+        qualitative_by_criterion.get("monopoly_power", []),
+        default_missing=["market share evidence", "patent or moat evidence"],
+    )
+    founder_criterion = _build_user_qualitative_criterion(
+        "visionary_founder_ceo",
+        "Visionary Founder / CEO",
+        qualitative_by_criterion.get("visionary_founder_ceo", []),
+        default_missing=["CEO/founder live evidence", "management tenure evidence"],
+    )
+    disruption_criterion = _build_user_qualitative_criterion(
+        "disruptive_innovation",
+        "Disruptive Innovation",
+        qualitative_by_criterion.get("disruptive_innovation", []),
+        default_missing=["product disruption evidence", "patent evidence", "technology differentiation evidence"],
+    )
+    network_criterion = _build_user_qualitative_criterion(
+        "network_effect",
+        "Network Effect",
+        qualitative_by_criterion.get("network_effect", []),
+        default_missing=["network effect evidence", "ecosystem usage evidence"],
+    )
+    trend_criterion = _build_user_qualitative_criterion(
+        "mega_trend_fit",
+        "Mega Trend Fit",
+        qualitative_by_criterion.get("mega_trend_fit", []),
+        default_missing=["independently verified trend evidence"],
+    )
+    rd_user_criterion = _build_user_qualitative_criterion(
+        "continuous_r_and_d",
+        "Continuous R&D",
+        qualitative_by_criterion.get("continuous_r_and_d", []),
+        default_missing=["R&D expense", "R&D as percentage of revenue"],
+    )
     criteria = [
-        _criterion(
+        monopoly_criterion or _criterion(
             "monopoly_power",
             "Market Monopoly / Moat",
             score=None,
@@ -703,7 +994,7 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
             evidence=([f"User context theme: {theme}"] if "moat" in theme.lower() else []),
             missing_data=["market share evidence", "patent or moat evidence"],
         ),
-        _criterion(
+        trend_criterion or _criterion(
             "mega_trend_fit",
             "Mega Trend Fit",
             score=None,
@@ -714,7 +1005,7 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
             limitations=["User-provided theme is research context and is not independently verified evidence."],
             missing_data=[] if theme else ["independently verified trend evidence"],
         ),
-        _criterion(
+        founder_criterion or _criterion(
             "visionary_founder_ceo",
             "Visionary Founder / CEO",
             score=None,
@@ -723,7 +1014,7 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
             affects_score=False,
             missing_data=["CEO/founder live evidence", "management tenure evidence"],
         ),
-        _criterion(
+        disruption_criterion or _criterion(
             "disruptive_innovation",
             "Disruptive Innovation",
             score=None,
@@ -739,6 +1030,8 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
             status=_financial_metric_status(scalability_score),
             source_quality=source_quality if scalability_score is not None else "insufficient",
             affects_score=scalability_score is not None,
+            evidence_strength="strong" if scalability_score and scalability_score >= 75 else "moderate" if scalability_score is not None else "none",
+            verification_level="filing_backed" if source_quality == "filing_backed" else "derived_live" if scalability_score is not None else "insufficient",
             evidence=[
                 _metric_evidence("Revenue YoY growth pct", revenue_growth),
                 _metric_evidence("Revenue 3Y CAGR pct", revenue_cagr),
@@ -749,7 +1042,7 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
             limitations=yfinance_limitations,
             missing_data=[] if scalability_score is not None else ["revenue growth, margin, and free cash flow margin metrics"],
         ),
-        _criterion(
+        network_criterion or _criterion(
             "network_effect",
             "Network Effect",
             score=None,
@@ -758,13 +1051,15 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
             affects_score=False,
             missing_data=["network effect evidence", "ecosystem usage evidence"],
         ),
-        _criterion(
+        rd_user_criterion if rd_score is None and rd_user_criterion else _criterion(
             "continuous_r_and_d",
             "Continuous R&D",
             score=rd_score,
             status=rd_status,
             source_quality=rd_source_quality,
             affects_score=rd_score is not None,
+            evidence_strength="moderate" if rd_score is not None else "none",
+            verification_level="filing_backed" if rd_source_quality == "filing_backed" else "derived_live" if rd_score is not None else "insufficient",
             evidence=[_metric_evidence("R&D expense TTM", rd_expense), _metric_evidence("R&D as pct of revenue", rd_to_revenue)] if rd_score is not None else [],
             limitations=yfinance_limitations if rd_score is not None else [],
             missing_data=[] if rd_score is not None else ["R&D expense", "R&D as percentage of revenue"],
@@ -776,6 +1071,8 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
             status=_financial_metric_status(financial_statement_score),
             source_quality=source_quality if financial_statement_score is not None else "insufficient",
             affects_score=financial_statement_score is not None,
+            evidence_strength="strong" if financial_statement_score and financial_statement_score >= 75 else "moderate" if financial_statement_score is not None else "none",
+            verification_level="filing_backed" if source_quality == "filing_backed" else "derived_live" if financial_statement_score is not None else "insufficient",
             evidence=[
                 _metric_evidence("Revenue YoY growth pct", revenue_growth),
                 _metric_evidence("Revenue 3Y CAGR pct", revenue_cagr),
@@ -793,6 +1090,8 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
             status=_financial_metric_status(balance_sheet_score),
             source_quality=source_quality if balance_sheet_score is not None else "insufficient",
             affects_score=balance_sheet_score is not None,
+            evidence_strength="strong" if balance_sheet_score and balance_sheet_score >= 75 else "moderate" if balance_sheet_score is not None else "none",
+            verification_level="filing_backed" if source_quality == "filing_backed" else "derived_live" if balance_sheet_score is not None else "insufficient",
             evidence=[
                 _metric_evidence("Cash and equivalents", cash),
                 _metric_evidence("Total debt", debt),
@@ -809,6 +1108,8 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
             status=_financial_metric_status(cash_flow_score),
             source_quality=source_quality if cash_flow_score is not None else "insufficient",
             affects_score=cash_flow_score is not None,
+            evidence_strength="strong" if cash_flow_score and cash_flow_score >= 75 else "moderate" if cash_flow_score is not None else "none",
+            verification_level="filing_backed" if source_quality == "filing_backed" else "derived_live" if cash_flow_score is not None else "insufficient",
             evidence=[
                 _metric_evidence("Free cash flow TTM", fcf),
                 _metric_evidence("Free cash flow margin pct", fcf_margin),
@@ -822,17 +1123,23 @@ def _build_jane_company_quality(financial_quality: ScoreObject, research_context
     affecting = [item for item in criteria if item["affects_score"] and item["score"] is not None]
     score = round(sum(float(item["score"]) for item in affecting) / len(criteria), 2) if affecting else 0
     evidence_count = sum(1 for item in criteria if item["source_quality"] in {"derived_live", "live_backed", "cached_live", "filing_backed", "derived_from_mixed_sources"} and item["affects_score"])
+    user_evidence_count = sum(1 for item in criteria if item["source_quality"] == "user_provided" and item["affects_score"])
     insufficient_count = sum(1 for item in criteria if item["status"] == "insufficient")
     confidence = round(min(0.78, 0.25 + evidence_count * 0.08), 2)
+    if user_evidence_count:
+        confidence = round(min(0.75, max(confidence, 0.45 + min(user_evidence_count, 4) * 0.04)), 2)
     label = "evidence_backed" if evidence_count >= 7 and confidence >= 0.70 else "preliminary" if evidence_count else "insufficient_data"
+    if user_evidence_count and evidence_count < 7:
+        label = "preliminary"
     missing = sorted({missing for item in criteria for missing in item["missing_data"]})
+    quality_limitations = sorted(set(["Qualitative principles require evidence and are marked insufficient when not verifiable.", *yfinance_limitations, *(USER_QUALITATIVE_LIMITATIONS if user_evidence_count else [])]))
     source_status = build_source_status(
         {
-            "source_type": "derived" if evidence_count else "unknown",
-            "provider": "derived_from_SEC_companyfacts_and_yfinance_company_quality" if source_quality == "derived_from_mixed_sources" else "derived_from_yfinance_company_quality" if evidence_count else "insufficient_company_quality_evidence",
+            "source_type": "derived" if evidence_count or user_evidence_count else "unknown",
+            "provider": "derived_from_SEC_companyfacts_and_yfinance_company_quality" if source_quality == "derived_from_mixed_sources" else "derived_from_yfinance_company_quality" if evidence_count else "user_provided_qualitative_evidence" if user_evidence_count else "insufficient_company_quality_evidence",
             "source_date": financial_status.get("source_date", ""),
             "is_fresh": financial_status.get("is_fresh", False),
-            "limitations": ["Qualitative principles require evidence and are marked insufficient when not verifiable.", *yfinance_limitations],
+            "limitations": quality_limitations,
             "missing_data": missing,
             "fallback_used": financial_status.get("fallback_used", False),
             "fallback_reason": financial_status.get("fallback_reason"),
@@ -1081,8 +1388,19 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "mock_criteria_count": sum(1 for criterion in quality_criteria if criterion.source_quality == "mock_only"),
         "derived_live_criteria_count": sum(1 for criterion in quality_criteria if criterion.source_quality == "derived_live"),
         "user_context_criteria_count": sum(1 for criterion in quality_criteria if criterion.source_quality == "user_context"),
+        "user_provided_criteria_count": sum(1 for criterion in quality_criteria if criterion.source_quality == "user_provided"),
         "filing_backed_criteria_count": sum(1 for criterion in quality_criteria if criterion.source_quality == "filing_backed"),
         "mixed_source_criteria_count": sum(1 for criterion in quality_criteria if criterion.source_quality == "derived_from_mixed_sources"),
+    }
+    qualitative = response.qualitative_evidence_assessment
+    qualitative_summary = {
+        "provided": bool(qualitative.evidence_count),
+        "accepted_count": qualitative.accepted_evidence_count,
+        "rejected_count": qualitative.rejected_evidence_count,
+        "user_provided_count": qualitative.accepted_evidence_count,
+        "independently_verified_count": 0,
+        "criteria_covered": qualitative.criteria_covered,
+        "criteria_still_insufficient": qualitative.criteria_still_insufficient,
     }
     mock_categories = sorted(
         name for name, status in component_statuses.items() if status.get("source_type") == "mock"
@@ -1148,6 +1466,7 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "excluded_from_scoring": _excluded_indicator_names(response.macro_regime),
         "insufficient_evidence_categories": insufficient_evidence_categories,
         "company_quality": company_quality_breakdown,
+        "qualitative_evidence": qualitative_summary,
         "sec_companyfacts": {
             "available": _status_dict(response.sec_financial_facts.get("source_status")).get("source_type") in {"live", "cached_live"},
             "source_type": _status_dict(response.sec_financial_facts.get("source_status")).get("source_type") or "insufficient",
@@ -1234,8 +1553,10 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
     thirteen_f_candidate = response.institutional_13f.get("candidate_specific_evidence") or {}
     quality_supportive = [criterion for criterion in response.jane_company_quality.criteria if criterion.status == "supportive"]
     quality_insufficient = [criterion for criterion in response.jane_company_quality.criteria if criterion.status == "insufficient"]
+    quality_user_provided = [criterion for criterion in response.jane_company_quality.criteria if criterion.source_quality == "user_provided"]
     signal_supportive = [signal for signal in response.financial_statement_signals.signals if signal.status == "supportive"]
     signal_insufficient = [signal for signal in response.financial_statement_signals.signals if signal.status == "insufficient"]
+    qualitative = response.qualitative_evidence_assessment
     return [
         {
             "category": "macro_environment",
@@ -1348,6 +1669,24 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
             "limitations": _limited(response.fundamentals_cross_check.get("limitations", []), "Cross-check limitations unavailable."),
         },
         {
+            "category": "qualitative_evidence",
+            "status": "supportive" if qualitative.accepted_evidence_count >= 2 else "neutral" if qualitative.accepted_evidence_count else "insufficient",
+            "score": None,
+            "confidence": min(0.7, max([item.confidence for item in qualitative.evidence_items if item.accepted], default=0.2)),
+            "source_quality": "user_provided" if qualitative.accepted_evidence_count else "insufficient",
+            "summary": "User-provided qualitative evidence supports preliminary review of selected Jane criteria." if qualitative.accepted_evidence_count else "No structured qualitative evidence was provided for moat/founder/network/disruption criteria.",
+            "key_evidence": _limited(
+                [
+                    f"Accepted evidence items: {qualitative.accepted_evidence_count}",
+                    f"Rejected evidence items: {qualitative.rejected_evidence_count}",
+                    f"Criteria covered: {', '.join(qualitative.criteria_covered) if qualitative.criteria_covered else 'none'}",
+                    f"Still insufficient: {', '.join(qualitative.criteria_still_insufficient) if qualitative.criteria_still_insufficient else 'none'}",
+                ],
+                "Qualitative evidence unavailable.",
+            ),
+            "limitations": _limited(qualitative.limitations, "Manual verification is required for qualitative evidence."),
+        },
+        {
             "category": "jane_company_quality",
             "status": _score_status(response.jane_company_quality.score),
             "score": response.jane_company_quality.score,
@@ -1358,6 +1697,8 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
                 [
                     f"Evidence-backed criteria: {len(quality_supportive)} supportive",
                     f"Filing-backed criteria: {sum(1 for criterion in response.jane_company_quality.criteria if criterion.source_quality in {'filing_backed', 'derived_from_mixed_sources'})}",
+                    f"User-provided preliminary criteria: {len(quality_user_provided)}",
+                    f"Criteria covered by qualitative evidence: {', '.join(qualitative.criteria_covered) if qualitative.criteria_covered else 'none'}",
                     f"Insufficient criteria: {len(quality_insufficient)}",
                     f"Label: {response.jane_company_quality.label}",
                 ],
@@ -1483,6 +1824,71 @@ def _build_manual_checks(response: AnalyzeStockResponse) -> list[dict]:
                 "reason": "Mock evidence is present in score-critical candidate fields.",
             }
         )
+    qualitative = response.qualitative_evidence_assessment
+    if qualitative.evidence_count:
+        checks.extend(
+            [
+                {
+                    "priority": "high",
+                    "area": "qualitative_evidence",
+                    "check": "Verify reliability of the supplied qualitative evidence sources.",
+                    "reason": "User-provided qualitative evidence is preliminary until manually reviewed.",
+                },
+                {
+                    "priority": "high",
+                    "area": "filings",
+                    "check": "Confirm supplied qualitative claims in the latest 10-K/10-Q or official company material.",
+                    "reason": "Manual evidence should be checked against official disclosures where possible.",
+                },
+                {
+                    "priority": "medium",
+                    "area": "qualitative_evidence",
+                    "check": "Compare supplied moat, innovation, or network claims against competitors.",
+                    "reason": "Qualitative claims need competitive context before they can support higher confidence.",
+                },
+                {
+                    "priority": "medium",
+                    "area": "qualitative_evidence",
+                    "check": "Verify the date relevance of supplied qualitative evidence.",
+                    "reason": "Older qualitative claims may not reflect the current business position.",
+                },
+            ]
+        )
+    else:
+        checks.extend(
+            [
+                {
+                    "priority": "high",
+                    "area": "qualitative_evidence",
+                    "check": "Provide or verify market share / moat source evidence.",
+                    "reason": "Monopoly and moat criteria remain insufficient without structured source-backed evidence.",
+                },
+                {
+                    "priority": "high",
+                    "area": "qualitative_evidence",
+                    "check": "Provide or verify founder/CEO tenure source evidence.",
+                    "reason": "Founder and management quality remain insufficient without structured evidence.",
+                },
+                {
+                    "priority": "medium",
+                    "area": "qualitative_evidence",
+                    "check": "Provide or verify product disruption source evidence.",
+                    "reason": "Disruptive innovation remains insufficient without specific product or adoption evidence.",
+                },
+                {
+                    "priority": "medium",
+                    "area": "qualitative_evidence",
+                    "check": "Provide or verify network effect / ecosystem source evidence.",
+                    "reason": "Network effect remains insufficient without platform, developer, customer, or switching-cost evidence.",
+                },
+                {
+                    "priority": "medium",
+                    "area": "qualitative_evidence",
+                    "check": "Provide or verify patent or R&D source evidence.",
+                    "reason": "R&D and innovation support should be tied to filings or specific manual sources.",
+                },
+            ]
+        )
     checks.extend(
         [
             {
@@ -1596,6 +2002,27 @@ def _build_score_driver_breakdown(response: AnalyzeStockResponse) -> dict:
                 "effect": "limiting",
                 "source_quality": "derived_from_mixed_sources",
                 "summary": response.fundamentals_cross_check.get("summary") or "SEC Companyfacts and yfinance show material comparable differences that need review.",
+            }
+        )
+    qualitative = response.qualitative_evidence_assessment
+    if qualitative.accepted_evidence_count:
+        positive.append(
+            {
+                "name": "user_provided_qualitative_evidence",
+                "category": "qualitative_evidence",
+                "effect": "preliminary_positive",
+                "source_quality": "user_provided",
+                "summary": f"User-provided qualitative evidence preliminarily covers {', '.join(qualitative.criteria_covered)}.",
+            }
+        )
+    if qualitative.rejected_evidence_count:
+        limiting.append(
+            {
+                "name": "qualitative_evidence_rejected_or_incomplete",
+                "category": "qualitative_evidence",
+                "effect": "limiting",
+                "source_quality": "user_provided",
+                "summary": "One or more qualitative evidence items were rejected or incomplete and do not affect scoring.",
             }
         )
     if response.sec_financial_facts.get("missing_data"):
@@ -1755,6 +2182,7 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
     sec_agreement = dq.sec_companyfacts.get("agreement_level_with_yfinance", "insufficient")
     sec_invalid = bool(response.sec_financial_facts.get("invalid_derived_metrics"))
     smart_limited = "smart_money" in dq.fallback_evidence_categories or "insider_activity" in dq.fallback_evidence_categories
+    qualitative = response.qualitative_evidence_assessment
     strengths = []
     if response.macro_regime.score >= 56:
         strengths.append("Macro context is neutral-to-constructive under macro_v12_5.")
@@ -1773,11 +2201,17 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
         strengths.append("Live financial quality supports scalability under Jane company quality criteria.")
     if any(criterion.name == "financial_statement_quality" for criterion in supportive_quality):
         strengths.append("Revenue growth, margin, or free cash flow metrics support financial statement quality.")
+    if qualitative.accepted_evidence_count:
+        strengths.append(f"User-provided qualitative evidence preliminarily supports {', '.join(qualitative.criteria_covered)}.")
     risks = []
     if leadership_mock:
         risks.append("Legacy leadership evidence is mock-based and cannot confirm live leadership quality.")
     if "monopoly_power" in dq.insufficient_evidence_categories:
         risks.append("Qualitative moat/founder/network/disruption evidence remains insufficient.")
+    if qualitative.accepted_evidence_count:
+        risks.append("Manual validation required for user-provided qualitative claims.")
+    if qualitative.rejected_evidence_count:
+        risks.append("Some qualitative evidence was rejected or incomplete and does not affect scoring.")
     if company_mock:
         risks.append("Company profile remains mock-based.")
     if fundamentals_mock:
@@ -1808,7 +2242,10 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
         company = "Live company profile and fundamentals are available; SEC filing-backed financial facts are available." if sec_available else "Live company profile and fundamentals are available; Jane company quality is partially evidence-backed by financial metrics, while qualitative moat/founder/network/disruption evidence remains insufficient."
         if sec_invalid:
             company = f"{company} SEC Companyfacts is available, but some derived metrics require period-alignment review."
-        company = f"{company} SEC/yfinance agreement is {sec_agreement}; qualitative moat/founder/network/disruption evidence remains insufficient."
+        if qualitative.accepted_evidence_count:
+            company = f"{company} SEC/yfinance agreement is {sec_agreement}; user-provided qualitative evidence preliminarily covers {', '.join(qualitative.criteria_covered)} and still requires manual verification."
+        else:
+            company = f"{company} SEC/yfinance agreement is {sec_agreement}; qualitative moat/founder/network/disruption evidence remains insufficient."
     elif company_live:
         company = "Live company profile is available; fundamentals and qualitative Jane company quality evidence still need verification."
     else:
@@ -1820,6 +2257,7 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
         f"{'uses live or cached sources' if company_live and fundamentals_live else 'remains partly preliminary'}, Jane company quality "
         f"{'is partially evidence-backed by financial metrics' if response.jane_company_quality.label == 'preliminary' else response.jane_company_quality.label}, and smart-money evidence "
         f"{'includes fallback or cached-limited components' if smart_limited else 'is available with disclosed limitations'}. "
+        f"{'User-provided qualitative evidence is preliminary and not independently verified. ' if qualitative.accepted_evidence_count else ''}"
         "Further manual validation is required before treating the candidate as high conviction."
     )
     return {
@@ -1900,7 +2338,8 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     financial_quality = _build_financial_quality_score(company_fundamentals)
     valuation_context = _build_valuation_context(company_profile, company_fundamentals)
     research_context = request.research_context.model_dump(exclude_none=True) if request.research_context else {}
-    jane_company_quality = _build_jane_company_quality(financial_quality, research_context)
+    qualitative_evidence_assessment = _build_qualitative_evidence_assessment(request.ticker, request.qualitative_evidence)
+    jane_company_quality = _build_jane_company_quality(financial_quality, research_context, qualitative_evidence_assessment)
     financial_statement_signals = _build_financial_statement_signals(financial_quality)
     quality_insufficient = [criterion.name for criterion in jane_company_quality.criteria if criterion.status == "insufficient"]
     missing_data.extend(
@@ -1912,6 +2351,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
             *(["R&D evidence"] if "continuous_r_and_d" in quality_insufficient else []),
         ]
     )
+    missing_data.extend(qualitative_evidence_assessment.get("missing_data", []))
     missing_data = sorted(set(missing_data))
     form4_status = sec_filings.get("form4_source_status", {})
     thirteen_f_status = sec_filings.get("institutional_13f_source_status", {})
@@ -1950,6 +2390,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         mock_evidence_present=mock_evidence_present,
         fallback_evidence_present=fallback_evidence_present,
         live_macro_present=bool(live_macro_present),
+        user_qualitative_evidence_present=bool(qualitative_evidence_assessment.get("accepted_evidence_count")),
     )
     insider_activity_payload = _build_insider_activity(insider_activity)
     institutional_13f_payload = _build_institutional_13f(institutional_13f, request.ticker, sec_filings)
@@ -1998,6 +2439,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
             "neutral_drivers": [],
         },
         next_manual_checks=[],
+        qualitative_evidence_assessment=qualitative_evidence_assessment,
         company_profile={
             **company_profile,
             "themes": company_profile.get("themes", fixture["themes"]),

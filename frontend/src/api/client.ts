@@ -1,4 +1,4 @@
-import type { ApiError, DailyReport, ResearchContext, StockAnalysis } from '../types';
+import type { ApiError, DailyReport, QualitativeEvidenceInput, ResearchContext, StockAnalysis } from '../types';
 
 async function parseJson<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') ?? '';
@@ -37,7 +37,8 @@ export function getLatestDailyReport(): Promise<DailyReport> {
   return request<DailyReport>('/api/daily-report/latest');
 }
 
-export function analyzeStock(ticker: string, researchContext?: ResearchContext): Promise<StockAnalysis> {
+export function analyzeStock(ticker: string, researchContext?: ResearchContext, qualitativeEvidence?: QualitativeEvidenceInput[]): Promise<StockAnalysis> {
+  const trimmedEvidence = qualitativeEvidence?.length ? qualitativeEvidence : undefined;
   return request<StockAnalysis>('/api/analyze-stock', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -52,6 +53,7 @@ export function analyzeStock(ticker: string, researchContext?: ResearchContext):
         friends_asking_about_stock: false,
         social_discussion_level: 'low',
       },
+      qualitative_evidence: trimmedEvidence,
     }),
   });
 }

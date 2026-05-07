@@ -20,12 +20,25 @@ class ResearchContext(BaseModel):
     user_reason: str | None = None
 
 
+class QualitativeEvidenceInput(BaseModel):
+    criterion: str
+    evidence_type: str
+    summary: str = ""
+    source_label: str = ""
+    source_url: str | None = None
+    source_date: str | None = None
+    confidence: float = 0.5
+    user_provided: bool = True
+    limitations: list[str] = Field(default_factory=list)
+
+
 class AnalyzeStockRequest(BaseModel):
     ticker: str = Field(min_length=1, max_length=10)
     market: Literal["US"] = "US"
     period: str = "3Y"
     research_context: ResearchContext | None = None
     user_context: StockUserContext = Field(default_factory=StockUserContext)
+    qualitative_evidence: list[QualitativeEvidenceInput] = Field(default_factory=list)
 
     @field_validator("ticker")
     @classmethod
@@ -67,6 +80,7 @@ class EvidenceMatrixItem(BaseModel):
         "valuation_context",
         "sec_financial_facts",
         "fundamentals_cross_check",
+        "qualitative_evidence",
         "jane_company_quality",
         "financial_statement_signals",
         "leadership_score",
@@ -79,7 +93,7 @@ class EvidenceMatrixItem(BaseModel):
     status: Literal["supportive", "neutral", "caution", "insufficient"]
     score: float | None = None
     confidence: float = Field(ge=0, le=1)
-    source_quality: Literal["live_backed", "derived_live", "cached_live", "mixed_with_fallback", "user_context", "mock_only", "filing_backed", "provider_backed", "derived_from_mixed_sources", "insufficient"]
+    source_quality: Literal["live_backed", "derived_live", "cached_live", "mixed_with_fallback", "user_context", "user_provided", "mock_only", "filing_backed", "provider_backed", "derived_from_mixed_sources", "insufficient"]
     summary: str
     key_evidence: list[str]
     limitations: list[str]
@@ -102,7 +116,36 @@ class AnalyzeStockDataQualitySummary(BaseModel):
     excluded_from_scoring: list[str]
     insufficient_evidence_categories: list[str] = Field(default_factory=list)
     company_quality: dict[str, int] = Field(default_factory=dict)
+    qualitative_evidence: dict[str, Any] = Field(default_factory=dict)
     sec_companyfacts: dict[str, Any] = Field(default_factory=dict)
+
+
+class QualitativeEvidenceAssessmentItem(BaseModel):
+    criterion: str
+    evidence_type: str
+    summary: str
+    source_label: str
+    source_date: str | None = None
+    source_quality: Literal["user_provided", "filing_backed", "derived_live", "insufficient", "rejected"]
+    accepted: bool
+    acceptance_reason: str
+    confidence: float = Field(ge=0, le=1)
+    limitations: list[str]
+    missing_data: list[str]
+
+
+class QualitativeEvidenceAssessment(BaseModel):
+    ticker: str
+    evidence_count: int
+    accepted_evidence_count: int
+    rejected_evidence_count: int
+    criteria_covered: list[str]
+    criteria_still_insufficient: list[str]
+    source_quality_summary: str
+    evidence_items: list[QualitativeEvidenceAssessmentItem]
+    source_status: DataSourceStatus
+    limitations: list[str]
+    missing_data: list[str]
 
 
 class JaneCompanyQualityCriterion(BaseModel):
@@ -111,8 +154,10 @@ class JaneCompanyQualityCriterion(BaseModel):
     score: float | None = Field(default=None, ge=0, le=100)
     max_score: float = 10
     status: Literal["supportive", "neutral", "caution", "insufficient"]
-    source_quality: Literal["live_backed", "derived_live", "cached_live", "user_context", "filing_backed", "derived_from_mixed_sources", "insufficient", "mock_only"]
+    source_quality: Literal["live_backed", "derived_live", "cached_live", "user_context", "user_provided", "filing_backed", "derived_from_mixed_sources", "insufficient", "mock_only"]
     affects_score: bool
+    evidence_strength: Literal["none", "weak", "moderate", "strong"] = "none"
+    verification_level: Literal["user_provided", "filing_backed", "derived_live", "independently_verified", "insufficient"] = "insufficient"
     evidence: list[str]
     limitations: list[str]
     missing_data: list[str]
@@ -159,7 +204,7 @@ class JaneQualityMethodologyReference(BaseModel):
 class ScoreDriver(BaseModel):
     name: str
     category: str
-    effect: Literal["positive", "limiting", "negative", "insufficient"]
+    effect: Literal["positive", "preliminary_positive", "limiting", "negative", "insufficient"]
     source_quality: str
     summary: str
 
@@ -174,7 +219,7 @@ class ScoreDriverBreakdown(BaseModel):
 
 class NextManualCheck(BaseModel):
     priority: Literal["high", "medium", "low"]
-    area: Literal["company_fundamentals", "leadership", "filings", "smart_money", "valuation", "risk", "source_quality"]
+    area: Literal["company_fundamentals", "leadership", "qualitative_evidence", "filings", "smart_money", "valuation", "risk", "source_quality"]
     check: str
     reason: str
 
@@ -189,6 +234,7 @@ class AnalyzeStockResponse(BaseModel):
     data_quality_summary: AnalyzeStockDataQualitySummary
     score_driver_breakdown: ScoreDriverBreakdown
     next_manual_checks: list[NextManualCheck]
+    qualitative_evidence_assessment: QualitativeEvidenceAssessment
     company_profile: dict[str, Any]
     macro_regime: MacroRegimeOutput
     leadership_score: LeadershipScore

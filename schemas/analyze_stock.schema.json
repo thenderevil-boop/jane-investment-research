@@ -104,6 +104,11 @@
           "title": "Company Quality",
           "type": "object"
         },
+        "qualitative_evidence": {
+          "additionalProperties": true,
+          "title": "Qualitative Evidence",
+          "type": "object"
+        },
         "sec_companyfacts": {
           "additionalProperties": true,
           "title": "Sec Companyfacts",
@@ -377,6 +382,7 @@
             "valuation_context",
             "sec_financial_facts",
             "fundamentals_cross_check",
+            "qualitative_evidence",
             "jane_company_quality",
             "financial_statement_signals",
             "leadership_score",
@@ -424,6 +430,7 @@
             "cached_live",
             "mixed_with_fallback",
             "user_context",
+            "user_provided",
             "mock_only",
             "filing_backed",
             "provider_backed",
@@ -701,6 +708,7 @@
             "derived_live",
             "cached_live",
             "user_context",
+            "user_provided",
             "filing_backed",
             "derived_from_mixed_sources",
             "insufficient",
@@ -712,6 +720,29 @@
         "affects_score": {
           "title": "Affects Score",
           "type": "boolean"
+        },
+        "evidence_strength": {
+          "default": "none",
+          "enum": [
+            "none",
+            "weak",
+            "moderate",
+            "strong"
+          ],
+          "title": "Evidence Strength",
+          "type": "string"
+        },
+        "verification_level": {
+          "default": "insufficient",
+          "enum": [
+            "user_provided",
+            "filing_backed",
+            "derived_live",
+            "independently_verified",
+            "insufficient"
+          ],
+          "title": "Verification Level",
+          "type": "string"
         },
         "evidence": {
           "items": {
@@ -1471,6 +1502,7 @@
           "enum": [
             "company_fundamentals",
             "leadership",
+            "qualitative_evidence",
             "filings",
             "smart_money",
             "valuation",
@@ -1496,6 +1528,168 @@
         "reason"
       ],
       "title": "NextManualCheck",
+      "type": "object"
+    },
+    "QualitativeEvidenceAssessment": {
+      "properties": {
+        "ticker": {
+          "title": "Ticker",
+          "type": "string"
+        },
+        "evidence_count": {
+          "title": "Evidence Count",
+          "type": "integer"
+        },
+        "accepted_evidence_count": {
+          "title": "Accepted Evidence Count",
+          "type": "integer"
+        },
+        "rejected_evidence_count": {
+          "title": "Rejected Evidence Count",
+          "type": "integer"
+        },
+        "criteria_covered": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Criteria Covered",
+          "type": "array"
+        },
+        "criteria_still_insufficient": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Criteria Still Insufficient",
+          "type": "array"
+        },
+        "source_quality_summary": {
+          "title": "Source Quality Summary",
+          "type": "string"
+        },
+        "evidence_items": {
+          "items": {
+            "$ref": "#/$defs/QualitativeEvidenceAssessmentItem"
+          },
+          "title": "Evidence Items",
+          "type": "array"
+        },
+        "source_status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ticker",
+        "evidence_count",
+        "accepted_evidence_count",
+        "rejected_evidence_count",
+        "criteria_covered",
+        "criteria_still_insufficient",
+        "source_quality_summary",
+        "evidence_items",
+        "source_status",
+        "limitations",
+        "missing_data"
+      ],
+      "title": "QualitativeEvidenceAssessment",
+      "type": "object"
+    },
+    "QualitativeEvidenceAssessmentItem": {
+      "properties": {
+        "criterion": {
+          "title": "Criterion",
+          "type": "string"
+        },
+        "evidence_type": {
+          "title": "Evidence Type",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "source_label": {
+          "title": "Source Label",
+          "type": "string"
+        },
+        "source_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Date"
+        },
+        "source_quality": {
+          "enum": [
+            "user_provided",
+            "filing_backed",
+            "derived_live",
+            "insufficient",
+            "rejected"
+          ],
+          "title": "Source Quality",
+          "type": "string"
+        },
+        "accepted": {
+          "title": "Accepted",
+          "type": "boolean"
+        },
+        "acceptance_reason": {
+          "title": "Acceptance Reason",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "required": [
+        "criterion",
+        "evidence_type",
+        "summary",
+        "source_label",
+        "source_quality",
+        "accepted",
+        "acceptance_reason",
+        "confidence",
+        "limitations",
+        "missing_data"
+      ],
+      "title": "QualitativeEvidenceAssessmentItem",
       "type": "object"
     },
     "ResearchVerdict": {
@@ -1559,6 +1753,7 @@
         "effect": {
           "enum": [
             "positive",
+            "preliminary_positive",
             "limiting",
             "negative",
             "insufficient"
@@ -1774,6 +1969,9 @@
       "title": "Next Manual Checks",
       "type": "array"
     },
+    "qualitative_evidence_assessment": {
+      "$ref": "#/$defs/QualitativeEvidenceAssessment"
+    },
     "company_profile": {
       "additionalProperties": true,
       "title": "Company Profile",
@@ -1905,6 +2103,7 @@
     "data_quality_summary",
     "score_driver_breakdown",
     "next_manual_checks",
+    "qualitative_evidence_assessment",
     "company_profile",
     "macro_regime",
     "leadership_score",

@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { DataSourceStatus, ScoreLike, StockAnalysis } from '../types';
-import { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, ManualChecksSection, ProfileGrid, ScoreBlock, SecFinancialFactsSection } from './StockResearch';
+import StockResearch, { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -35,6 +35,13 @@ function score(status: DataSourceStatus | null = mockStatus): ScoreLike {
 }
 
 describe('StockResearch presentation helpers', () => {
+  it('renders qualitative evidence JSON input on the stock research form', () => {
+    const html = renderToStaticMarkup(<StockResearch />);
+    expect(html).toContain('Qualitative Evidence JSON');
+    expect(html).toContain('Structured qualitative evidence');
+    expect(html).not.toContain('[object Object]');
+  });
+
   it('does not render profile objects as [object Object]', () => {
     const html = renderToStaticMarkup(
       <ProfileGrid
@@ -190,6 +197,41 @@ describe('StockResearch presentation helpers', () => {
     expect(html).not.toContain('[object Object]');
   });
 
+  it('renders qualitative evidence data quality counts', () => {
+    const html = renderToStaticMarkup(
+      <AnalyzeDataQualitySection
+        dataQuality={{
+          mode: 'mixed_preliminary',
+          confidence_cap_applied: false,
+          live_components: 8,
+          mock_components: 1,
+          fallback_components: 2,
+          missing_source_date_components: 0,
+          stale_components: 0,
+          source_quality_grade: 'B',
+          source_quality_summary: 'Some evidence is preliminary.',
+          mock_evidence_categories: ['legacy_leadership_score'],
+          fallback_evidence_categories: ['insider_activity', 'smart_money'],
+          missing_source_date_categories: [],
+          excluded_from_scoring: [],
+          insufficient_evidence_categories: ['monopoly_power'],
+          qualitative_evidence: {
+            provided: true,
+            accepted_count: 2,
+            rejected_count: 1,
+            user_provided_count: 2,
+            independently_verified_count: 0,
+            criteria_covered: ['network_effect'],
+            criteria_still_insufficient: ['monopoly_power'],
+          },
+        }}
+      />,
+    );
+    expect(html).toContain('Qualitative provided');
+    expect(html).toContain('Accepted');
+    expect(html).not.toContain('[object Object]');
+  });
+
   it('renders Evidence Matrix rows with source quality badges', () => {
     const html = renderToStaticMarkup(
       <EvidenceMatrixSection
@@ -282,6 +324,95 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Market Monopoly / Moat');
     expect(html).toContain('insufficient');
     expect(html).toContain('This is context, not verified evidence');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders user-provided qualitative criteria coverage in Jane Company Quality', () => {
+    const html = renderToStaticMarkup(
+      <JaneCompanyQualitySection
+        quality={{
+          name: 'jane_company_quality_score',
+          score: 40,
+          max_score: 100,
+          confidence: 0.6,
+          label: 'preliminary',
+          source_status: { ...mockStatus, source_type: 'derived', provider: 'derived_from_yfinance_company_quality' },
+          limitations: ['User-provided evidence is preliminary.'],
+          missing_data: ['independent verification for Network Effect'],
+          criteria: [
+            {
+              name: 'network_effect',
+              display_name: 'Network Effect',
+              score: 6,
+              max_score: 10,
+              status: 'neutral',
+              source_quality: 'user_provided',
+              evidence_strength: 'moderate',
+              verification_level: 'user_provided',
+              affects_score: true,
+              evidence: ['platform ecosystem: CUDA developer ecosystem claim.'],
+              limitations: ['Manual source review is required.'],
+              missing_data: ['independent verification for Network Effect'],
+            },
+          ],
+        }}
+      />,
+    );
+    expect(html).toContain('user_provided');
+    expect(html).toContain('moderate');
+    expect(html).toContain('Network Effect');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders Qualitative Evidence Assessment accepted and rejected evidence', () => {
+    const html = renderToStaticMarkup(
+      <QualitativeEvidenceAssessmentSection
+        assessment={{
+          ticker: 'NVDA',
+          evidence_count: 2,
+          accepted_evidence_count: 1,
+          rejected_evidence_count: 1,
+          criteria_covered: ['network_effect'],
+          criteria_still_insufficient: ['monopoly_power'],
+          source_quality_summary: '1 user-provided qualitative evidence item accepted for preliminary review.',
+          source_status: { ...mockStatus, source_type: 'derived', provider: 'user_provided_qualitative_evidence' },
+          limitations: ['User-provided qualitative evidence is preliminary and requires manual verification.'],
+          missing_data: [],
+          evidence_items: [
+            {
+              criterion: 'network_effect',
+              evidence_type: 'platform_ecosystem',
+              summary: 'CUDA developer ecosystem claim requiring manual verification.',
+              source_label: 'User research note',
+              source_date: '2026-05-06',
+              source_quality: 'user_provided',
+              accepted: true,
+              acceptance_reason: 'Accepted as preliminary user-provided qualitative evidence.',
+              confidence: 0.65,
+              limitations: ['Manual review required.'],
+              missing_data: [],
+            },
+            {
+              criterion: 'network_effect',
+              evidence_type: 'platform_ecosystem',
+              summary: 'Rejected qualitative evidence omitted from response for safety.',
+              source_label: 'User research note',
+              source_date: null,
+              source_quality: 'rejected',
+              accepted: false,
+              acceptance_reason: 'Rejected because summary is empty.',
+              confidence: 0,
+              limitations: ['Rejected qualitative evidence does not affect scoring.'],
+              missing_data: ['source_date'],
+            },
+          ],
+        }}
+      />,
+    );
+    expect(html).toContain('Qualitative Evidence Assessment');
+    expect(html).toContain('user-provided, not independently verified');
+    expect(html).toContain('accepted');
+    expect(html).toContain('rejected');
     expect(html).not.toContain('[object Object]');
   });
 

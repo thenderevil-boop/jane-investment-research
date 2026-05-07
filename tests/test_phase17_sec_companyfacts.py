@@ -215,16 +215,16 @@ def _derived_live_macro_payload() -> dict:
     }
 
 
-def _analyze(monkeypatch, sec_snapshot: dict | None = None, revenue: float = 130_000_000_000) -> dict:
+def _analyze(monkeypatch, sec_snapshot: dict | None = None, revenue: float = 130_000_000_000, qualitative_evidence: list[dict] | None = None) -> dict:
     monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", _tmp_cache())
     monkeypatch.setattr(config, "USE_LIVE_COMPANY_DATA", True)
     monkeypatch.setattr(company_profile, "fetch_company_profile", _profile)
     monkeypatch.setattr(company_profile, "fetch_company_fundamentals", lambda ticker: _fundamentals(ticker, revenue))
     monkeypatch.setattr(stock_analysis, "get_sec_companyfacts", lambda ticker: sec_snapshot or _sec_snapshot())
-    response = client.post(
-        "/api/analyze-stock",
-        json={"ticker": "NVDA", "market": "US", "research_context": {"theme": "AI infrastructure", "user_reason": "External trend research"}},
-    )
+    request_json = {"ticker": "NVDA", "market": "US", "research_context": {"theme": "AI infrastructure", "user_reason": "External trend research"}}
+    if qualitative_evidence is not None:
+        request_json["qualitative_evidence"] = qualitative_evidence
+    response = client.post("/api/analyze-stock", json=request_json)
     assert response.status_code == 200
     return response.json()
 
@@ -538,3 +538,83 @@ def test_phase17c_analyze_stock_guardrails_still_hold(monkeypatch):
     assert '"source_type": "mixed"' not in text
     assert "SEC_EDGAR_USER_AGENT" not in text
     assert "data.sec.gov/api/xbrl/companyfacts" not in text
+
+
+def _qualitative_item(criterion: str, evidence_type: str, summary: str, confidence: float = 0.65) -> dict:
+    return {
+        "criterion": criterion,
+        "evidence_type": evidence_type,
+        "summary": summary,
+        "source_label": "User research note",
+        "source_url": None,
+        "source_date": "2026-05-06",
+        "confidence": confidence,
+        "user_provided": True,
+        "limitations": ["Requires manual verification against official filings or independent sources."],
+    }
+
+
+def test_phase18_analyze_stock_accepts_no_qualitative_evidence_and_preserves_gap(monkeypatch):
+    payload = _analyze(monkeypatch, sec_snapshot=_sec_snapshot())
+    assessment = payload["qualitative_evidence_assessment"]
+    criteria = {item["name"]: item for item in payload["jane_company_quality"]["criteria"]}
+    matrix = {item["category"]: item for item in payload["evidence_matrix"]}
+
+    assert assessment["evidence_count"] == 0
+    assert assessment["accepted_evidence_count"] == 0
+    assert criteria["network_effect"]["status"] == "insufficient"
+    assert matrix["qualitative_evidence"]["source_quality"] == "insufficient"
+    assert payload["data_quality_summary"]["qualitative_evidence"]["provided"] is False
+
+
+def test_phase18_user_qualitative_evidence_updates_selected_jane_criteria(monkeypatch):
+    evidence = [
+        _qualitative_item("network_effect", "platform_ecosystem", "CUDA developer ecosystem and software stack are cited by the user as a platform ecosystem claim requiring manual verification."),
+        _qualitative_item("visionary_founder_ceo", "founder_operator", "User notes long-tenured founder-led management as a qualitative factor requiring manual verification.", 0.6),
+        _qualitative_item("monopoly_power", "market_share", "User notes accelerator market share and switching-cost claims requiring manual verification.", 0.92),
+        _qualitative_item("disruptive_innovation", "product_disruption", "User notes product disruption and customer adoption claims requiring manual verification.", 0.64),
+    ]
+    payload = _analyze(monkeypatch, sec_snapshot=_sec_snapshot(), qualitative_evidence=evidence)
+    assessment = payload["qualitative_evidence_assessment"]
+    criteria = {item["name"]: item for item in payload["jane_company_quality"]["criteria"]}
+    quality = payload["data_quality_summary"]
+    drivers = payload["score_driver_breakdown"]["positive_drivers"]
+
+    assert assessment["accepted_evidence_count"] == 4
+    assert assessment["rejected_evidence_count"] == 0
+    assert {"network_effect", "visionary_founder_ceo", "monopoly_power", "disruptive_innovation"} <= set(assessment["criteria_covered"])
+    assert criteria["network_effect"]["status"] != "insufficient"
+    assert criteria["network_effect"]["source_quality"] == "user_provided"
+    assert criteria["network_effect"]["verification_level"] == "user_provided"
+    assert criteria["visionary_founder_ceo"]["status"] != "insufficient"
+    assert criteria["monopoly_power"]["source_quality"] == "user_provided"
+    assert max(item["confidence"] for item in assessment["evidence_items"]) <= 0.7
+    assert payload["jane_company_quality"]["label"] != "evidence_backed"
+    assert payload["jane_company_quality"]["confidence"] <= 0.75
+    assert payload["research_verdict"]["confidence"] <= 0.80
+    assert quality["qualitative_evidence"]["user_provided_count"] == 4
+    assert "qualitative_evidence" not in quality["mock_evidence_categories"]
+    assert "qualitative_evidence" not in quality["fallback_evidence_categories"]
+    assert any(driver["name"] == "user_provided_qualitative_evidence" and driver["effect"] == "preliminary_positive" for driver in drivers)
+
+
+def test_phase18_rejects_invalid_or_unsafe_qualitative_evidence(monkeypatch):
+    evidence = [
+        _qualitative_item("network_effect", "platform_ecosystem", ""),
+        _qualitative_item("unsupported", "platform_ecosystem", "Specific platform ecosystem claim requiring manual verification."),
+        _qualitative_item("network_effect", "unsupported_type", "Specific platform ecosystem claim requiring manual verification."),
+        _qualitative_item("network_effect", "platform_ecosystem", "User says this is a must invest candidate with platform evidence."),
+        _qualitative_item("network_effect", "platform_ecosystem", "Contains SEC_EDGAR_USER_AGENT marker and should be rejected."),
+    ]
+    payload = _analyze(monkeypatch, sec_snapshot=_sec_snapshot(), qualitative_evidence=evidence)
+    assessment = payload["qualitative_evidence_assessment"]
+    text = json.dumps(payload)
+
+    assert assessment["accepted_evidence_count"] == 0
+    assert assessment["rejected_evidence_count"] == 5
+    assert all(item["accepted"] is False for item in assessment["evidence_items"])
+    assert "qualitative_evidence_rejected_or_incomplete" in json.dumps(payload["score_driver_breakdown"])
+    assert detect_forbidden_language(payload) == []
+    assert "must invest" not in text
+    assert "SEC_EDGAR_USER_AGENT" not in text
+    assert '"source_type": "mixed"' not in text

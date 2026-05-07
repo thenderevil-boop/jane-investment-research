@@ -7,7 +7,7 @@ import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
-import type { AnalyzeStockDataQualitySummary, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, JaneCompanyQuality, NextManualCheck, ScoreDriver, ScoreLike, StockAnalysis } from '../types';
+import type { AnalyzeStockDataQualitySummary, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, JaneCompanyQuality, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
 function scoreMax(score?: ScoreLike) {
@@ -88,6 +88,7 @@ function sourceQualityStatus(sourceQuality: EvidenceMatrixItem['source_quality']
     cached_live: 'cached_live',
     mixed_with_fallback: 'fallback',
     user_context: 'unknown',
+    user_provided: 'derived',
     mock_only: 'mock',
     filing_backed: 'live',
     provider_backed: 'derived',
@@ -180,6 +181,15 @@ export function AnalyzeDataQualitySection({ dataQuality }: { dataQuality?: Analy
           <div><dt>Filing backed</dt><dd>{dataQuality.company_quality.filing_backed_criteria_count ?? 0}</dd></div>
         </dl>
       )}
+      {dataQuality.qualitative_evidence && (
+        <dl className="qualityMetrics">
+          <div><dt>Qualitative provided</dt><dd>{dataQuality.qualitative_evidence.provided ? 'Yes' : 'No'}</dd></div>
+          <div><dt>Accepted</dt><dd>{dataQuality.qualitative_evidence.accepted_count}</dd></div>
+          <div><dt>Rejected</dt><dd>{dataQuality.qualitative_evidence.rejected_count}</dd></div>
+          <div><dt>User provided</dt><dd>{dataQuality.qualitative_evidence.user_provided_count}</dd></div>
+          <div><dt>Verified</dt><dd>{dataQuality.qualitative_evidence.independently_verified_count}</dd></div>
+        </dl>
+      )}
       {dataQuality.sec_companyfacts && (
         <dl className="qualityMetrics">
           <div><dt>SEC facts</dt><dd>{dataQuality.sec_companyfacts.filing_backed_metric_count}</dd></div>
@@ -211,7 +221,7 @@ export function JaneCompanyQualitySection({ quality, profile }: { quality?: Jane
       {Boolean(researchContext?.theme) && <p className="muted">User theme context: {String(researchContext?.theme)}. This is context, not verified evidence.</p>}
       <div className="tableWrap">
         <table>
-          <thead><tr><th>Criterion</th><th>Status</th><th>Score</th><th>Source quality</th><th>Missing data</th></tr></thead>
+          <thead><tr><th>Criterion</th><th>Status</th><th>Score</th><th>Source quality</th><th>Strength</th><th>Verification</th><th>Missing data</th></tr></thead>
           <tbody>
             {quality.criteria.map((criterion) => (
               <tr key={criterion.name}>
@@ -219,6 +229,8 @@ export function JaneCompanyQualitySection({ quality, profile }: { quality?: Jane
                 <td><SignalBadge label={criterion.status} variant={criterion.status === 'supportive' ? 'positive' : criterion.status === 'insufficient' || criterion.status === 'caution' ? 'warning' : 'neutral'} /></td>
                 <td>{criterion.score === null || criterion.score === undefined ? 'N/A' : `${criterion.score.toFixed(0)} / ${criterion.max_score}`}</td>
                 <td>{criterion.source_quality}</td>
+                <td>{criterion.evidence_strength ?? 'none'}</td>
+                <td>{criterion.verification_level ?? 'insufficient'}</td>
                 <td>{criterion.missing_data.length ? criterion.missing_data.join(', ') : 'None listed'}</td>
               </tr>
             ))}
@@ -258,6 +270,44 @@ export function FinancialStatementSignalsSection({ signals }: { signals?: Financ
         </table>
       </div>
       {!!signals.limitations.length && <p className="muted">Limitations: {signals.limitations.join(' ')}</p>}
+    </section>
+  );
+}
+
+export function QualitativeEvidenceAssessmentSection({ assessment }: { assessment?: QualitativeEvidenceAssessment }) {
+  if (!assessment) return null;
+  return (
+    <section className="pageSection">
+      <h2>Qualitative Evidence Assessment</h2>
+      <div className="summaryMain">
+        <span className="smallPill">Accepted {assessment.accepted_evidence_count}</span>
+        <span className="smallPill">Rejected {assessment.rejected_evidence_count}</span>
+        <span className="smallPill">user-provided, not independently verified</span>
+        <DataSourceBadge status={assessment.source_status} />
+      </div>
+      <p>{assessment.source_quality_summary}</p>
+      {!!assessment.criteria_covered.length && <p className="muted">Criteria covered: {assessment.criteria_covered.join(', ')}</p>}
+      {!!assessment.criteria_still_insufficient.length && <p className="sourceWarning">Still insufficient: {assessment.criteria_still_insufficient.join(', ')}</p>}
+      {!!assessment.evidence_items.length && (
+        <div className="tableWrap">
+          <table>
+            <thead><tr><th>Criterion</th><th>Type</th><th>Status</th><th>Source</th><th>Reason</th><th>Summary</th></tr></thead>
+            <tbody>
+              {assessment.evidence_items.map((item, index) => (
+                <tr key={`${item.criterion}-${item.evidence_type}-${index}`}>
+                  <td>{displayKey(item.criterion)}</td>
+                  <td>{displayKey(item.evidence_type)}</td>
+                  <td><SignalBadge label={item.accepted ? 'accepted' : 'rejected'} variant={item.accepted ? 'positive' : 'warning'} /></td>
+                  <td>{item.source_label || 'N/A'} {item.source_date ? `(${item.source_date})` : ''}</td>
+                  <td>{item.acceptance_reason}</td>
+                  <td>{item.summary}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {!!assessment.limitations.length && <p className="muted">Limitations: {assessment.limitations.join(' ')}</p>}
     </section>
   );
 }
@@ -444,6 +494,7 @@ export default function StockResearch() {
   const [ticker, setTicker] = useState('NVDA');
   const [theme, setTheme] = useState('AI infrastructure');
   const [userReason, setUserReason] = useState('External trend research');
+  const [qualitativeEvidenceJson, setQualitativeEvidenceJson] = useState('');
   const [result, setResult] = useState<StockAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -455,7 +506,15 @@ export default function StockResearch() {
     setLoading(true);
     setError('');
     try {
-      setResult(await analyzeStock(ticker, { theme, user_reason: userReason }));
+      let qualitativeEvidence: QualitativeEvidenceInput[] | undefined;
+      if (qualitativeEvidenceJson.trim()) {
+        const parsed = JSON.parse(qualitativeEvidenceJson) as unknown;
+        if (!Array.isArray(parsed)) {
+          throw new Error('Qualitative evidence JSON must be an array.');
+        }
+        qualitativeEvidence = parsed as QualitativeEvidenceInput[];
+      }
+      setResult(await analyzeStock(ticker, { theme, user_reason: userReason }, qualitativeEvidence));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to analyze ticker');
     } finally {
@@ -481,6 +540,17 @@ export default function StockResearch() {
         <input id="theme" value={theme} onChange={(event) => setTheme(event.target.value)} />
         <label htmlFor="reason">Reason</label>
         <input id="reason" value={userReason} onChange={(event) => setUserReason(event.target.value)} />
+        <details className="qualitativeEvidenceInput">
+          <summary>Qualitative Evidence JSON</summary>
+          <label htmlFor="qualitativeEvidence">Structured qualitative evidence</label>
+          <textarea
+            id="qualitativeEvidence"
+            value={qualitativeEvidenceJson}
+            onChange={(event) => setQualitativeEvidenceJson(event.target.value)}
+            rows={8}
+            placeholder='[{"criterion":"network_effect","evidence_type":"platform_ecosystem","summary":"Specific claim requiring manual verification.","source_label":"User research note","source_date":"2026-05-06","confidence":0.65,"user_provided":true,"limitations":["Requires manual verification."]}]'
+          />
+        </details>
         <button type="submit" disabled={loading}>{loading ? 'Analyzing...' : 'Run research'}</button>
       </form>
 
@@ -491,6 +561,7 @@ export default function StockResearch() {
           <CandidateSummarySection result={result} />
           <AnalyzeDataQualitySection dataQuality={result.data_quality_summary} />
           <JaneCompanyQualitySection quality={result.jane_company_quality} profile={result.company_profile} />
+          <QualitativeEvidenceAssessmentSection assessment={result.qualitative_evidence_assessment} />
           <FinancialStatementSignalsSection signals={result.financial_statement_signals} />
           <SecFinancialFactsSection facts={result.sec_financial_facts} />
           <FundamentalsCrossCheckSection crossCheck={result.fundamentals_cross_check} />

@@ -68,6 +68,8 @@ Analyze-stock responses now lead with a readable candidate validation report:
 - `score_driver_breakdown` separates positive, limiting, and neutral score drivers.
 - `next_manual_checks` lists research-oriented follow-up checks.
 
+Phase 18 adds a structured manual qualitative evidence framework for `POST /api/analyze-stock` without adding scraping, news, YouTube/social, sentiment, or paid providers. Optional `qualitative_evidence` request items are labeled `user_provided`, are not independently verified, and can only support preliminary Jane qualitative criteria such as moat, founder/CEO, disruption, and network effect. User-provided evidence is not mock evidence, not fallback evidence, and cannot by itself upgrade source quality to A or make `jane_company_quality` fully `evidence_backed`. `research_context.theme` remains context only unless structured qualitative evidence is supplied.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
@@ -88,6 +90,7 @@ Completed live integrations now documented in this README:
 - Phase 15: yfinance-backed company profile, fundamentals, and derived valuation context
 - Phase 16: evidence-based Jane company quality and financial statement signals
 - Phase 17: official SEC Companyfacts financial statement cross-check
+- Phase 18: structured user-provided qualitative evidence assessment
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 

@@ -106,8 +106,9 @@ Primary endpoint. Validates a user-provided US ticker using structured evidence 
 Phase 14 makes the response a candidate validation report rather than a loose bundle of engine outputs. Phase 15 adds live/cached company profile, financial quality, and derived valuation context through repository-backed yfinance data when company data is enabled. Phase 16 adds evidence-based Jane company quality and financial statement signals so mock leadership no longer acts as the primary company-quality driver. The main user-facing fields are:
 
 - `candidate_validation_summary`: concise research-priority summary, strengths, risks, mock/fallback disclosure, and next checks.
-- `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, Jane company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
-- `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, and excluded scoring indicators.
+- `qualitative_evidence_assessment`: optional manual qualitative evidence validation results when the request includes structured qualitative evidence.
+- `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, qualitative evidence, Jane company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
+- `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, qualitative evidence counts, and excluded scoring indicators.
 - `score_driver_breakdown`: positive, limiting, and neutral score drivers.
 - `next_manual_checks`: research-oriented checks for source quality, fundamentals, filings, valuation, and risk.
 
@@ -120,6 +121,16 @@ Phase 17c data-quality category behavior:
 - `source_quality="derived_live"`, `filing_backed`, `cached_live`, `live_backed`, and `derived_from_mixed_sources` do not create fallback categories unless fallback source status is present.
 - Excluded scoring indicators such as ISM Manufacturing PMI and CNN Fear & Greed remain under `excluded_from_scoring`; they are not fallback evidence categories.
 - A `fundamentals_cross_check.agreement_level="low"` is a discrepancy/review signal, not fallback evidence.
+
+Phase 18 qualitative evidence behavior:
+
+- Request body may include optional `qualitative_evidence` items with `criterion`, `evidence_type`, `summary`, `source_label`, optional `source_url`, optional `source_date`, `confidence`, `user_provided`, and `limitations`.
+- Supported criteria are `monopoly_power`, `visionary_founder_ceo`, `disruptive_innovation`, `network_effect`, `continuous_r_and_d`, and `mega_trend_fit`.
+- User-provided evidence is labeled `source_quality="user_provided"` and uses `source_type="derived"` with provider `user_provided_qualitative_evidence`.
+- The API does not fetch `source_url`, validate it externally, scrape websites, or ingest news/social/video/sentiment providers.
+- User-provided evidence is preliminary, not independently verified, not mock evidence, and not fallback evidence.
+- Accepted user evidence can partially support a qualitative Jane criterion, but confidence is capped conservatively and user evidence alone cannot make `jane_company_quality.label="evidence_backed"`.
+- `research_context.theme` remains context only unless structured qualitative evidence is supplied.
 
 Phase 15 company data behavior:
 
@@ -161,7 +172,20 @@ Request:
   "research_context": {
     "theme": "AI infrastructure",
     "user_reason": "External trend research"
-  }
+  },
+  "qualitative_evidence": [
+    {
+      "criterion": "network_effect",
+      "evidence_type": "platform_ecosystem",
+      "summary": "CUDA developer ecosystem and software stack are cited by the user as a platform ecosystem claim requiring manual verification.",
+      "source_label": "User research note",
+      "source_url": null,
+      "source_date": "2026-05-06",
+      "confidence": 0.65,
+      "user_provided": true,
+      "limitations": ["Requires manual verification against official filings or independent sources."]
+    }
+  ]
 }
 ```
 
@@ -201,6 +225,19 @@ Response:
   "data_quality_summary": {},
   "score_driver_breakdown": {},
   "next_manual_checks": [],
+  "qualitative_evidence_assessment": {
+    "ticker": "NVDA",
+    "evidence_count": 1,
+    "accepted_evidence_count": 1,
+    "rejected_evidence_count": 0,
+    "criteria_covered": ["network_effect"],
+    "criteria_still_insufficient": ["monopoly_power", "visionary_founder_ceo", "disruptive_innovation"],
+    "source_quality_summary": "1 user-provided qualitative evidence item(s) accepted for preliminary review.",
+    "evidence_items": [],
+    "source_status": {},
+    "limitations": ["User-provided qualitative evidence is preliminary and requires manual verification."],
+    "missing_data": []
+  },
   "company_profile": {},
   "macro_regime": {},
   "leadership_score": {},

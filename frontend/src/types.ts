@@ -61,7 +61,7 @@ export type EvidenceMatrixItem = {
   status: 'supportive' | 'neutral' | 'caution' | 'insufficient';
   score?: number | null;
   confidence: number;
-  source_quality: 'live_backed' | 'derived_live' | 'cached_live' | 'mixed_with_fallback' | 'user_context' | 'mock_only' | 'filing_backed' | 'provider_backed' | 'derived_from_mixed_sources' | 'insufficient';
+  source_quality: 'live_backed' | 'derived_live' | 'cached_live' | 'mixed_with_fallback' | 'user_context' | 'user_provided' | 'mock_only' | 'filing_backed' | 'provider_backed' | 'derived_from_mixed_sources' | 'insufficient';
   summary: string;
   key_evidence: string[];
   limitations: string[];
@@ -89,8 +89,18 @@ export type AnalyzeStockDataQualitySummary = {
     mock_criteria_count: number;
     derived_live_criteria_count: number;
     user_context_criteria_count: number;
+    user_provided_criteria_count?: number;
     filing_backed_criteria_count?: number;
     mixed_source_criteria_count?: number;
+  };
+  qualitative_evidence?: {
+    provided: boolean;
+    accepted_count: number;
+    rejected_count: number;
+    user_provided_count: number;
+    independently_verified_count: number;
+    criteria_covered: string[];
+    criteria_still_insufficient: string[];
   };
   sec_companyfacts?: {
     available: boolean;
@@ -109,8 +119,10 @@ export type JaneCompanyQualityCriterion = {
   score?: number | null;
   max_score: number;
   status: 'supportive' | 'neutral' | 'caution' | 'insufficient';
-  source_quality: 'live_backed' | 'derived_live' | 'cached_live' | 'user_context' | 'filing_backed' | 'derived_from_mixed_sources' | 'insufficient' | 'mock_only';
+  source_quality: 'live_backed' | 'derived_live' | 'cached_live' | 'user_context' | 'user_provided' | 'filing_backed' | 'derived_from_mixed_sources' | 'insufficient' | 'mock_only';
   affects_score: boolean;
+  evidence_strength?: 'none' | 'weak' | 'moderate' | 'strong';
+  verification_level?: 'user_provided' | 'filing_backed' | 'derived_live' | 'independently_verified' | 'insufficient';
   evidence: string[];
   limitations: string[];
   missing_data: string[];
@@ -157,7 +169,7 @@ export type JaneQualityMethodologyReference = {
 export type ScoreDriver = {
   name: string;
   category: string;
-  effect: 'positive' | 'limiting' | 'negative' | 'insufficient';
+  effect: 'positive' | 'preliminary_positive' | 'limiting' | 'negative' | 'insufficient';
   source_quality: string;
   summary: string;
 };
@@ -172,9 +184,49 @@ export type ScoreDriverBreakdown = {
 
 export type NextManualCheck = {
   priority: 'high' | 'medium' | 'low';
-  area: 'company_fundamentals' | 'leadership' | 'filings' | 'smart_money' | 'valuation' | 'risk' | 'source_quality';
+  area: 'company_fundamentals' | 'leadership' | 'qualitative_evidence' | 'filings' | 'smart_money' | 'valuation' | 'risk' | 'source_quality';
   check: string;
   reason: string;
+};
+
+export type QualitativeEvidenceInput = {
+  criterion: string;
+  evidence_type: string;
+  summary: string;
+  source_label: string;
+  source_url?: string | null;
+  source_date?: string | null;
+  confidence: number;
+  user_provided: boolean;
+  limitations: string[];
+};
+
+export type QualitativeEvidenceAssessmentItem = {
+  criterion: string;
+  evidence_type: string;
+  summary: string;
+  source_label: string;
+  source_date?: string | null;
+  source_quality: 'user_provided' | 'filing_backed' | 'derived_live' | 'insufficient' | 'rejected';
+  accepted: boolean;
+  acceptance_reason: string;
+  confidence: number;
+  limitations: string[];
+  missing_data: string[];
+};
+
+export type QualitativeEvidenceAssessment = {
+  ticker: string;
+  evidence_count: number;
+  accepted_evidence_count: number;
+  rejected_evidence_count: number;
+  criteria_covered: string[];
+  criteria_still_insufficient: string[];
+  source_quality_summary: string;
+  evidence_items: QualitativeEvidenceAssessmentItem[];
+  source_status: DataSourceStatus;
+  limitations: string[];
+  missing_data: string[];
 };
 
 export type JaneReferenceCondition = {
@@ -435,6 +487,7 @@ export type StockAnalysis = {
   data_quality_summary?: AnalyzeStockDataQualitySummary;
   score_driver_breakdown?: ScoreDriverBreakdown;
   next_manual_checks?: NextManualCheck[];
+  qualitative_evidence_assessment?: QualitativeEvidenceAssessment;
   company_profile?: Record<string, unknown>;
   macro_regime?: ScoreLike;
   leadership_score?: ScoreLike;

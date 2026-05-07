@@ -236,6 +236,16 @@ Phase 17 SEC Companyfacts notes:
 - `SEC_EDGAR_USER_AGENT` is required for live SEC Companyfacts fetches and must never appear in API responses, snapshots, logs, fallback reasons, or tests.
 - Qualitative Jane criteria remain insufficient unless independent qualitative evidence exists.
 
+Phase 18 qualitative evidence notes:
+
+- `POST /api/analyze-stock` may accept optional structured `qualitative_evidence` supplied by the user.
+- User-provided qualitative evidence is labeled `user_provided`, is not independently verified, and must not be treated as live-verified proof.
+- The system must not scrape websites, fetch source URLs, add news/YouTube/social/sentiment ingestion, or add paid qualitative providers for Phase 18.
+- User-provided evidence can only support preliminary qualitative Jane criteria under conservative confidence caps.
+- User-provided qualitative evidence is not mock evidence and not fallback evidence.
+- `research_context.theme` remains context only unless structured qualitative evidence is supplied.
+- `source_type="derived"` is not fallback, and `source_type="mixed"` remains invalid.
+
 Phase 16 company-quality notes:
 
 - `jane_company_quality` replaces mock leadership as the primary company-quality model.
