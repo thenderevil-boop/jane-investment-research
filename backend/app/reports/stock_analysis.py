@@ -12,7 +12,7 @@ from backend.app.engines.smart_money_engine import evaluate_smart_money
 from backend.app.pipelines.research_pipeline import _build_jane_reference_conditions, _enrich_source_status, score_object
 from backend.app.raw_store.repository import get_company_fundamentals, get_company_profile, get_sec_companyfacts, load_manual_evidence_for_ticker, read_macro_data, read_market_data, read_sec_filings
 from backend.app.schemas.common import ScoreObject
-from backend.app.schemas.manual_evidence import enrich_manual_evidence_quality, score_manual_evidence_quality
+from backend.app.schemas.manual_evidence import enrich_manual_evidence_quality, normalize_comparison_context, score_manual_evidence_quality
 from backend.app.schemas.stock_analysis import (
     AnalyzeStockDataQualitySummary,
     AnalyzeStockRequest,
@@ -58,15 +58,43 @@ SUPPORTED_QUALITATIVE_EVIDENCE_TYPES = {
     "r_and_d_intensity",
     "user_provided_note",
     "filing_reference",
+    "competitor_comparison",
+    "market_share_comparison",
+    "product_capability_comparison",
+    "ecosystem_comparison",
+    "pricing_power_comparison",
+    "switching_cost_comparison",
+    "r_and_d_comparison",
     "other",
 }
+COMPARISON_EVIDENCE_TYPES = {
+    "competitor_comparison",
+    "market_share_comparison",
+    "product_capability_comparison",
+    "ecosystem_comparison",
+    "pricing_power_comparison",
+    "switching_cost_comparison",
+    "r_and_d_comparison",
+}
+SUPPORTED_COMPARISON_TYPES = {
+    "competitor",
+    "market_share",
+    "product_capability",
+    "platform_ecosystem",
+    "customer_adoption",
+    "pricing_power",
+    "switching_cost",
+    "r_and_d_intensity",
+    "other",
+}
+SUPPORTED_CLAIMED_ADVANTAGES = {"stronger", "similar", "weaker", "unclear"}
 QUALITATIVE_ALLOWED_TYPES_BY_CRITERION = {
-    "monopoly_power": {"market_share", "switching_cost", "brand_power", "platform_ecosystem", "patent", "other"},
+    "monopoly_power": {"market_share", "switching_cost", "brand_power", "platform_ecosystem", "patent", "market_share_comparison", "pricing_power_comparison", "switching_cost_comparison", "competitor_comparison", "other"},
     "visionary_founder_ceo": {"founder_operator", "management_tenure", "filing_reference", "other"},
-    "disruptive_innovation": {"product_disruption", "patent", "customer_adoption", "r_and_d_intensity", "filing_reference"},
-    "network_effect": {"platform_ecosystem", "developer_ecosystem", "customer_adoption", "switching_cost"},
-    "continuous_r_and_d": {"r_and_d_intensity", "patent", "filing_reference", "user_provided_note", "other"},
-    "mega_trend_fit": {"customer_adoption", "platform_ecosystem", "filing_reference", "user_provided_note", "other"},
+    "disruptive_innovation": {"product_disruption", "patent", "customer_adoption", "r_and_d_intensity", "filing_reference", "product_capability_comparison", "r_and_d_comparison"},
+    "network_effect": {"platform_ecosystem", "developer_ecosystem", "customer_adoption", "switching_cost", "ecosystem_comparison", "switching_cost_comparison"},
+    "continuous_r_and_d": {"r_and_d_intensity", "patent", "filing_reference", "user_provided_note", "r_and_d_comparison", "other"},
+    "mega_trend_fit": {"customer_adoption", "platform_ecosystem", "filing_reference", "user_provided_note", "competitor_comparison", "product_capability_comparison", "other"},
 }
 SECRET_MARKERS = ("FRED_API_KEY", "SEC_EDGAR_USER_AGENT", "api_key", "apikey", "secret", "token=")
 
@@ -233,6 +261,56 @@ def _is_promotional_without_specific_claim(summary: str) -> bool:
     return has_promotional and not has_specific
 
 
+def _is_comparison_evidence_item(item: dict) -> bool:
+    return bool(item.get("comparison_context")) or str(item.get("evidence_type") or "") in COMPARISON_EVIDENCE_TYPES
+
+
+def _comparison_context_validation_error(item: dict) -> str | None:
+    raw_context = item.get("comparison_context")
+    if not raw_context:
+        return None
+    if not isinstance(raw_context, dict):
+        return "Rejected because comparison_context must be an object."
+    context = normalize_comparison_context(raw_context, item.get("ticker"))
+    item["comparison_context"] = context
+    comparison_type = str(context.get("comparison_type") or "").strip()
+    claimed_advantage = str(context.get("claimed_advantage") or "unclear").strip()
+    summary = str(context.get("comparison_summary") or "").strip()
+    source_basis = str(context.get("source_basis") or "").strip()
+    text_fields = [
+        summary,
+        str(context.get("metric_name") or ""),
+        str(context.get("metric_unit") or ""),
+        str(context.get("comparison_period") or ""),
+    ]
+    if comparison_type not in SUPPORTED_COMPARISON_TYPES:
+        return "Rejected because comparison_type is unsupported."
+    if claimed_advantage not in SUPPORTED_CLAIMED_ADVANTAGES:
+        return "Rejected because claimed_advantage is unsupported."
+    if not summary:
+        return "Rejected because comparison_summary is missing."
+    if detect_forbidden_language(text_fields):
+        return "Rejected because comparison evidence contains investment-instruction language."
+    if any(_contains_secret_marker(value) for value in text_fields):
+        return "Rejected because comparison evidence appears to include a secret or API key marker."
+    if claimed_advantage == "stronger" and not (context.get("peer_companies") and source_basis):
+        return None
+    return None
+
+
+def _comparison_context_missing_data(context: dict | None) -> list[str]:
+    if not context:
+        return []
+    missing = []
+    if not context.get("peer_companies"):
+        missing.append("comparison_peer_companies")
+    if not context.get("comparison_period"):
+        missing.append("comparison_period")
+    if not context.get("source_basis"):
+        missing.append("comparison_source_basis")
+    return missing
+
+
 def _qualitative_evidence_by_criterion(assessment: dict | None) -> dict[str, list[dict]]:
     by_criterion: dict[str, list[dict]] = {}
     if not assessment:
@@ -246,6 +324,8 @@ def _qualitative_evidence_by_criterion(assessment: dict | None) -> dict[str, lis
 def _criterion_strength(items: list[dict]) -> str:
     if not items:
         return "none"
+    if any(_is_comparison_evidence_item(item) and not (item.get("comparison_context") or {}).get("peer_companies") for item in items):
+        return "weak"
     if any(item.get("is_stale") for item in items):
         return "weak"
     if any(item.get("evidence_quality_label") == "incomplete" for item in items):
@@ -282,6 +362,8 @@ def _build_user_qualitative_criterion(
             score += 0.5
     if any(item.get("is_stale") for item in items):
         score = min(score, 3.0)
+    if name == "monopoly_power" and any(_is_comparison_evidence_item(item) and not (item.get("comparison_context") or {}).get("peer_companies") for item in items):
+        score = min(score, 2.0)
     evidence = []
     for item in items:
         if item.get("summary"):
@@ -295,6 +377,9 @@ def _build_user_qualitative_criterion(
         limitations.append("Reviewed manual evidence remains user-provided and is not independently verified.")
     if any(item.get("is_stale") for item in items):
         limitations.append("Stale manual evidence is capped and requires refresh.")
+    if any(_is_comparison_evidence_item(item) for item in items):
+        limitations.append("Manual comparison context supports preliminary review only and requires peer validation.")
+    limitations = sorted(set(limitations))
     return _criterion(
         name,
         display_name,
@@ -363,6 +448,8 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
         item = enrich_manual_evidence_quality(item)
         criterion = str(item.get("criterion") or "").strip()
         evidence_type = str(item.get("evidence_type") or "").strip()
+        comparison_context = normalize_comparison_context(item.get("comparison_context"), ticker)
+        item["comparison_context"] = comparison_context
         summary = str(item.get("summary") or "").strip()
         source_label = str(item.get("source_label") or "").strip()
         source_date = item.get("source_date") or None
@@ -387,6 +474,9 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
         elif evidence_type not in QUALITATIVE_ALLOWED_TYPES_BY_CRITERION.get(criterion, set()):
             accepted = False
             reason = "Rejected because evidence_type does not support the selected criterion."
+        elif comparison_error := _comparison_context_validation_error(item):
+            accepted = False
+            reason = comparison_error
         elif detect_forbidden_language(text_fields):
             accepted = False
             reason = "Rejected because the evidence contains investment-instruction language."
@@ -407,6 +497,7 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
             missing_item.append("source_label")
         if not source_date:
             missing_item.append("source_date")
+        missing_item.extend(_comparison_context_missing_data(item.get("comparison_context")))
         if source_date and (latest_source_date is None or str(source_date) > latest_source_date):
             latest_source_date = str(source_date)
         effective_confidence = 0.0 if not isinstance(confidence, (int, float)) else float(confidence)
@@ -423,6 +514,10 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
                 limitations.append("Manual evidence quality is incomplete and has limited scoring impact.")
             if review_status == "reviewed":
                 limitations.append("Reviewed manual evidence remains user-provided and is not independently verified.")
+            if _is_comparison_evidence_item(item):
+                limitations.append("Comparison evidence is user-provided and requires peer claim validation.")
+                if item.get("comparison_context", {}).get("claimed_advantage") == "stronger":
+                    limitations.append("Claimed advantage requires measurable, current comparison support.")
         else:
             summary = "Rejected qualitative evidence omitted from response for safety."
             source_label = source_label if source_label and not _contains_secret_marker(source_label) else "redacted"
@@ -451,6 +546,7 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
                 "stale_reason": item.get("stale_reason"),
                 "next_review_due_at": item.get("next_review_due_at"),
                 "source_reliability_label": source_reliability_label,
+                "comparison_context": item.get("comparison_context"),
             }
         )
 
@@ -506,6 +602,92 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
         "source_status": source_status,
         "limitations": ["User-provided qualitative evidence is preliminary and requires manual verification."],
         "missing_data": sorted(missing_data),
+    }
+
+
+def _build_comparison_evidence_assessment(ticker: str, qualitative_assessment: dict) -> dict:
+    comparison_items = [
+        item
+        for item in qualitative_assessment.get("evidence_items", [])
+        if _is_comparison_evidence_item(item)
+    ]
+    accepted_items = [item for item in comparison_items if item.get("accepted")]
+    peer_companies = sorted(
+        {
+            str(peer).strip().upper()
+            for item in accepted_items
+            for peer in (item.get("comparison_context") or {}).get("peer_companies", [])
+            if str(peer).strip()
+        }
+    )
+    breakdown = {key: 0 for key in ["stronger", "similar", "weaker", "unclear"]}
+    missing_data = set()
+    output_items = []
+    for item in comparison_items:
+        context = normalize_comparison_context(item.get("comparison_context"), ticker) or {}
+        claimed_advantage = str(context.get("claimed_advantage") or "unclear")
+        if claimed_advantage not in breakdown:
+            claimed_advantage = "unclear"
+        if item.get("accepted"):
+            breakdown[claimed_advantage] += 1
+        if not context.get("peer_companies"):
+            missing_data.add("comparison_peer_companies")
+        if not context.get("comparison_period"):
+            missing_data.add("comparison_period")
+        output_items.append(
+            {
+                "evidence_id": item.get("evidence_id"),
+                "origin": item.get("origin") or "request_scoped",
+                "criterion": item.get("criterion") or "unsupported",
+                "evidence_type": item.get("evidence_type") or "unsupported",
+                "comparison_type": context.get("comparison_type") or "other",
+                "peer_companies": context.get("peer_companies") or [],
+                "claimed_advantage": claimed_advantage,
+                "comparison_summary": context.get("comparison_summary") or item.get("summary") or "",
+                "source_basis": context.get("source_basis") or "user_note",
+                "review_status": item.get("review_status"),
+                "evidence_quality_score": item.get("evidence_quality_score", 0),
+                "evidence_quality_label": item.get("evidence_quality_label", "incomplete"),
+                "is_stale": bool(item.get("is_stale")),
+                "accepted": bool(item.get("accepted")),
+                "limitations": sorted(set([*(item.get("limitations") or []), *((context.get("limitations") or []) if isinstance(context, dict) else [])])),
+            }
+        )
+    latest_source_date = max(
+        [str(item.get("source_date")) for item in accepted_items if item.get("source_date")],
+        default="",
+    )
+    source_status = build_source_status(
+        {
+            "source_type": "derived",
+            "provider": "user_provided_comparison_evidence",
+            "source_date": latest_source_date,
+            "fallback_used": False,
+            "limitations": ["User-provided comparison evidence is not independently verified."],
+            "missing_data": sorted(missing_data),
+        },
+        freshness_window="user_provided_context",
+    ).model_dump(mode="json")
+    limitations = [
+        "Comparison evidence is user-provided and not independently verified.",
+        "Peer comparison claims require manual validation against current sources.",
+    ]
+    if any(item.get("is_stale") for item in accepted_items):
+        limitations.append("Stale comparison evidence is capped and requires refresh.")
+    return {
+        "ticker": ticker,
+        "comparison_evidence_count": len(comparison_items),
+        "accepted_comparison_count": len(accepted_items),
+        "reviewed_comparison_count": sum(1 for item in accepted_items if item.get("review_status") == "reviewed"),
+        "stale_comparison_count": sum(1 for item in accepted_items if item.get("is_stale")),
+        "criteria_supported": sorted({str(item.get("criterion")) for item in accepted_items if item.get("criterion")}),
+        "peer_companies_mentioned": peer_companies,
+        "claimed_advantage_breakdown": breakdown,
+        "source_quality": "user_provided" if accepted_items else "insufficient",
+        "limitations": limitations if comparison_items else ["No structured competitor or comparison evidence was provided."],
+        "missing_data": sorted(missing_data),
+        "items": output_items,
+        "source_status": source_status,
     }
 
 
@@ -1501,6 +1683,7 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "mixed_source_criteria_count": sum(1 for criterion in quality_criteria if criterion.source_quality == "derived_from_mixed_sources"),
     }
     qualitative = response.qualitative_evidence_assessment
+    comparison = response.comparison_evidence_assessment
     qualitative_summary = {
         "provided": bool(qualitative.evidence_count),
         "accepted_count": qualitative.accepted_evidence_count,
@@ -1523,6 +1706,16 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "archived_or_rejected_ignored_count": qualitative.archived_or_rejected_ignored_count,
         "criteria_covered": qualitative.criteria_covered,
         "criteria_still_insufficient": qualitative.criteria_still_insufficient,
+    }
+    comparison = response.comparison_evidence_assessment
+    qualitative_summary["comparison"] = {
+        "provided": bool(comparison.comparison_evidence_count),
+        "accepted_count": comparison.accepted_comparison_count,
+        "reviewed_count": comparison.reviewed_comparison_count,
+        "stale_count": comparison.stale_comparison_count,
+        "peer_company_count": len(comparison.peer_companies_mentioned),
+        "criteria_supported": comparison.criteria_supported,
+        "claimed_advantage_breakdown": comparison.claimed_advantage_breakdown,
     }
     mock_categories = sorted(
         name for name, status in component_statuses.items() if status.get("source_type") == "mock"
@@ -1679,6 +1872,7 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
     signal_supportive = [signal for signal in response.financial_statement_signals.signals if signal.status == "supportive"]
     signal_insufficient = [signal for signal in response.financial_statement_signals.signals if signal.status == "insufficient"]
     qualitative = response.qualitative_evidence_assessment
+    comparison = response.comparison_evidence_assessment
     return [
         {
             "category": "macro_environment",
@@ -1818,6 +2012,30 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
             "limitations": _limited(qualitative.limitations, "Manual verification is required for qualitative evidence."),
         },
         {
+            "category": "comparison_evidence",
+            "status": "supportive" if comparison.accepted_comparison_count and comparison.reviewed_comparison_count else "neutral" if comparison.accepted_comparison_count else "insufficient",
+            "score": None,
+            "confidence": 0.62 if comparison.reviewed_comparison_count else 0.45 if comparison.accepted_comparison_count else 0.2,
+            "source_quality": comparison.source_quality,
+            "summary": (
+                f"User-provided comparison evidence mentions {len(comparison.peer_companies_mentioned)} peer company item(s) and supports preliminary review of {len(comparison.criteria_supported)} Jane criteria."
+                if comparison.accepted_comparison_count
+                else "No structured competitor or comparison evidence was provided."
+            ),
+            "key_evidence": _limited(
+                [
+                    f"Accepted comparison items: {comparison.accepted_comparison_count}",
+                    f"Reviewed comparison items: {comparison.reviewed_comparison_count}",
+                    f"Stale comparison items: {comparison.stale_comparison_count}",
+                    f"Peer companies: {', '.join(comparison.peer_companies_mentioned) if comparison.peer_companies_mentioned else 'none'}",
+                    f"Claimed advantage breakdown: {comparison.claimed_advantage_breakdown}",
+                    f"Criteria supported: {', '.join(comparison.criteria_supported) if comparison.criteria_supported else 'none'}",
+                ],
+                "Comparison evidence unavailable.",
+            ),
+            "limitations": _limited(comparison.limitations, "Peer comparison requires manual validation."),
+        },
+        {
             "category": "jane_company_quality",
             "status": _score_status(response.jane_company_quality.score),
             "score": response.jane_company_quality.score,
@@ -1832,6 +2050,7 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
                     f"Saved library evidence items: {qualitative.saved_evidence_count}",
                     f"Qualitative evidence average quality score: {qualitative.quality_score_average if qualitative.quality_score_average is not None else 'n/a'}",
                     f"Stale qualitative evidence items: {qualitative.stale_count}",
+                    f"Criteria supported by comparison evidence: {', '.join(comparison.criteria_supported) if comparison.criteria_supported else 'none'}",
                     f"Criteria covered by qualitative evidence: {', '.join(qualitative.criteria_covered) if qualitative.criteria_covered else 'none'}",
                     f"Insufficient criteria: {len(quality_insufficient)}",
                     f"Label: {response.jane_company_quality.label}",
@@ -1959,6 +2178,7 @@ def _build_manual_checks(response: AnalyzeStockResponse) -> list[dict]:
             }
         )
     qualitative = response.qualitative_evidence_assessment
+    comparison = response.comparison_evidence_assessment
     if qualitative.evidence_count:
         if qualitative.unreviewed_active_count:
             checks.append(
@@ -2033,6 +2253,50 @@ def _build_manual_checks(response: AnalyzeStockResponse) -> list[dict]:
                 },
             ]
         )
+    if comparison.comparison_evidence_count:
+        checks.extend(
+            [
+                {
+                    "priority": "high",
+                    "area": "qualitative_evidence",
+                    "check": "Verify peer list and comparison basis for manual comparison evidence.",
+                    "reason": "User-provided peer comparison is not independently verified by the system.",
+                },
+                {
+                    "priority": "medium",
+                    "area": "qualitative_evidence",
+                    "check": "Confirm market share, capability, or ecosystem claims from official filings or reputable sources.",
+                    "reason": "Comparison evidence can only support preliminary Jane criteria until claims are manually validated.",
+                },
+            ]
+        )
+        if comparison.claimed_advantage_breakdown.get("stronger"):
+            checks.append(
+                {
+                    "priority": "high",
+                    "area": "qualitative_evidence",
+                    "check": "Verify whether claimed stronger comparison evidence is measurable and current.",
+                    "reason": "Claimed advantage requires current peer context and specific support.",
+                }
+            )
+        if comparison.stale_comparison_count:
+            checks.append(
+                {
+                    "priority": "high",
+                    "area": "qualitative_evidence",
+                    "check": "Refresh stale comparison evidence or archive it.",
+                    "reason": "Stale comparison evidence has capped impact.",
+                }
+            )
+        if "comparison_peer_companies" in comparison.missing_data:
+            checks.append(
+                {
+                    "priority": "medium",
+                    "area": "qualitative_evidence",
+                    "check": "Add peer company list to comparison evidence.",
+                    "reason": "Comparison evidence without peers has limited support for moat or network-effect criteria.",
+                }
+            )
     else:
         checks.extend(
             [
@@ -2067,6 +2331,15 @@ def _build_manual_checks(response: AnalyzeStockResponse) -> list[dict]:
                     "reason": "R&D and innovation support should be tied to filings or specific manual sources.",
                 },
             ]
+        )
+    if not comparison.comparison_evidence_count:
+        checks.append(
+            {
+                "priority": "medium",
+                "area": "qualitative_evidence",
+                "check": "Provide competitor comparison evidence for monopoly, network, disruption, or trend-fit criteria.",
+                "reason": "Jane qualitative criteria need structured peer context before they can gain stronger preliminary support.",
+            }
         )
     checks.extend(
         [
@@ -2184,6 +2457,7 @@ def _build_score_driver_breakdown(response: AnalyzeStockResponse) -> dict:
             }
         )
     qualitative = response.qualitative_evidence_assessment
+    comparison = response.comparison_evidence_assessment
     if qualitative.reviewed_active_count:
         positive.append(
             {
@@ -2223,6 +2497,27 @@ def _build_score_driver_breakdown(response: AnalyzeStockResponse) -> dict:
                 "summary": f"Request-scoped user-provided qualitative evidence preliminarily covers {', '.join(qualitative.criteria_covered)}.",
             }
         )
+    if comparison.reviewed_comparison_count:
+        positive.append(
+            {
+                "name": "reviewed_comparison_evidence",
+                "category": "comparison_evidence",
+                "effect": "preliminary_positive",
+                "source_quality": "user_provided",
+                "summary": f"Reviewed user-provided comparison evidence preliminarily supports {', '.join(comparison.criteria_supported)} and still requires independent source review.",
+            }
+        )
+    unreviewed_comparison_count = sum(1 for item in comparison.items if item.accepted and item.review_status != "reviewed")
+    if unreviewed_comparison_count:
+        positive.append(
+            {
+                "name": "unreviewed_comparison_evidence",
+                "category": "comparison_evidence",
+                "effect": "preliminary_positive",
+                "source_quality": "user_provided",
+                "summary": "Unreviewed user-provided comparison evidence is available for preliminary peer context.",
+            }
+        )
     if qualitative.rejected_evidence_count:
         limiting.append(
             {
@@ -2251,6 +2546,26 @@ def _build_score_driver_breakdown(response: AnalyzeStockResponse) -> dict:
                 "effect": "limiting",
                 "source_quality": "user_provided",
                 "summary": "Stale manual evidence is capped and should be refreshed or archived.",
+            }
+        )
+    if comparison.stale_comparison_count:
+        limiting.append(
+            {
+                "name": "comparison_evidence_stale",
+                "category": "comparison_evidence",
+                "effect": "limiting",
+                "source_quality": "user_provided",
+                "summary": "Stale comparison evidence is capped and should be refreshed or archived.",
+            }
+        )
+    if any(item.accepted and not item.peer_companies for item in comparison.items):
+        limiting.append(
+            {
+                "name": "comparison_evidence_missing_peers",
+                "category": "comparison_evidence",
+                "effect": "limiting",
+                "source_quality": "user_provided",
+                "summary": "Some comparison evidence lacks peer companies, limiting moat or network-effect support.",
             }
         )
     if qualitative.incomplete_count:
@@ -2431,6 +2746,7 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
     sec_invalid = bool(response.sec_financial_facts.get("invalid_derived_metrics"))
     smart_limited = "smart_money" in dq.fallback_evidence_categories or "insider_activity" in dq.fallback_evidence_categories
     qualitative = response.qualitative_evidence_assessment
+    comparison = response.comparison_evidence_assessment
     strengths = []
     if response.macro_regime.score >= 56:
         strengths.append("Macro context is neutral-to-constructive under macro_v12_5.")
@@ -2456,6 +2772,8 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
         if qualitative.request_evidence_count:
             origin_parts.append(f"{qualitative.request_evidence_count} request-scoped item(s)")
         strengths.append(f"User-provided qualitative evidence from {' and '.join(origin_parts) or 'manual input'} preliminarily supports {', '.join(qualitative.criteria_covered)}.")
+    if comparison.accepted_comparison_count:
+        strengths.append(f"User-provided comparison evidence preliminarily supports {', '.join(comparison.criteria_supported)} with peer context requiring manual verification.")
     risks = []
     if leadership_mock:
         risks.append("Legacy leadership evidence is mock-based and cannot confirm live leadership quality.")
@@ -2463,6 +2781,8 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
         risks.append("Qualitative moat/founder/network/disruption evidence remains insufficient.")
     if qualitative.accepted_evidence_count:
         risks.append("Manual validation required for user-provided qualitative claims.")
+    if comparison.accepted_comparison_count:
+        risks.append("Manual validation required for user-provided comparison claims and peer lists.")
     if qualitative.rejected_evidence_count:
         risks.append("Some qualitative evidence was rejected or incomplete and does not affect scoring.")
     if company_mock:
@@ -2496,7 +2816,7 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
         if sec_invalid:
             company = f"{company} SEC Companyfacts is available, but some derived metrics require period-alignment review."
         if qualitative.accepted_evidence_count:
-            company = f"{company} SEC/yfinance agreement is {sec_agreement}; saved manual evidence count is {qualitative.saved_evidence_count}, request-scoped evidence count is {qualitative.request_evidence_count}, and covered qualitative criteria still require manual verification."
+            company = f"{company} SEC/yfinance agreement is {sec_agreement}; saved manual evidence count is {qualitative.saved_evidence_count}, request-scoped evidence count is {qualitative.request_evidence_count}, comparison evidence count is {comparison.accepted_comparison_count}, and covered qualitative criteria still require manual verification."
         else:
             company = f"{company} SEC/yfinance agreement is {sec_agreement}; qualitative moat/founder/network/disruption evidence remains insufficient."
     elif company_live:
@@ -2511,6 +2831,7 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
         f"{'is partially evidence-backed by financial metrics' if response.jane_company_quality.label == 'preliminary' else response.jane_company_quality.label}, and smart-money evidence "
         f"{'includes fallback or cached-limited components' if smart_limited else 'is available with disclosed limitations'}. "
         f"{'User-provided qualitative evidence is preliminary and not independently verified. ' if qualitative.accepted_evidence_count else ''}"
+        f"{'User-provided comparison evidence requires peer validation. ' if comparison.accepted_comparison_count else ''}"
         "Further manual validation is required before treating the candidate as high conviction."
     )
     return {
@@ -2593,6 +2914,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     research_context = request.research_context.model_dump(exclude_none=True) if request.research_context else {}
     saved_manual_evidence = load_manual_evidence_for_ticker(request.ticker)
     qualitative_evidence_assessment = _build_qualitative_evidence_assessment(request.ticker, request.qualitative_evidence, saved_manual_evidence)
+    comparison_evidence_assessment = _build_comparison_evidence_assessment(request.ticker, qualitative_evidence_assessment)
     jane_company_quality = _build_jane_company_quality(financial_quality, research_context, qualitative_evidence_assessment)
     financial_statement_signals = _build_financial_statement_signals(financial_quality)
     quality_insufficient = [criterion.name for criterion in jane_company_quality.criteria if criterion.status == "insufficient"]
@@ -2694,6 +3016,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         },
         next_manual_checks=[],
         qualitative_evidence_assessment=qualitative_evidence_assessment,
+        comparison_evidence_assessment=comparison_evidence_assessment,
         company_profile={
             **company_profile,
             "themes": company_profile.get("themes", fixture["themes"]),

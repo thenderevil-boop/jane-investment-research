@@ -115,6 +115,15 @@ export type AnalyzeStockDataQualitySummary = {
     archived_or_rejected_ignored_count?: number;
     criteria_covered: string[];
     criteria_still_insufficient: string[];
+    comparison?: {
+      provided: boolean;
+      accepted_count: number;
+      reviewed_count: number;
+      stale_count: number;
+      peer_company_count: number;
+      criteria_supported: string[];
+      claimed_advantage_breakdown: Record<string, number>;
+    };
   };
   sec_companyfacts?: {
     available: boolean;
@@ -221,6 +230,21 @@ export type QualitativeEvidenceInput = {
   confidence: number;
   user_provided: boolean;
   limitations: string[];
+  comparison_context?: ComparisonContext | null;
+};
+
+export type ComparisonContext = {
+  comparison_type: 'competitor' | 'market_share' | 'product_capability' | 'platform_ecosystem' | 'customer_adoption' | 'pricing_power' | 'switching_cost' | 'r_and_d_intensity' | 'other';
+  subject_company?: string | null;
+  peer_companies: string[];
+  comparison_summary: string;
+  claimed_advantage: 'stronger' | 'similar' | 'weaker' | 'unclear';
+  metric_name?: string | null;
+  metric_value?: number | string | null;
+  metric_unit?: string | null;
+  comparison_period?: string | null;
+  source_basis: 'user_note' | 'company_filing' | 'investor_presentation' | 'third_party_research' | 'manual_estimate' | 'other';
+  limitations: string[];
 };
 
 export type QualitativeEvidenceAssessmentItem = {
@@ -245,6 +269,7 @@ export type QualitativeEvidenceAssessmentItem = {
   stale_reason?: string | null;
   next_review_due_at?: string | null;
   source_reliability_label?: string;
+  comparison_context?: ComparisonContext | null;
 };
 
 export type QualitativeEvidenceAssessment = {
@@ -276,6 +301,40 @@ export type QualitativeEvidenceAssessment = {
   missing_data: string[];
 };
 
+export type ComparisonEvidenceAssessmentItem = {
+  evidence_id?: string | null;
+  origin: 'saved_library' | 'request_scoped';
+  criterion: string;
+  evidence_type: string;
+  comparison_type: string;
+  peer_companies: string[];
+  claimed_advantage: string;
+  comparison_summary: string;
+  source_basis: string;
+  review_status?: string | null;
+  evidence_quality_score: number;
+  evidence_quality_label: 'high' | 'medium' | 'low' | 'incomplete';
+  is_stale: boolean;
+  accepted: boolean;
+  limitations: string[];
+};
+
+export type ComparisonEvidenceAssessment = {
+  ticker: string;
+  comparison_evidence_count: number;
+  accepted_comparison_count: number;
+  reviewed_comparison_count: number;
+  stale_comparison_count: number;
+  criteria_supported: string[];
+  peer_companies_mentioned: string[];
+  claimed_advantage_breakdown: Record<string, number>;
+  source_quality: 'user_provided' | 'insufficient';
+  limitations: string[];
+  missing_data: string[];
+  items: ComparisonEvidenceAssessmentItem[];
+  source_status: DataSourceStatus;
+};
+
 export type ManualQualitativeEvidence = {
   evidence_id: string;
   ticker: string;
@@ -305,6 +364,7 @@ export type ManualQualitativeEvidence = {
   created_by?: string | null;
   limitations: string[];
   tags: string[];
+  comparison_context?: ComparisonContext | null;
 };
 
 export type ManualQualitativeEvidenceCreate = Omit<
@@ -612,6 +672,7 @@ export type StockAnalysis = {
   human_verification_queue?: string[];
   data_quality?: DataQualitySummary | null;
   source_status?: DataSourceStatus | null;
+  comparison_evidence_assessment?: ComparisonEvidenceAssessment;
   not_investment_advice?: boolean;
 };
 

@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import EvidenceLibrary from './EvidenceLibrary';
-import { QualitativeEvidenceAssessmentSection } from './StockResearch';
+import { ComparisonEvidenceAssessmentSection, QualitativeEvidenceAssessmentSection } from './StockResearch';
 
 describe('EvidenceLibrary', () => {
   it('renders evidence library filter, create form, and saved evidence table', () => {
@@ -16,6 +16,9 @@ describe('EvidenceLibrary', () => {
     expect(html).toContain('Source reliability');
     expect(html).toContain('Expires at');
     expect(html).toContain('Quality');
+    expect(html).toContain('Comparison type');
+    expect(html).toContain('Peer companies');
+    expect(html).toContain('Claimed advantage');
     expect(html).not.toContain('[object Object]');
   });
 
@@ -119,6 +122,62 @@ describe('EvidenceLibrary', () => {
     expect(html).toContain('Stale 1');
     expect(html).toContain('Avg quality 82');
     expect(html).toContain('company_investor_relations');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders comparison evidence assessment without object leaks', () => {
+    const html = renderToStaticMarkup(
+      <ComparisonEvidenceAssessmentSection
+        assessment={{
+          ticker: 'NVDA',
+          comparison_evidence_count: 1,
+          accepted_comparison_count: 1,
+          reviewed_comparison_count: 1,
+          stale_comparison_count: 0,
+          criteria_supported: ['network_effect'],
+          peer_companies_mentioned: ['AMD', 'INTC'],
+          claimed_advantage_breakdown: { stronger: 1, similar: 0, weaker: 0, unclear: 0 },
+          source_quality: 'user_provided',
+          limitations: ['Comparison evidence requires manual validation.'],
+          missing_data: [],
+          source_status: {
+            source_type: 'derived',
+            provider: 'user_provided_comparison_evidence',
+            source_date: '2026-05-07',
+            fetched_at: null,
+            is_fresh: false,
+            freshness_window: 'user_provided_context',
+            fallback_used: false,
+            fallback_reason: null,
+            limitations: [],
+            missing_data: [],
+          },
+          items: [
+            {
+              evidence_id: 'manual_1',
+              origin: 'saved_library',
+              criterion: 'network_effect',
+              evidence_type: 'ecosystem_comparison',
+              comparison_type: 'platform_ecosystem',
+              peer_companies: ['AMD', 'INTC'],
+              claimed_advantage: 'stronger',
+              comparison_summary: 'CUDA ecosystem is manually compared with ROCm and oneAPI.',
+              source_basis: 'user_note',
+              review_status: 'reviewed',
+              evidence_quality_score: 88,
+              evidence_quality_label: 'high',
+              is_stale: false,
+              accepted: true,
+              limitations: [],
+            },
+          ],
+        }}
+      />,
+    );
+    expect(html).toContain('Comparison Evidence Assessment');
+    expect(html).toContain('AMD, INTC');
+    expect(html).toContain('stronger');
+    expect(html).toContain('user-provided, not independently verified');
     expect(html).not.toContain('[object Object]');
   });
 });

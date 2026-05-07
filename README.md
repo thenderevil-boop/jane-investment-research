@@ -74,6 +74,8 @@ Phase 19 adds a local Manual Evidence Library. Saved qualitative evidence is sto
 
 Phase 20 adds a manual review workflow and evidence-quality scoring for the Manual Evidence Library. The quality score measures completeness and review readiness, not objective truth. Reviewed evidence remains user-provided, stale evidence is flagged and capped in impact, and `source_url` is never fetched or automatically verified.
 
+Phase 21 adds manual competitor/comparison context hooks. Saved or request-scoped qualitative evidence may include `comparison_context` with peer companies, comparison type, claimed advantage, comparison summary, source basis, and limitations. Comparison evidence remains user-provided and preliminary, is not independently verified, is not mock or fallback evidence, does not fetch or validate source URLs, and cannot infer moat or disruption from market cap or price performance alone.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
@@ -96,6 +98,8 @@ Completed live integrations now documented in this README:
 - Phase 17: official SEC Companyfacts financial statement cross-check
 - Phase 18: structured user-provided qualitative evidence assessment
 - Phase 19: local reusable manual qualitative evidence library
+- Phase 20: manual evidence review workflow and quality scoring
+- Phase 21: manual comparison evidence and competitor context hooks
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 

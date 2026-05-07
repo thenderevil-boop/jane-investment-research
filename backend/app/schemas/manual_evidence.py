@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
-from typing import Literal
+from typing import Any, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
@@ -31,9 +31,36 @@ ManualEvidenceType = Literal[
     "r_and_d_intensity",
     "user_provided_note",
     "filing_reference",
+    "competitor_comparison",
+    "market_share_comparison",
+    "product_capability_comparison",
+    "ecosystem_comparison",
+    "pricing_power_comparison",
+    "switching_cost_comparison",
+    "r_and_d_comparison",
     "other",
 ]
 ManualEvidenceReviewStatus = Literal["unreviewed", "reviewed", "rejected", "archived"]
+ManualEvidenceComparisonType = Literal[
+    "competitor",
+    "market_share",
+    "product_capability",
+    "platform_ecosystem",
+    "customer_adoption",
+    "pricing_power",
+    "switching_cost",
+    "r_and_d_intensity",
+    "other",
+]
+ManualEvidenceClaimedAdvantage = Literal["stronger", "similar", "weaker", "unclear"]
+ManualEvidenceSourceBasis = Literal[
+    "user_note",
+    "company_filing",
+    "investor_presentation",
+    "third_party_research",
+    "manual_estimate",
+    "other",
+]
 ManualEvidenceSourceReliability = Literal[
     "user_note",
     "official_company_material",
@@ -91,6 +118,22 @@ def _quality_label(score: int) -> ManualEvidenceQualityLabel:
     if score >= 30:
         return "low"
     return "incomplete"
+
+
+def _normalize_peer_company(value: str) -> str:
+    text = value.strip()
+    if text.replace(".", "").replace("-", "").isalnum() and len(text) <= 12:
+        return text.upper()
+    return text
+
+
+def _comparison_summary_is_vague(summary: str) -> bool:
+    words = [word.strip(".,;:!?()[]{}").lower() for word in summary.split()]
+    if len(words) < 8:
+        return True
+    vague_terms = {"dominant", "best", "amazing", "unbeatable", "clearly", "obviously"}
+    specific_terms = {"peer", "competitor", "share", "platform", "ecosystem", "switching", "customer", "developer", "pricing", "capability", "r&d", "rd"}
+    return bool(vague_terms & set(words)) and not bool(specific_terms & set(words))
 
 
 def score_manual_evidence_quality(evidence: dict) -> dict:
@@ -170,6 +213,42 @@ def score_manual_evidence_quality(evidence: dict) -> dict:
         else:
             reasons.append("Tags are missing.")
 
+        comparison = evidence.get("comparison_context") or {}
+        if isinstance(comparison, dict) and comparison:
+            peer_companies = [value for value in comparison.get("peer_companies") or [] if str(value).strip()]
+            comparison_summary = str(comparison.get("comparison_summary") or "").strip()
+            source_basis = str(comparison.get("source_basis") or "").strip()
+            comparison_period = str(comparison.get("comparison_period") or "").strip()
+            comparison_limitations = comparison.get("limitations") or []
+            claimed_advantage = str(comparison.get("claimed_advantage") or "unclear")
+            if peer_companies:
+                score += 10
+                reasons.append("Comparison context includes peer companies.")
+            else:
+                reasons.append("Comparison context is missing peer companies.")
+            if len(comparison_summary) >= 40 and not _comparison_summary_is_vague(comparison_summary):
+                score += 10
+                reasons.append("Comparison summary is present and specific.")
+            elif comparison_summary:
+                score += 4
+                reasons.append("Comparison summary is present but needs more specificity.")
+            else:
+                reasons.append("Comparison summary is missing.")
+            if source_basis or comparison_period:
+                score += 5
+                reasons.append("Comparison period or source basis is present.")
+            else:
+                reasons.append("Comparison period and source basis are missing.")
+            if comparison_limitations:
+                score += 5
+                reasons.append("Comparison limitations are documented.")
+            if claimed_advantage == "stronger" and (not peer_companies or not source_basis):
+                score -= 10
+                reasons.append("Claimed stronger advantage lacks peer list or source basis.")
+            if comparison_summary and _comparison_summary_is_vague(comparison_summary):
+                score -= 10
+                reasons.append("Comparison summary is vague or promotional.")
+
     if source_date:
         age_days = (today - source_date).days
         if age_days > 365:
@@ -209,6 +288,22 @@ def score_manual_evidence_quality(evidence: dict) -> dict:
     }
 
 
+def normalize_comparison_context(value: dict[str, Any] | None, ticker: str | None = None) -> dict[str, Any] | None:
+    if not value:
+        return None
+    context = dict(value)
+    if not context.get("subject_company") and ticker:
+        context["subject_company"] = ticker.strip().upper()
+    peers = context.get("peer_companies") or []
+    if isinstance(peers, str):
+        peers = [part.strip() for part in peers.split(",")]
+    context["peer_companies"] = sorted({_normalize_peer_company(str(peer)) for peer in peers if str(peer).strip()})
+    context.setdefault("claimed_advantage", "unclear")
+    context.setdefault("source_basis", "user_note")
+    context.setdefault("limitations", [])
+    return context
+
+
 def enrich_manual_evidence_quality(evidence: dict) -> dict:
     row = dict(evidence)
     row.setdefault("review_status", "unreviewed")
@@ -221,8 +316,42 @@ def enrich_manual_evidence_quality(evidence: dict) -> dict:
     row.setdefault("limitations", [])
     row.setdefault("tags", [])
     row.setdefault("user_provided", True)
+    row["comparison_context"] = normalize_comparison_context(row.get("comparison_context"), row.get("ticker"))
     row.update(score_manual_evidence_quality(row))
     return row
+
+
+class ManualEvidenceComparisonContext(BaseModel):
+    comparison_type: ManualEvidenceComparisonType
+    subject_company: str | None = None
+    peer_companies: list[str] = Field(default_factory=list)
+    comparison_summary: str = Field(min_length=1)
+    claimed_advantage: ManualEvidenceClaimedAdvantage = "unclear"
+    metric_name: str | None = None
+    metric_value: float | str | None = None
+    metric_unit: str | None = None
+    comparison_period: str | None = None
+    source_basis: ManualEvidenceSourceBasis = "user_note"
+    limitations: list[str] = Field(default_factory=list)
+
+    @field_validator("subject_company")
+    @classmethod
+    def normalize_subject_company(cls, value: str | None) -> str | None:
+        return _normalize_peer_company(value) if value else value
+
+    @field_validator("peer_companies")
+    @classmethod
+    def normalize_peer_companies(cls, value: list[str]) -> list[str]:
+        return sorted({_normalize_peer_company(str(peer)) for peer in value if str(peer).strip()})
+
+    @field_validator("comparison_summary", "metric_name", "metric_unit", "comparison_period")
+    @classmethod
+    def reject_secret_markers(cls, value: str | None) -> str | None:
+        if value is not None and contains_secret_marker(value):
+            raise ValueError("manual evidence comparison context must not include secrets or API key markers")
+        if value is not None and detect_forbidden_language(value):
+            raise ValueError("manual evidence comparison context must not include investment-instruction language")
+        return value
 
 
 class ManualQualitativeEvidenceCreate(BaseModel):
@@ -246,6 +375,7 @@ class ManualQualitativeEvidenceCreate(BaseModel):
     created_by: str | None = "local_user"
     limitations: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
+    comparison_context: ManualEvidenceComparisonContext | None = None
     evidence_quality_score: int = Field(default=0, ge=0, le=100)
     evidence_quality_label: ManualEvidenceQualityLabel = "incomplete"
     evidence_quality_reasons: list[str] = Field(default_factory=list)
@@ -286,6 +416,7 @@ class ManualQualitativeEvidencePatch(BaseModel):
     expires_at: str | None = None
     limitations: list[str] | None = None
     tags: list[str] | None = None
+    comparison_context: ManualEvidenceComparisonContext | None = None
 
     @field_validator("summary", "source_label", "source_url", "review_notes")
     @classmethod

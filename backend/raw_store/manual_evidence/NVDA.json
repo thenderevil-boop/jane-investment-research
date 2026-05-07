@@ -1,5 +1,6 @@
 [
   {
+    "comparison_context": null,
     "confidence": 0.65,
     "created_at": "2026-05-07T02:00:25.455537+00:00",
     "created_by": "local_user",
@@ -37,6 +38,7 @@
     "user_provided": true
   },
   {
+    "comparison_context": null,
     "confidence": 0.65,
     "created_at": "2026-05-07T08:22:56.515633+00:00",
     "created_by": "local_user",
@@ -72,6 +74,64 @@
     ],
     "ticker": "NVDA",
     "updated_at": "2026-05-07T08:27:01.430763+00:00",
+    "user_provided": true
+  },
+  {
+    "comparison_context": {
+      "claimed_advantage": "stronger",
+      "comparison_period": "2026",
+      "comparison_summary": "CUDA ecosystem is manually noted as stronger than ROCm/oneAPI for developer adoption, but this claim requires verification.",
+      "comparison_type": "platform_ecosystem",
+      "limitations": [
+        "Manual comparison requires independent verification."
+      ],
+      "metric_name": null,
+      "metric_unit": null,
+      "metric_value": null,
+      "peer_companies": [
+        "AMD",
+        "INTC"
+      ],
+      "source_basis": "user_note",
+      "subject_company": "NVDA"
+    },
+    "confidence": 0.65,
+    "created_at": "2026-05-07T09:33:39.015828+00:00",
+    "created_by": "local_user",
+    "criterion": "network_effect",
+    "evidence_id": "manual_ccbcc472a1554fed83442df6f9cd2433",
+    "evidence_quality_label": "incomplete",
+    "evidence_quality_reasons": [
+      "Rejected or archived evidence is stored for audit but excluded from active scoring.",
+      "Source date is older than 730 days; quality label cannot be high."
+    ],
+    "evidence_quality_score": 0,
+    "evidence_type": "ecosystem_comparison",
+    "expires_at": null,
+    "is_stale": true,
+    "last_reviewed_at": "2026-05-07T09:33:47.187163+00:00",
+    "limitations": [
+      "Requires manual verification against official filings, developer ecosystem data, or reputable third-party research."
+    ],
+    "next_review_due_at": null,
+    "review_notes": "Reviewed locally as a preliminary comparison note; still not independently verified.",
+    "review_status": "archived",
+    "reviewed_at": "2026-05-07T09:33:47.187163+00:00",
+    "reviewed_by": "local_user",
+    "source_date": "2023-01-01",
+    "source_label": "User competitor research note",
+    "source_reliability_label": "reputable_third_party_research",
+    "source_url": null,
+    "stale_reason": "source_date older than 365 days",
+    "summary": "User notes that CUDA ecosystem may create switching costs relative to AMD ROCm and Intel oneAPI; this requires manual verification.",
+    "tags": [
+      "CUDA",
+      "ROCm",
+      "oneAPI",
+      "developer ecosystem"
+    ],
+    "ticker": "NVDA",
+    "updated_at": "2026-05-07T09:36:12.626026+00:00",
     "user_provided": true
   }
 ]

@@ -31,6 +31,7 @@ class QualitativeEvidenceInput(BaseModel):
     confidence: float = 0.5
     user_provided: bool = True
     limitations: list[str] = Field(default_factory=list)
+    comparison_context: dict[str, Any] | None = None
 
 
 class AnalyzeStockRequest(BaseModel):
@@ -82,6 +83,7 @@ class EvidenceMatrixItem(BaseModel):
         "sec_financial_facts",
         "fundamentals_cross_check",
         "qualitative_evidence",
+        "comparison_evidence",
         "jane_company_quality",
         "financial_statement_signals",
         "leadership_score",
@@ -143,6 +145,7 @@ class QualitativeEvidenceAssessmentItem(BaseModel):
     stale_reason: str | None = None
     next_review_due_at: str | None = None
     source_reliability_label: str = "unknown"
+    comparison_context: dict[str, Any] | None = None
 
 
 class QualitativeEvidenceAssessment(BaseModel):
@@ -172,6 +175,40 @@ class QualitativeEvidenceAssessment(BaseModel):
     source_status: DataSourceStatus
     limitations: list[str]
     missing_data: list[str]
+
+
+class ComparisonEvidenceAssessmentItem(BaseModel):
+    evidence_id: str | None = None
+    origin: Literal["saved_library", "request_scoped"] = "request_scoped"
+    criterion: str
+    evidence_type: str
+    comparison_type: str
+    peer_companies: list[str]
+    claimed_advantage: str
+    comparison_summary: str
+    source_basis: str
+    review_status: str | None = None
+    evidence_quality_score: float = Field(default=0, ge=0, le=100)
+    evidence_quality_label: Literal["high", "medium", "low", "incomplete"] = "incomplete"
+    is_stale: bool = False
+    accepted: bool
+    limitations: list[str]
+
+
+class ComparisonEvidenceAssessment(BaseModel):
+    ticker: str
+    comparison_evidence_count: int
+    accepted_comparison_count: int
+    reviewed_comparison_count: int
+    stale_comparison_count: int
+    criteria_supported: list[str]
+    peer_companies_mentioned: list[str]
+    claimed_advantage_breakdown: dict[str, int]
+    source_quality: Literal["user_provided", "insufficient"]
+    limitations: list[str]
+    missing_data: list[str]
+    items: list[ComparisonEvidenceAssessmentItem]
+    source_status: DataSourceStatus
 
 
 class JaneCompanyQualityCriterion(BaseModel):
@@ -261,6 +298,7 @@ class AnalyzeStockResponse(BaseModel):
     score_driver_breakdown: ScoreDriverBreakdown
     next_manual_checks: list[NextManualCheck]
     qualitative_evidence_assessment: QualitativeEvidenceAssessment
+    comparison_evidence_assessment: ComparisonEvidenceAssessment
     company_profile: dict[str, Any]
     macro_regime: MacroRegimeOutput
     leadership_score: LeadershipScore

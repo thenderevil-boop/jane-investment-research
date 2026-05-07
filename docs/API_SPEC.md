@@ -109,7 +109,8 @@ Phase 14 makes the response a candidate validation report rather than a loose bu
 
 - `candidate_validation_summary`: concise research-priority summary, strengths, risks, mock/fallback disclosure, and next checks.
 - `qualitative_evidence_assessment`: optional manual qualitative evidence validation results when the request includes structured qualitative evidence.
-- `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, qualitative evidence, Jane company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
+- `comparison_evidence_assessment`: manual competitor/comparison evidence summary for peer context hooks.
+- `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, qualitative evidence, comparison evidence, Jane company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
 - `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, qualitative evidence counts, and excluded scoring indicators.
 - `score_driver_breakdown`: positive, limiting, and neutral score drivers.
 - `next_manual_checks`: research-oriented checks for source quality, fundamentals, filings, valuation, and risk.
@@ -153,6 +154,14 @@ Phase 20 manual evidence review behavior:
 - Evidence can be marked stale when `source_date` is older than the review window or `expires_at` has passed. Stale evidence remains visible but has capped qualitative impact and triggers manual checks.
 - Archived/rejected evidence remains stored for audit and is ignored by analyze-stock scoring.
 - Manual evidence cannot make `source_quality_grade` A by itself and cannot generate investment instructions.
+
+Phase 21 comparison evidence behavior:
+
+- Manual evidence may include optional `comparison_context` with `comparison_type`, `subject_company`, `peer_companies`, `comparison_summary`, `claimed_advantage`, optional metric fields, `comparison_period`, `source_basis`, and limitations.
+- New comparison evidence types include `competitor_comparison`, `market_share_comparison`, `product_capability_comparison`, `ecosystem_comparison`, `pricing_power_comparison`, `switching_cost_comparison`, and `r_and_d_comparison`.
+- Comparison evidence is manual and user-provided. The system does not fetch `source_url`, scrape competitor sites, or automatically verify peer claims.
+- Peer companies, claimed advantage, metrics, and comparison summaries are audit metadata for preliminary Jane criteria only. They cannot make criteria independently verified or make `source_quality_grade` A by themselves.
+- Analyze-stock returns `comparison_evidence_assessment` and adds an `evidence_matrix` row with `category="comparison_evidence"` when structured comparison evidence is present.
 
 Phase 15 company data behavior:
 
@@ -265,6 +274,21 @@ Response:
     "source_status": {},
     "limitations": ["User-provided qualitative evidence is preliminary and requires manual verification."],
     "missing_data": []
+  },
+  "comparison_evidence_assessment": {
+    "ticker": "NVDA",
+    "comparison_evidence_count": 1,
+    "accepted_comparison_count": 1,
+    "reviewed_comparison_count": 1,
+    "stale_comparison_count": 0,
+    "criteria_supported": ["network_effect"],
+    "peer_companies_mentioned": ["AMD", "INTC"],
+    "claimed_advantage_breakdown": {"stronger": 1, "similar": 0, "weaker": 0, "unclear": 0},
+    "source_quality": "user_provided",
+    "limitations": ["Comparison evidence is user-provided and not independently verified."],
+    "missing_data": [],
+    "items": [],
+    "source_status": {}
   },
   "company_profile": {},
   "macro_regime": {},
@@ -403,7 +427,20 @@ Response:
   "updated_at": "2026-05-07T00:00:00+00:00",
   "created_by": "local_user",
   "limitations": ["Requires manual verification."],
-  "tags": ["CUDA"]
+  "tags": ["CUDA"],
+  "comparison_context": {
+    "comparison_type": "platform_ecosystem",
+    "subject_company": "NVDA",
+    "peer_companies": ["AMD", "INTC"],
+    "comparison_summary": "CUDA ecosystem is manually compared with ROCm and oneAPI.",
+    "claimed_advantage": "stronger",
+    "metric_name": null,
+    "metric_value": null,
+    "metric_unit": null,
+    "comparison_period": "2026",
+    "source_basis": "user_note",
+    "limitations": ["Manual comparison requires independent verification."]
+  }
 }
 ```
 

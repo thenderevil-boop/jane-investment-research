@@ -254,6 +254,14 @@ Phase 20 manual evidence review notes:
 - `source_url` is stored only as metadata; do not fetch, crawl, scrape, or automatically validate it.
 - Archived and rejected manual evidence remains stored for audit and must not affect analyze-stock scoring.
 
+Phase 21 comparison evidence notes:
+
+- Manual evidence may include optional `comparison_context` for peer companies, comparison type, claimed advantage, comparison summary, source basis, period, metric metadata, and limitations.
+- Comparison evidence is user-provided and must not be treated as independently verified or live verified, even when reviewed locally.
+- Do not fetch `source_url`, scrape competitor websites, add news/social/video/sentiment providers, or infer monopoly/network/disruption from market cap or price performance.
+- Comparison evidence can only support preliminary Jane qualitative criteria under conservative caps; stale, archived, or rejected comparison evidence must be capped or ignored according to manual evidence rules.
+- `comparison_evidence_assessment` and the `comparison_evidence` evidence-matrix row must not count as mock or fallback evidence.
+
 Phase 19 manual evidence library notes:
 
 - Saved qualitative evidence is local-only, user-provided, reusable by ticker, and not independently verified.

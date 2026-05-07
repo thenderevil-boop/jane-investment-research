@@ -7,7 +7,7 @@ import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
-import type { AnalyzeStockDataQualitySummary, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, JaneCompanyQuality, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis } from '../types';
+import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, JaneCompanyQuality, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
 const qualitativeCriteria = new Set(['monopoly_power', 'visionary_founder_ceo', 'disruptive_innovation', 'network_effect', 'continuous_r_and_d', 'mega_trend_fit']);
@@ -25,8 +25,17 @@ const qualitativeEvidenceTypes = new Set([
   'r_and_d_intensity',
   'user_provided_note',
   'filing_reference',
+  'competitor_comparison',
+  'market_share_comparison',
+  'product_capability_comparison',
+  'ecosystem_comparison',
+  'pricing_power_comparison',
+  'switching_cost_comparison',
+  'r_and_d_comparison',
   'other',
 ]);
+const comparisonTypes = new Set(['competitor', 'market_share', 'product_capability', 'platform_ecosystem', 'customer_adoption', 'pricing_power', 'switching_cost', 'r_and_d_intensity', 'other']);
+const claimedAdvantages = new Set(['stronger', 'similar', 'weaker', 'unclear']);
 
 export function parseQualitativeEvidenceJson(value: string): QualitativeEvidenceInput[] | undefined {
   if (!value.trim()) return undefined;
@@ -57,6 +66,18 @@ export function parseQualitativeEvidenceJson(value: string): QualitativeEvidence
     if (evidence.user_provided !== true) {
       throw new Error(`Qualitative evidence item ${index + 1} must set user_provided to true.`);
     }
+    const comparisonContext = evidence.comparison_context;
+    if (comparisonContext) {
+      if (!comparisonTypes.has(String(comparisonContext.comparison_type))) {
+        throw new Error(`Qualitative evidence item ${index + 1} has an unsupported comparison_type.`);
+      }
+      if (!String(comparisonContext.comparison_summary ?? '').trim()) {
+        throw new Error(`Qualitative evidence item ${index + 1} needs a comparison_summary.`);
+      }
+      if (!claimedAdvantages.has(String(comparisonContext.claimed_advantage ?? 'unclear'))) {
+        throw new Error(`Qualitative evidence item ${index + 1} has an unsupported claimed_advantage.`);
+      }
+    }
     return {
       ...evidence,
       criterion: String(evidence.criterion),
@@ -66,6 +87,17 @@ export function parseQualitativeEvidenceJson(value: string): QualitativeEvidence
       confidence: evidence.confidence,
       user_provided: true,
       limitations: Array.isArray(evidence.limitations) ? evidence.limitations.map(String) : [],
+      comparison_context: comparisonContext
+        ? {
+            ...comparisonContext,
+            comparison_type: String(comparisonContext.comparison_type) as ComparisonContext['comparison_type'],
+            peer_companies: Array.isArray(comparisonContext.peer_companies) ? comparisonContext.peer_companies.map(String) : [],
+            comparison_summary: String(comparisonContext.comparison_summary),
+            claimed_advantage: String(comparisonContext.claimed_advantage ?? 'unclear') as ComparisonContext['claimed_advantage'],
+            source_basis: String(comparisonContext.source_basis ?? 'user_note') as ComparisonContext['source_basis'],
+            limitations: Array.isArray(comparisonContext.limitations) ? comparisonContext.limitations.map(String) : [],
+          } as ComparisonContext
+        : null,
     } as QualitativeEvidenceInput;
   });
 }
@@ -253,6 +285,8 @@ export function AnalyzeDataQualitySection({ dataQuality }: { dataQuality?: Analy
           <div><dt>Stale manual</dt><dd>{dataQuality.qualitative_evidence.stale_count ?? 0}</dd></div>
           <div><dt>Avg quality</dt><dd>{dataQuality.qualitative_evidence.quality_score_average ?? 'N/A'}</dd></div>
           <div><dt>Incomplete</dt><dd>{dataQuality.qualitative_evidence.incomplete_count ?? 0}</dd></div>
+          <div><dt>Comparison accepted</dt><dd>{dataQuality.qualitative_evidence.comparison?.accepted_count ?? 0}</dd></div>
+          <div><dt>Comparison peers</dt><dd>{dataQuality.qualitative_evidence.comparison?.peer_company_count ?? 0}</dd></div>
         </dl>
       )}
       {dataQuality.sec_companyfacts && (
@@ -390,6 +424,56 @@ export function QualitativeEvidenceAssessmentSection({ assessment }: { assessmen
         </div>
       )}
       {!!assessment.limitations.length && <p className="muted">Limitations: {assessment.limitations.join(' ')}</p>}
+    </section>
+  );
+}
+
+export function ComparisonEvidenceAssessmentSection({ assessment }: { assessment?: ComparisonEvidenceAssessment }) {
+  if (!assessment) return null;
+  return (
+    <section className="pageSection">
+      <h2>Comparison Evidence Assessment</h2>
+      <div className="summaryMain">
+        <span className="smallPill">Accepted {assessment.accepted_comparison_count}</span>
+        <span className="smallPill">Reviewed {assessment.reviewed_comparison_count}</span>
+        <span className="smallPill">Stale {assessment.stale_comparison_count}</span>
+        <span className="smallPill">{assessment.source_quality}</span>
+        <span className="smallPill">user-provided, not independently verified</span>
+        <DataSourceBadge status={assessment.source_status} />
+      </div>
+      {!!assessment.peer_companies_mentioned.length && <p className="muted">Peer companies: {assessment.peer_companies_mentioned.join(', ')}</p>}
+      {!!assessment.criteria_supported.length && <p className="muted">Criteria supported: {assessment.criteria_supported.join(', ')}</p>}
+      <dl className="qualityMetrics">
+        {Object.entries(assessment.claimed_advantage_breakdown).map(([key, value]) => (
+          <div key={key}><dt>{displayKey(key)}</dt><dd>{value}</dd></div>
+        ))}
+      </dl>
+      {!!assessment.limitations.length && <p className="sourceWarning">{assessment.limitations.join(' ')}</p>}
+      {!!assessment.items.length && (
+        <div className="tableWrap">
+          <table>
+            <thead><tr><th>Criterion</th><th>Type</th><th>Peers</th><th>Advantage</th><th>Quality</th><th>Status</th><th>Summary</th></tr></thead>
+            <tbody>
+              {assessment.items.map((item, index) => (
+                <tr key={`${item.evidence_id ?? 'comparison'}-${index}`}>
+                  <td>{displayKey(item.criterion)}</td>
+                  <td>{displayKey(item.comparison_type)}</td>
+                  <td>{item.peer_companies.length ? item.peer_companies.join(', ') : 'N/A'}</td>
+                  <td>{item.claimed_advantage}</td>
+                  <td>{item.evidence_quality_score} / {item.evidence_quality_label}</td>
+                  <td>
+                    <SignalBadge label={item.accepted ? 'accepted' : 'rejected'} variant={item.accepted ? 'positive' : 'warning'} />
+                    {item.review_status && <span className="smallPill">{item.review_status}</span>}
+                    {item.is_stale && <span className="smallPill">stale</span>}
+                  </td>
+                  <td>{item.comparison_summary}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {!assessment.items.length && <p className="muted">No structured competitor or comparison evidence was provided.</p>}
     </section>
   );
 }
@@ -647,6 +731,7 @@ export default function StockResearch() {
           <AnalyzeDataQualitySection dataQuality={result.data_quality_summary} />
           <JaneCompanyQualitySection quality={result.jane_company_quality} profile={result.company_profile} />
           <QualitativeEvidenceAssessmentSection assessment={result.qualitative_evidence_assessment} />
+          <ComparisonEvidenceAssessmentSection assessment={result.comparison_evidence_assessment} />
           <FinancialStatementSignalsSection signals={result.financial_statement_signals} />
           <SecFinancialFactsSection facts={result.sec_financial_facts} />
           <FundamentalsCrossCheckSection crossCheck={result.fundamentals_cross_check} />

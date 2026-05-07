@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { DataSourceStatus, ScoreLike, StockAnalysis } from '../types';
-import StockResearch, { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection, parseQualitativeEvidenceJson } from './StockResearch';
+import StockResearch, { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection, parseQualitativeEvidenceJson } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -59,6 +59,32 @@ describe('StockResearch presentation helpers', () => {
     expect(() => parseQualitativeEvidenceJson('[{"criterion":"unsupported","evidence_type":"platform_ecosystem","summary":"x","source_label":"note","confidence":0.5,"user_provided":true}]')).toThrow('unsupported criterion');
     expect(() => parseQualitativeEvidenceJson('[{"criterion":"network_effect","evidence_type":"platform_ecosystem","summary":"","source_label":"note","confidence":0.5,"user_provided":true}]')).toThrow('needs a summary');
     expect(() => parseQualitativeEvidenceJson('[{"criterion":"network_effect","evidence_type":"platform_ecosystem","summary":"x","source_label":"note","confidence":2,"user_provided":true}]')).toThrow('between 0 and 1');
+  });
+
+  it('validates request-scoped comparison evidence JSON', () => {
+    const parsed = parseQualitativeEvidenceJson(JSON.stringify([
+      {
+        criterion: 'network_effect',
+        evidence_type: 'ecosystem_comparison',
+        summary: 'CUDA ecosystem comparison claim requiring manual verification.',
+        source_label: 'User competitor research note',
+        confidence: 0.65,
+        user_provided: true,
+        limitations: ['Manual review required.'],
+        comparison_context: {
+          comparison_type: 'platform_ecosystem',
+          peer_companies: ['AMD', 'INTC'],
+          comparison_summary: 'CUDA ecosystem is manually compared against ROCm and oneAPI.',
+          claimed_advantage: 'stronger',
+          source_basis: 'user_note',
+          limitations: ['Needs peer validation.'],
+        },
+      },
+    ]));
+
+    expect(parsed?.[0].evidence_type).toBe('ecosystem_comparison');
+    expect(parsed?.[0].comparison_context?.peer_companies).toEqual(['AMD', 'INTC']);
+    expect(() => parseQualitativeEvidenceJson('[{"criterion":"network_effect","evidence_type":"ecosystem_comparison","summary":"x","source_label":"note","confidence":0.5,"user_provided":true,"comparison_context":{"comparison_type":"unsupported","comparison_summary":"x","claimed_advantage":"unclear","peer_companies":[],"source_basis":"user_note","limitations":[]}}]')).toThrow('unsupported comparison_type');
   });
 
   it('does not render profile objects as [object Object]', () => {
@@ -242,12 +268,65 @@ describe('StockResearch presentation helpers', () => {
             independently_verified_count: 0,
             criteria_covered: ['network_effect'],
             criteria_still_insufficient: ['monopoly_power'],
+            comparison: {
+              provided: true,
+              accepted_count: 1,
+              reviewed_count: 1,
+              stale_count: 0,
+              peer_company_count: 2,
+              criteria_supported: ['network_effect'],
+              claimed_advantage_breakdown: { stronger: 1, similar: 0, weaker: 0, unclear: 0 },
+            },
           },
         }}
       />,
     );
     expect(html).toContain('Qualitative provided');
     expect(html).toContain('Accepted');
+    expect(html).toContain('Comparison accepted');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders Comparison Evidence Assessment', () => {
+    const html = renderToStaticMarkup(
+      <ComparisonEvidenceAssessmentSection
+        assessment={{
+          ticker: 'NVDA',
+          comparison_evidence_count: 1,
+          accepted_comparison_count: 1,
+          reviewed_comparison_count: 1,
+          stale_comparison_count: 0,
+          criteria_supported: ['network_effect'],
+          peer_companies_mentioned: ['AMD', 'INTC'],
+          claimed_advantage_breakdown: { stronger: 1, similar: 0, weaker: 0, unclear: 0 },
+          source_quality: 'user_provided',
+          limitations: ['Peer comparison requires manual validation.'],
+          missing_data: [],
+          source_status: { ...mockStatus, source_type: 'derived', provider: 'user_provided_comparison_evidence' },
+          items: [
+            {
+              origin: 'saved_library',
+              criterion: 'network_effect',
+              evidence_type: 'ecosystem_comparison',
+              comparison_type: 'platform_ecosystem',
+              peer_companies: ['AMD', 'INTC'],
+              claimed_advantage: 'stronger',
+              comparison_summary: 'CUDA ecosystem comparison requiring manual review.',
+              source_basis: 'user_note',
+              review_status: 'reviewed',
+              evidence_quality_score: 88,
+              evidence_quality_label: 'high',
+              is_stale: false,
+              accepted: true,
+              limitations: [],
+            },
+          ],
+        }}
+      />,
+    );
+    expect(html).toContain('Comparison Evidence Assessment');
+    expect(html).toContain('Peer companies: AMD, INTC');
+    expect(html).toContain('stronger');
     expect(html).not.toContain('[object Object]');
   });
 
