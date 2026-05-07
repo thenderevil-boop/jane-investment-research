@@ -103,6 +103,15 @@ export type AnalyzeStockDataQualitySummary = {
     request_scoped_count?: number;
     reviewed_count?: number;
     unreviewed_count?: number;
+    reviewed_active_count?: number;
+    unreviewed_active_count?: number;
+    stale_count?: number;
+    review_due_count?: number;
+    quality_score_average?: number | null;
+    high_quality_count?: number;
+    medium_quality_count?: number;
+    low_quality_count?: number;
+    incomplete_count?: number;
     archived_or_rejected_ignored_count?: number;
     criteria_covered: string[];
     criteria_still_insufficient: string[];
@@ -131,6 +140,13 @@ export type JaneCompanyQualityCriterion = {
   evidence: string[];
   limitations: string[];
   missing_data: string[];
+  evidence_quality_score?: number;
+  evidence_quality_label?: 'high' | 'medium' | 'low' | 'incomplete';
+  evidence_quality_reasons?: string[];
+  is_stale?: boolean;
+  stale_reason?: string | null;
+  next_review_due_at?: string | null;
+  source_reliability_label?: string;
 };
 
 export type JaneCompanyQuality = {
@@ -222,6 +238,13 @@ export type QualitativeEvidenceAssessmentItem = {
   confidence: number;
   limitations: string[];
   missing_data: string[];
+  evidence_quality_score?: number;
+  evidence_quality_label?: 'high' | 'medium' | 'low' | 'incomplete';
+  evidence_quality_reasons?: string[];
+  is_stale?: boolean;
+  stale_reason?: string | null;
+  next_review_due_at?: string | null;
+  source_reliability_label?: string;
 };
 
 export type QualitativeEvidenceAssessment = {
@@ -234,6 +257,15 @@ export type QualitativeEvidenceAssessment = {
   deduplicated_count?: number;
   reviewed_count?: number;
   unreviewed_count?: number;
+  reviewed_active_count?: number;
+  unreviewed_active_count?: number;
+  quality_score_average?: number | null;
+  high_quality_count?: number;
+  medium_quality_count?: number;
+  low_quality_count?: number;
+  incomplete_count?: number;
+  stale_count?: number;
+  review_due_count?: number;
   archived_or_rejected_ignored_count?: number;
   criteria_covered: string[];
   criteria_still_insufficient: string[];
@@ -255,6 +287,18 @@ export type ManualQualitativeEvidence = {
   source_date?: string | null;
   confidence: number;
   review_status: 'unreviewed' | 'reviewed' | 'rejected' | 'archived';
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  review_notes?: string | null;
+  source_reliability_label: 'user_note' | 'official_company_material' | 'sec_filing_reference' | 'company_investor_relations' | 'reputable_third_party_research' | 'unknown' | 'other';
+  evidence_quality_score: number;
+  evidence_quality_label: 'high' | 'medium' | 'low' | 'incomplete';
+  evidence_quality_reasons: string[];
+  is_stale: boolean;
+  stale_reason?: string | null;
+  expires_at?: string | null;
+  last_reviewed_at?: string | null;
+  next_review_due_at?: string | null;
   user_provided: true;
   created_at: string;
   updated_at: string;
@@ -263,8 +307,29 @@ export type ManualQualitativeEvidence = {
   tags: string[];
 };
 
-export type ManualQualitativeEvidenceCreate = Omit<ManualQualitativeEvidence, 'evidence_id' | 'created_at' | 'updated_at' | 'user_provided'> & {
+export type ManualQualitativeEvidenceCreate = Omit<
+  ManualQualitativeEvidence,
+  | 'evidence_id'
+  | 'created_at'
+  | 'updated_at'
+  | 'user_provided'
+  | 'evidence_quality_score'
+  | 'evidence_quality_label'
+  | 'evidence_quality_reasons'
+  | 'is_stale'
+  | 'stale_reason'
+  | 'reviewed_at'
+  | 'reviewed_by'
+  | 'review_notes'
+  | 'source_reliability_label'
+  | 'expires_at'
+  | 'last_reviewed_at'
+  | 'next_review_due_at'
+> & {
   user_provided?: true;
+  review_notes?: string | null;
+  source_reliability_label?: ManualQualitativeEvidence['source_reliability_label'];
+  expires_at?: string | null;
 };
 
 export type JaneReferenceCondition = {

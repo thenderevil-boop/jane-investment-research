@@ -246,6 +246,14 @@ Phase 18 qualitative evidence notes:
 - `research_context.theme` remains context only unless structured qualitative evidence is supplied.
 - `source_type="derived"` is not fallback, and `source_type="mixed"` remains invalid.
 
+Phase 20 manual evidence review notes:
+
+- Manual Evidence Library quality scoring measures completeness and review readiness only, not objective truth.
+- Reviewed manual evidence remains user-provided and must not be treated as independently verified or live verified.
+- Stale manual evidence can remain visible, but its qualitative impact is capped and it should trigger manual review checks.
+- `source_url` is stored only as metadata; do not fetch, crawl, scrape, or automatically validate it.
+- Archived and rejected manual evidence remains stored for audit and must not affect analyze-stock scoring.
+
 Phase 19 manual evidence library notes:
 
 - Saved qualitative evidence is local-only, user-provided, reusable by ticker, and not independently verified.

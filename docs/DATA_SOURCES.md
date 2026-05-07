@@ -20,6 +20,8 @@ Phase 18 adds structured manual qualitative evidence as an optional analyze-stoc
 
 Phase 19 stores reusable manual qualitative evidence in a local JSON evidence library under the raw-store boundary. Saved evidence is loaded by ticker for analyze-stock, merged with request-scoped qualitative evidence, and deduplicated. Evidence items carry `origin: "saved_library"` or `origin: "request_scoped"` for audit. Archived and rejected saved evidence remains stored but is ignored by analyze-stock scoring.
 
+Phase 20 adds local review workflow and evidence-quality metadata. `evidence_quality_score` measures completeness and review readiness only; it is not a truth score and does not independently verify the claim. Reviewed evidence remains `user_provided`, stale evidence remains visible but capped in qualitative impact, and `source_url` is stored only as metadata without fetching or validation.
+
 Phase 15 live-enables company profile and fundamentals through the existing repository-backed yfinance dependency. `company_profile` may be live or cached-live with `provider: "yfinance"`. `financial_quality` may use yfinance fundamentals and provider-normalized fields. `valuation_context` is derived from yfinance profile and fundamentals inputs with `provider: "derived_from_yfinance"`. Valuation context is risk context only. Missing financial fields are listed in `missing_data` and are not fabricated. If yfinance is unavailable after a live attempt, mock fallback data is clearly labeled with `fallback_used=true`. Leadership evidence remains mock-disclosed until a later live leadership phase.
 
 Phase 16 uses the same yfinance fundamentals path to harden company-quality evidence. `jane_company_quality` is derived from explicit Jane criteria and only scores criteria that have available evidence. Qualitative moat, founder/CEO, network effect, and disruption evidence is marked insufficient when unavailable. `research_context.theme` is user context only and does not verify mega-trend fit. `financial_statement_signals` derives revenue growth, operating margin, net income, operating cash flow, cash buffer, debt, receivables, inventory, CapEx/OCF, and dilution checks from available fundamentals. Missing fields are not fabricated.
@@ -51,6 +53,8 @@ Manual evidence endpoints manage local-only evidence items:
 - `DELETE /api/manual-evidence/{evidence_id}` soft-archives evidence
 
 Request-scoped qualitative evidence is not automatically saved. Saved manual evidence remains `user_provided`, preliminary, not independently verified, not mock, and not fallback. Saved evidence cannot make `source_quality_grade` A by itself, cannot make qualitative criteria independently verified, and cannot create investment instructions.
+
+Phase 20 quality fields include `source_reliability_label`, `evidence_quality_score`, `evidence_quality_label`, `evidence_quality_reasons`, `is_stale`, `stale_reason`, `expires_at`, `reviewed_at`, `reviewed_by`, `review_notes`, `last_reviewed_at`, and `next_review_due_at`. These fields support local review workflow and auditability only.
 
 ## Phase 17 Official SEC EDGAR Companyfacts
 

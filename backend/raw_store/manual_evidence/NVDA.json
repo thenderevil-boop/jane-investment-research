@@ -5,14 +5,28 @@
     "created_by": "local_user",
     "criterion": "network_effect",
     "evidence_id": "manual_44d4dcfc448c413cbda5939835c5fac5",
+    "evidence_quality_label": "incomplete",
+    "evidence_quality_reasons": [
+      "Rejected or archived evidence is stored for audit but excluded from active scoring."
+    ],
+    "evidence_quality_score": 0,
     "evidence_type": "platform_ecosystem",
+    "expires_at": null,
+    "is_stale": false,
+    "last_reviewed_at": null,
     "limitations": [
       "Requires manual verification against official filings or independent sources."
     ],
+    "next_review_due_at": null,
+    "review_notes": null,
     "review_status": "archived",
+    "reviewed_at": null,
+    "reviewed_by": null,
     "source_date": "2026-05-06",
     "source_label": "User research note",
+    "source_reliability_label": "unknown",
     "source_url": null,
+    "stale_reason": null,
     "summary": "CUDA developer ecosystem and software stack are tracked as a manual network-effect evidence item requiring periodic review.",
     "tags": [
       "CUDA",
@@ -20,6 +34,44 @@
     ],
     "ticker": "NVDA",
     "updated_at": "2026-05-07T05:32:21.896739+00:00",
+    "user_provided": true
+  },
+  {
+    "confidence": 0.65,
+    "created_at": "2026-05-07T08:22:56.515633+00:00",
+    "created_by": "local_user",
+    "criterion": "network_effect",
+    "evidence_id": "manual_9fc72ab326db4ecaa1eb687966bea038",
+    "evidence_quality_label": "incomplete",
+    "evidence_quality_reasons": [
+      "Rejected or archived evidence is stored for audit but excluded from active scoring.",
+      "Source date is older than 730 days; quality label cannot be high."
+    ],
+    "evidence_quality_score": 0,
+    "evidence_type": "platform_ecosystem",
+    "expires_at": null,
+    "is_stale": true,
+    "last_reviewed_at": "2026-05-07T08:23:07.594149+00:00",
+    "limitations": [
+      "Requires manual verification against official filings or independent sources."
+    ],
+    "next_review_due_at": null,
+    "review_notes": "Reviewed locally against user notes; still not independently verified.",
+    "review_status": "archived",
+    "reviewed_at": "2026-05-07T08:23:07.594149+00:00",
+    "reviewed_by": "local_user",
+    "source_date": "2023-01-01",
+    "source_label": "User research note",
+    "source_reliability_label": "company_investor_relations",
+    "source_url": null,
+    "stale_reason": "source_date older than 365 days",
+    "summary": "CUDA developer ecosystem and software stack are tracked as a manual network-effect evidence item requiring periodic review.",
+    "tags": [
+      "CUDA",
+      "developer ecosystem"
+    ],
+    "ticker": "NVDA",
+    "updated_at": "2026-05-07T08:27:01.430763+00:00",
     "user_provided": true
   }
 ]

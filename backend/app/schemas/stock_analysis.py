@@ -136,6 +136,13 @@ class QualitativeEvidenceAssessmentItem(BaseModel):
     confidence: float = Field(ge=0, le=1)
     limitations: list[str]
     missing_data: list[str]
+    evidence_quality_score: float = Field(default=0, ge=0, le=100)
+    evidence_quality_label: Literal["high", "medium", "low", "incomplete"] = "incomplete"
+    evidence_quality_reasons: list[str] = Field(default_factory=list)
+    is_stale: bool = False
+    stale_reason: str | None = None
+    next_review_due_at: str | None = None
+    source_reliability_label: str = "unknown"
 
 
 class QualitativeEvidenceAssessment(BaseModel):
@@ -148,7 +155,16 @@ class QualitativeEvidenceAssessment(BaseModel):
     deduplicated_count: int = 0
     reviewed_count: int = 0
     unreviewed_count: int = 0
+    reviewed_active_count: int = 0
+    unreviewed_active_count: int = 0
     archived_or_rejected_ignored_count: int = 0
+    quality_score_average: float | None = None
+    high_quality_count: int = 0
+    medium_quality_count: int = 0
+    low_quality_count: int = 0
+    incomplete_count: int = 0
+    stale_count: int = 0
+    review_due_count: int = 0
     criteria_covered: list[str]
     criteria_still_insufficient: list[str]
     source_quality_summary: str

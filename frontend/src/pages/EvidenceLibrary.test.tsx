@@ -12,6 +12,10 @@ describe('EvidenceLibrary', () => {
     expect(html).toContain('Saved Evidence');
     expect(html).toContain('Load evidence');
     expect(html).toContain('Create saved evidence');
+    expect(html).toContain('Review status');
+    expect(html).toContain('Source reliability');
+    expect(html).toContain('Expires at');
+    expect(html).toContain('Quality');
     expect(html).not.toContain('[object Object]');
   });
 
@@ -28,6 +32,15 @@ describe('EvidenceLibrary', () => {
           deduplicated_count: 0,
           reviewed_count: 1,
           unreviewed_count: 0,
+          reviewed_active_count: 1,
+          unreviewed_active_count: 0,
+          quality_score_average: 82,
+          high_quality_count: 1,
+          medium_quality_count: 1,
+          low_quality_count: 0,
+          incomplete_count: 0,
+          stale_count: 1,
+          review_due_count: 1,
           archived_or_rejected_ignored_count: 0,
           criteria_covered: ['network_effect', 'visionary_founder_ceo'],
           criteria_still_insufficient: ['monopoly_power'],
@@ -62,6 +75,13 @@ describe('EvidenceLibrary', () => {
               confidence: 0.65,
               limitations: [],
               missing_data: [],
+              evidence_quality_score: 86,
+              evidence_quality_label: 'high',
+              evidence_quality_reasons: ['Evidence has been locally reviewed.'],
+              is_stale: false,
+              stale_reason: null,
+              next_review_due_at: '2027-05-06T00:00:00+00:00',
+              source_reliability_label: 'company_investor_relations',
             },
             {
               evidence_id: null,
@@ -78,6 +98,13 @@ describe('EvidenceLibrary', () => {
               confidence: 0.6,
               limitations: [],
               missing_data: [],
+              evidence_quality_score: 78,
+              evidence_quality_label: 'medium',
+              evidence_quality_reasons: ['Evidence is unreviewed.'],
+              is_stale: true,
+              stale_reason: 'source_date older than 365 days',
+              next_review_due_at: null,
+              source_reliability_label: 'user_note',
             },
           ],
         }}
@@ -88,6 +115,10 @@ describe('EvidenceLibrary', () => {
     expect(html).toContain('saved_library');
     expect(html).toContain('request_scoped');
     expect(html).toContain('reviewed');
+    expect(html).toContain('Reviewed 1');
+    expect(html).toContain('Stale 1');
+    expect(html).toContain('Avg quality 82');
+    expect(html).toContain('company_investor_relations');
     expect(html).not.toContain('[object Object]');
   });
 });

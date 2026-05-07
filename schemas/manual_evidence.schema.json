@@ -89,6 +89,92 @@
       "title": "Review Status",
       "type": "string"
     },
+    "reviewed_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reviewed At"
+    },
+    "reviewed_by": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reviewed By"
+    },
+    "review_notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Review Notes"
+    },
+    "source_reliability_label": {
+      "default": "unknown",
+      "enum": [
+        "user_note",
+        "official_company_material",
+        "sec_filing_reference",
+        "company_investor_relations",
+        "reputable_third_party_research",
+        "unknown",
+        "other"
+      ],
+      "title": "Source Reliability Label",
+      "type": "string"
+    },
+    "expires_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expires At"
+    },
+    "last_reviewed_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Last Reviewed At"
+    },
+    "next_review_due_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Next Review Due At"
+    },
     "user_provided": {
       "default": true,
       "title": "User Provided",
@@ -119,6 +205,48 @@
       },
       "title": "Tags",
       "type": "array"
+    },
+    "evidence_quality_score": {
+      "default": 0,
+      "maximum": 100,
+      "minimum": 0,
+      "title": "Evidence Quality Score",
+      "type": "integer"
+    },
+    "evidence_quality_label": {
+      "default": "incomplete",
+      "enum": [
+        "high",
+        "medium",
+        "low",
+        "incomplete"
+      ],
+      "title": "Evidence Quality Label",
+      "type": "string"
+    },
+    "evidence_quality_reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Quality Reasons",
+      "type": "array"
+    },
+    "is_stale": {
+      "default": false,
+      "title": "Is Stale",
+      "type": "boolean"
+    },
+    "stale_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Stale Reason"
     },
     "evidence_id": {
       "title": "Evidence Id",

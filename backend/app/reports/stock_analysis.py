@@ -12,6 +12,7 @@ from backend.app.engines.smart_money_engine import evaluate_smart_money
 from backend.app.pipelines.research_pipeline import _build_jane_reference_conditions, _enrich_source_status, score_object
 from backend.app.raw_store.repository import get_company_fundamentals, get_company_profile, get_sec_companyfacts, load_manual_evidence_for_ticker, read_macro_data, read_market_data, read_sec_filings
 from backend.app.schemas.common import ScoreObject
+from backend.app.schemas.manual_evidence import enrich_manual_evidence_quality, score_manual_evidence_quality
 from backend.app.schemas.stock_analysis import (
     AnalyzeStockDataQualitySummary,
     AnalyzeStockRequest,
@@ -245,10 +246,17 @@ def _qualitative_evidence_by_criterion(assessment: dict | None) -> dict[str, lis
 def _criterion_strength(items: list[dict]) -> str:
     if not items:
         return "none"
+    if any(item.get("is_stale") for item in items):
+        return "weak"
+    if any(item.get("evidence_quality_label") == "incomplete" for item in items):
+        return "weak"
+    avg_quality = sum(float(item.get("evidence_quality_score") or 0) for item in items) / len(items)
+    if avg_quality >= 80 and any(item.get("review_status") == "reviewed" for item in items):
+        return "moderate"
     avg_confidence = sum(float(item.get("confidence") or 0) for item in items) / len(items)
     if len(items) >= 3 and avg_confidence >= 0.68:
         return "moderate"
-    if avg_confidence >= 0.55:
+    if avg_confidence >= 0.55 and avg_quality >= 55:
         return "moderate"
     return "weak"
 
@@ -263,7 +271,17 @@ def _build_user_qualitative_criterion(
     if not items:
         return None
     confidence = min(0.7, max(float(item.get("confidence") or 0) for item in items))
-    score = 4.0 + min(2.0, len(items) * 0.75) + (1.0 if confidence >= 0.65 else 0)
+    avg_quality = sum(float(item.get("evidence_quality_score") or 0) for item in items) / len(items)
+    if avg_quality < 30:
+        score = 0.5
+    elif avg_quality < 55:
+        score = 2.0 + min(1.0, len(items) * 0.25)
+    else:
+        score = 4.0 + min(2.0, len(items) * 0.75) + (1.0 if confidence >= 0.65 else 0)
+        if any(item.get("review_status") == "reviewed" for item in items):
+            score += 0.5
+    if any(item.get("is_stale") for item in items):
+        score = min(score, 3.0)
     evidence = []
     for item in items:
         if item.get("summary"):
@@ -273,6 +291,10 @@ def _build_user_qualitative_criterion(
     if not missing:
         missing = [f"independent verification for {display_name}"]
     limitations = sorted(set([*USER_QUALITATIVE_LIMITATIONS, *[limitation for item in items for limitation in item.get("limitations", [])]]))
+    if any(item.get("review_status") == "reviewed" for item in items):
+        limitations.append("Reviewed manual evidence remains user-provided and is not independently verified.")
+    if any(item.get("is_stale") for item in items):
+        limitations.append("Stale manual evidence is capped and requires refresh.")
     return _criterion(
         name,
         display_name,
@@ -338,6 +360,7 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
         merged_inputs.append((request_item, "request_scoped"))
 
     for item, origin in merged_inputs:
+        item = enrich_manual_evidence_quality(item)
         criterion = str(item.get("criterion") or "").strip()
         evidence_type = str(item.get("evidence_type") or "").strip()
         summary = str(item.get("summary") or "").strip()
@@ -345,6 +368,7 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
         source_date = item.get("source_date") or None
         confidence = item.get("confidence")
         review_status = item.get("review_status") if origin == "saved_library" else None
+        source_reliability_label = str(item.get("source_reliability_label") or "unknown")
         limitations = [str(value) for value in item.get("limitations") or [] if value]
         missing_item: list[str] = []
         reason = "Accepted as preliminary user-provided qualitative evidence."
@@ -393,6 +417,12 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
             limitations = sorted(set([*limitations, *USER_QUALITATIVE_LIMITATIONS]))
             if review_status == "unreviewed":
                 limitations.append("Manual evidence is unreviewed and requires validation.")
+            if item.get("is_stale"):
+                limitations.append(f"Manual evidence is stale: {item.get('stale_reason') or 'refresh required'}.")
+            if item.get("evidence_quality_label") == "incomplete":
+                limitations.append("Manual evidence quality is incomplete and has limited scoring impact.")
+            if review_status == "reviewed":
+                limitations.append("Reviewed manual evidence remains user-provided and is not independently verified.")
         else:
             summary = "Rejected qualitative evidence omitted from response for safety."
             source_label = source_label if source_label and not _contains_secret_marker(source_label) else "redacted"
@@ -414,12 +444,21 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
                 "confidence": round(max(0.0, min(1.0, effective_confidence)), 2),
                 "limitations": limitations,
                 "missing_data": missing_item,
+                "evidence_quality_score": item.get("evidence_quality_score", 0),
+                "evidence_quality_label": item.get("evidence_quality_label", "incomplete"),
+                "evidence_quality_reasons": item.get("evidence_quality_reasons", []),
+                "is_stale": bool(item.get("is_stale")),
+                "stale_reason": item.get("stale_reason"),
+                "next_review_due_at": item.get("next_review_due_at"),
+                "source_reliability_label": source_reliability_label,
             }
         )
 
     accepted_items = [item for item in items if item["accepted"]]
     saved_items = [item for item in items if item["origin"] == "saved_library"]
     request_items = [item for item in items if item["origin"] == "request_scoped"]
+    accepted_quality_scores = [float(item.get("evidence_quality_score") or 0) for item in accepted_items]
+    active_saved_items = [item for item in accepted_items if item["origin"] == "saved_library"]
     criteria_covered = sorted({item["criterion"] for item in accepted_items})
     criteria_still_insufficient = [criterion for criterion in QUALITATIVE_CORE_CRITERIA if criterion not in criteria_covered]
     if not items:
@@ -450,7 +489,16 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
         "deduplicated_count": deduplicated_count,
         "reviewed_count": sum(1 for item in saved_items if item.get("review_status") == "reviewed"),
         "unreviewed_count": sum(1 for item in saved_items if item.get("review_status") == "unreviewed"),
+        "reviewed_active_count": sum(1 for item in active_saved_items if item.get("review_status") == "reviewed"),
+        "unreviewed_active_count": sum(1 for item in active_saved_items if item.get("review_status") == "unreviewed"),
         "archived_or_rejected_ignored_count": ignored_count,
+        "quality_score_average": round(sum(accepted_quality_scores) / len(accepted_quality_scores), 1) if accepted_quality_scores else None,
+        "high_quality_count": sum(1 for item in accepted_items if item.get("evidence_quality_label") == "high"),
+        "medium_quality_count": sum(1 for item in accepted_items if item.get("evidence_quality_label") == "medium"),
+        "low_quality_count": sum(1 for item in accepted_items if item.get("evidence_quality_label") == "low"),
+        "incomplete_count": sum(1 for item in items if item.get("evidence_quality_label") == "incomplete"),
+        "stale_count": sum(1 for item in accepted_items if item.get("is_stale")),
+        "review_due_count": sum(1 for item in accepted_items if item.get("next_review_due_at")),
         "criteria_covered": criteria_covered,
         "criteria_still_insufficient": criteria_still_insufficient,
         "source_quality_summary": summary,
@@ -1463,6 +1511,15 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "request_scoped_count": qualitative.request_evidence_count,
         "reviewed_count": qualitative.reviewed_count,
         "unreviewed_count": qualitative.unreviewed_count,
+        "reviewed_active_count": qualitative.reviewed_active_count,
+        "unreviewed_active_count": qualitative.unreviewed_active_count,
+        "stale_count": qualitative.stale_count,
+        "review_due_count": qualitative.review_due_count,
+        "quality_score_average": qualitative.quality_score_average,
+        "high_quality_count": qualitative.high_quality_count,
+        "medium_quality_count": qualitative.medium_quality_count,
+        "low_quality_count": qualitative.low_quality_count,
+        "incomplete_count": qualitative.incomplete_count,
         "archived_or_rejected_ignored_count": qualitative.archived_or_rejected_ignored_count,
         "criteria_covered": qualitative.criteria_covered,
         "criteria_still_insufficient": qualitative.criteria_still_insufficient,
@@ -1745,6 +1802,10 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
                     f"Saved evidence items: {qualitative.saved_evidence_count}",
                     f"Request-scoped evidence items: {qualitative.request_evidence_count}",
                     f"Accepted evidence items: {qualitative.accepted_evidence_count}",
+                    f"Reviewed active evidence: {qualitative.reviewed_active_count}",
+                    f"Unreviewed active evidence: {qualitative.unreviewed_active_count}",
+                    f"Stale evidence: {qualitative.stale_count}",
+                    f"Average quality score: {qualitative.quality_score_average if qualitative.quality_score_average is not None else 'n/a'}",
                     f"Rejected evidence items: {qualitative.rejected_evidence_count}",
                     f"Deduplicated evidence items: {qualitative.deduplicated_count}",
                     f"Archived or rejected library items ignored: {qualitative.archived_or_rejected_ignored_count}",
@@ -1752,7 +1813,7 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
                     f"Still insufficient: {', '.join(qualitative.criteria_still_insufficient) if qualitative.criteria_still_insufficient else 'none'}",
                 ],
                 "Qualitative evidence unavailable.",
-                limit=8,
+                limit=10,
             ),
             "limitations": _limited(qualitative.limitations, "Manual verification is required for qualitative evidence."),
         },
@@ -1769,6 +1830,8 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
                     f"Filing-backed criteria: {sum(1 for criterion in response.jane_company_quality.criteria if criterion.source_quality in {'filing_backed', 'derived_from_mixed_sources'})}",
                     f"User-provided preliminary criteria: {len(quality_user_provided)}",
                     f"Saved library evidence items: {qualitative.saved_evidence_count}",
+                    f"Qualitative evidence average quality score: {qualitative.quality_score_average if qualitative.quality_score_average is not None else 'n/a'}",
+                    f"Stale qualitative evidence items: {qualitative.stale_count}",
                     f"Criteria covered by qualitative evidence: {', '.join(qualitative.criteria_covered) if qualitative.criteria_covered else 'none'}",
                     f"Insufficient criteria: {len(quality_insufficient)}",
                     f"Label: {response.jane_company_quality.label}",
@@ -1897,7 +1960,7 @@ def _build_manual_checks(response: AnalyzeStockResponse) -> list[dict]:
         )
     qualitative = response.qualitative_evidence_assessment
     if qualitative.evidence_count:
-        if qualitative.unreviewed_count:
+        if qualitative.unreviewed_active_count:
             checks.append(
                 {
                     "priority": "high",
@@ -1906,7 +1969,25 @@ def _build_manual_checks(response: AnalyzeStockResponse) -> list[dict]:
                     "reason": "Saved manual evidence marked unreviewed remains preliminary.",
                 }
             )
-        if qualitative.reviewed_count:
+        if qualitative.stale_count:
+            checks.append(
+                {
+                    "priority": "high",
+                    "area": "qualitative_evidence",
+                    "check": "Refresh stale manual evidence or archive it.",
+                    "reason": "Stale manual qualitative evidence is capped and needs a current source review.",
+                }
+            )
+        if qualitative.low_quality_count or qualitative.incomplete_count:
+            checks.append(
+                {
+                    "priority": "medium",
+                    "area": "qualitative_evidence",
+                    "check": "Improve evidence with source label, date, limitations, and competitive context.",
+                    "reason": "Low or incomplete manual evidence has limited scoring impact.",
+                }
+            )
+        if qualitative.reviewed_active_count:
             checks.append(
                 {
                     "priority": "medium",
@@ -2103,7 +2184,17 @@ def _build_score_driver_breakdown(response: AnalyzeStockResponse) -> dict:
             }
         )
     qualitative = response.qualitative_evidence_assessment
-    if qualitative.saved_evidence_count:
+    if qualitative.reviewed_active_count:
+        positive.append(
+            {
+                "name": "reviewed_manual_qualitative_evidence",
+                "category": "qualitative_evidence",
+                "effect": "preliminary_positive",
+                "source_quality": "user_provided",
+                "summary": f"Reviewed manual evidence preliminarily covers {', '.join(qualitative.criteria_covered)} and remains user-provided.",
+            }
+        )
+    if qualitative.unreviewed_active_count:
         positive.append(
             {
                 "name": "saved_manual_qualitative_evidence",
@@ -2116,11 +2207,20 @@ def _build_score_driver_breakdown(response: AnalyzeStockResponse) -> dict:
     if qualitative.request_evidence_count:
         positive.append(
             {
-                "name": "user_provided_qualitative_evidence",
+                "name": "request_scoped_qualitative_evidence",
                 "category": "qualitative_evidence",
                 "effect": "preliminary_positive",
                 "source_quality": "user_provided",
                 "summary": f"User-provided qualitative evidence preliminarily covers {', '.join(qualitative.criteria_covered)}.",
+            }
+        )
+        positive.append(
+            {
+                "name": "user_provided_qualitative_evidence",
+                "category": "qualitative_evidence",
+                "effect": "preliminary_positive",
+                "source_quality": "user_provided",
+                "summary": f"Request-scoped user-provided qualitative evidence preliminarily covers {', '.join(qualitative.criteria_covered)}.",
             }
         )
     if qualitative.rejected_evidence_count:
@@ -2131,6 +2231,46 @@ def _build_score_driver_breakdown(response: AnalyzeStockResponse) -> dict:
                 "effect": "limiting",
                 "source_quality": "user_provided",
                 "summary": "One or more qualitative evidence items were rejected or incomplete and do not affect scoring.",
+            }
+        )
+    if qualitative.unreviewed_active_count:
+        limiting.append(
+            {
+                "name": "unreviewed_manual_evidence_requires_review",
+                "category": "qualitative_evidence",
+                "effect": "limiting",
+                "source_quality": "user_provided",
+                "summary": "Unreviewed manual evidence requires local validation before qualitative criteria can carry more confidence.",
+            }
+        )
+    if qualitative.stale_count:
+        limiting.append(
+            {
+                "name": "stale_manual_evidence_requires_refresh",
+                "category": "qualitative_evidence",
+                "effect": "limiting",
+                "source_quality": "user_provided",
+                "summary": "Stale manual evidence is capped and should be refreshed or archived.",
+            }
+        )
+    if qualitative.incomplete_count:
+        limiting.append(
+            {
+                "name": "incomplete_manual_evidence",
+                "category": "qualitative_evidence",
+                "effect": "limiting",
+                "source_quality": "user_provided",
+                "summary": "Incomplete manual evidence has limited impact until source details and limitations improve.",
+            }
+        )
+    if qualitative.archived_or_rejected_ignored_count:
+        limiting.append(
+            {
+                "name": "qualitative_evidence_rejected_or_archived",
+                "category": "qualitative_evidence",
+                "effect": "limiting",
+                "source_quality": "user_provided",
+                "summary": "Archived or rejected manual evidence is stored for audit but ignored for analyze-stock scoring.",
             }
         )
     if response.sec_financial_facts.get("missing_data"):

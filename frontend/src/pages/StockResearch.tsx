@@ -248,6 +248,11 @@ export function AnalyzeDataQualitySection({ dataQuality }: { dataQuality?: Analy
           <div><dt>Rejected</dt><dd>{dataQuality.qualitative_evidence.rejected_count}</dd></div>
           <div><dt>User provided</dt><dd>{dataQuality.qualitative_evidence.user_provided_count}</dd></div>
           <div><dt>Verified</dt><dd>{dataQuality.qualitative_evidence.independently_verified_count}</dd></div>
+          <div><dt>Reviewed active</dt><dd>{dataQuality.qualitative_evidence.reviewed_active_count ?? 0}</dd></div>
+          <div><dt>Unreviewed active</dt><dd>{dataQuality.qualitative_evidence.unreviewed_active_count ?? 0}</dd></div>
+          <div><dt>Stale manual</dt><dd>{dataQuality.qualitative_evidence.stale_count ?? 0}</dd></div>
+          <div><dt>Avg quality</dt><dd>{dataQuality.qualitative_evidence.quality_score_average ?? 'N/A'}</dd></div>
+          <div><dt>Incomplete</dt><dd>{dataQuality.qualitative_evidence.incomplete_count ?? 0}</dd></div>
         </dl>
       )}
       {dataQuality.sec_companyfacts && (
@@ -344,6 +349,10 @@ export function QualitativeEvidenceAssessmentSection({ assessment }: { assessmen
         <span className="smallPill">Rejected {assessment.rejected_evidence_count}</span>
         <span className="smallPill">Saved {assessment.saved_evidence_count ?? 0}</span>
         <span className="smallPill">Request {assessment.request_evidence_count ?? 0}</span>
+        <span className="smallPill">Reviewed {assessment.reviewed_active_count ?? 0}</span>
+        <span className="smallPill">Unreviewed {assessment.unreviewed_active_count ?? 0}</span>
+        <span className="smallPill">Stale {assessment.stale_count ?? 0}</span>
+        <span className="smallPill">Avg quality {assessment.quality_score_average ?? 'N/A'}</span>
         <span className="smallPill">user-provided, not independently verified</span>
         <DataSourceBadge status={assessment.source_status} />
       </div>
@@ -353,7 +362,7 @@ export function QualitativeEvidenceAssessmentSection({ assessment }: { assessmen
       {!!assessment.evidence_items.length && (
         <div className="tableWrap">
           <table>
-            <thead><tr><th>Criterion</th><th>Type</th><th>Status</th><th>Badges</th><th>Source</th><th>Reason</th><th>Summary</th></tr></thead>
+            <thead><tr><th>Criterion</th><th>Type</th><th>Status</th><th>Badges</th><th>Quality</th><th>Source</th><th>Reason</th><th>Summary</th></tr></thead>
             <tbody>
               {assessment.evidence_items.map((item, index) => (
                 <tr key={`${item.criterion}-${item.evidence_type}-${index}`}>
@@ -364,6 +373,12 @@ export function QualitativeEvidenceAssessmentSection({ assessment }: { assessmen
                     <span className="smallPill">{item.origin ?? 'request_scoped'}</span>
                     <span className="smallPill">{item.source_quality}</span>
                     {item.review_status && <span className="smallPill">{item.review_status}</span>}
+                    {item.is_stale && <span className="smallPill">stale</span>}
+                  </td>
+                  <td>
+                    {item.evidence_quality_score ?? 0}
+                    <div><SignalBadge label={item.evidence_quality_label ?? 'incomplete'} variant={item.evidence_quality_label === 'high' ? 'positive' : item.evidence_quality_label === 'incomplete' ? 'warning' : 'neutral'} /></div>
+                    <small>{item.source_reliability_label ?? 'unknown'}</small>
                   </td>
                   <td>{item.source_label || 'N/A'} {item.source_date ? `(${item.source_date})` : ''}</td>
                   <td>{item.acceptance_reason}</td>

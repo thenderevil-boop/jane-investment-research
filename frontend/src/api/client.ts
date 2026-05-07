@@ -66,8 +66,11 @@ export function getLatestDailyReport(): Promise<DailyReport> {
   return request<DailyReport>('/api/daily-report/latest');
 }
 
-export function listManualEvidence(ticker?: string): Promise<ManualQualitativeEvidence[]> {
-  const query = ticker?.trim() ? `?ticker=${encodeURIComponent(ticker.trim().toUpperCase())}` : '';
+export function listManualEvidence(ticker?: string, reviewStatus?: string): Promise<ManualQualitativeEvidence[]> {
+  const params = new URLSearchParams();
+  if (ticker?.trim()) params.set('ticker', ticker.trim().toUpperCase());
+  if (reviewStatus?.trim()) params.set('review_status', reviewStatus.trim());
+  const query = params.toString() ? `?${params.toString()}` : '';
   return request<ManualQualitativeEvidence[]>(`/api/manual-evidence${query}`);
 }
 

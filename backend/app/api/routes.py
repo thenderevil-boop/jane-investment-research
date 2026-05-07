@@ -178,9 +178,26 @@ def analyze_stock_endpoint(request: AnalyzeStockRequest) -> AnalyzeStockResponse
     return _ensure_safe_response(analyze_stock(request))
 
 
+def _filter_manual_evidence_rows(rows: list[dict], review_status: str | None = None, criterion: str | None = None, stale: bool | None = None) -> list[dict]:
+    filtered = rows
+    if review_status:
+        filtered = [item for item in filtered if item.get("review_status") == review_status]
+    if criterion:
+        filtered = [item for item in filtered if item.get("criterion") == criterion]
+    if stale is not None:
+        filtered = [item for item in filtered if bool(item.get("is_stale")) is stale]
+    return filtered
+
+
 @router.get("/manual-evidence", response_model=list[ManualQualitativeEvidence])
-def manual_evidence_list(ticker: str | None = Query(default=None)) -> list[ManualQualitativeEvidence]:
+def manual_evidence_list(
+    ticker: str | None = Query(default=None),
+    review_status: str | None = Query(default=None),
+    criterion: str | None = Query(default=None),
+    stale: bool | None = Query(default=None),
+) -> list[ManualQualitativeEvidence]:
     rows = list_manual_evidence(ticker.strip().upper() if ticker else None)
+    rows = _filter_manual_evidence_rows(rows, review_status=review_status, criterion=criterion, stale=stale)
     return _ensure_safe_response([ManualQualitativeEvidence.model_validate(row) for row in rows])
 
 

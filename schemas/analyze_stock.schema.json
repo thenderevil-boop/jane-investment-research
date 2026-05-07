@@ -1573,9 +1573,61 @@
           "title": "Unreviewed Count",
           "type": "integer"
         },
+        "reviewed_active_count": {
+          "default": 0,
+          "title": "Reviewed Active Count",
+          "type": "integer"
+        },
+        "unreviewed_active_count": {
+          "default": 0,
+          "title": "Unreviewed Active Count",
+          "type": "integer"
+        },
         "archived_or_rejected_ignored_count": {
           "default": 0,
           "title": "Archived Or Rejected Ignored Count",
+          "type": "integer"
+        },
+        "quality_score_average": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quality Score Average"
+        },
+        "high_quality_count": {
+          "default": 0,
+          "title": "High Quality Count",
+          "type": "integer"
+        },
+        "medium_quality_count": {
+          "default": 0,
+          "title": "Medium Quality Count",
+          "type": "integer"
+        },
+        "low_quality_count": {
+          "default": 0,
+          "title": "Low Quality Count",
+          "type": "integer"
+        },
+        "incomplete_count": {
+          "default": 0,
+          "title": "Incomplete Count",
+          "type": "integer"
+        },
+        "stale_count": {
+          "default": 0,
+          "title": "Stale Count",
+          "type": "integer"
+        },
+        "review_due_count": {
+          "default": 0,
+          "title": "Review Due Count",
           "type": "integer"
         },
         "criteria_covered": {
@@ -1738,6 +1790,65 @@
           },
           "title": "Missing Data",
           "type": "array"
+        },
+        "evidence_quality_score": {
+          "default": 0,
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Evidence Quality Score",
+          "type": "number"
+        },
+        "evidence_quality_label": {
+          "default": "incomplete",
+          "enum": [
+            "high",
+            "medium",
+            "low",
+            "incomplete"
+          ],
+          "title": "Evidence Quality Label",
+          "type": "string"
+        },
+        "evidence_quality_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Quality Reasons",
+          "type": "array"
+        },
+        "is_stale": {
+          "default": false,
+          "title": "Is Stale",
+          "type": "boolean"
+        },
+        "stale_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stale Reason"
+        },
+        "next_review_due_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Review Due At"
+        },
+        "source_reliability_label": {
+          "default": "unknown",
+          "title": "Source Reliability Label",
+          "type": "string"
         }
       },
       "required": [

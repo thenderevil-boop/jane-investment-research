@@ -17,6 +17,9 @@ const defaultEvidence: ManualQualitativeEvidenceCreate = {
   source_date: '2026-05-06',
   confidence: 0.65,
   review_status: 'unreviewed' as const,
+  source_reliability_label: 'user_note',
+  review_notes: null,
+  expires_at: null,
   created_by: 'local_user',
   limitations: ['Requires manual verification against official filings or independent sources.'],
   tags: ['manual evidence'],
@@ -24,6 +27,7 @@ const defaultEvidence: ManualQualitativeEvidenceCreate = {
 
 export default function EvidenceLibrary() {
   const [tickerFilter, setTickerFilter] = useState('NVDA');
+  const [reviewStatusFilter, setReviewStatusFilter] = useState('');
   const [items, setItems] = useState<ManualQualitativeEvidence[]>([]);
   const [form, setForm] = useState(defaultEvidence);
   const [loading, setLoading] = useState(false);
@@ -33,7 +37,7 @@ export default function EvidenceLibrary() {
     setLoading(true);
     setError('');
     try {
-      setItems(await listManualEvidence(tickerFilter));
+      setItems(await listManualEvidence(tickerFilter, reviewStatusFilter || undefined));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load manual evidence');
     } finally {
@@ -69,6 +73,17 @@ export default function EvidenceLibrary() {
     await refresh();
   }
 
+  async function onReliabilityChange(item: ManualQualitativeEvidence, sourceReliabilityLabel: ManualQualitativeEvidence['source_reliability_label']) {
+    await updateManualEvidence(item.evidence_id, { source_reliability_label: sourceReliabilityLabel });
+    await refresh();
+  }
+
+  async function onReviewNotesBlur(item: ManualQualitativeEvidence, reviewNotes: string) {
+    if ((item.review_notes ?? '') === reviewNotes) return;
+    await updateManualEvidence(item.evidence_id, { review_notes: reviewNotes || null });
+    await refresh();
+  }
+
   async function onArchive(item: ManualQualitativeEvidence) {
     await archiveManualEvidence(item.evidence_id);
     await refresh();
@@ -89,6 +104,11 @@ export default function EvidenceLibrary() {
         <div className="tickerForm">
           <label htmlFor="evidenceTickerFilter">Ticker</label>
           <input id="evidenceTickerFilter" value={tickerFilter} onChange={(event) => setTickerFilter(event.target.value)} />
+          <label htmlFor="evidenceReviewFilter">Review status</label>
+          <select id="evidenceReviewFilter" value={reviewStatusFilter} onChange={(event) => setReviewStatusFilter(event.target.value)}>
+            <option value="">All</option>
+            {['unreviewed', 'reviewed', 'rejected', 'archived'].map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>
           <button type="button" onClick={refresh} disabled={loading}>{loading ? 'Loading...' : 'Load evidence'}</button>
         </div>
       </section>
@@ -112,6 +132,12 @@ export default function EvidenceLibrary() {
           <input id="manualSource" value={form.source_label} onChange={(event) => setForm({ ...form, source_label: event.target.value })} />
           <label htmlFor="manualDate">Source date</label>
           <input id="manualDate" value={form.source_date ?? ''} onChange={(event) => setForm({ ...form, source_date: event.target.value || null })} />
+          <label htmlFor="manualReliability">Source reliability</label>
+          <select id="manualReliability" value={form.source_reliability_label} onChange={(event) => setForm({ ...form, source_reliability_label: event.target.value as ManualQualitativeEvidence['source_reliability_label'] })}>
+            {['user_note', 'official_company_material', 'sec_filing_reference', 'company_investor_relations', 'reputable_third_party_research', 'unknown', 'other'].map((value) => <option key={value} value={value}>{displayKey(value)}</option>)}
+          </select>
+          <label htmlFor="manualExpires">Expires at</label>
+          <input id="manualExpires" value={form.expires_at ?? ''} onChange={(event) => setForm({ ...form, expires_at: event.target.value || null })} />
           <button type="submit" disabled={loading}>Create saved evidence</button>
         </form>
       </section>
@@ -122,7 +148,7 @@ export default function EvidenceLibrary() {
         <h2>Saved Evidence</h2>
         <div className="tableWrap">
           <table>
-            <thead><tr><th>Ticker</th><th>Criterion</th><th>Type</th><th>Badges</th><th>Summary</th><th>Review</th><th>Action</th></tr></thead>
+            <thead><tr><th>Ticker</th><th>Criterion</th><th>Type</th><th>Badges</th><th>Quality</th><th>Summary</th><th>Review</th><th>Reliability</th><th>Notes</th><th>Action</th></tr></thead>
             <tbody>
               {items.map((item) => (
                 <tr key={item.evidence_id}>
@@ -132,7 +158,14 @@ export default function EvidenceLibrary() {
                   <td>
                     <span className="smallPill">saved_library</span>
                     <span className="smallPill">user_provided</span>
+                    {item.is_stale && <span className="smallPill">stale</span>}
+                    {item.next_review_due_at && <span className="smallPill">review_due</span>}
                     <SignalBadge label={item.review_status} variant={item.review_status === 'reviewed' ? 'positive' : item.review_status === 'archived' || item.review_status === 'rejected' ? 'warning' : 'neutral'} />
+                  </td>
+                  <td>
+                    <strong>{item.evidence_quality_score}</strong>
+                    <div><SignalBadge label={item.evidence_quality_label} variant={item.evidence_quality_label === 'high' ? 'positive' : item.evidence_quality_label === 'incomplete' ? 'warning' : 'neutral'} /></div>
+                    {item.stale_reason && <small>{item.stale_reason}</small>}
                   </td>
                   <td>{item.summary}</td>
                   <td>
@@ -140,6 +173,12 @@ export default function EvidenceLibrary() {
                       {['unreviewed', 'reviewed', 'rejected', 'archived'].map((value) => <option key={value} value={value}>{value}</option>)}
                     </select>
                   </td>
+                  <td>
+                    <select value={item.source_reliability_label} onChange={(event) => onReliabilityChange(item, event.target.value as ManualQualitativeEvidence['source_reliability_label'])}>
+                      {['user_note', 'official_company_material', 'sec_filing_reference', 'company_investor_relations', 'reputable_third_party_research', 'unknown', 'other'].map((value) => <option key={value} value={value}>{displayKey(value)}</option>)}
+                    </select>
+                  </td>
+                  <td><input defaultValue={item.review_notes ?? ''} onBlur={(event) => onReviewNotesBlur(item, event.target.value)} /></td>
                   <td><button type="button" onClick={() => onArchive(item)}>Archive</button></td>
                 </tr>
               ))}

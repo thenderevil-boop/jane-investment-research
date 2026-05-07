@@ -143,6 +143,17 @@ Phase 19 manual evidence library behavior:
 - Request-scoped evidence is not automatically persisted.
 - Saved manual evidence remains user-provided, preliminary, not independently verified, not mock, and not fallback.
 
+Phase 20 manual evidence review behavior:
+
+- Manual evidence includes local review workflow fields: `reviewed_at`, `reviewed_by`, `review_notes`, `last_reviewed_at`, and `next_review_due_at`.
+- `evidence_quality_score` is a deterministic completeness and review-readiness score, not a truth score and not independent verification.
+- `evidence_quality_label` is derived from the score as `high`, `medium`, `low`, or `incomplete`.
+- `source_reliability_label` describes the manually entered source category, but the system does not fetch or validate `source_url`.
+- `review_status="reviewed"` means local human review only. Reviewed evidence remains `source_quality="user_provided"` and `verification_level="user_provided"`.
+- Evidence can be marked stale when `source_date` is older than the review window or `expires_at` has passed. Stale evidence remains visible but has capped qualitative impact and triggers manual checks.
+- Archived/rejected evidence remains stored for audit and is ignored by analyze-stock scoring.
+- Manual evidence cannot make `source_quality_grade` A by itself and cannot generate investment instructions.
+
 Phase 15 company data behavior:
 
 - `company_profile` may use `source_type="live"` or `source_type="cached_live"` with `provider="yfinance"` when yfinance profile data is available.
@@ -375,6 +386,18 @@ Response:
   "source_date": "2026-05-06",
   "confidence": 0.65,
   "review_status": "unreviewed",
+  "reviewed_at": null,
+  "reviewed_by": null,
+  "review_notes": null,
+  "source_reliability_label": "user_note",
+  "evidence_quality_score": 85,
+  "evidence_quality_label": "medium",
+  "evidence_quality_reasons": ["Summary is present and specific."],
+  "is_stale": false,
+  "stale_reason": null,
+  "expires_at": null,
+  "last_reviewed_at": null,
+  "next_review_due_at": null,
   "user_provided": true,
   "created_at": "2026-05-07T00:00:00+00:00",
   "updated_at": "2026-05-07T00:00:00+00:00",

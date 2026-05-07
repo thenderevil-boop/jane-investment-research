@@ -56,8 +56,8 @@ describe('api client', () => {
     const fetchMock = vi.fn(async () => new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } }));
     vi.stubGlobal('fetch', fetchMock);
     const calls = (fetchMock as unknown as { mock: { calls: Array<[string, RequestInit | undefined]> } }).mock.calls;
-    await listManualEvidence('nvda');
-    expect(calls[0][0]).toBe('/api/manual-evidence?ticker=NVDA');
+    await listManualEvidence('nvda', 'reviewed');
+    expect(calls[0][0]).toBe('/api/manual-evidence?ticker=NVDA&review_status=reviewed');
 
     fetchMock.mockResolvedValueOnce(new Response('{"evidence_id":"manual_1"}', { status: 200, headers: { 'content-type': 'application/json' } }));
     await createManualEvidence({
