@@ -8,18 +8,24 @@ from backend.app.jobs.daily_research_refresh import refresh_daily_research_snaps
 from backend.app.middleware.safety_filter import SafetyViolationError, check_safety
 from backend.app.pipelines.research_pipeline import build_daily_report
 from backend.app.raw_store.repository import (
+    create_manual_evidence,
+    delete_manual_evidence,
     get_company_fundamentals,
     get_company_profile,
     get_market_data,
+    get_manual_evidence,
     is_daily_report_snapshot_fresh,
+    list_manual_evidence,
     read_daily_report_snapshot,
     read_sec_filings,
+    update_manual_evidence,
     warm_price_reference_cache,
 )
 from backend.app.reports.stock_analysis import analyze_stock
 from backend.app.schemas.daily_report import DailyReportMetadata, DailyResearchReport
 from backend.app.schemas.health import HealthResponse
 from backend.app.schemas.macro_regime import MacroRegimeOutput
+from backend.app.schemas.manual_evidence import ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, ManualQualitativeEvidencePatch
 from backend.app.schemas.stock_analysis import AnalyzeStockRequest, AnalyzeStockResponse
 from backend.app.schemas.supplemental import DataHealthResponse, RawDataResponse, ThemesLatestResponse, TickerSignalsResponse
 from backend.app.services.daily_report_service import latest_daily_report_response
@@ -169,6 +175,54 @@ def daily_report_by_date(report_date: str) -> DailyResearchReport:
 @router.post("/analyze-stock", response_model=AnalyzeStockResponse)
 def analyze_stock_endpoint(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     return _ensure_safe_response(analyze_stock(request))
+
+
+@router.get("/manual-evidence", response_model=list[ManualQualitativeEvidence])
+def manual_evidence_list(ticker: str | None = Query(default=None)) -> list[ManualQualitativeEvidence]:
+    rows = list_manual_evidence(ticker.strip().upper() if ticker else None)
+    return [ManualQualitativeEvidence.model_validate(row) for row in rows]
+
+
+@router.get("/manual-evidence/by-ticker/{ticker}", response_model=list[ManualQualitativeEvidence])
+def manual_evidence_by_ticker(ticker: str) -> list[ManualQualitativeEvidence]:
+    rows = list_manual_evidence(ticker.strip().upper())
+    return [ManualQualitativeEvidence.model_validate(row) for row in rows]
+
+
+@router.get("/manual-evidence/{evidence_id}", response_model=ManualQualitativeEvidence)
+def manual_evidence_get(evidence_id: str) -> ManualQualitativeEvidence:
+    row = get_manual_evidence(evidence_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Manual evidence item not found")
+    return ManualQualitativeEvidence.model_validate(row)
+
+
+@router.post("/manual-evidence", response_model=ManualQualitativeEvidence)
+def manual_evidence_create(payload: ManualQualitativeEvidenceCreate) -> ManualQualitativeEvidence:
+    created = ManualQualitativeEvidence.model_validate(payload.model_dump(mode="json"))
+    row = create_manual_evidence(created)
+    return ManualQualitativeEvidence.model_validate(row)
+
+
+@router.patch("/manual-evidence", include_in_schema=False)
+def manual_evidence_patch_missing_id() -> None:
+    raise HTTPException(status_code=400, detail="evidence_id path segment is required for manual evidence PATCH")
+
+
+@router.patch("/manual-evidence/{evidence_id}", response_model=ManualQualitativeEvidence)
+def manual_evidence_patch(evidence_id: str, payload: ManualQualitativeEvidencePatch) -> ManualQualitativeEvidence:
+    row = update_manual_evidence(evidence_id, payload)
+    if not row:
+        raise HTTPException(status_code=404, detail="Manual evidence item not found")
+    return ManualQualitativeEvidence.model_validate(row)
+
+
+@router.delete("/manual-evidence/{evidence_id}", response_model=ManualQualitativeEvidence)
+def manual_evidence_delete(evidence_id: str) -> ManualQualitativeEvidence:
+    row = delete_manual_evidence(evidence_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Manual evidence item not found")
+    return ManualQualitativeEvidence.model_validate(row)
 
 
 @router.get("/themes/latest", response_model=ThemesLatestResponse)

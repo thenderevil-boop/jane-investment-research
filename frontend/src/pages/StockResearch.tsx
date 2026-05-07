@@ -282,6 +282,8 @@ export function QualitativeEvidenceAssessmentSection({ assessment }: { assessmen
       <div className="summaryMain">
         <span className="smallPill">Accepted {assessment.accepted_evidence_count}</span>
         <span className="smallPill">Rejected {assessment.rejected_evidence_count}</span>
+        <span className="smallPill">Saved {assessment.saved_evidence_count ?? 0}</span>
+        <span className="smallPill">Request {assessment.request_evidence_count ?? 0}</span>
         <span className="smallPill">user-provided, not independently verified</span>
         <DataSourceBadge status={assessment.source_status} />
       </div>
@@ -291,13 +293,18 @@ export function QualitativeEvidenceAssessmentSection({ assessment }: { assessmen
       {!!assessment.evidence_items.length && (
         <div className="tableWrap">
           <table>
-            <thead><tr><th>Criterion</th><th>Type</th><th>Status</th><th>Source</th><th>Reason</th><th>Summary</th></tr></thead>
+            <thead><tr><th>Criterion</th><th>Type</th><th>Status</th><th>Badges</th><th>Source</th><th>Reason</th><th>Summary</th></tr></thead>
             <tbody>
               {assessment.evidence_items.map((item, index) => (
                 <tr key={`${item.criterion}-${item.evidence_type}-${index}`}>
                   <td>{displayKey(item.criterion)}</td>
                   <td>{displayKey(item.evidence_type)}</td>
                   <td><SignalBadge label={item.accepted ? 'accepted' : 'rejected'} variant={item.accepted ? 'positive' : 'warning'} /></td>
+                  <td>
+                    <span className="smallPill">{item.origin ?? 'request_scoped'}</span>
+                    <span className="smallPill">{item.source_quality}</span>
+                    {item.review_status && <span className="smallPill">{item.review_status}</span>}
+                  </td>
                   <td>{item.source_label || 'N/A'} {item.source_date ? `(${item.source_date})` : ''}</td>
                   <td>{item.acceptance_reason}</td>
                   <td>{item.summary}</td>

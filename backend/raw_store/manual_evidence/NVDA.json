@@ -1,0 +1,25 @@
+[
+  {
+    "confidence": 0.65,
+    "created_at": "2026-05-07T02:00:25.455537+00:00",
+    "created_by": "local_user",
+    "criterion": "network_effect",
+    "evidence_id": "manual_44d4dcfc448c413cbda5939835c5fac5",
+    "evidence_type": "platform_ecosystem",
+    "limitations": [
+      "Requires manual verification against official filings or independent sources."
+    ],
+    "review_status": "archived",
+    "source_date": "2026-05-06",
+    "source_label": "User research note",
+    "source_url": null,
+    "summary": "CUDA developer ecosystem and software stack are tracked as a manual network-effect evidence item requiring periodic review.",
+    "tags": [
+      "CUDA",
+      "developer ecosystem"
+    ],
+    "ticker": "NVDA",
+    "updated_at": "2026-05-07T05:32:21.896739+00:00",
+    "user_provided": true
+  }
+]

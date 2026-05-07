@@ -18,6 +18,8 @@ Phase 17c cleans up analyze-stock data-quality categories. `fallback_evidence_ca
 
 Phase 18 adds structured manual qualitative evidence as an optional analyze-stock input. The system does not fetch `source_url`, scrape websites, ingest news, use YouTube/social/sentiment sources, or add paid providers. User-provided qualitative evidence is labeled `source_quality: "user_provided"` with `source_type: "derived"` and provider `user_provided_qualitative_evidence`; it is not mock evidence and not fallback evidence. It can only support preliminary Jane qualitative criteria, requires manual verification, and cannot turn `research_context.theme` into verified evidence by itself.
 
+Phase 19 stores reusable manual qualitative evidence in a local JSON evidence library under the raw-store boundary. Saved evidence is loaded by ticker for analyze-stock, merged with request-scoped qualitative evidence, and deduplicated. Evidence items carry `origin: "saved_library"` or `origin: "request_scoped"` for audit. Archived and rejected saved evidence remains stored but is ignored by analyze-stock scoring.
+
 Phase 15 live-enables company profile and fundamentals through the existing repository-backed yfinance dependency. `company_profile` may be live or cached-live with `provider: "yfinance"`. `financial_quality` may use yfinance fundamentals and provider-normalized fields. `valuation_context` is derived from yfinance profile and fundamentals inputs with `provider: "derived_from_yfinance"`. Valuation context is risk context only. Missing financial fields are listed in `missing_data` and are not fabricated. If yfinance is unavailable after a live attempt, mock fallback data is clearly labeled with `fallback_used=true`. Leadership evidence remains mock-disclosed until a later live leadership phase.
 
 Phase 16 uses the same yfinance fundamentals path to harden company-quality evidence. `jane_company_quality` is derived from explicit Jane criteria and only scores criteria that have available evidence. Qualitative moat, founder/CEO, network effect, and disruption evidence is marked insufficient when unavailable. `research_context.theme` is user context only and does not verify mega-trend fit. `financial_statement_signals` derives revenue growth, operating margin, net income, operating cash flow, cash buffer, debt, receivables, inventory, CapEx/OCF, and dilution checks from available fundamentals. Missing fields are not fabricated.
@@ -37,6 +39,18 @@ SEC Companyfacts now supplies the official filing-backed financial cross-check l
 Analyze-stock accepts optional `qualitative_evidence` items for moat, founder/CEO, disruption, network effect, continuous R&D, and mega-trend fit. Each item must include a criterion, evidence type, summary, source label/date when available, confidence, user-provided flag, and limitations. The system validates the item locally, rejects unsafe or unsupported evidence, caps user confidence above 0.8 to 0.7, and returns `qualitative_evidence_assessment` for audit.
 
 Accepted user-provided evidence may move a covered qualitative criterion from insufficient to preliminary/user-provided, but it remains manually reviewable and not independently verified. Excluded scoring indicators, missing optional indicators, limitations, and `source_type: "derived"` do not automatically create fallback evidence categories.
+
+## Phase 19 Manual Evidence Library
+
+Manual evidence endpoints manage local-only evidence items:
+
+- `GET /api/manual-evidence?ticker=NVDA`
+- `GET /api/manual-evidence/{evidence_id}`
+- `POST /api/manual-evidence`
+- `PATCH /api/manual-evidence/{evidence_id}`
+- `DELETE /api/manual-evidence/{evidence_id}` soft-archives evidence
+
+Request-scoped qualitative evidence is not automatically saved. Saved manual evidence remains `user_provided`, preliminary, not independently verified, not mock, and not fallback. Saved evidence cannot make `source_quality_grade` A by itself, cannot make qualitative criteria independently verified, and cannot create investment instructions.
 
 ## Phase 17 Official SEC EDGAR Companyfacts
 

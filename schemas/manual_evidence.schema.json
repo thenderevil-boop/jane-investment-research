@@ -1,0 +1,146 @@
+{
+  "properties": {
+    "ticker": {
+      "maxLength": 10,
+      "minLength": 1,
+      "title": "Ticker",
+      "type": "string"
+    },
+    "criterion": {
+      "enum": [
+        "monopoly_power",
+        "visionary_founder_ceo",
+        "disruptive_innovation",
+        "network_effect",
+        "continuous_r_and_d",
+        "mega_trend_fit"
+      ],
+      "title": "Criterion",
+      "type": "string"
+    },
+    "evidence_type": {
+      "enum": [
+        "market_share",
+        "patent",
+        "platform_ecosystem",
+        "founder_operator",
+        "management_tenure",
+        "product_disruption",
+        "customer_adoption",
+        "developer_ecosystem",
+        "switching_cost",
+        "brand_power",
+        "r_and_d_intensity",
+        "user_provided_note",
+        "filing_reference",
+        "other"
+      ],
+      "title": "Evidence Type",
+      "type": "string"
+    },
+    "summary": {
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "source_label": {
+      "minLength": 1,
+      "title": "Source Label",
+      "type": "string"
+    },
+    "source_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Url"
+    },
+    "source_date": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Date"
+    },
+    "confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "review_status": {
+      "default": "unreviewed",
+      "enum": [
+        "unreviewed",
+        "reviewed",
+        "rejected",
+        "archived"
+      ],
+      "title": "Review Status",
+      "type": "string"
+    },
+    "user_provided": {
+      "default": true,
+      "title": "User Provided",
+      "type": "boolean"
+    },
+    "created_by": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": "local_user",
+      "title": "Created By"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    },
+    "evidence_id": {
+      "title": "Evidence Id",
+      "type": "string"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    },
+    "updated_at": {
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ticker",
+    "criterion",
+    "evidence_type",
+    "summary",
+    "source_label",
+    "confidence"
+  ],
+  "title": "ManualQualitativeEvidence",
+  "type": "object"
+}

@@ -99,6 +99,11 @@ export type AnalyzeStockDataQualitySummary = {
     rejected_count: number;
     user_provided_count: number;
     independently_verified_count: number;
+    saved_library_count?: number;
+    request_scoped_count?: number;
+    reviewed_count?: number;
+    unreviewed_count?: number;
+    archived_or_rejected_ignored_count?: number;
     criteria_covered: string[];
     criteria_still_insufficient: string[];
   };
@@ -190,6 +195,7 @@ export type NextManualCheck = {
 };
 
 export type QualitativeEvidenceInput = {
+  evidence_id?: string | null;
   criterion: string;
   evidence_type: string;
   summary: string;
@@ -202,6 +208,9 @@ export type QualitativeEvidenceInput = {
 };
 
 export type QualitativeEvidenceAssessmentItem = {
+  evidence_id?: string | null;
+  origin?: 'saved_library' | 'request_scoped';
+  review_status?: string | null;
   criterion: string;
   evidence_type: string;
   summary: string;
@@ -220,6 +229,12 @@ export type QualitativeEvidenceAssessment = {
   evidence_count: number;
   accepted_evidence_count: number;
   rejected_evidence_count: number;
+  saved_evidence_count?: number;
+  request_evidence_count?: number;
+  deduplicated_count?: number;
+  reviewed_count?: number;
+  unreviewed_count?: number;
+  archived_or_rejected_ignored_count?: number;
   criteria_covered: string[];
   criteria_still_insufficient: string[];
   source_quality_summary: string;
@@ -227,6 +242,29 @@ export type QualitativeEvidenceAssessment = {
   source_status: DataSourceStatus;
   limitations: string[];
   missing_data: string[];
+};
+
+export type ManualQualitativeEvidence = {
+  evidence_id: string;
+  ticker: string;
+  criterion: string;
+  evidence_type: string;
+  summary: string;
+  source_label: string;
+  source_url?: string | null;
+  source_date?: string | null;
+  confidence: number;
+  review_status: 'unreviewed' | 'reviewed' | 'rejected' | 'archived';
+  user_provided: true;
+  created_at: string;
+  updated_at: string;
+  created_by?: string | null;
+  limitations: string[];
+  tags: string[];
+};
+
+export type ManualQualitativeEvidenceCreate = Omit<ManualQualitativeEvidence, 'evidence_id' | 'created_at' | 'updated_at' | 'user_provided'> & {
+  user_provided?: true;
 };
 
 export type JaneReferenceCondition = {

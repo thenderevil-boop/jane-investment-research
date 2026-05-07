@@ -1548,6 +1548,36 @@
           "title": "Rejected Evidence Count",
           "type": "integer"
         },
+        "saved_evidence_count": {
+          "default": 0,
+          "title": "Saved Evidence Count",
+          "type": "integer"
+        },
+        "request_evidence_count": {
+          "default": 0,
+          "title": "Request Evidence Count",
+          "type": "integer"
+        },
+        "deduplicated_count": {
+          "default": 0,
+          "title": "Deduplicated Count",
+          "type": "integer"
+        },
+        "reviewed_count": {
+          "default": 0,
+          "title": "Reviewed Count",
+          "type": "integer"
+        },
+        "unreviewed_count": {
+          "default": 0,
+          "title": "Unreviewed Count",
+          "type": "integer"
+        },
+        "archived_or_rejected_ignored_count": {
+          "default": 0,
+          "title": "Archived Or Rejected Ignored Count",
+          "type": "integer"
+        },
         "criteria_covered": {
           "items": {
             "type": "string"
@@ -1609,6 +1639,39 @@
     },
     "QualitativeEvidenceAssessmentItem": {
       "properties": {
+        "evidence_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Id"
+        },
+        "origin": {
+          "default": "request_scoped",
+          "enum": [
+            "saved_library",
+            "request_scoped"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
+        "review_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Review Status"
+        },
         "criterion": {
           "title": "Criterion",
           "type": "string"

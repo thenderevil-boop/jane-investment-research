@@ -30,12 +30,20 @@ from backend.app.utils.freshness import (
 )
 from backend.app.utils.performance import add_timing, increment_metric
 from backend.app.services.daily_batch_context import get_daily_batch_context
+from backend.app.raw_store import manual_evidence as manual_evidence_store
 
 
 INDEX_SYMBOLS = ["SPY", "QQQ"]
 VIX_SYMBOL = "^VIX"
 MARKET_CONTEXT_PRIMARY_SYMBOLS = {"dxy": "DX-Y.NYB", "gold": "GC=F", "oil": "CL=F"}
 MARKET_CONTEXT_FALLBACK_SYMBOLS = {"gold": "GLD", "oil": "USO"}
+
+list_manual_evidence = manual_evidence_store.list_manual_evidence
+get_manual_evidence = manual_evidence_store.get_manual_evidence
+create_manual_evidence = manual_evidence_store.create_manual_evidence
+update_manual_evidence = manual_evidence_store.update_manual_evidence
+delete_manual_evidence = manual_evidence_store.delete_manual_evidence
+load_manual_evidence_for_ticker = manual_evidence_store.load_manual_evidence_for_ticker
 
 
 def _cache_dir() -> Path:

@@ -132,6 +132,15 @@ Phase 18 qualitative evidence behavior:
 - Accepted user evidence can partially support a qualitative Jane criterion, but confidence is capped conservatively and user evidence alone cannot make `jane_company_quality.label="evidence_backed"`.
 - `research_context.theme` remains context only unless structured qualitative evidence is supplied.
 
+Phase 19 manual evidence library behavior:
+
+- `/api/manual-evidence` provides local CRUD for reusable user-provided qualitative evidence by ticker.
+- Analyze-stock automatically loads saved evidence for the requested ticker, excludes `archived` and `rejected` saved items from scoring, and merges saved evidence with request-scoped `qualitative_evidence`.
+- Evidence items include `origin` values of `saved_library` or `request_scoped`; saved items include `evidence_id` and `review_status`.
+- Duplicate saved/request evidence is deduplicated by `evidence_id` when present, otherwise by ticker, criterion, evidence type, summary, and source label.
+- Request-scoped evidence is not automatically persisted.
+- Saved manual evidence remains user-provided, preliminary, not independently verified, not mock, and not fallback.
+
 Phase 15 company data behavior:
 
 - `company_profile` may use `source_type="live"` or `source_type="cached_live"` with `provider="yfinance"` when yfinance profile data is available.
@@ -230,6 +239,12 @@ Response:
     "evidence_count": 1,
     "accepted_evidence_count": 1,
     "rejected_evidence_count": 0,
+    "saved_evidence_count": 0,
+    "request_evidence_count": 1,
+    "deduplicated_count": 0,
+    "reviewed_count": 0,
+    "unreviewed_count": 0,
+    "archived_or_rejected_ignored_count": 0,
     "criteria_covered": ["network_effect"],
     "criteria_still_insufficient": ["monopoly_power", "visionary_founder_ceo", "disruptive_innovation"],
     "source_quality_summary": "1 user-provided qualitative evidence item(s) accepted for preliminary review.",
@@ -341,6 +356,41 @@ Response:
   "not_investment_advice": true
 }
 ```
+
+### Manual Evidence Library
+
+`ManualQualitativeEvidence`:
+
+```json
+{
+  "evidence_id": "manual_...",
+  "ticker": "NVDA",
+  "criterion": "network_effect",
+  "evidence_type": "platform_ecosystem",
+  "summary": "Manual qualitative claim requiring review.",
+  "source_label": "User research note",
+  "source_url": null,
+  "source_date": "2026-05-06",
+  "confidence": 0.65,
+  "review_status": "unreviewed",
+  "user_provided": true,
+  "created_at": "2026-05-07T00:00:00+00:00",
+  "updated_at": "2026-05-07T00:00:00+00:00",
+  "created_by": "local_user",
+  "limitations": ["Requires manual verification."],
+  "tags": ["CUDA"]
+}
+```
+
+Supported endpoints:
+
+- `GET /api/manual-evidence`
+- `GET /api/manual-evidence?ticker=NVDA`
+- `GET /api/manual-evidence/by-ticker/{ticker}`
+- `GET /api/manual-evidence/{evidence_id}`
+- `POST /api/manual-evidence`
+- `PATCH /api/manual-evidence/{evidence_id}`
+- `DELETE /api/manual-evidence/{evidence_id}` soft-archives the item.
 
 Research verdict labels describe research priority only: `worth_deep_research`, `watchlist_candidate`, `insufficient_data`, or `high_risk_context`. Missing data reduces confidence. Mock or excluded indicators must not increase the verdict score. The endpoint must not emit trading instructions.
 

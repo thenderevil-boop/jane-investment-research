@@ -21,6 +21,7 @@ class ResearchContext(BaseModel):
 
 
 class QualitativeEvidenceInput(BaseModel):
+    evidence_id: str | None = None
     criterion: str
     evidence_type: str
     summary: str = ""
@@ -121,6 +122,9 @@ class AnalyzeStockDataQualitySummary(BaseModel):
 
 
 class QualitativeEvidenceAssessmentItem(BaseModel):
+    evidence_id: str | None = None
+    origin: Literal["saved_library", "request_scoped"] = "request_scoped"
+    review_status: str | None = None
     criterion: str
     evidence_type: str
     summary: str
@@ -139,6 +143,12 @@ class QualitativeEvidenceAssessment(BaseModel):
     evidence_count: int
     accepted_evidence_count: int
     rejected_evidence_count: int
+    saved_evidence_count: int = 0
+    request_evidence_count: int = 0
+    deduplicated_count: int = 0
+    reviewed_count: int = 0
+    unreviewed_count: int = 0
+    archived_or_rejected_ignored_count: int = 0
     criteria_covered: list[str]
     criteria_still_insufficient: list[str]
     source_quality_summary: str

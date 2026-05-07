@@ -246,6 +246,14 @@ Phase 18 qualitative evidence notes:
 - `research_context.theme` remains context only unless structured qualitative evidence is supplied.
 - `source_type="derived"` is not fallback, and `source_type="mixed"` remains invalid.
 
+Phase 19 manual evidence library notes:
+
+- Saved qualitative evidence is local-only, user-provided, reusable by ticker, and not independently verified.
+- `POST /api/analyze-stock` automatically loads non-archived, non-rejected saved manual evidence for the requested ticker and merges it with request-scoped `qualitative_evidence`.
+- Request-scoped qualitative evidence must not be silently persisted; the user must explicitly create saved evidence through the manual-evidence API.
+- Saved manual evidence remains preliminary, cannot make qualitative criteria independently verified, cannot make source quality grade A by itself, and must not be counted as mock or fallback evidence.
+- Archived or rejected saved evidence must not affect analyze-stock scoring.
+
 Phase 16 company-quality notes:
 
 - `jane_company_quality` replaces mock leadership as the primary company-quality model.

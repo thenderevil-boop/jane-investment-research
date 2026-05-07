@@ -70,6 +70,8 @@ Analyze-stock responses now lead with a readable candidate validation report:
 
 Phase 18 adds a structured manual qualitative evidence framework for `POST /api/analyze-stock` without adding scraping, news, YouTube/social, sentiment, or paid providers. Optional `qualitative_evidence` request items are labeled `user_provided`, are not independently verified, and can only support preliminary Jane qualitative criteria such as moat, founder/CEO, disruption, and network effect. User-provided evidence is not mock evidence, not fallback evidence, and cannot by itself upgrade source quality to A or make `jane_company_quality` fully `evidence_backed`. `research_context.theme` remains context only unless structured qualitative evidence is supplied.
 
+Phase 19 adds a local Manual Evidence Library. Saved qualitative evidence is stored by ticker under the raw-store boundary, managed through `/api/manual-evidence`, and automatically loaded into analyze-stock. Saved evidence and request-scoped evidence are merged and deduplicated with auditable `origin` values. Archived or rejected saved evidence does not affect scoring, and request-scoped evidence is not saved unless the user explicitly creates a library item.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
@@ -91,6 +93,7 @@ Completed live integrations now documented in this README:
 - Phase 16: evidence-based Jane company quality and financial statement signals
 - Phase 17: official SEC Companyfacts financial statement cross-check
 - Phase 18: structured user-provided qualitative evidence assessment
+- Phase 19: local reusable manual qualitative evidence library
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 
@@ -177,6 +180,7 @@ None of these are direct investment recommendations.
 |---|---|---|---|
 | USE_LIVE_MARKET_DATA | false | yfinance live prices | |
 | MARKET_DATA_PROVIDER | yfinance | yfinance live prices | |
+| MANUAL_EVIDENCE_DIR | backend/raw_store/manual_evidence | local manual evidence library | local JSON store; no external providers |
 | USE_LIVE_COMPANY_DATA | follows USE_LIVE_MARKET_DATA | yfinance company profile and fundamentals | |
 | COMPANY_DATA_PROVIDER | yfinance | yfinance company profile and fundamentals | |
 | USE_LIVE_MACRO_DATA | false | FRED live macro | |

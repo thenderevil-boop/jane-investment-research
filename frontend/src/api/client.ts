@@ -1,4 +1,4 @@
-import type { ApiError, DailyReport, QualitativeEvidenceInput, ResearchContext, StockAnalysis } from '../types';
+import type { ApiError, DailyReport, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, QualitativeEvidenceInput, ResearchContext, StockAnalysis } from '../types';
 
 async function parseJson<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') ?? '';
@@ -35,6 +35,31 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function getLatestDailyReport(): Promise<DailyReport> {
   return request<DailyReport>('/api/daily-report/latest');
+}
+
+export function listManualEvidence(ticker?: string): Promise<ManualQualitativeEvidence[]> {
+  const query = ticker?.trim() ? `?ticker=${encodeURIComponent(ticker.trim().toUpperCase())}` : '';
+  return request<ManualQualitativeEvidence[]>(`/api/manual-evidence${query}`);
+}
+
+export function createManualEvidence(payload: ManualQualitativeEvidenceCreate): Promise<ManualQualitativeEvidence> {
+  return request<ManualQualitativeEvidence>('/api/manual-evidence', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateManualEvidence(evidenceId: string, patch: Partial<ManualQualitativeEvidence>): Promise<ManualQualitativeEvidence> {
+  return request<ManualQualitativeEvidence>(`/api/manual-evidence/${encodeURIComponent(evidenceId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+export function archiveManualEvidence(evidenceId: string): Promise<ManualQualitativeEvidence> {
+  return request<ManualQualitativeEvidence>(`/api/manual-evidence/${encodeURIComponent(evidenceId)}`, { method: 'DELETE' });
 }
 
 export function analyzeStock(ticker: string, researchContext?: ResearchContext, qualitativeEvidence?: QualitativeEvidenceInput[]): Promise<StockAnalysis> {

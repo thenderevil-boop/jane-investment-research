@@ -52,7 +52,7 @@ def monthly_rows(values: list[float], start_year: int = 2025, start_month: int =
 
 
 def daily_rows(values: list[float]) -> list[dict]:
-    return [{"date": f"2026-04-{27 + index:02d}", "value": str(value)} for index, value in enumerate(values)]
+    return [{"date": f"2026-05-{4 + index:02d}", "value": str(value)} for index, value in enumerate(values)]
 
 
 def fred_payloads() -> dict[str, list[dict]]:
