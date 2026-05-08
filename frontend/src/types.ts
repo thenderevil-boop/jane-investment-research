@@ -493,6 +493,110 @@ export type ManualEvidenceDashboard = {
   not_investment_advice: boolean;
 };
 
+export type CandidateStatus = 'watching' | 'researching' | 'reviewed' | 'archived';
+export type CandidatePriority = 'low' | 'medium' | 'high';
+
+export type CandidateEvidenceSummary = {
+  manual_evidence_count: number;
+  active_evidence_count: number;
+  reviewed_evidence_count: number;
+  unreviewed_evidence_count: number;
+  stale_evidence_count: number;
+  comparison_evidence_count: number;
+  criteria_covered: string[];
+  criteria_missing: string[];
+  peer_companies_mentioned: string[];
+};
+
+export type CandidateResearchItem = {
+  candidate_id: string;
+  ticker: string;
+  market: 'US';
+  company_name?: string | null;
+  theme?: string | null;
+  user_reason?: string | null;
+  source_label?: string | null;
+  source_date?: string | null;
+  status: CandidateStatus;
+  priority: CandidatePriority;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+  last_analyzed_at?: string | null;
+  last_analysis_snapshot_id?: string | null;
+  latest_score?: number | null;
+  latest_confidence?: number | null;
+  latest_label?: string | null;
+  latest_data_quality_grade?: string | null;
+  evidence_summary: CandidateEvidenceSummary;
+  next_review_due_at?: string | null;
+  review_notes?: string | null;
+  limitations: string[];
+  not_investment_advice: true;
+};
+
+export type CandidateResearchItemCreate = {
+  ticker: string;
+  market?: 'US';
+  company_name?: string | null;
+  theme?: string | null;
+  user_reason?: string | null;
+  source_label?: string | null;
+  source_date?: string | null;
+  priority?: CandidatePriority;
+  tags?: string[];
+};
+
+export type CandidateDashboard = {
+  generated_at: string;
+  source_status: {
+    source_type: 'derived';
+    provider: 'local_candidate_workspace';
+    source_date?: string | null;
+    fetched_at: null;
+    is_fresh: boolean;
+    freshness_window: 'local_workspace_store';
+    fallback_used: boolean;
+    fallback_reason: null;
+    limitations: string[];
+    missing_data: string[];
+  };
+  summary: {
+    total_candidates: number;
+    active_candidates: number;
+    watching_count: number;
+    researching_count: number;
+    reviewed_count: number;
+    archived_count: number;
+    high_priority_count: number;
+    stale_evidence_candidate_count: number;
+    needs_review_count: number;
+    with_comparison_evidence_count: number;
+    average_latest_score?: number | null;
+    data_quality_grade_breakdown: Record<string, number>;
+  };
+  items: CandidateResearchItem[];
+  review_queue: CandidateResearchItem[];
+  limitations: string[];
+  missing_data: string[];
+  not_investment_advice: boolean;
+};
+
+export type CandidateFilters = {
+  include_archived?: boolean;
+  ticker?: string;
+  status?: CandidateStatus | '';
+  priority?: CandidatePriority | '';
+  tag?: string;
+  stale_evidence_only?: boolean;
+};
+
+export type CandidateAnalyzeResponse = {
+  candidate: CandidateResearchItem;
+  analysis: StockAnalysis;
+  not_investment_advice: boolean;
+};
+
 export type JaneReferenceCondition = {
   name: string;
   display_text: string;

@@ -1,4 +1,4 @@
-import type { ApiError, DailyReport, ManualEvidenceDashboard, ManualEvidenceDashboardFilters, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, QualitativeEvidenceInput, ResearchContext, StockAnalysis } from '../types';
+import type { ApiError, CandidateAnalyzeResponse, CandidateDashboard, CandidateFilters, CandidateResearchItem, CandidateResearchItemCreate, DailyReport, ManualEvidenceDashboard, ManualEvidenceDashboardFilters, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, QualitativeEvidenceInput, ResearchContext, StockAnalysis } from '../types';
 
 async function parseJson<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') ?? '';
@@ -87,6 +87,62 @@ export function getManualEvidenceDashboard(filters: ManualEvidenceDashboardFilte
   if (filters.min_quality_label) params.set('min_quality_label', filters.min_quality_label);
   const query = params.toString() ? `?${params.toString()}` : '';
   return request<ManualEvidenceDashboard>(`/api/manual-evidence/dashboard${query}`);
+}
+
+function candidateQuery(filters: CandidateFilters = {}) {
+  const params = new URLSearchParams();
+  if (filters.include_archived) params.set('include_archived', 'true');
+  if (filters.ticker?.trim()) params.set('ticker', filters.ticker.trim().toUpperCase());
+  if (filters.status) params.set('status', filters.status);
+  if (filters.priority) params.set('priority', filters.priority);
+  if (filters.tag?.trim()) params.set('tag', filters.tag.trim());
+  if (filters.stale_evidence_only) params.set('stale_evidence_only', 'true');
+  return params.toString() ? `?${params.toString()}` : '';
+}
+
+export function listCandidates(filters: CandidateFilters = {}): Promise<CandidateResearchItem[]> {
+  return request<CandidateResearchItem[]>(`/api/candidates${candidateQuery(filters)}`);
+}
+
+export function getCandidate(candidateId: string): Promise<CandidateResearchItem> {
+  return request<CandidateResearchItem>(`/api/candidates/${encodeURIComponent(candidateId)}`);
+}
+
+export function createCandidate(payload: CandidateResearchItemCreate): Promise<CandidateResearchItem> {
+  return request<CandidateResearchItem>('/api/candidates', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, ticker: payload.ticker.trim().toUpperCase(), market: 'US' }),
+  });
+}
+
+export function updateCandidate(candidateId: string, patch: Partial<CandidateResearchItem>): Promise<CandidateResearchItem> {
+  return request<CandidateResearchItem>(`/api/candidates/${encodeURIComponent(candidateId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+export function archiveCandidate(candidateId: string): Promise<CandidateResearchItem> {
+  return request<CandidateResearchItem>(`/api/candidates/${encodeURIComponent(candidateId)}`, { method: 'DELETE' });
+}
+
+export function refreshCandidateEvidenceSummary(candidateId: string): Promise<CandidateResearchItem> {
+  return request<CandidateResearchItem>(`/api/candidates/${encodeURIComponent(candidateId)}/refresh-evidence-summary`, { method: 'POST' });
+}
+
+export function analyzeCandidate(candidateId: string, payload: { refresh_evidence_summary?: boolean; qualitative_evidence?: QualitativeEvidenceInput[] } = {}, signal?: AbortSignal): Promise<CandidateAnalyzeResponse> {
+  return request<CandidateAnalyzeResponse>(`/api/candidates/${encodeURIComponent(candidateId)}/analyze`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal,
+    body: JSON.stringify({ refresh_evidence_summary: true, ...payload }),
+  });
+}
+
+export function getCandidateDashboard(filters: CandidateFilters = {}): Promise<CandidateDashboard> {
+  return request<CandidateDashboard>(`/api/candidates/dashboard${candidateQuery({ include_archived: filters.include_archived })}`);
 }
 
 export function createManualEvidence(payload: ManualQualitativeEvidenceCreate): Promise<ManualQualitativeEvidence> {

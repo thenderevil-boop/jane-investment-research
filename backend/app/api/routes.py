@@ -30,8 +30,20 @@ from backend.app.schemas.health import HealthResponse
 from backend.app.schemas.macro_regime import MacroRegimeOutput
 from backend.app.schemas.manual_evidence import ManualEvidenceQualityLabel, ManualEvidenceReviewStatus, ManualEvidenceCriterion, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, ManualQualitativeEvidencePatch
 from backend.app.schemas.manual_evidence_dashboard import ManualEvidenceDashboardFilters, ManualEvidenceDashboardResponse
+from backend.app.schemas.candidate_workspace import CandidateAnalyzeRequest, CandidateAnalyzeResponse, CandidateDashboardResponse, CandidatePriority, CandidateResearchItem, CandidateResearchItemCreate, CandidateResearchItemPatch, CandidateStatus
 from backend.app.schemas.stock_analysis import AnalyzeStockRequest, AnalyzeStockResponse
 from backend.app.schemas.supplemental import DataHealthResponse, PriceReferenceWarmupRequest, RawDataResponse, ThemesLatestResponse, TickerSignalsResponse
+from backend.app.raw_store.candidate_workspace import CandidateWorkspaceStoreError
+from backend.app.services.candidate_workspace import (
+    analyze_candidate,
+    archive_candidate_item,
+    build_candidate_dashboard,
+    create_candidate_item,
+    get_candidate_item,
+    list_candidate_items,
+    refresh_candidate_evidence_summary,
+    update_candidate_item,
+)
 from backend.app.services.daily_report_service import latest_daily_report_response
 from backend.app.services.manual_evidence_dashboard import summarize_manual_evidence_dashboard
 from backend.app.services.snapshot_metadata import (
@@ -178,6 +190,84 @@ def daily_report_by_date(report_date: str) -> DailyResearchReport:
 @router.post("/analyze-stock", response_model=AnalyzeStockResponse)
 def analyze_stock_endpoint(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     return _ensure_safe_response(analyze_stock(request))
+
+
+@router.get("/candidates/dashboard", response_model=CandidateDashboardResponse)
+def candidates_dashboard(include_archived: bool = Query(default=False)) -> CandidateDashboardResponse:
+    try:
+        return _ensure_safe_response(build_candidate_dashboard(include_archived=include_archived))
+    except CandidateWorkspaceStoreError as exc:
+        raise HTTPException(status_code=500, detail={"error": str(exc), "not_investment_advice": True}) from exc
+
+
+@router.get("/candidates", response_model=list[CandidateResearchItem])
+def candidates_list(
+    include_archived: bool = Query(default=False),
+    ticker: str | None = Query(default=None),
+    status: CandidateStatus | None = Query(default=None),
+    priority: CandidatePriority | None = Query(default=None),
+    tag: str | None = Query(default=None),
+    stale_evidence_only: bool = Query(default=False),
+) -> list[CandidateResearchItem]:
+    try:
+        return _ensure_safe_response(list_candidate_items(
+            include_archived=include_archived,
+            ticker=ticker,
+            status=status,
+            priority=priority,
+            tag=tag,
+            stale_evidence_only=stale_evidence_only,
+        ))
+    except CandidateWorkspaceStoreError as exc:
+        raise HTTPException(status_code=500, detail={"error": str(exc), "not_investment_advice": True}) from exc
+
+
+@router.get("/candidates/{candidate_id}", response_model=CandidateResearchItem)
+def candidates_get(candidate_id: str) -> CandidateResearchItem:
+    item = get_candidate_item(candidate_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Candidate item not found")
+    return _ensure_safe_response(item)
+
+
+@router.post("/candidates", response_model=CandidateResearchItem)
+def candidates_create(payload: CandidateResearchItemCreate) -> CandidateResearchItem:
+    try:
+        return _ensure_safe_response(create_candidate_item(payload))
+    except CandidateWorkspaceStoreError as exc:
+        raise HTTPException(status_code=500, detail={"error": str(exc), "not_investment_advice": True}) from exc
+
+
+@router.patch("/candidates/{candidate_id}", response_model=CandidateResearchItem)
+def candidates_patch(candidate_id: str, payload: CandidateResearchItemPatch) -> CandidateResearchItem:
+    item = update_candidate_item(candidate_id, payload)
+    if not item:
+        raise HTTPException(status_code=404, detail="Candidate item not found")
+    return _ensure_safe_response(item)
+
+
+@router.delete("/candidates/{candidate_id}", response_model=CandidateResearchItem)
+def candidates_archive(candidate_id: str) -> CandidateResearchItem:
+    item = archive_candidate_item(candidate_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Candidate item not found")
+    return _ensure_safe_response(item)
+
+
+@router.post("/candidates/{candidate_id}/refresh-evidence-summary", response_model=CandidateResearchItem)
+def candidates_refresh_evidence(candidate_id: str) -> CandidateResearchItem:
+    item = refresh_candidate_evidence_summary(candidate_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Candidate item not found")
+    return _ensure_safe_response(item)
+
+
+@router.post("/candidates/{candidate_id}/analyze", response_model=CandidateAnalyzeResponse)
+def candidates_analyze(candidate_id: str, payload: CandidateAnalyzeRequest) -> CandidateAnalyzeResponse:
+    result = analyze_candidate(candidate_id, payload)
+    if not result:
+        raise HTTPException(status_code=404, detail="Candidate item not found")
+    return _ensure_safe_response(result)
 
 
 def _filter_manual_evidence_rows(rows: list[dict], review_status: str | None = None, criterion: str | None = None, stale: bool | None = None) -> list[dict]:

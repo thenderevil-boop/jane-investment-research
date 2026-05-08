@@ -26,6 +26,8 @@ Phase 21 adds manual comparison context hooks to the same evidence library. Evid
 
 Phase 22 adds a Manual Evidence Dashboard summary API and frontend tab. The dashboard reads only the local manual evidence JSON store, summarizes portfolio-level evidence inventory, stale and review queues, archived/rejected audit rows when explicitly requested, criteria coverage by ticker, comparison-evidence counts, and a peer-company index derived only from user-provided `comparison_context`. It does not call live providers, does not call analyze-stock per ticker, does not fetch or validate `source_url`, and does not verify competitor claims. `review_due_count` is preserved as the count of items with any scheduled `next_review_due_at`; `review_scheduled_count` is the same explicit scheduled-review count; `review_overdue_count` is the subset due at or before dashboard generation.
 
+Phase 23 adds a local Candidate Research Workspace. Candidate entries are user-provided workflow metadata stored under `CANDIDATE_WORKSPACE_DIR`; they are not source evidence and do not affect analyze-stock scoring. Candidate list and dashboard endpoints read the local workspace and Manual Evidence Library summaries only. They do not discover themes or tickers, call yfinance, SEC, FRED, web, YouTube, social, sentiment, paid APIs, Future Industry Radar, or fetch/validate `source_url`. Candidate analyze is explicitly per candidate and reuses the existing analyze-stock pipeline.
+
 Phase 15 live-enables company profile and fundamentals through the existing repository-backed yfinance dependency. `company_profile` may be live or cached-live with `provider: "yfinance"`. `financial_quality` may use yfinance fundamentals and provider-normalized fields. `valuation_context` is derived from yfinance profile and fundamentals inputs with `provider: "derived_from_yfinance"`. Valuation context is risk context only. Missing financial fields are listed in `missing_data` and are not fabricated. If yfinance is unavailable after a live attempt, mock fallback data is clearly labeled with `fallback_used=true`. Leadership evidence remains mock-disclosed until a later live leadership phase.
 
 Phase 16 uses the same yfinance fundamentals path to harden company-quality evidence. `jane_company_quality` is derived from explicit Jane criteria and only scores criteria that have available evidence. Qualitative moat, founder/CEO, network effect, and disruption evidence is marked insufficient when unavailable. `research_context.theme` is user context only and does not verify mega-trend fit. `financial_statement_signals` derives revenue growth, operating margin, net income, operating cash flow, cash buffer, debt, receivables, inventory, CapEx/OCF, and dilution checks from available fundamentals. Missing fields are not fabricated.
@@ -67,6 +69,21 @@ Phase 21 comparison fields include optional `comparison_context` with `compariso
 `GET /api/manual-evidence/dashboard` is a local-only operational metadata endpoint over the saved Manual Evidence Library. It supports filters for ticker, review status, criterion, stale-only, scheduled-review-only, comparison context, and minimum quality label. Archived and rejected evidence is excluded by default and appears in `audit_queue` only when `include_archived=true` or `include_rejected=true`.
 
 The endpoint returns `source_status.source_type: "derived"` with provider `local_manual_evidence_library`. It never uses `source_type: "mixed"`, never calls yfinance, SEC, FRED, web, YouTube, social, sentiment, paid APIs, or Future Industry Radar, and never fetches or validates source URLs. Peer company index rows are derived only from user-provided comparison context and are not externally validated.
+
+## Phase 23 Candidate Research Workspace
+
+Candidate Workspace endpoints manage local-only user-supplied ticker ideas:
+
+- `GET /api/candidates`
+- `GET /api/candidates/{candidate_id}`
+- `POST /api/candidates`
+- `PATCH /api/candidates/{candidate_id}`
+- `DELETE /api/candidates/{candidate_id}` soft-archives a candidate
+- `POST /api/candidates/{candidate_id}/refresh-evidence-summary`
+- `POST /api/candidates/{candidate_id}/analyze`
+- `GET /api/candidates/dashboard`
+
+The dashboard source status is `source_type: "derived"` and `provider: "local_candidate_workspace"`. Status values are `watching`, `researching`, `reviewed`, and `archived`; these are workflow states only and not investment recommendations. Evidence summaries are derived from active local Manual Evidence Library records and exclude archived or rejected evidence from active counts.
 
 ## Phase 17 Official SEC EDGAR Companyfacts
 

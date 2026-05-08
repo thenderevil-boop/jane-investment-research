@@ -271,6 +271,15 @@ Phase 22 manual evidence dashboard notes:
 - Peer company index is derived only from user-provided `comparison_context`; peer companies and claimed advantages are not externally validated.
 - `review_due_count` and `review_scheduled_count` count items with any `next_review_due_at`; `review_overdue_count` counts items due at or before dashboard generation.
 
+Phase 23 candidate workspace notes:
+
+- Candidate Workspace is local-only user-provided workflow metadata for externally discovered US ticker ideas.
+- Candidate status values are `watching`, `researching`, `reviewed`, and `archived`; status is not a recommendation and must not affect analyze-stock scoring.
+- Candidate dashboard must not discover themes or tickers, call live providers, scrape, fetch `source_url`, ingest news/YouTube/social/sentiment, call paid APIs, or call analyze-stock for every candidate.
+- Evidence summaries come from the local Manual Evidence Library and exclude archived or rejected evidence from active counts.
+- Candidate analyze may call the existing analyze-stock pipeline for one selected candidate and cache only summary metadata; request-scoped qualitative evidence must not be automatically saved.
+- Candidate workspace responses must include `not_investment_advice: true` and must not use `source_type="mixed"`.
+
 Phase 19 manual evidence library notes:
 
 - Saved qualitative evidence is local-only, user-provided, reusable by ticker, and not independently verified.

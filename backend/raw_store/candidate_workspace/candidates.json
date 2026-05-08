@@ -1,0 +1,58 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "candidate_88772b56a81d4650ab49d9f5cf8bf56f",
+      "company_name": null,
+      "created_at": "2026-05-08T05:33:14.412901+00:00",
+      "evidence_summary": {
+        "active_evidence_count": 2,
+        "comparison_evidence_count": 1,
+        "criteria_covered": [
+          "network_effect",
+          "visionary_founder_ceo"
+        ],
+        "criteria_missing": [
+          "monopoly_power",
+          "disruptive_innovation",
+          "continuous_r_and_d",
+          "mega_trend_fit"
+        ],
+        "manual_evidence_count": 6,
+        "peer_companies_mentioned": [
+          "AMD",
+          "INTC"
+        ],
+        "reviewed_evidence_count": 1,
+        "stale_evidence_count": 0,
+        "unreviewed_evidence_count": 1
+      },
+      "last_analysis_snapshot_id": "analysis_candidate_88772b56a81d4650ab49d9f5cf8bf56f_20260508053356",
+      "last_analyzed_at": "2026-05-08T05:33:56.820194+00:00",
+      "latest_confidence": 0.72,
+      "latest_data_quality_grade": "B",
+      "latest_label": "insufficient_data",
+      "latest_score": 41.62,
+      "limitations": [
+        "Candidate workspace is user-provided workflow metadata and not investment advice.",
+        "Watchlist status is not a recommendation."
+      ],
+      "market": "US",
+      "next_review_due_at": "2027-05-07T00:00:00+00:00",
+      "not_investment_advice": true,
+      "priority": "high",
+      "review_notes": null,
+      "source_date": "2026-05-08",
+      "source_label": "User watchlist note",
+      "status": "archived",
+      "tags": [
+        "AI",
+        "GPU",
+        "infrastructure"
+      ],
+      "theme": "AI infrastructure",
+      "ticker": "NVDA",
+      "updated_at": "2026-05-08T05:34:09.795859+00:00",
+      "user_reason": "External trend research candidate"
+    }
+  ]
+}

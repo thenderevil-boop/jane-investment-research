@@ -7,6 +7,7 @@ describe('App navigation', () => {
     const html = renderToStaticMarkup(<App />);
     expect(html).toContain('Evidence Dashboard');
     expect(html).toContain('Evidence Library');
+    expect(html).toContain('Candidate Workspace');
     expect(html).toContain('Stock Research');
     expect(html).not.toContain('[object Object]');
   });

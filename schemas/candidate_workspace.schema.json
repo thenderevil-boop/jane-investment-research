@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Candidate Workspace",
+  "type": "object",
+  "required": ["generated_at", "source_status", "summary", "items", "review_queue", "limitations", "missing_data", "not_investment_advice"],
+  "properties": {
+    "generated_at": {"type": "string"},
+    "source_status": {
+      "type": "object",
+      "required": ["source_type", "provider", "freshness_window", "fallback_used"],
+      "properties": {
+        "source_type": {"const": "derived"},
+        "provider": {"const": "local_candidate_workspace"},
+        "source_date": {"type": ["string", "null"]},
+        "is_fresh": {"type": "boolean"},
+        "freshness_window": {"const": "local_workspace_store"},
+        "fallback_used": {"const": false},
+        "fallback_reason": {"type": "null"},
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "missing_data": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_candidates", "active_candidates", "watching_count", "researching_count", "reviewed_count", "archived_count", "high_priority_count", "stale_evidence_candidate_count", "needs_review_count", "with_comparison_evidence_count"],
+      "properties": {
+        "total_candidates": {"type": "integer"},
+        "active_candidates": {"type": "integer"},
+        "watching_count": {"type": "integer"},
+        "researching_count": {"type": "integer"},
+        "reviewed_count": {"type": "integer"},
+        "archived_count": {"type": "integer"},
+        "high_priority_count": {"type": "integer"},
+        "stale_evidence_candidate_count": {"type": "integer"},
+        "needs_review_count": {"type": "integer"},
+        "with_comparison_evidence_count": {"type": "integer"},
+        "average_latest_score": {"type": ["number", "null"]},
+        "data_quality_grade_breakdown": {"type": "object", "additionalProperties": {"type": "integer"}}
+      },
+      "additionalProperties": false
+    },
+    "items": {"type": "array", "items": {"$ref": "#/$defs/candidateResearchItem"}},
+    "review_queue": {"type": "array", "items": {"$ref": "#/$defs/candidateResearchItem"}},
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "missing_data": {"type": "array", "items": {"type": "string"}},
+    "not_investment_advice": {"const": true}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "candidateResearchItem": {
+      "type": "object",
+      "required": ["candidate_id", "ticker", "market", "status", "priority", "tags", "created_at", "updated_at", "evidence_summary", "limitations", "not_investment_advice"],
+      "properties": {
+        "candidate_id": {"type": "string"},
+        "ticker": {"type": "string"},
+        "market": {"type": "string"},
+        "company_name": {"type": ["string", "null"]},
+        "theme": {"type": ["string", "null"]},
+        "user_reason": {"type": ["string", "null"]},
+        "source_label": {"type": ["string", "null"]},
+        "source_date": {"type": ["string", "null"]},
+        "status": {"enum": ["watching", "researching", "reviewed", "archived"]},
+        "priority": {"enum": ["low", "medium", "high"]},
+        "tags": {"type": "array", "items": {"type": "string"}},
+        "created_at": {"type": "string"},
+        "updated_at": {"type": "string"},
+        "last_analyzed_at": {"type": ["string", "null"]},
+        "last_analysis_snapshot_id": {"type": ["string", "null"]},
+        "latest_score": {"type": ["number", "null"]},
+        "latest_confidence": {"type": ["number", "null"]},
+        "latest_label": {"type": ["string", "null"]},
+        "latest_data_quality_grade": {"type": ["string", "null"]},
+        "evidence_summary": {
+          "type": "object",
+          "required": ["manual_evidence_count", "active_evidence_count", "reviewed_evidence_count", "unreviewed_evidence_count", "stale_evidence_count", "comparison_evidence_count", "criteria_covered", "criteria_missing", "peer_companies_mentioned"],
+          "properties": {
+            "manual_evidence_count": {"type": "integer"},
+            "active_evidence_count": {"type": "integer"},
+            "reviewed_evidence_count": {"type": "integer"},
+            "unreviewed_evidence_count": {"type": "integer"},
+            "stale_evidence_count": {"type": "integer"},
+            "comparison_evidence_count": {"type": "integer"},
+            "criteria_covered": {"type": "array", "items": {"type": "string"}},
+            "criteria_missing": {"type": "array", "items": {"type": "string"}},
+            "peer_companies_mentioned": {"type": "array", "items": {"type": "string"}}
+          },
+          "additionalProperties": false
+        },
+        "next_review_due_at": {"type": ["string", "null"]},
+        "review_notes": {"type": ["string", "null"]},
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "not_investment_advice": {"const": true}
+      },
+      "additionalProperties": false
+    }
+  }
+}

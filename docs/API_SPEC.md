@@ -36,6 +36,8 @@ Phase 15.5 keeps daily reports snapshot-first while stabilizing architecture. Da
 
 Phase 19.5 hardens API behavior without changing scoring, data providers, SEC parsers, macro scoring, or manual evidence scoring. Normal JSON endpoint responses pass through the safety filter before returning. `/api/themes/latest` and `/api/macro-regime/latest` use the snapshot-first daily report path instead of directly rebuilding the daily report from their route handlers. Supplemental cache-warmup requests use a typed request model, and API error payloads remain sanitized.
 
+Phase 23 adds Candidate Research Workspace endpoints around user-provided ticker ideas. The workspace is local workflow metadata only: it does not discover tickers, does not call live providers from list/dashboard endpoints, does not fetch source URLs, and does not affect analyze-stock scoring.
+
 Optional query parameter:
 
 - `use_live_market_data`: boolean. Defaults to environment configuration. When `true`, the backend attempts repository-backed yfinance OHLCV fetches for market price fields and falls back to mock market data if the fetch fails.
@@ -116,6 +118,25 @@ Phase 14 makes the response a candidate validation report rather than a loose bu
 - `next_manual_checks`: research-oriented checks for source quality, fundamentals, filings, valuation, and risk.
 
 Raw evidence remains available in the legacy score objects, `raw_data`, and debug/expandable frontend panels for audit. Mock and fallback data reduce confidence. The endpoint must keep `not_investment_advice=true` and must not emit trading instructions.
+
+### Candidate Research Workspace
+
+Local workflow endpoints:
+
+- `GET /api/candidates`
+- `GET /api/candidates/{candidate_id}`
+- `POST /api/candidates`
+- `PATCH /api/candidates/{candidate_id}`
+- `DELETE /api/candidates/{candidate_id}`
+- `POST /api/candidates/{candidate_id}/refresh-evidence-summary`
+- `POST /api/candidates/{candidate_id}/analyze`
+- `GET /api/candidates/dashboard`
+
+Candidate entries are user-provided watchlist/workspace metadata. Status values are `watching`, `researching`, `reviewed`, and `archived`; status is not a recommendation and does not alter analyze-stock scoring. Archived candidates are excluded from active lists by default.
+
+`POST /api/candidates/{candidate_id}/analyze` calls the existing analyze-stock pipeline for that candidate only, using candidate theme and user reason as research context. It may accept request-scoped `qualitative_evidence`, but that evidence is not automatically saved to the Manual Evidence Library. The response contains `{ "candidate": CandidateResearchItem, "analysis": AnalyzeStockResponse, "not_investment_advice": true }`.
+
+`GET /api/candidates/dashboard` returns `source_status.source_type="derived"` and `provider="local_candidate_workspace"`. It reads the local candidate store and local Manual Evidence Library summaries only.
 
 Phase 17c data-quality category behavior:
 

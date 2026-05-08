@@ -78,6 +78,8 @@ Phase 21 adds manual competitor/comparison context hooks. Saved or request-scope
 
 Phase 22 adds a local Manual Evidence Dashboard at `GET /api/manual-evidence/dashboard` and an Evidence Dashboard frontend tab. It summarizes saved manual evidence across tickers, stale items, scheduled and overdue reviews, archived/rejected audit items when explicitly requested, Jane qualitative criteria coverage, comparison evidence, and peer companies mentioned in user-provided `comparison_context`. The dashboard is local-only, does not call analyze-stock per ticker, does not call live providers, does not fetch URLs, and does not verify evidence truth. `review_due_count` and `review_scheduled_count` count items with any `next_review_due_at`; `review_overdue_count` counts items due at or before dashboard generation.
 
+Phase 23 adds a local Candidate Research Workspace at `/api/candidates` and a Candidate Workspace frontend tab. The user supplies US tickers, themes, reasons, source labels, priority, and tags from external research. Workspace status is local workflow metadata, not a recommendation. The dashboard reads the local candidate store and Manual Evidence Library summaries only; it does not discover tickers, call live providers, fetch source URLs, scrape, or ingest news, YouTube, social, or sentiment. Candidate analyze calls the existing `POST /api/analyze-stock` pipeline for one selected candidate and caches only summary metadata such as score, confidence, label, and data-quality grade. Request-scoped qualitative evidence is not automatically saved.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
@@ -103,6 +105,7 @@ Completed live integrations now documented in this README:
 - Phase 20: manual evidence review workflow and quality scoring
 - Phase 21: manual comparison evidence and competitor context hooks
 - Phase 22: manual evidence portfolio dashboard and cross-ticker review queue
+- Phase 23: candidate research workspace and watchlist review flow
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 
@@ -190,6 +193,7 @@ None of these are direct investment recommendations.
 | USE_LIVE_MARKET_DATA | false | yfinance live prices | |
 | MARKET_DATA_PROVIDER | yfinance | yfinance live prices | |
 | MANUAL_EVIDENCE_DIR | backend/raw_store/manual_evidence | local manual evidence library | local JSON store; no external providers |
+| CANDIDATE_WORKSPACE_DIR | backend/raw_store/candidate_workspace | local candidate workspace | local JSON store; workflow metadata only |
 | USE_LIVE_COMPANY_DATA | follows USE_LIVE_MARKET_DATA | yfinance company profile and fundamentals | |
 | COMPANY_DATA_PROVIDER | yfinance | yfinance company profile and fundamentals | |
 | USE_LIVE_MACRO_DATA | false | FRED live macro | |

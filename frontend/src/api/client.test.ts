@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { analyzeStock, archiveManualEvidence, createManualEvidence, getLatestDailyReport, getManualEvidenceDashboard, listManualEvidence, updateManualEvidence } from './client';
+import { analyzeCandidate, analyzeStock, archiveCandidate, archiveManualEvidence, createCandidate, getCandidateDashboard, getLatestDailyReport, getManualEvidenceDashboard, listCandidates, refreshCandidateEvidenceSummary, updateCandidate, listManualEvidence, updateManualEvidence, createManualEvidence } from './client';
 
 describe('api client', () => {
   afterEach(() => {
@@ -92,5 +92,41 @@ describe('api client', () => {
     await getManualEvidenceDashboard({ ticker: 'nvda', review_status: 'unreviewed', stale_only: true, has_comparison_context: true });
     const calls = (fetchMock as unknown as { mock: { calls: Array<[string, RequestInit | undefined]> } }).mock.calls;
     expect(calls[0][0]).toBe('/api/manual-evidence/dashboard?ticker=NVDA&review_status=unreviewed&stale_only=true&has_comparison_context=true');
+  });
+
+  it('calls candidate workspace endpoints', async () => {
+    const fetchMock = vi.fn(async () => new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    const calls = (fetchMock as unknown as { mock: { calls: Array<[string, RequestInit | undefined]> } }).mock.calls;
+
+    await listCandidates({ ticker: 'nvda', priority: 'high', stale_evidence_only: true });
+    expect(calls[0][0]).toBe('/api/candidates?ticker=NVDA&priority=high&stale_evidence_only=true');
+
+    fetchMock.mockResolvedValueOnce(new Response('{"candidate_id":"candidate_1","ticker":"NVDA"}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    await createCandidate({ ticker: 'nvda', theme: 'AI infrastructure', priority: 'high', tags: ['AI'] });
+    expect(calls[1][0]).toBe('/api/candidates');
+    expect(JSON.parse(String(calls[1][1]?.body)).ticker).toBe('NVDA');
+
+    fetchMock.mockResolvedValueOnce(new Response('{"candidate_id":"candidate_1","status":"reviewed"}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    await updateCandidate('candidate_1', { status: 'reviewed' });
+    expect(calls[2][0]).toBe('/api/candidates/candidate_1');
+
+    fetchMock.mockResolvedValueOnce(new Response('{"candidate_id":"candidate_1"}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    await refreshCandidateEvidenceSummary('candidate_1');
+    expect(calls[3][0]).toBe('/api/candidates/candidate_1/refresh-evidence-summary');
+
+    fetchMock.mockResolvedValueOnce(new Response('{"candidate":{"candidate_id":"candidate_1"},"analysis":{}}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    const controller = new AbortController();
+    await analyzeCandidate('candidate_1', { refresh_evidence_summary: true }, controller.signal);
+    expect(calls[4][0]).toBe('/api/candidates/candidate_1/analyze');
+    expect(calls[4][1]?.signal).toBe(controller.signal);
+
+    fetchMock.mockResolvedValueOnce(new Response('{"candidate_id":"candidate_1","status":"archived"}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    await archiveCandidate('candidate_1');
+    expect(calls[5][1]?.method).toBe('DELETE');
+
+    fetchMock.mockResolvedValueOnce(new Response('{"summary":{},"items":[],"review_queue":[]}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    await getCandidateDashboard({ include_archived: true });
+    expect(calls[6][0]).toBe('/api/candidates/dashboard?include_archived=true');
   });
 });
