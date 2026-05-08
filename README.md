@@ -76,6 +76,8 @@ Phase 20 adds a manual review workflow and evidence-quality scoring for the Manu
 
 Phase 21 adds manual competitor/comparison context hooks. Saved or request-scoped qualitative evidence may include `comparison_context` with peer companies, comparison type, claimed advantage, comparison summary, source basis, and limitations. Comparison evidence remains user-provided and preliminary, is not independently verified, is not mock or fallback evidence, does not fetch or validate source URLs, and cannot infer moat or disruption from market cap or price performance alone.
 
+Phase 22 adds a local Manual Evidence Dashboard at `GET /api/manual-evidence/dashboard` and an Evidence Dashboard frontend tab. It summarizes saved manual evidence across tickers, stale items, scheduled and overdue reviews, archived/rejected audit items when explicitly requested, Jane qualitative criteria coverage, comparison evidence, and peer companies mentioned in user-provided `comparison_context`. The dashboard is local-only, does not call analyze-stock per ticker, does not call live providers, does not fetch URLs, and does not verify evidence truth. `review_due_count` and `review_scheduled_count` count items with any `next_review_due_at`; `review_overdue_count` counts items due at or before dashboard generation.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
@@ -100,6 +102,7 @@ Completed live integrations now documented in this README:
 - Phase 19: local reusable manual qualitative evidence library
 - Phase 20: manual evidence review workflow and quality scoring
 - Phase 21: manual comparison evidence and competitor context hooks
+- Phase 22: manual evidence portfolio dashboard and cross-ticker review queue
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 

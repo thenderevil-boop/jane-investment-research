@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { analyzeStock, archiveManualEvidence, createManualEvidence, getLatestDailyReport, listManualEvidence, updateManualEvidence } from './client';
+import { analyzeStock, archiveManualEvidence, createManualEvidence, getLatestDailyReport, getManualEvidenceDashboard, listManualEvidence, updateManualEvidence } from './client';
 
 describe('api client', () => {
   afterEach(() => {
@@ -84,5 +84,13 @@ describe('api client', () => {
     await archiveManualEvidence('manual_1');
     expect(calls[3][0]).toBe('/api/manual-evidence/manual_1');
     expect(calls[3][1]?.method).toBe('DELETE');
+  });
+
+  it('calls manual evidence dashboard with filters', async () => {
+    const fetchMock = vi.fn(async () => new Response('{"summary":{},"ticker_summaries":[],"review_queue":[],"stale_queue":[],"audit_queue":[],"peer_company_index":[]}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    await getManualEvidenceDashboard({ ticker: 'nvda', review_status: 'unreviewed', stale_only: true, has_comparison_context: true });
+    const calls = (fetchMock as unknown as { mock: { calls: Array<[string, RequestInit | undefined]> } }).mock.calls;
+    expect(calls[0][0]).toBe('/api/manual-evidence/dashboard?ticker=NVDA&review_status=unreviewed&stale_only=true&has_comparison_context=true');
   });
 });

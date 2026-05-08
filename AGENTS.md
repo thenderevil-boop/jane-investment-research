@@ -262,6 +262,15 @@ Phase 21 comparison evidence notes:
 - Comparison evidence can only support preliminary Jane qualitative criteria under conservative caps; stale, archived, or rejected comparison evidence must be capped or ignored according to manual evidence rules.
 - `comparison_evidence_assessment` and the `comparison_evidence` evidence-matrix row must not count as mock or fallback evidence.
 
+Phase 22 manual evidence dashboard notes:
+
+- `GET /api/manual-evidence/dashboard` is a local-only Manual Evidence Library inventory and review workflow endpoint.
+- The dashboard must not call analyze-stock per ticker, live providers, web scraping, source URL validation, news, YouTube, social, sentiment, paid APIs, or Future Industry Radar.
+- Dashboard summaries are operational metadata, not investment recommendations.
+- Archived and rejected evidence is excluded by default and included only when explicitly requested for audit.
+- Peer company index is derived only from user-provided `comparison_context`; peer companies and claimed advantages are not externally validated.
+- `review_due_count` and `review_scheduled_count` count items with any `next_review_due_at`; `review_overdue_count` counts items due at or before dashboard generation.
+
 Phase 19 manual evidence library notes:
 
 - Saved qualitative evidence is local-only, user-provided, reusable by ticker, and not independently verified.

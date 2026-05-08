@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { archiveManualEvidence, createManualEvidence, listManualEvidence, updateManualEvidence } from '../api/client';
+import { archiveManualEvidence, createManualEvidence, getManualEvidenceDashboard, listManualEvidence, updateManualEvidence } from '../api/client';
 import SignalBadge from '../components/SignalBadge';
 import type { ManualQualitativeEvidence, ManualQualitativeEvidenceCreate } from '../types';
 
@@ -36,6 +36,7 @@ export default function EvidenceLibrary() {
   const [tickerFilter, setTickerFilter] = useState('NVDA');
   const [reviewStatusFilter, setReviewStatusFilter] = useState('');
   const [items, setItems] = useState<ManualQualitativeEvidence[]>([]);
+  const [dashboardCounts, setDashboardCounts] = useState({ stale: 0, reviewDue: 0, active: 0 });
   const [form, setForm] = useState(defaultEvidence);
   const [peerCompaniesText, setPeerCompaniesText] = useState('AMD, INTC');
   const [loading, setLoading] = useState(false);
@@ -45,7 +46,16 @@ export default function EvidenceLibrary() {
     setLoading(true);
     setError('');
     try {
-      setItems(await listManualEvidence(tickerFilter, reviewStatusFilter || undefined));
+      const [nextItems, dashboard] = await Promise.all([
+        listManualEvidence(tickerFilter, reviewStatusFilter || undefined),
+        getManualEvidenceDashboard({ ticker: tickerFilter }),
+      ]);
+      setItems(nextItems);
+      setDashboardCounts({
+        stale: dashboard.summary.stale_count,
+        reviewDue: dashboard.summary.review_scheduled_count,
+        active: dashboard.summary.active_evidence_count,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load manual evidence');
     } finally {
@@ -118,6 +128,7 @@ export default function EvidenceLibrary() {
 
       <section className="pageSection">
         <h2>Filter</h2>
+        <p className="muted">Dashboard for this ticker: active {dashboardCounts.active}, stale {dashboardCounts.stale}, scheduled review {dashboardCounts.reviewDue}.</p>
         <div className="tickerForm">
           <label htmlFor="evidenceTickerFilter">Ticker</label>
           <input id="evidenceTickerFilter" value={tickerFilter} onChange={(event) => setTickerFilter(event.target.value)} />

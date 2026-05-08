@@ -28,10 +28,12 @@ from backend.app.reports.stock_analysis import analyze_stock
 from backend.app.schemas.daily_report import DailyReportMetadata, DailyResearchReport
 from backend.app.schemas.health import HealthResponse
 from backend.app.schemas.macro_regime import MacroRegimeOutput
-from backend.app.schemas.manual_evidence import ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, ManualQualitativeEvidencePatch
+from backend.app.schemas.manual_evidence import ManualEvidenceQualityLabel, ManualEvidenceReviewStatus, ManualEvidenceCriterion, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, ManualQualitativeEvidencePatch
+from backend.app.schemas.manual_evidence_dashboard import ManualEvidenceDashboardFilters, ManualEvidenceDashboardResponse
 from backend.app.schemas.stock_analysis import AnalyzeStockRequest, AnalyzeStockResponse
 from backend.app.schemas.supplemental import DataHealthResponse, PriceReferenceWarmupRequest, RawDataResponse, ThemesLatestResponse, TickerSignalsResponse
 from backend.app.services.daily_report_service import latest_daily_report_response
+from backend.app.services.manual_evidence_dashboard import summarize_manual_evidence_dashboard
 from backend.app.services.snapshot_metadata import (
     ensure_macro_score_explanation as _ensure_macro_score_explanation,
     metadata_from_snapshot as _metadata_from_snapshot,
@@ -187,6 +189,32 @@ def _filter_manual_evidence_rows(rows: list[dict], review_status: str | None = N
     if stale is not None:
         filtered = [item for item in filtered if bool(item.get("is_stale")) is stale]
     return filtered
+
+
+@router.get("/manual-evidence/dashboard", response_model=ManualEvidenceDashboardResponse)
+def manual_evidence_dashboard(
+    ticker: str | None = Query(default=None),
+    include_archived: bool = Query(default=False),
+    include_rejected: bool = Query(default=False),
+    review_status: ManualEvidenceReviewStatus | None = Query(default=None),
+    criterion: ManualEvidenceCriterion | None = Query(default=None),
+    stale_only: bool = Query(default=False),
+    review_due_only: bool = Query(default=False),
+    has_comparison_context: bool | None = Query(default=None),
+    min_quality_label: ManualEvidenceQualityLabel | None = Query(default=None),
+) -> ManualEvidenceDashboardResponse:
+    filters = ManualEvidenceDashboardFilters(
+        ticker=ticker.strip().upper() if ticker else None,
+        include_archived=include_archived,
+        include_rejected=include_rejected,
+        review_status=review_status,
+        criterion=criterion,
+        stale_only=stale_only,
+        review_due_only=review_due_only,
+        has_comparison_context=has_comparison_context,
+        min_quality_label=min_quality_label,
+    )
+    return _ensure_safe_response(summarize_manual_evidence_dashboard(filters))
 
 
 @router.get("/manual-evidence", response_model=list[ManualQualitativeEvidence])

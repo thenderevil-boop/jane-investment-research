@@ -42,6 +42,7 @@ MARKET_CONTEXT_PRIMARY_SYMBOLS = {"dxy": "DX-Y.NYB", "gold": "GC=F", "oil": "CL=
 MARKET_CONTEXT_FALLBACK_SYMBOLS = {"gold": "GLD", "oil": "USO"}
 
 list_manual_evidence = manual_evidence_store.list_manual_evidence
+list_all_manual_evidence = manual_evidence_store.list_all_manual_evidence
 get_manual_evidence = manual_evidence_store.get_manual_evidence
 create_manual_evidence = manual_evidence_store.create_manual_evidence
 update_manual_evidence = manual_evidence_store.update_manual_evidence

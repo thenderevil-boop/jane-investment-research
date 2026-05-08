@@ -447,12 +447,80 @@ Response:
 Supported endpoints:
 
 - `GET /api/manual-evidence`
+- `GET /api/manual-evidence/dashboard`
 - `GET /api/manual-evidence?ticker=NVDA`
 - `GET /api/manual-evidence/by-ticker/{ticker}`
 - `GET /api/manual-evidence/{evidence_id}`
 - `POST /api/manual-evidence`
 - `PATCH /api/manual-evidence/{evidence_id}`
 - `DELETE /api/manual-evidence/{evidence_id}` soft-archives the item.
+
+### GET /api/manual-evidence/dashboard
+
+Returns a local-only Manual Evidence Dashboard for cross-ticker evidence inventory and review workflow. The endpoint reads only the saved manual evidence library and does not call analyze-stock per ticker, live market data, FRED, SEC, web, YouTube, social, sentiment, paid APIs, or Future Industry Radar. It does not fetch or validate `source_url`, does not verify competitor claims, and does not infer moat or market dominance from market cap or price performance.
+
+Optional query parameters:
+
+- `ticker`
+- `include_archived` default `false`
+- `include_rejected` default `false`
+- `review_status`
+- `criterion`
+- `stale_only` default `false`
+- `review_due_only` default `false`
+- `has_comparison_context`
+- `min_quality_label`: `high`, `medium`, `low`, or `incomplete`
+
+Archived and rejected evidence is excluded by default and appears in `audit_queue` only when explicitly requested. `review_due_count` is preserved as the number of items with any `next_review_due_at`; `review_scheduled_count` has the same scheduled-review meaning; `review_overdue_count` is the subset due at or before `generated_at`.
+
+Response:
+
+```json
+{
+  "generated_at": "2026-05-07T00:00:00+00:00",
+  "source_status": {
+    "source_type": "derived",
+    "provider": "local_manual_evidence_library",
+    "source_date": "2026-05-07",
+    "fetched_at": null,
+    "is_fresh": true,
+    "freshness_window": "local_evidence_store",
+    "fallback_used": false,
+    "fallback_reason": null,
+    "limitations": [
+      "Manual evidence is user-provided and not independently verified.",
+      "Dashboard is a review workflow aid, not investment advice."
+    ],
+    "missing_data": []
+  },
+  "summary": {
+    "total_evidence_count": 3,
+    "active_evidence_count": 3,
+    "reviewed_count": 1,
+    "unreviewed_count": 2,
+    "stale_count": 1,
+    "review_due_count": 1,
+    "review_scheduled_count": 1,
+    "review_overdue_count": 0,
+    "archived_count": 0,
+    "rejected_count": 0,
+    "comparison_evidence_count": 1,
+    "tickers_covered_count": 2,
+    "average_quality_score": 68.33,
+    "quality_label_breakdown": {"high": 1, "medium": 1, "low": 1, "incomplete": 0},
+    "review_status_breakdown": {"unreviewed": 2, "reviewed": 1, "rejected": 0, "archived": 0},
+    "criteria_coverage": {"monopoly_power": 0, "visionary_founder_ceo": 1, "disruptive_innovation": 0, "network_effect": 1, "continuous_r_and_d": 1, "mega_trend_fit": 0}
+  },
+  "ticker_summaries": [],
+  "review_queue": [],
+  "stale_queue": [],
+  "audit_queue": [],
+  "peer_company_index": [],
+  "limitations": [],
+  "missing_data": [],
+  "not_investment_advice": true
+}
+```
 
 Research verdict labels describe research priority only: `worth_deep_research`, `watchlist_candidate`, `insufficient_data`, or `high_risk_context`. Missing data reduces confidence. Mock or excluded indicators must not increase the verdict score. The endpoint must not emit trading instructions.
 

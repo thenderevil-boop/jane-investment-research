@@ -1,4 +1,4 @@
-import type { ApiError, DailyReport, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, QualitativeEvidenceInput, ResearchContext, StockAnalysis } from '../types';
+import type { ApiError, DailyReport, ManualEvidenceDashboard, ManualEvidenceDashboardFilters, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, QualitativeEvidenceInput, ResearchContext, StockAnalysis } from '../types';
 
 async function parseJson<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') ?? '';
@@ -72,6 +72,21 @@ export function listManualEvidence(ticker?: string, reviewStatus?: string): Prom
   if (reviewStatus?.trim()) params.set('review_status', reviewStatus.trim());
   const query = params.toString() ? `?${params.toString()}` : '';
   return request<ManualQualitativeEvidence[]>(`/api/manual-evidence${query}`);
+}
+
+export function getManualEvidenceDashboard(filters: ManualEvidenceDashboardFilters = {}): Promise<ManualEvidenceDashboard> {
+  const params = new URLSearchParams();
+  if (filters.ticker?.trim()) params.set('ticker', filters.ticker.trim().toUpperCase());
+  if (filters.review_status?.trim()) params.set('review_status', filters.review_status.trim());
+  if (filters.criterion?.trim()) params.set('criterion', filters.criterion.trim());
+  if (filters.stale_only) params.set('stale_only', 'true');
+  if (filters.review_due_only) params.set('review_due_only', 'true');
+  if (filters.has_comparison_context !== undefined && filters.has_comparison_context !== null) params.set('has_comparison_context', String(filters.has_comparison_context));
+  if (filters.include_archived) params.set('include_archived', 'true');
+  if (filters.include_rejected) params.set('include_rejected', 'true');
+  if (filters.min_quality_label) params.set('min_quality_label', filters.min_quality_label);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return request<ManualEvidenceDashboard>(`/api/manual-evidence/dashboard${query}`);
 }
 
 export function createManualEvidence(payload: ManualQualitativeEvidenceCreate): Promise<ManualQualitativeEvidence> {

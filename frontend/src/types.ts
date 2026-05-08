@@ -392,6 +392,107 @@ export type ManualQualitativeEvidenceCreate = Omit<
   expires_at?: string | null;
 };
 
+export type ManualEvidenceDashboardFilters = {
+  ticker?: string;
+  review_status?: string;
+  stale_only?: boolean;
+  review_due_only?: boolean;
+  has_comparison_context?: boolean | null;
+  include_archived?: boolean;
+  include_rejected?: boolean;
+  criterion?: string;
+  min_quality_label?: 'high' | 'medium' | 'low' | 'incomplete' | '';
+};
+
+export type ManualEvidenceDashboardQueueItem = {
+  evidence_id: string;
+  ticker: string;
+  criterion: string;
+  evidence_type: string;
+  review_status: string;
+  evidence_quality_label: string;
+  evidence_quality_score: number;
+  is_stale: boolean;
+  stale_reason?: string | null;
+  next_review_due_at?: string | null;
+  review_due_reason: string;
+  summary: string;
+  source_label: string;
+  source_date?: string | null;
+  has_comparison_context: boolean;
+  peer_companies: string[];
+};
+
+export type ManualEvidenceTickerSummary = {
+  ticker: string;
+  total_evidence_count: number;
+  active_evidence_count: number;
+  reviewed_count: number;
+  unreviewed_count: number;
+  stale_count: number;
+  review_due_count: number;
+  review_scheduled_count: number;
+  review_overdue_count: number;
+  comparison_evidence_count: number;
+  criteria_covered: string[];
+  criteria_missing: string[];
+  peer_companies_mentioned: string[];
+  quality_label_breakdown: Record<string, number>;
+  highest_quality_label: 'high' | 'medium' | 'low' | 'incomplete' | 'none';
+  next_review_due_at?: string | null;
+};
+
+export type ManualEvidencePeerCompanyIndexItem = {
+  peer_company: string;
+  evidence_count: number;
+  tickers: string[];
+  criteria: string[];
+  comparison_types: string[];
+  claimed_advantage_breakdown: Record<string, number>;
+};
+
+export type ManualEvidenceDashboard = {
+  generated_at: string;
+  source_status: {
+    source_type: 'derived';
+    provider: 'local_manual_evidence_library';
+    source_date?: string | null;
+    fetched_at: null;
+    is_fresh: boolean;
+    freshness_window: 'local_evidence_store';
+    fallback_used: boolean;
+    fallback_reason: null;
+    limitations: string[];
+    missing_data: string[];
+  };
+  summary: {
+    total_evidence_count: number;
+    active_evidence_count: number;
+    reviewed_count: number;
+    unreviewed_count: number;
+    stale_count: number;
+    review_due_count: number;
+    review_scheduled_count: number;
+    review_overdue_count: number;
+    archived_count: number;
+    rejected_count: number;
+    comparison_evidence_count: number;
+    tickers_covered_count: number;
+    average_quality_score?: number | null;
+    quality_label_breakdown: Record<string, number>;
+    review_status_breakdown: Record<string, number>;
+    criteria_coverage: Record<string, number>;
+  };
+  ticker_summaries: ManualEvidenceTickerSummary[];
+  review_queue: ManualEvidenceDashboardQueueItem[];
+  stale_queue: ManualEvidenceDashboardQueueItem[];
+  audit_queue: ManualEvidenceDashboardQueueItem[];
+  peer_company_index: ManualEvidencePeerCompanyIndexItem[];
+  limitations: string[];
+  missing_data: string[];
+  not_investment_advice: boolean;
+};
+
 export type JaneReferenceCondition = {
   name: string;
   display_text: string;

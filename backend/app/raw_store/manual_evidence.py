@@ -65,6 +65,15 @@ def list_manual_evidence(ticker: str | None = None) -> list[dict[str, Any]]:
     return [enrich_manual_evidence_quality(item) for item in rows]
 
 
+def list_all_manual_evidence(include_archived: bool = True, include_rejected: bool = True) -> list[dict[str, Any]]:
+    rows = list_manual_evidence()
+    if not include_archived:
+        rows = [item for item in rows if item.get("review_status") != "archived"]
+    if not include_rejected:
+        rows = [item for item in rows if item.get("review_status") != "rejected"]
+    return rows
+
+
 def get_manual_evidence(evidence_id: str) -> dict[str, Any] | None:
     for item in list_manual_evidence():
         if item.get("evidence_id") == evidence_id:
