@@ -120,7 +120,7 @@ MVP can run natively on Windows. Avoid Linux-only shell assumptions in app code.
 
 Build in phases.
 
-Current implementation has reached Phase 24 Candidate Workspace review notes, analysis history, filters, badges, and UX hardening. Phase 24.5 is documentation, scope-boundary, testing, and repo hygiene alignment only; it must not add product features, APIs, scoring changes, analyze-stock behavior changes, parser changes, scraping, source URL fetching, news, YouTube, sentiment, or Future Industry Radar work.
+Current implementation has reached Phase 24 (candidate workspace review notes, analysis history, filters, badges, and UX hardening). Phase 24.5 is documentation, scope-boundary, testing, and repo hygiene alignment only; it must not add product features, APIs, scoring changes, analyze-stock behavior changes, parser changes, scraping, source URL fetching, news, YouTube, sentiment, or Future Industry Radar work.
 
 Phase labels in historical docs may be non-contiguous. For current development, prefer these implementation references in order:
 
@@ -354,14 +354,14 @@ Before marking a task complete:
 7. Confirm transaction and institutional outputs do not contain prohibited trading instruction language.
 8. Confirm fallback mock Form 4 does not boost smart-money score.
 9. Confirm macro scoring model diagnostics use `macro_v12_5`, active weights total 100, excluded indicators have weight 0, `macro_score_explanation` groups active components separately from excluded indicators, and `source_type` never uses `mixed`.
-10. Confirm user-provided qualitative evidence is never treated as independently verified, live verified, mock evidence, or fallback evidence.
-11. Confirm request-scoped qualitative evidence is not silently persisted to the Manual Evidence Library or Candidate Workspace.
-12. Confirm archived or rejected manual evidence never affects analyze-stock scoring or active evidence counts.
-13. Confirm stale manual evidence remains visible where appropriate but has capped qualitative impact and triggers review checks.
-14. Confirm comparison evidence remains `user_provided`, preliminary, not independently verified, not mock evidence, and not fallback evidence.
-15. Confirm review notes are append-only audit metadata only and do not affect scoring.
-16. Confirm candidate status values are workflow state only, not recommendations, and do not affect scoring.
-17. Confirm Candidate Workspace and manual evidence dashboard endpoints do not call live providers, discover tickers, scrape, fetch or validate source URLs, ingest news/YouTube/social/sentiment, call paid APIs, or call analyze-stock per dashboard item.
+10. Confirm user-provided qualitative evidence is never treated as independently verified, live verified, mock evidence, or fallback evidence, and cannot upgrade `source_quality_grade` to A by itself.
+11. Confirm archived or rejected manual evidence never affects analyze-stock scoring or active evidence counts.
+12. Confirm candidate workspace status values are workflow state only, not investment recommendations, and do not affect analyze-stock scoring.
+13. Confirm Evidence Dashboard endpoints do not call live providers, discover tickers, scrape, fetch or validate source URLs, ingest news/YouTube/social/sentiment, call paid APIs, or call analyze-stock per dashboard item.
+14. Confirm request-scoped qualitative evidence is not silently persisted to the Manual Evidence Library or Candidate Workspace.
+15. Confirm stale manual evidence remains visible where appropriate but has capped qualitative impact and triggers review checks.
+16. Confirm comparison evidence remains `user_provided`, preliminary, not independently verified, not mock evidence, and not fallback evidence.
+17. Confirm review notes are append-only audit metadata only and do not affect scoring.
 18. Confirm evidence and workspace endpoints include `not_investment_advice: true` where applicable.
 19. Confirm `source_type` never equals `mixed`.
 
@@ -371,7 +371,7 @@ Before marking a task complete:
 - FRED daily rates: `daily_rate_5_business_days`.
 - FRED monthly macro: `monthly_macro_latest_observation`.
 - Form 4: `form4_recent_180_days`.
-- SEC 13F: `quarterly_filing_delay`, not daily freshness; reported holdings may lag up to 45 days after quarter end and must be treated as delayed quarterly evidence.
+- SEC 13F: `quarterly_filing_delay`. Fresh window covers the latest quarter-end filing plus 45-day SEC deadline. Cache TTL is days-based (`SEC_13F_CACHE_TTL_DAYS`). Not daily freshness.
 - Options future: requires an explicit provider-specific timestamp and should not use stale mock data.
 - News/sentiment future: source timestamp and deduplication are required.
 - Mock data is excluded from stale-data counts but must be disclosed as mock.
