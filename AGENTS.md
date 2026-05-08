@@ -29,6 +29,18 @@ Daily reports remain available as background context, source-health visibility, 
 
 Future Industry Radar is optional/future/reference only. Do not rebuild automatic theme discovery as a core requirement, and do not let Future Industry Radar block ticker validation.
 
+## Product Boundary
+
+This system is a ticker validation system for user-provided US-listed stock ideas, not a general-purpose research note system.
+
+- The primary workflow is `POST /api/analyze-stock`.
+- Candidate Workspace is limited to local ticker validation workflow metadata for externally discovered ideas.
+- Candidate review notes are append-only audit notes only and never affect scoring.
+- Candidate status is workflow state only, never investment advice, and never a scoring input.
+- Manual Evidence Library records are local, user-provided evidence inventory and review-readiness metadata; they are not independently verified research notes unless a future safety-reviewed design explicitly changes that boundary.
+- The system must not become a full research notebook, task manager, portfolio tracker, trading journal, or execution workflow.
+- Do not add news, YouTube, sentiment, scraping, source URL fetching, paid qualitative providers, or automatic theme/ticker discovery as part of Candidate Workspace or manual evidence flows.
+
 ## Hard Safety Rules
 
 The system must not output direct investment instructions.
@@ -108,7 +120,9 @@ MVP can run natively on Windows. Avoid Linux-only shell assumptions in app code.
 
 Build in phases.
 
-Current implementation has reached Phase 11 official SEC EDGAR 13F integration. Phase labels in historical docs may be non-contiguous. For current development, prefer these implementation references in order:
+Current implementation has reached Phase 24 Candidate Workspace review notes, analysis history, filters, badges, and UX hardening. Phase 24.5 is documentation, scope-boundary, testing, and repo hygiene alignment only; it must not add product features, APIs, scoring changes, analyze-stock behavior changes, parser changes, scraping, source URL fetching, news, YouTube, sentiment, or Future Industry Radar work.
+
+Phase labels in historical docs may be non-contiguous. For current development, prefer these implementation references in order:
 
 1. JSON schemas under `schemas/`
 2. Backend and frontend tests
@@ -217,6 +231,13 @@ Minimum endpoints:
 
 The pipeline must produce one daily report object for background context, cache warmup, source health, and environment snapshot use. It is not the primary user workflow.
 
+Phase 24.5 documentation and hygiene notes:
+
+- Documentation must align AGENTS.md, README, schemas, API docs, and tests with the Phase 24 implementation boundary.
+- This phase is repo hygiene and contract clarification only; do not change scoring, analyze-stock behavior, SEC parsers, macro parsers, Form 4 parsers, 13F parsers, Companyfacts parsers, or live provider behavior.
+- Ignore generated process files, caches, virtual environments, frontend build output, local manual evidence stores, local candidate workspace stores, and local SQLite databases.
+- `backend_phase*.pid` files are local process artifacts and must not be tracked.
+
 Phase 15.5 architecture notes:
 
 - `backend/app/pipelines/research_pipeline.py` is the main pipeline; `mock_pipeline.py` is a compatibility shim only.
@@ -287,6 +308,7 @@ Phase 24 candidate workspace notes:
 - Candidate status transitions are workflow validation only; status remains non-recommendation metadata and must not affect analyze-stock scoring.
 - Candidate filters, sorting, review queues, and evidence badges are local UX hints only.
 - Candidate workspace dashboard must not call live providers, discover tickers, scrape, fetch URLs, or validate source URLs.
+- Candidate Workspace must remain a ticker validation workflow surface, not a full research notebook, task manager, portfolio tracker, trading journal, or execution workflow.
 
 Phase 19 manual evidence library notes:
 
@@ -332,6 +354,16 @@ Before marking a task complete:
 7. Confirm transaction and institutional outputs do not contain prohibited trading instruction language.
 8. Confirm fallback mock Form 4 does not boost smart-money score.
 9. Confirm macro scoring model diagnostics use `macro_v12_5`, active weights total 100, excluded indicators have weight 0, `macro_score_explanation` groups active components separately from excluded indicators, and `source_type` never uses `mixed`.
+10. Confirm user-provided qualitative evidence is never treated as independently verified, live verified, mock evidence, or fallback evidence.
+11. Confirm request-scoped qualitative evidence is not silently persisted to the Manual Evidence Library or Candidate Workspace.
+12. Confirm archived or rejected manual evidence never affects analyze-stock scoring or active evidence counts.
+13. Confirm stale manual evidence remains visible where appropriate but has capped qualitative impact and triggers review checks.
+14. Confirm comparison evidence remains `user_provided`, preliminary, not independently verified, not mock evidence, and not fallback evidence.
+15. Confirm review notes are append-only audit metadata only and do not affect scoring.
+16. Confirm candidate status values are workflow state only, not recommendations, and do not affect scoring.
+17. Confirm Candidate Workspace and manual evidence dashboard endpoints do not call live providers, discover tickers, scrape, fetch or validate source URLs, ingest news/YouTube/social/sentiment, call paid APIs, or call analyze-stock per dashboard item.
+18. Confirm evidence and workspace endpoints include `not_investment_advice: true` where applicable.
+19. Confirm `source_type` never equals `mixed`.
 
 ## Data Freshness Contract
 
@@ -339,7 +371,7 @@ Before marking a task complete:
 - FRED daily rates: `daily_rate_5_business_days`.
 - FRED monthly macro: `monthly_macro_latest_observation`.
 - Form 4: `form4_recent_180_days`.
-- 13F future: `quarterly_filing_delay`, not daily freshness.
+- SEC 13F: `quarterly_filing_delay`, not daily freshness; reported holdings may lag up to 45 days after quarter end and must be treated as delayed quarterly evidence.
 - Options future: requires an explicit provider-specific timestamp and should not use stale mock data.
 - News/sentiment future: source timestamp and deduplication are required.
 - Mock data is excluded from stale-data counts but must be disclosed as mock.

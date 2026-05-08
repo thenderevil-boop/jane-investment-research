@@ -1,4 +1,6 @@
 .venv/
+*.pid
+backend_phase*.pid
 *.pyc
 __pycache__/
 .pytest_cache/
@@ -13,4 +15,10 @@ frontend/.vite/
 frontend/tsconfig.tsbuildinfo
 
 backend/raw_store/cache/
+backend/raw_store/manual_evidence/
+backend/raw_store/candidate_workspace/
+
+*.db
+*.sqlite
+*.sqlite3
 

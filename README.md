@@ -82,6 +82,8 @@ Phase 23 adds a local Candidate Research Workspace at `/api/candidates` and a Ca
 
 Phase 24 hardens the Candidate Research Workspace UX and audit trail. Candidates now keep append-only review note history, validated workflow status transitions, compact analysis metadata history, local-only filters and sorting, review queue reason codes, and evidence coverage badges. Review notes and candidate statuses remain user-provided workflow metadata, do not become Manual Evidence Library records unless saved there explicitly, and do not affect analyze-stock scoring. Candidate workspace list and dashboard endpoints remain local-only and do not fetch external sources.
 
+Phase 24.5 aligns documentation, scope boundaries, testing expectations, and repo hygiene with the Phase 24 implementation. It does not add product features, APIs, scoring changes, analyze-stock behavior changes, parser changes, live providers, scraping, source URL fetching, news, YouTube, sentiment, or Future Industry Radar work. The product boundary remains ticker validation for user-provided US-listed ideas.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
@@ -109,6 +111,7 @@ Completed live integrations now documented in this README:
 - Phase 22: manual evidence portfolio dashboard and cross-ticker review queue
 - Phase 23: candidate research workspace and watchlist review flow
 - Phase 24: candidate workspace review notes, analysis history, filters, badges, and UX hardening
+- Phase 24.5: documentation, scope boundary, testing, and repo hygiene alignment
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 
@@ -188,6 +191,8 @@ Analyze-stock validates user-provided ticker ideas.
 Jane Company Quality, financial statement signals, and smart-money evidence help prioritize deeper research.
 Market Timing and Macro Regime tell us whether the current research environment is favorable, neutral, fearful, or overheated.
 None of these are direct investment recommendations.
+
+Candidate Workspace is local workflow metadata for externally discovered ticker ideas. Review notes are append-only audit notes only, candidate status is workflow state only, and neither review notes nor candidate status affect scoring. The system should not expand into a full research notebook, task manager, portfolio tracker, trading journal, or execution workflow.
 
 ## Environment Variables Reference
 
