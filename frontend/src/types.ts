@@ -508,6 +508,46 @@ export type CandidateEvidenceSummary = {
   peer_companies_mentioned: string[];
 };
 
+export type CandidateReviewNote = {
+  note_id: string;
+  created_at: string;
+  created_by: 'local_user';
+  note: string;
+  note_type: 'general' | 'evidence_review' | 'analysis_review' | 'risk_review' | 'follow_up';
+  related_analysis_snapshot_id?: string | null;
+  tags: string[];
+};
+
+export type CandidateReviewNoteCreate = {
+  note: string;
+  note_type?: CandidateReviewNote['note_type'];
+  related_analysis_snapshot_id?: string | null;
+  tags?: string[];
+};
+
+export type CandidateAnalysisHistoryItem = {
+  analysis_snapshot_id: string;
+  analyzed_at: string;
+  score?: number | null;
+  confidence?: number | null;
+  label?: string | null;
+  data_quality_grade?: string | null;
+  evidence_coverage_summary: {
+    criteria_covered: string[];
+    criteria_missing: string[];
+    active_evidence_count: number;
+    stale_evidence_count: number;
+    comparison_evidence_count: number;
+  };
+  limitations: string[];
+};
+
+export type CandidateEvidenceBadge = {
+  label: string;
+  severity: 'info' | 'warning' | 'success';
+  reason: string;
+};
+
 export type CandidateResearchItem = {
   candidate_id: string;
   ticker: string;
@@ -531,6 +571,10 @@ export type CandidateResearchItem = {
   evidence_summary: CandidateEvidenceSummary;
   next_review_due_at?: string | null;
   review_notes?: string | null;
+  review_note_history: CandidateReviewNote[];
+  analysis_history: CandidateAnalysisHistoryItem[];
+  evidence_badges: CandidateEvidenceBadge[];
+  review_reasons: string[];
   limitations: string[];
   not_investment_advice: true;
 };
@@ -572,6 +616,13 @@ export type CandidateDashboard = {
     stale_evidence_candidate_count: number;
     needs_review_count: number;
     with_comparison_evidence_count: number;
+    needs_analysis_count: number;
+    stale_analysis_count: number;
+    missing_evidence_candidate_count: number;
+    review_overdue_count: number;
+    status_breakdown: Record<string, number>;
+    priority_breakdown: Record<string, number>;
+    missing_criteria_breakdown: Record<string, number>;
     average_latest_score?: number | null;
     data_quality_grade_breakdown: Record<string, number>;
   };
@@ -589,6 +640,12 @@ export type CandidateFilters = {
   priority?: CandidatePriority | '';
   tag?: string;
   stale_evidence_only?: boolean;
+  needs_review_only?: boolean;
+  has_comparison_evidence?: boolean | null;
+  missing_criterion?: string;
+  data_quality_grade?: string;
+  sort_by?: 'updated_at' | 'created_at' | 'priority' | 'latest_score' | 'latest_confidence' | 'next_review_due_at' | 'stale_evidence_count' | 'active_evidence_count';
+  sort_order?: 'asc' | 'desc';
 };
 
 export type CandidateAnalyzeResponse = {

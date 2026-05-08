@@ -128,8 +128,12 @@ Local workflow endpoints:
 - `POST /api/candidates`
 - `PATCH /api/candidates/{candidate_id}`
 - `DELETE /api/candidates/{candidate_id}`
+- `POST /api/candidates/{candidate_id}/restore`
 - `POST /api/candidates/{candidate_id}/refresh-evidence-summary`
 - `POST /api/candidates/{candidate_id}/analyze`
+- `POST /api/candidates/{candidate_id}/notes`
+- `GET /api/candidates/{candidate_id}/notes`
+- `GET /api/candidates/{candidate_id}/analysis-history`
 - `GET /api/candidates/dashboard`
 
 Candidate entries are user-provided watchlist/workspace metadata. Status values are `watching`, `researching`, `reviewed`, and `archived`; status is not a recommendation and does not alter analyze-stock scoring. Archived candidates are excluded from active lists by default.
@@ -137,6 +141,14 @@ Candidate entries are user-provided watchlist/workspace metadata. Status values 
 `POST /api/candidates/{candidate_id}/analyze` calls the existing analyze-stock pipeline for that candidate only, using candidate theme and user reason as research context. It may accept request-scoped `qualitative_evidence`, but that evidence is not automatically saved to the Manual Evidence Library. The response contains `{ "candidate": CandidateResearchItem, "analysis": AnalyzeStockResponse, "not_investment_advice": true }`.
 
 `GET /api/candidates/dashboard` returns `source_status.source_type="derived"` and `provider="local_candidate_workspace"`. It reads the local candidate store and local Manual Evidence Library summaries only.
+
+Phase 24 adds local-only workflow auditability:
+
+- `POST /api/candidates/{candidate_id}/notes` appends a review note with `note_type` of `general`, `evidence_review`, `analysis_review`, `risk_review`, or `follow_up`. Notes are user-provided workflow metadata, pass the same safety checks as candidate metadata, are append-only, and do not affect scoring.
+- `GET /api/candidates/{candidate_id}/analysis-history` returns compact metadata only: snapshot id, timestamp, score, confidence, label, data-quality grade, evidence coverage counts, limitations, and missing criteria. It does not persist full analyze-stock reports.
+- Candidate status transitions are validated. `archived` candidates can return to `watching` only through the explicit restore endpoint.
+- `GET /api/candidates` supports local filters for ticker, status, priority, tag, stale evidence, review needs, comparison evidence, missing criterion, data-quality grade, plus deterministic sorting by updated date, created date, priority, latest score, confidence, next review due date, stale evidence count, or active evidence count.
+- Dashboard summary includes needs-analysis, stale-analysis, missing-evidence, overdue-review counts, status and priority breakdowns, missing-criteria breakdowns, evidence badges, and review reason codes. Badges and review reasons are UX hints only, not recommendations.
 
 Phase 17c data-quality category behavior:
 

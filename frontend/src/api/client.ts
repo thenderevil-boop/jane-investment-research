@@ -1,4 +1,4 @@
-import type { ApiError, CandidateAnalyzeResponse, CandidateDashboard, CandidateFilters, CandidateResearchItem, CandidateResearchItemCreate, DailyReport, ManualEvidenceDashboard, ManualEvidenceDashboardFilters, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, QualitativeEvidenceInput, ResearchContext, StockAnalysis } from '../types';
+import type { ApiError, CandidateAnalysisHistoryItem, CandidateAnalyzeResponse, CandidateDashboard, CandidateFilters, CandidateResearchItem, CandidateResearchItemCreate, CandidateReviewNote, CandidateReviewNoteCreate, DailyReport, ManualEvidenceDashboard, ManualEvidenceDashboardFilters, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, QualitativeEvidenceInput, ResearchContext, StockAnalysis } from '../types';
 
 async function parseJson<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') ?? '';
@@ -97,6 +97,12 @@ function candidateQuery(filters: CandidateFilters = {}) {
   if (filters.priority) params.set('priority', filters.priority);
   if (filters.tag?.trim()) params.set('tag', filters.tag.trim());
   if (filters.stale_evidence_only) params.set('stale_evidence_only', 'true');
+  if (filters.needs_review_only) params.set('needs_review_only', 'true');
+  if (filters.has_comparison_evidence !== undefined && filters.has_comparison_evidence !== null) params.set('has_comparison_evidence', String(filters.has_comparison_evidence));
+  if (filters.missing_criterion?.trim()) params.set('missing_criterion', filters.missing_criterion.trim());
+  if (filters.data_quality_grade?.trim()) params.set('data_quality_grade', filters.data_quality_grade.trim().toUpperCase());
+  if (filters.sort_by) params.set('sort_by', filters.sort_by);
+  if (filters.sort_order) params.set('sort_order', filters.sort_order);
   return params.toString() ? `?${params.toString()}` : '';
 }
 
@@ -126,6 +132,26 @@ export function updateCandidate(candidateId: string, patch: Partial<CandidateRes
 
 export function archiveCandidate(candidateId: string): Promise<CandidateResearchItem> {
   return request<CandidateResearchItem>(`/api/candidates/${encodeURIComponent(candidateId)}`, { method: 'DELETE' });
+}
+
+export function restoreCandidate(candidateId: string): Promise<CandidateResearchItem> {
+  return request<CandidateResearchItem>(`/api/candidates/${encodeURIComponent(candidateId)}/restore`, { method: 'POST' });
+}
+
+export function addCandidateNote(candidateId: string, payload: CandidateReviewNoteCreate): Promise<CandidateReviewNote> {
+  return request<CandidateReviewNote>(`/api/candidates/${encodeURIComponent(candidateId)}/notes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, tags: payload.tags ?? [] }),
+  });
+}
+
+export function getCandidateNotes(candidateId: string): Promise<CandidateReviewNote[]> {
+  return request<CandidateReviewNote[]>(`/api/candidates/${encodeURIComponent(candidateId)}/notes`);
+}
+
+export function getCandidateAnalysisHistory(candidateId: string): Promise<CandidateAnalysisHistoryItem[]> {
+  return request<CandidateAnalysisHistoryItem[]>(`/api/candidates/${encodeURIComponent(candidateId)}/analysis-history`);
 }
 
 export function refreshCandidateEvidenceSummary(candidateId: string): Promise<CandidateResearchItem> {

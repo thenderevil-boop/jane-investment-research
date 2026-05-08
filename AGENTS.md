@@ -280,6 +280,14 @@ Phase 23 candidate workspace notes:
 - Candidate analyze may call the existing analyze-stock pipeline for one selected candidate and cache only summary metadata; request-scoped qualitative evidence must not be automatically saved.
 - Candidate workspace responses must include `not_investment_advice: true` and must not use `source_type="mixed"`.
 
+Phase 24 candidate workspace notes:
+
+- Candidate review notes are append-only local workflow metadata, are safety-checked, and must not affect scoring.
+- Candidate analysis history stores compact metadata only and must not persist full analyze-stock reports unless separately designed and safety-reviewed.
+- Candidate status transitions are workflow validation only; status remains non-recommendation metadata and must not affect analyze-stock scoring.
+- Candidate filters, sorting, review queues, and evidence badges are local UX hints only.
+- Candidate workspace dashboard must not call live providers, discover tickers, scrape, fetch URLs, or validate source URLs.
+
 Phase 19 manual evidence library notes:
 
 - Saved qualitative evidence is local-only, user-provided, reusable by ticker, and not independently verified.

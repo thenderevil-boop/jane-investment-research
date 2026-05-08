@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { analyzeCandidate, analyzeStock, archiveCandidate, archiveManualEvidence, createCandidate, getCandidateDashboard, getLatestDailyReport, getManualEvidenceDashboard, listCandidates, refreshCandidateEvidenceSummary, updateCandidate, listManualEvidence, updateManualEvidence, createManualEvidence } from './client';
+import { addCandidateNote, analyzeCandidate, analyzeStock, archiveCandidate, archiveManualEvidence, createCandidate, getCandidateAnalysisHistory, getCandidateDashboard, getCandidateNotes, getLatestDailyReport, getManualEvidenceDashboard, listCandidates, refreshCandidateEvidenceSummary, restoreCandidate, updateCandidate, listManualEvidence, updateManualEvidence, createManualEvidence } from './client';
 
 describe('api client', () => {
   afterEach(() => {
@@ -99,8 +99,8 @@ describe('api client', () => {
     vi.stubGlobal('fetch', fetchMock);
     const calls = (fetchMock as unknown as { mock: { calls: Array<[string, RequestInit | undefined]> } }).mock.calls;
 
-    await listCandidates({ ticker: 'nvda', priority: 'high', stale_evidence_only: true });
-    expect(calls[0][0]).toBe('/api/candidates?ticker=NVDA&priority=high&stale_evidence_only=true');
+    await listCandidates({ ticker: 'nvda', priority: 'high', stale_evidence_only: true, needs_review_only: true, has_comparison_evidence: true, sort_by: 'latest_score', sort_order: 'desc' });
+    expect(calls[0][0]).toBe('/api/candidates?ticker=NVDA&priority=high&stale_evidence_only=true&needs_review_only=true&has_comparison_evidence=true&sort_by=latest_score&sort_order=desc');
 
     fetchMock.mockResolvedValueOnce(new Response('{"candidate_id":"candidate_1","ticker":"NVDA"}', { status: 200, headers: { 'content-type': 'application/json' } }));
     await createCandidate({ ticker: 'nvda', theme: 'AI infrastructure', priority: 'high', tags: ['AI'] });
@@ -125,8 +125,24 @@ describe('api client', () => {
     await archiveCandidate('candidate_1');
     expect(calls[5][1]?.method).toBe('DELETE');
 
+    fetchMock.mockResolvedValueOnce(new Response('{"candidate_id":"candidate_1","status":"watching"}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    await restoreCandidate('candidate_1');
+    expect(calls[6][0]).toBe('/api/candidates/candidate_1/restore');
+
+    fetchMock.mockResolvedValueOnce(new Response('{"note_id":"note_1","note":"Needs source review."}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    await addCandidateNote('candidate_1', { note: 'Needs source review.', note_type: 'general', tags: ['review'] });
+    expect(calls[7][0]).toBe('/api/candidates/candidate_1/notes');
+
+    fetchMock.mockResolvedValueOnce(new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } }));
+    await getCandidateNotes('candidate_1');
+    expect(calls[8][0]).toBe('/api/candidates/candidate_1/notes');
+
+    fetchMock.mockResolvedValueOnce(new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } }));
+    await getCandidateAnalysisHistory('candidate_1');
+    expect(calls[9][0]).toBe('/api/candidates/candidate_1/analysis-history');
+
     fetchMock.mockResolvedValueOnce(new Response('{"summary":{},"items":[],"review_queue":[]}', { status: 200, headers: { 'content-type': 'application/json' } }));
     await getCandidateDashboard({ include_archived: true });
-    expect(calls[6][0]).toBe('/api/candidates/dashboard?include_archived=true');
+    expect(calls[10][0]).toBe('/api/candidates/dashboard?include_archived=true');
   });
 });

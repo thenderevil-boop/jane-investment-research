@@ -28,6 +28,8 @@ Phase 22 adds a Manual Evidence Dashboard summary API and frontend tab. The dash
 
 Phase 23 adds a local Candidate Research Workspace. Candidate entries are user-provided workflow metadata stored under `CANDIDATE_WORKSPACE_DIR`; they are not source evidence and do not affect analyze-stock scoring. Candidate list and dashboard endpoints read the local workspace and Manual Evidence Library summaries only. They do not discover themes or tickers, call yfinance, SEC, FRED, web, YouTube, social, sentiment, paid APIs, Future Industry Radar, or fetch/validate `source_url`. Candidate analyze is explicitly per candidate and reuses the existing analyze-stock pipeline.
 
+Phase 24 extends that same local workspace with review note history, compact analysis metadata history, status transition validation, filters, sorting, review queue reason codes, and evidence coverage badges. These fields are local UX and audit metadata only. Review notes are not reusable manual evidence unless explicitly saved through `/api/manual-evidence`, analysis history stores compact metadata rather than full reports, and badges do not change scoring.
+
 Phase 15 live-enables company profile and fundamentals through the existing repository-backed yfinance dependency. `company_profile` may be live or cached-live with `provider: "yfinance"`. `financial_quality` may use yfinance fundamentals and provider-normalized fields. `valuation_context` is derived from yfinance profile and fundamentals inputs with `provider: "derived_from_yfinance"`. Valuation context is risk context only. Missing financial fields are listed in `missing_data` and are not fabricated. If yfinance is unavailable after a live attempt, mock fallback data is clearly labeled with `fallback_used=true`. Leadership evidence remains mock-disclosed until a later live leadership phase.
 
 Phase 16 uses the same yfinance fundamentals path to harden company-quality evidence. `jane_company_quality` is derived from explicit Jane criteria and only scores criteria that have available evidence. Qualitative moat, founder/CEO, network effect, and disruption evidence is marked insufficient when unavailable. `research_context.theme` is user context only and does not verify mega-trend fit. `financial_statement_signals` derives revenue growth, operating margin, net income, operating cash flow, cash buffer, debt, receivables, inventory, CapEx/OCF, and dilution checks from available fundamentals. Missing fields are not fabricated.
@@ -84,6 +86,13 @@ Candidate Workspace endpoints manage local-only user-supplied ticker ideas:
 - `GET /api/candidates/dashboard`
 
 The dashboard source status is `source_type: "derived"` and `provider: "local_candidate_workspace"`. Status values are `watching`, `researching`, `reviewed`, and `archived`; these are workflow states only and not investment recommendations. Evidence summaries are derived from active local Manual Evidence Library records and exclude archived or rejected evidence from active counts.
+
+Phase 24 candidate workspace additions remain local-only:
+
+- Review notes are append-only user-provided workflow notes and are safety-checked.
+- Analysis history stores compact metadata for the latest candidate analyze runs.
+- Status transitions are workflow validations only and do not alter analyze-stock scoring.
+- Filters, sorting, review queues, and evidence badges read the local candidate store and local evidence summaries only.
 
 ## Phase 17 Official SEC EDGAR Companyfacts
 

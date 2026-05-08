@@ -94,6 +94,7 @@ def _walk_no_mixed(value):
 
 def _payload(monkeypatch, *, include_rd: bool = False, theme: str = "AI infrastructure") -> dict:
     monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", _tmp_cache())
+    monkeypatch.setattr(config, "MANUAL_EVIDENCE_DIR", _tmp_cache())
     monkeypatch.setattr(config, "USE_LIVE_COMPANY_DATA", True)
     monkeypatch.setattr(company_profile, "fetch_company_profile", _live_profile)
     monkeypatch.setattr(company_profile, "fetch_company_fundamentals", lambda ticker: _live_fundamentals(ticker, include_rd=include_rd))
@@ -181,4 +182,3 @@ def test_quality_summary_matrix_and_theme_context(monkeypatch):
     assert "jane_company_quality" in matrix
     assert "financial_statement_signals" in matrix
     assert matrix["legacy_leadership_score"]["source_quality"] == "mock_only"
-

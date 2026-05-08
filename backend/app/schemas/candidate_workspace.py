@@ -12,6 +12,7 @@ from backend.app.utils.forbidden_language import detect_forbidden_language
 
 CandidateStatus = Literal["watching", "researching", "reviewed", "archived"]
 CandidatePriority = Literal["low", "medium", "high"]
+CandidateReviewNoteType = Literal["general", "evidence_review", "analysis_review", "risk_review", "follow_up"]
 
 
 def utc_now_iso() -> str:
@@ -20,6 +21,14 @@ def utc_now_iso() -> str:
 
 def new_candidate_id() -> str:
     return f"candidate_{uuid4().hex}"
+
+
+def new_note_id() -> str:
+    return f"note_{uuid4().hex}"
+
+
+def new_analysis_snapshot_id(candidate_id: str) -> str:
+    return f"analysis_{candidate_id}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}"
 
 
 def _reject_unsafe_text(value: str | None) -> str | None:
@@ -49,6 +58,69 @@ class CandidateEvidenceSummary(BaseModel):
         "mega_trend_fit",
     ])
     peer_companies_mentioned: list[str] = Field(default_factory=list)
+
+
+class CandidateEvidenceCoverageSummary(BaseModel):
+    criteria_covered: list[str] = Field(default_factory=list)
+    criteria_missing: list[str] = Field(default_factory=list)
+    active_evidence_count: int = 0
+    stale_evidence_count: int = 0
+    comparison_evidence_count: int = 0
+
+
+class CandidateAnalysisHistoryItem(BaseModel):
+    analysis_snapshot_id: str
+    analyzed_at: str
+    score: float | None = None
+    confidence: float | None = None
+    label: str | None = None
+    data_quality_grade: str | None = None
+    evidence_coverage_summary: CandidateEvidenceCoverageSummary = Field(default_factory=CandidateEvidenceCoverageSummary)
+    limitations: list[str] = Field(default_factory=list)
+
+    @field_validator("label", "data_quality_grade")
+    @classmethod
+    def reject_unsafe_text(cls, value: str | None) -> str | None:
+        return _reject_unsafe_text(value)
+
+    @field_validator("limitations")
+    @classmethod
+    def clean_limitations(cls, values: list[str]) -> list[str]:
+        return [text for value in values for text in [_reject_unsafe_text(str(value).strip())] if text]
+
+
+class CandidateReviewNoteCreate(BaseModel):
+    note: str = Field(min_length=1, max_length=2000)
+    note_type: CandidateReviewNoteType = "general"
+    related_analysis_snapshot_id: str | None = None
+    tags: list[str] = Field(default_factory=list)
+
+    @field_validator("note", "related_analysis_snapshot_id")
+    @classmethod
+    def reject_unsafe_text(cls, value: str | None) -> str | None:
+        return _reject_unsafe_text(value)
+
+    @field_validator("tags")
+    @classmethod
+    def clean_tags(cls, values: list[str]) -> list[str]:
+        return sorted({text for value in values for text in [_reject_unsafe_text(str(value).strip())] if text})
+
+
+class CandidateReviewNote(CandidateReviewNoteCreate):
+    note_id: str = Field(default_factory=new_note_id)
+    created_at: str = Field(default_factory=utc_now_iso)
+    created_by: Literal["local_user"] = "local_user"
+
+
+class CandidateEvidenceBadge(BaseModel):
+    label: str
+    severity: Literal["info", "warning", "success"]
+    reason: str
+
+    @field_validator("label", "reason")
+    @classmethod
+    def reject_unsafe_text(cls, value: str) -> str:
+        return _reject_unsafe_text(value) or value
 
 
 class CandidateResearchItemCreate(BaseModel):
@@ -122,6 +194,10 @@ class CandidateResearchItem(CandidateResearchItemCreate):
     evidence_summary: CandidateEvidenceSummary = Field(default_factory=CandidateEvidenceSummary)
     next_review_due_at: str | None = None
     review_notes: str | None = None
+    review_note_history: list[CandidateReviewNote] = Field(default_factory=list)
+    analysis_history: list[CandidateAnalysisHistoryItem] = Field(default_factory=list)
+    evidence_badges: list[CandidateEvidenceBadge] = Field(default_factory=list)
+    review_reasons: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=lambda: [
         "Candidate workspace is user-provided workflow metadata and not investment advice.",
         "Watchlist status is not a recommendation.",
@@ -164,6 +240,13 @@ class CandidateDashboardSummary(BaseModel):
     stale_evidence_candidate_count: int = 0
     needs_review_count: int = 0
     with_comparison_evidence_count: int = 0
+    needs_analysis_count: int = 0
+    stale_analysis_count: int = 0
+    missing_evidence_candidate_count: int = 0
+    review_overdue_count: int = 0
+    status_breakdown: dict[str, int] = Field(default_factory=dict)
+    priority_breakdown: dict[str, int] = Field(default_factory=dict)
+    missing_criteria_breakdown: dict[str, int] = Field(default_factory=dict)
     average_latest_score: float | None = None
     data_quality_grade_breakdown: dict[str, int] = Field(default_factory=dict)
 

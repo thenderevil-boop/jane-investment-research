@@ -30,18 +30,22 @@ from backend.app.schemas.health import HealthResponse
 from backend.app.schemas.macro_regime import MacroRegimeOutput
 from backend.app.schemas.manual_evidence import ManualEvidenceQualityLabel, ManualEvidenceReviewStatus, ManualEvidenceCriterion, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, ManualQualitativeEvidencePatch
 from backend.app.schemas.manual_evidence_dashboard import ManualEvidenceDashboardFilters, ManualEvidenceDashboardResponse
-from backend.app.schemas.candidate_workspace import CandidateAnalyzeRequest, CandidateAnalyzeResponse, CandidateDashboardResponse, CandidatePriority, CandidateResearchItem, CandidateResearchItemCreate, CandidateResearchItemPatch, CandidateStatus
+from backend.app.schemas.candidate_workspace import CandidateAnalysisHistoryItem, CandidateAnalyzeRequest, CandidateAnalyzeResponse, CandidateDashboardResponse, CandidatePriority, CandidateResearchItem, CandidateResearchItemCreate, CandidateResearchItemPatch, CandidateReviewNote, CandidateReviewNoteCreate, CandidateStatus
 from backend.app.schemas.stock_analysis import AnalyzeStockRequest, AnalyzeStockResponse
 from backend.app.schemas.supplemental import DataHealthResponse, PriceReferenceWarmupRequest, RawDataResponse, ThemesLatestResponse, TickerSignalsResponse
 from backend.app.raw_store.candidate_workspace import CandidateWorkspaceStoreError
 from backend.app.services.candidate_workspace import (
+    add_candidate_note,
     analyze_candidate,
     archive_candidate_item,
     build_candidate_dashboard,
     create_candidate_item,
     get_candidate_item,
+    list_candidate_analysis_history,
     list_candidate_items,
+    list_candidate_notes,
     refresh_candidate_evidence_summary,
+    restore_candidate_item,
     update_candidate_item,
 )
 from backend.app.services.daily_report_service import latest_daily_report_response
@@ -208,6 +212,12 @@ def candidates_list(
     priority: CandidatePriority | None = Query(default=None),
     tag: str | None = Query(default=None),
     stale_evidence_only: bool = Query(default=False),
+    needs_review_only: bool = Query(default=False),
+    has_comparison_evidence: bool | None = Query(default=None),
+    missing_criterion: str | None = Query(default=None),
+    data_quality_grade: str | None = Query(default=None),
+    sort_by: str = Query(default="updated_at"),
+    sort_order: str = Query(default="desc"),
 ) -> list[CandidateResearchItem]:
     try:
         return _ensure_safe_response(list_candidate_items(
@@ -217,9 +227,17 @@ def candidates_list(
             priority=priority,
             tag=tag,
             stale_evidence_only=stale_evidence_only,
+            needs_review_only=needs_review_only,
+            has_comparison_evidence=has_comparison_evidence,
+            missing_criterion=missing_criterion,
+            data_quality_grade=data_quality_grade,
+            sort_by=sort_by,
+            sort_order=sort_order,
         ))
     except CandidateWorkspaceStoreError as exc:
         raise HTTPException(status_code=500, detail={"error": str(exc), "not_investment_advice": True}) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail={"error": str(exc), "not_investment_advice": True}) from exc
 
 
 @router.get("/candidates/{candidate_id}", response_model=CandidateResearchItem)
@@ -240,7 +258,10 @@ def candidates_create(payload: CandidateResearchItemCreate) -> CandidateResearch
 
 @router.patch("/candidates/{candidate_id}", response_model=CandidateResearchItem)
 def candidates_patch(candidate_id: str, payload: CandidateResearchItemPatch) -> CandidateResearchItem:
-    item = update_candidate_item(candidate_id, payload)
+    try:
+        item = update_candidate_item(candidate_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail={"error": str(exc), "not_investment_advice": True}) from exc
     if not item:
         raise HTTPException(status_code=404, detail="Candidate item not found")
     return _ensure_safe_response(item)
@@ -252,6 +273,38 @@ def candidates_archive(candidate_id: str) -> CandidateResearchItem:
     if not item:
         raise HTTPException(status_code=404, detail="Candidate item not found")
     return _ensure_safe_response(item)
+
+
+@router.post("/candidates/{candidate_id}/restore", response_model=CandidateResearchItem)
+def candidates_restore(candidate_id: str) -> CandidateResearchItem:
+    item = restore_candidate_item(candidate_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Candidate item not found")
+    return _ensure_safe_response(item)
+
+
+@router.post("/candidates/{candidate_id}/notes", response_model=CandidateReviewNote)
+def candidates_add_note(candidate_id: str, payload: CandidateReviewNoteCreate) -> CandidateReviewNote:
+    note = add_candidate_note(candidate_id, payload)
+    if not note:
+        raise HTTPException(status_code=404, detail="Candidate item not found")
+    return _ensure_safe_response(note)
+
+
+@router.get("/candidates/{candidate_id}/notes", response_model=list[CandidateReviewNote])
+def candidates_notes(candidate_id: str) -> list[CandidateReviewNote]:
+    notes = list_candidate_notes(candidate_id)
+    if notes is None:
+        raise HTTPException(status_code=404, detail="Candidate item not found")
+    return _ensure_safe_response(notes)
+
+
+@router.get("/candidates/{candidate_id}/analysis-history", response_model=list[CandidateAnalysisHistoryItem])
+def candidates_analysis_history(candidate_id: str) -> list[CandidateAnalysisHistoryItem]:
+    history = list_candidate_analysis_history(candidate_id)
+    if history is None:
+        raise HTTPException(status_code=404, detail="Candidate item not found")
+    return _ensure_safe_response(history)
 
 
 @router.post("/candidates/{candidate_id}/refresh-evidence-summary", response_model=CandidateResearchItem)

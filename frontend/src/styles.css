@@ -8,7 +8,7 @@ body {
   margin: 0;
 }
 
-button, input {
+button, input, select, textarea {
   font: inherit;
 }
 
@@ -496,10 +496,64 @@ th {
   flex-direction: column;
 }
 
-.tickerForm input {
+.tickerForm input, .tickerForm select, .filterBar input, .filterBar select, .stackedForm input, .stackedForm select, .stackedForm textarea {
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   padding: 8px 10px;
+}
+
+.filterBar {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.filterBar label, .stackedForm label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filterBar label:has(input[type="checkbox"]) {
+  align-items: center;
+  flex-direction: row;
+}
+
+.stackedForm {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.stackedForm textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.stackedForm button, .queueList button, .tableWrap button {
+  background: #1f2937;
+  border: 0;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  margin: 2px;
+  padding: 7px 10px;
+}
+
+.queueList {
+  display: grid;
+  gap: 8px;
+}
+
+.queueList button {
+  align-items: flex-start;
+  background: #f8fafc;
+  border: 1px solid #dde3ec;
+  color: #1e293b;
+  display: flex;
+  flex-direction: column;
 }
 
 .tickerForm #ticker {

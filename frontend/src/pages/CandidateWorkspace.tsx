@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { analyzeCandidate, archiveCandidate, createCandidate, getCandidateDashboard, listCandidates, refreshCandidateEvidenceSummary, updateCandidate } from '../api/client';
+import { addCandidateNote, analyzeCandidate, archiveCandidate, createCandidate, getCandidateAnalysisHistory, getCandidateDashboard, getCandidateNotes, listCandidates, refreshCandidateEvidenceSummary, restoreCandidate, updateCandidate } from '../api/client';
 import SignalBadge from '../components/SignalBadge';
-import type { CandidateDashboard, CandidatePriority, CandidateResearchItem, CandidateStatus } from '../types';
+import type { CandidateAnalysisHistoryItem, CandidateDashboard, CandidateFilters, CandidatePriority, CandidateResearchItem, CandidateReviewNote, CandidateReviewNoteCreate, CandidateStatus } from '../types';
 
 function displayKey(value: string) {
   return value.replace(/_/g, ' ');
@@ -20,23 +20,47 @@ function SummaryCard({ label, value }: { label: string; value: string | number }
   );
 }
 
+function badgeVariant(severity: string) {
+  return severity === 'success' ? 'positive' : severity === 'warning' ? 'warning' : 'neutral';
+}
+
 export default function CandidateWorkspace() {
   const [dashboard, setDashboard] = useState<CandidateDashboard | null>(null);
   const [items, setItems] = useState<CandidateResearchItem[]>([]);
   const [selected, setSelected] = useState<CandidateResearchItem | null>(null);
   const [form, setForm] = useState({ ticker: 'NVDA', theme: 'AI infrastructure', user_reason: 'External trend research candidate', source_label: 'User watchlist note', source_date: '2026-05-08', priority: 'medium' as CandidatePriority, tags: 'AI, GPU, infrastructure' });
+  const [filters, setFilters] = useState<CandidateFilters>({ sort_by: 'updated_at', sort_order: 'desc' });
+  const [noteForm, setNoteForm] = useState<CandidateReviewNoteCreate>({ note: '', note_type: 'general', tags: [] });
+  const [notes, setNotes] = useState<CandidateReviewNote[]>([]);
+  const [analysisHistory, setAnalysisHistory] = useState<CandidateAnalysisHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const analyzeAbortRef = useRef<AbortController | null>(null);
 
-  async function refresh() {
+  async function loadDetail(candidate: CandidateResearchItem | null) {
+    if (!candidate) {
+      setNotes([]);
+      setAnalysisHistory([]);
+      return;
+    }
+    const [nextNotes, nextHistory] = await Promise.all([
+      getCandidateNotes(candidate.candidate_id),
+      getCandidateAnalysisHistory(candidate.candidate_id),
+    ]);
+    setNotes(nextNotes);
+    setAnalysisHistory(nextHistory);
+  }
+
+  async function refresh(nextFilters = filters) {
     setLoading(true);
     setError('');
     try {
-      const [nextDashboard, nextItems] = await Promise.all([getCandidateDashboard(), listCandidates()]);
+      const [nextDashboard, nextItems] = await Promise.all([getCandidateDashboard(nextFilters), listCandidates(nextFilters)]);
       setDashboard(nextDashboard);
       setItems(nextItems);
-      setSelected((current) => nextItems.find((item) => item.candidate_id === current?.candidate_id) ?? nextItems[0] ?? null);
+      const nextSelected = nextItems.find((item) => item.candidate_id === selected?.candidate_id) ?? nextItems[0] ?? null;
+      setSelected(nextSelected);
+      await loadDetail(nextSelected);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load candidate workspace');
     } finally {
@@ -100,6 +124,30 @@ export default function CandidateWorkspace() {
     await refresh();
   }
 
+  async function restore(item: CandidateResearchItem) {
+    setSelected(await restoreCandidate(item.candidate_id));
+    await refresh({ ...filters, include_archived: true });
+  }
+
+  async function onAddNote(event: FormEvent) {
+    event.preventDefault();
+    if (!selected || !noteForm.note.trim()) return;
+    await addCandidateNote(selected.candidate_id, {
+      ...noteForm,
+      note: noteForm.note.trim(),
+      tags: typeof noteForm.tags === 'string' ? [] : noteForm.tags,
+    });
+    setNoteForm({ note: '', note_type: 'general', tags: [] });
+    const updated = await getCandidateNotes(selected.candidate_id);
+    setNotes(updated);
+    await refresh();
+  }
+
+  function applyFilters(next: CandidateFilters) {
+    setFilters(next);
+    refresh(next);
+  }
+
   const summary = dashboard?.summary;
   return (
     <main className="page">
@@ -119,6 +167,8 @@ export default function CandidateWorkspace() {
             <SummaryCard label="High priority" value={summary.high_priority_count} />
             <SummaryCard label="Stale evidence" value={summary.stale_evidence_candidate_count} />
             <SummaryCard label="Needs review" value={summary.needs_review_count} />
+            <SummaryCard label="Needs analysis" value={summary.needs_analysis_count} />
+            <SummaryCard label="Review overdue" value={summary.review_overdue_count} />
             <SummaryCard label="Comparison evidence" value={summary.with_comparison_evidence_count} />
             <SummaryCard label="Avg latest score" value={summary.average_latest_score ?? 'N/A'} />
           </div>
@@ -152,29 +202,39 @@ export default function CandidateWorkspace() {
 
       <section className="pageSection">
         <h2>Candidates</h2>
+        <div className="filterBar">
+          <label>Status<select value={filters.status ?? ''} onChange={(event) => applyFilters({ ...filters, status: event.target.value as CandidateStatus | '' })}><option value="">Any</option>{['watching', 'researching', 'reviewed', 'archived'].map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+          <label>Priority<select value={filters.priority ?? ''} onChange={(event) => applyFilters({ ...filters, priority: event.target.value as CandidatePriority | '' })}><option value="">Any</option>{['low', 'medium', 'high'].map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+          <label>Ticker<input value={filters.ticker ?? ''} onChange={(event) => setFilters({ ...filters, ticker: event.target.value })} onBlur={() => refresh()} /></label>
+          <label>Tag<input value={filters.tag ?? ''} onChange={(event) => setFilters({ ...filters, tag: event.target.value })} onBlur={() => refresh()} /></label>
+          <label>Comparison<select value={filters.has_comparison_evidence === undefined || filters.has_comparison_evidence === null ? '' : String(filters.has_comparison_evidence)} onChange={(event) => applyFilters({ ...filters, has_comparison_evidence: event.target.value === '' ? null : event.target.value === 'true' })}><option value="">Any</option><option value="true">Present</option><option value="false">None</option></select></label>
+          <label>Sort<select value={filters.sort_by ?? 'updated_at'} onChange={(event) => applyFilters({ ...filters, sort_by: event.target.value as CandidateFilters['sort_by'] })}>{['updated_at', 'latest_score', 'next_review_due_at', 'stale_evidence_count'].map((value) => <option key={value} value={value}>{displayKey(value)}</option>)}</select></label>
+          <label>Order<select value={filters.sort_order ?? 'desc'} onChange={(event) => applyFilters({ ...filters, sort_order: event.target.value as 'asc' | 'desc' })}><option value="desc">Desc</option><option value="asc">Asc</option></select></label>
+          <label><input type="checkbox" checked={Boolean(filters.stale_evidence_only)} onChange={(event) => applyFilters({ ...filters, stale_evidence_only: event.target.checked })} /> Stale evidence only</label>
+          <label><input type="checkbox" checked={Boolean(filters.needs_review_only)} onChange={(event) => applyFilters({ ...filters, needs_review_only: event.target.checked })} /> Needs review only</label>
+          <label><input type="checkbox" checked={Boolean(filters.include_archived)} onChange={(event) => applyFilters({ ...filters, include_archived: event.target.checked })} /> Include archived</label>
+        </div>
         <div className="tableWrap">
           <table>
-            <thead><tr><th>Ticker</th><th>Theme</th><th>Status</th><th>Priority</th><th>Latest</th><th>Quality</th><th>Coverage</th><th>Stale</th><th>Comparison</th><th>Missing criteria</th><th>Next review</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Ticker</th><th>Theme</th><th>Status</th><th>Priority</th><th>Latest</th><th>Quality</th><th>Badges</th><th>Coverage</th><th>Next review</th><th>Actions</th></tr></thead>
             <tbody>
               {items.map((item) => (
-                <tr key={item.candidate_id} onClick={() => setSelected(item)}>
+                <tr key={item.candidate_id} onClick={() => { setSelected(item); loadDetail(item); }}>
                   <td>{item.ticker}</td>
                   <td>{item.theme ?? 'N/A'}</td>
                   <td><SignalBadge label={item.status} variant={item.status === 'reviewed' ? 'positive' : 'neutral'} /></td>
-                  <td>{item.priority}</td>
-                  <td>{item.latest_score ?? 'N/A'} {item.latest_label ? <small>{item.latest_label}</small> : null}</td>
+                  <td><SignalBadge label={item.priority} variant={item.priority === 'high' ? 'warning' : 'neutral'} /></td>
+                  <td>{item.latest_score ?? 'N/A'} {item.latest_confidence ? <small>conf {item.latest_confidence}</small> : null} {item.latest_label ? <small>{item.latest_label}</small> : null}</td>
                   <td>{item.latest_data_quality_grade ?? 'N/A'}</td>
+                  <td>{item.evidence_badges.map((badge) => <SignalBadge key={badge.label} label={displayKey(badge.label)} variant={badgeVariant(badge.severity)} />)}</td>
                   <td>{item.evidence_summary.criteria_covered.length} / 6</td>
-                  <td>{item.evidence_summary.stale_evidence_count}</td>
-                  <td>{item.evidence_summary.comparison_evidence_count}</td>
-                  <td>{joinList(item.evidence_summary.criteria_missing.map(displayKey))}</td>
                   <td>{item.next_review_due_at ?? 'None'}</td>
                   <td>
                     <button type="button" onClick={(event) => { event.stopPropagation(); runAnalyze(item); }}>Analyze</button>
                     <button type="button" onClick={(event) => { event.stopPropagation(); refreshEvidence(item); }}>Refresh evidence</button>
                     <button type="button" onClick={(event) => { event.stopPropagation(); setStatus(item, 'researching'); }}>Researching</button>
                     <button type="button" onClick={(event) => { event.stopPropagation(); setStatus(item, 'reviewed'); }}>Reviewed</button>
-                    <button type="button" onClick={(event) => { event.stopPropagation(); archive(item); }}>Archive</button>
+                    {item.status === 'archived' ? <button type="button" onClick={(event) => { event.stopPropagation(); restore(item); }}>Restore</button> : <button type="button" onClick={(event) => { event.stopPropagation(); archive(item); }}>Archive</button>}
                   </td>
                 </tr>
               ))}
@@ -183,6 +243,20 @@ export default function CandidateWorkspace() {
         </div>
         {!items.length && <p className="muted">No active candidates yet.</p>}
       </section>
+
+      {dashboard?.review_queue.length ? (
+        <section className="pageSection">
+          <h2>Review Queue</h2>
+          <div className="queueList">
+            {dashboard.review_queue.map((item) => (
+              <button type="button" key={item.candidate_id} onClick={() => { setSelected(item); loadDetail(item); }}>
+                <strong>{item.ticker}</strong>
+                <span>{joinList((item.review_reasons ?? []).map(displayKey))}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {selected && (
         <section className="pageSection">
@@ -194,9 +268,28 @@ export default function CandidateWorkspace() {
             <div><strong>Latest analysis</strong><span>{selected.last_analyzed_at ?? 'Not run'}</span></div>
             <div><strong>Latest score</strong><span>{selected.latest_score ?? 'N/A'} / {selected.latest_confidence ?? 'N/A'}</span></div>
             <div><strong>Review notes</strong><span>{selected.review_notes ?? 'None'}</span></div>
+            <div><strong>Evidence counts</strong><span>{selected.evidence_summary.active_evidence_count} active, {selected.evidence_summary.stale_evidence_count} stale, {selected.evidence_summary.comparison_evidence_count} comparison</span></div>
             <div><strong>Covered criteria</strong><span>{joinList(selected.evidence_summary.criteria_covered.map(displayKey))}</span></div>
             <div><strong>Missing criteria</strong><span>{joinList(selected.evidence_summary.criteria_missing.map(displayKey))}</span></div>
             <div><strong>Peer companies</strong><span>{joinList(selected.evidence_summary.peer_companies_mentioned)}</span></div>
+          </div>
+          <div className="twoColumn">
+            <div>
+              <h3>Review Notes History</h3>
+              <form className="stackedForm" onSubmit={onAddNote}>
+                <label>Note type<select value={noteForm.note_type} onChange={(event) => setNoteForm({ ...noteForm, note_type: event.target.value as CandidateReviewNote['note_type'] })}>{['general', 'evidence_review', 'analysis_review', 'risk_review', 'follow_up'].map((value) => <option key={value} value={value}>{displayKey(value)}</option>)}</select></label>
+                <label>Note<textarea value={noteForm.note} onChange={(event) => setNoteForm({ ...noteForm, note: event.target.value })} /></label>
+                <label>Tags<input value={(noteForm.tags ?? []).join(', ')} onChange={(event) => setNoteForm({ ...noteForm, tags: event.target.value.split(',').map((tag) => tag.trim()).filter(Boolean) })} /></label>
+                <button type="submit">Add note</button>
+              </form>
+              <ul className="noteList">{notes.map((note) => <li key={note.note_id}><strong>{displayKey(note.note_type)}</strong> <span>{note.created_at}</span><p>{note.note}</p><small>{joinList(note.tags)}</small></li>)}</ul>
+              {!notes.length && <p className="muted">No review notes yet.</p>}
+            </div>
+            <div>
+              <h3>Analysis History</h3>
+              <ul className="noteList">{analysisHistory.map((entry) => <li key={entry.analysis_snapshot_id}><strong>{entry.score ?? 'N/A'} / {entry.confidence ?? 'N/A'}</strong> <span>{entry.analyzed_at}</span><p>{entry.label ?? 'No label'} · quality {entry.data_quality_grade ?? 'N/A'}</p><small>{entry.evidence_coverage_summary.active_evidence_count} active evidence, {entry.evidence_coverage_summary.criteria_missing.length} missing criteria</small></li>)}</ul>
+              {!analysisHistory.length && <p className="muted">No analysis history yet.</p>}
+            </div>
           </div>
         </section>
       )}

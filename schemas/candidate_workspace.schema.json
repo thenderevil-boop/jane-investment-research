@@ -35,6 +35,13 @@
         "stale_evidence_candidate_count": {"type": "integer"},
         "needs_review_count": {"type": "integer"},
         "with_comparison_evidence_count": {"type": "integer"},
+        "needs_analysis_count": {"type": "integer"},
+        "stale_analysis_count": {"type": "integer"},
+        "missing_evidence_candidate_count": {"type": "integer"},
+        "review_overdue_count": {"type": "integer"},
+        "status_breakdown": {"type": "object", "additionalProperties": {"type": "integer"}},
+        "priority_breakdown": {"type": "object", "additionalProperties": {"type": "integer"}},
+        "missing_criteria_breakdown": {"type": "object", "additionalProperties": {"type": "integer"}},
         "average_latest_score": {"type": ["number", "null"]},
         "data_quality_grade_breakdown": {"type": "object", "additionalProperties": {"type": "integer"}}
       },
@@ -89,8 +96,62 @@
         },
         "next_review_due_at": {"type": ["string", "null"]},
         "review_notes": {"type": ["string", "null"]},
+        "review_note_history": {"type": "array", "items": {"$ref": "#/$defs/candidateReviewNote"}},
+        "analysis_history": {"type": "array", "items": {"$ref": "#/$defs/candidateAnalysisHistoryItem"}},
+        "evidence_badges": {"type": "array", "items": {"$ref": "#/$defs/candidateEvidenceBadge"}},
+        "review_reasons": {"type": "array", "items": {"type": "string"}},
         "limitations": {"type": "array", "items": {"type": "string"}},
         "not_investment_advice": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "candidateReviewNote": {
+      "type": "object",
+      "required": ["note_id", "created_at", "created_by", "note", "note_type", "tags"],
+      "properties": {
+        "note_id": {"type": "string"},
+        "created_at": {"type": "string"},
+        "created_by": {"const": "local_user"},
+        "note": {"type": "string"},
+        "note_type": {"enum": ["general", "evidence_review", "analysis_review", "risk_review", "follow_up"]},
+        "related_analysis_snapshot_id": {"type": ["string", "null"]},
+        "tags": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "candidateAnalysisHistoryItem": {
+      "type": "object",
+      "required": ["analysis_snapshot_id", "analyzed_at", "evidence_coverage_summary", "limitations"],
+      "properties": {
+        "analysis_snapshot_id": {"type": "string"},
+        "analyzed_at": {"type": "string"},
+        "score": {"type": ["number", "null"]},
+        "confidence": {"type": ["number", "null"]},
+        "label": {"type": ["string", "null"]},
+        "data_quality_grade": {"type": ["string", "null"]},
+        "evidence_coverage_summary": {
+          "type": "object",
+          "required": ["criteria_covered", "criteria_missing", "active_evidence_count", "stale_evidence_count", "comparison_evidence_count"],
+          "properties": {
+            "criteria_covered": {"type": "array", "items": {"type": "string"}},
+            "criteria_missing": {"type": "array", "items": {"type": "string"}},
+            "active_evidence_count": {"type": "integer"},
+            "stale_evidence_count": {"type": "integer"},
+            "comparison_evidence_count": {"type": "integer"}
+          },
+          "additionalProperties": false
+        },
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "candidateEvidenceBadge": {
+      "type": "object",
+      "required": ["label", "severity", "reason"],
+      "properties": {
+        "label": {"type": "string"},
+        "severity": {"enum": ["info", "warning", "success"]},
+        "reason": {"type": "string"}
       },
       "additionalProperties": false
     }

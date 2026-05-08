@@ -53,6 +53,212 @@
       "ticker": "NVDA",
       "updated_at": "2026-05-08T05:34:09.795859+00:00",
       "user_reason": "External trend research candidate"
+    },
+    {
+      "analysis_history": [
+        {
+          "analysis_snapshot_id": "analysis_candidate_3053ac1aeef44b6aa98934cfef0522e2_20260508093106430894",
+          "analyzed_at": "2026-05-08T09:31:06.430887+00:00",
+          "confidence": 0.72,
+          "data_quality_grade": "B",
+          "evidence_coverage_summary": {
+            "active_evidence_count": 2,
+            "comparison_evidence_count": 1,
+            "criteria_covered": [
+              "network_effect",
+              "visionary_founder_ceo"
+            ],
+            "criteria_missing": [
+              "monopoly_power",
+              "disruptive_innovation",
+              "continuous_r_and_d",
+              "mega_trend_fit"
+            ],
+            "stale_evidence_count": 0
+          },
+          "label": "insufficient_data",
+          "limitations": [
+            "disruptive_innovation_evidence",
+            "insider_activity",
+            "legacy_leadership_score",
+            "moat_or_patent_evidence",
+            "mock executive retention data",
+            "mock patent quality data",
+            "smart_money"
+          ],
+          "score": 41.62
+        },
+        {
+          "analysis_snapshot_id": "analysis_candidate_3053ac1aeef44b6aa98934cfef0522e2_20260508093130438680",
+          "analyzed_at": "2026-05-08T09:31:30.438670+00:00",
+          "confidence": 0.72,
+          "data_quality_grade": "B",
+          "evidence_coverage_summary": {
+            "active_evidence_count": 2,
+            "comparison_evidence_count": 1,
+            "criteria_covered": [
+              "network_effect",
+              "visionary_founder_ceo"
+            ],
+            "criteria_missing": [
+              "monopoly_power",
+              "disruptive_innovation",
+              "continuous_r_and_d",
+              "mega_trend_fit"
+            ],
+            "stale_evidence_count": 0
+          },
+          "label": "insufficient_data",
+          "limitations": [
+            "disruptive_innovation_evidence",
+            "insider_activity",
+            "legacy_leadership_score",
+            "moat_or_patent_evidence",
+            "mock executive retention data",
+            "mock patent quality data",
+            "smart_money"
+          ],
+          "score": 41.62
+        }
+      ],
+      "candidate_id": "candidate_3053ac1aeef44b6aa98934cfef0522e2",
+      "company_name": null,
+      "created_at": "2026-05-08T09:30:16.640579+00:00",
+      "evidence_badges": [
+        {
+          "label": "evidence_missing",
+          "reason": "One or more Jane qualitative criteria lack active local evidence.",
+          "severity": "warning"
+        },
+        {
+          "label": "unreviewed_evidence",
+          "reason": "One or more local manual evidence items is awaiting review.",
+          "severity": "warning"
+        },
+        {
+          "label": "comparison_evidence_present",
+          "reason": "User-provided comparison evidence is present and needs manual validation.",
+          "severity": "info"
+        },
+        {
+          "label": "network_effect_covered",
+          "reason": "Local manual evidence covers network effect.",
+          "severity": "success"
+        },
+        {
+          "label": "founder_ceo_covered",
+          "reason": "Local manual evidence covers founder or CEO context.",
+          "severity": "success"
+        },
+        {
+          "label": "monopoly_power_missing",
+          "reason": "Local manual evidence is missing monopoly or moat context.",
+          "severity": "warning"
+        },
+        {
+          "label": "disruptive_innovation_missing",
+          "reason": "Local manual evidence is missing disruptive innovation context.",
+          "severity": "warning"
+        },
+        {
+          "label": "data_quality_B",
+          "reason": "Latest analysis data-quality grade metadata.",
+          "severity": "info"
+        }
+      ],
+      "evidence_summary": {
+        "active_evidence_count": 2,
+        "comparison_evidence_count": 1,
+        "criteria_covered": [
+          "network_effect",
+          "visionary_founder_ceo"
+        ],
+        "criteria_missing": [
+          "monopoly_power",
+          "disruptive_innovation",
+          "continuous_r_and_d",
+          "mega_trend_fit"
+        ],
+        "manual_evidence_count": 6,
+        "peer_companies_mentioned": [
+          "AMD",
+          "INTC"
+        ],
+        "reviewed_evidence_count": 1,
+        "stale_evidence_count": 0,
+        "unreviewed_evidence_count": 1
+      },
+      "last_analysis_snapshot_id": "analysis_candidate_3053ac1aeef44b6aa98934cfef0522e2_20260508093130438680",
+      "last_analyzed_at": "2026-05-08T09:31:30.438670+00:00",
+      "latest_confidence": 0.72,
+      "latest_data_quality_grade": "B",
+      "latest_label": "insufficient_data",
+      "latest_score": 41.62,
+      "limitations": [
+        "Candidate workspace is user-provided workflow metadata and not investment advice.",
+        "Watchlist status is not a recommendation."
+      ],
+      "market": "US",
+      "next_review_due_at": "2027-05-07T00:00:00+00:00",
+      "not_investment_advice": true,
+      "priority": "high",
+      "review_note_history": [
+        {
+          "created_at": "2026-05-08T09:30:25.882912+00:00",
+          "created_by": "local_user",
+          "note": "Initial workspace review note. Need to verify moat and disruptive innovation evidence.",
+          "note_id": "note_80422e2e27e24a4fa63cc02ade9aeb5e",
+          "note_type": "general",
+          "related_analysis_snapshot_id": null,
+          "tags": [
+            "manual-review"
+          ]
+        },
+        {
+          "created_at": "2026-05-08T09:30:32.801489+00:00",
+          "created_by": "local_user",
+          "note": "Status changed from watching to researching.",
+          "note_id": "note_0ce454decf59405196bf268d9f6b1cae",
+          "note_type": "general",
+          "related_analysis_snapshot_id": null,
+          "tags": [
+            "status"
+          ]
+        },
+        {
+          "created_at": "2026-05-08T09:32:06.029943+00:00",
+          "created_by": "local_user",
+          "note": "Status changed from archived to watching.",
+          "note_id": "note_dfe88052e42a4d89b2825da5f204f187",
+          "note_type": "general",
+          "related_analysis_snapshot_id": null,
+          "tags": [
+            "restore",
+            "status"
+          ]
+        }
+      ],
+      "review_notes": "Status changed from archived to watching.",
+      "review_reasons": [
+        "comparison_evidence_needs_validation",
+        "missing_continuous_r_and_d",
+        "missing_disruptive_innovation",
+        "missing_mega_trend_fit",
+        "missing_monopoly_power",
+        "unreviewed_evidence"
+      ],
+      "source_date": "2026-05-08",
+      "source_label": "User watchlist note",
+      "status": "watching",
+      "tags": [
+        "AI",
+        "GPU",
+        "infrastructure"
+      ],
+      "theme": "AI infrastructure",
+      "ticker": "NVDA",
+      "updated_at": "2026-05-08T09:32:06.029993+00:00",
+      "user_reason": "External trend research candidate"
     }
   ]
 }
