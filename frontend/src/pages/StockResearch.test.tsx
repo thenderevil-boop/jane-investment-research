@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { DataSourceStatus, ScoreLike, StockAnalysis } from '../types';
-import StockResearch, { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection, parseQualitativeEvidenceJson } from './StockResearch';
+import StockResearch, { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection, ValidationReportExportSection, parseQualitativeEvidenceJson } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -40,6 +40,24 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Primary workflow: submit a ticker to validate the idea using evidence, data quality, and missing-data checks.');
     expect(html).toContain('Qualitative Evidence JSON');
     expect(html).toContain('Structured qualitative evidence');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders validation report export controls without adding an editor', () => {
+    const html = renderToStaticMarkup(
+      <ValidationReportExportSection
+        ticker="NVDA"
+        theme="AI infrastructure"
+        userReason="External trend research"
+        qualitativeEvidenceJson=""
+      />,
+    );
+    expect(html).toContain('Validation Report Export');
+    expect(html).toContain('Export JSON');
+    expect(html).toContain('Export Markdown');
+    expect(html).toContain('Include raw evidence');
+    expect(html).toContain('Export is research reference only. Not investment advice.');
+    expect(html).not.toContain('report editor');
     expect(html).not.toContain('[object Object]');
   });
 

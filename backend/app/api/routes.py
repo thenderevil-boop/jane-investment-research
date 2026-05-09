@@ -31,6 +31,7 @@ from backend.app.schemas.macro_regime import MacroRegimeOutput
 from backend.app.schemas.manual_evidence import ManualEvidenceQualityLabel, ManualEvidenceReviewStatus, ManualEvidenceCriterion, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, ManualQualitativeEvidencePatch
 from backend.app.schemas.manual_evidence_dashboard import ManualEvidenceDashboardFilters, ManualEvidenceDashboardResponse
 from backend.app.schemas.candidate_workspace import CandidateAnalysisHistoryItem, CandidateAnalyzeRequest, CandidateAnalyzeResponse, CandidateDashboardResponse, CandidatePriority, CandidateResearchItem, CandidateResearchItemCreate, CandidateResearchItemPatch, CandidateReviewNote, CandidateReviewNoteCreate, CandidateStatus
+from backend.app.schemas.export import AnalyzeStockExportRequest, AnalyzeStockExportResponse, LocalBackupExportResponse
 from backend.app.schemas.stock_analysis import AnalyzeStockRequest, AnalyzeStockResponse
 from backend.app.schemas.supplemental import DataHealthResponse, PriceReferenceWarmupRequest, RawDataResponse, ThemesLatestResponse, TickerSignalsResponse
 from backend.app.raw_store.candidate_workspace import CandidateWorkspaceStoreError
@@ -49,6 +50,7 @@ from backend.app.services.candidate_workspace import (
     update_candidate_item,
 )
 from backend.app.services.daily_report_service import latest_daily_report_response
+from backend.app.services.export_service import export_analyze_stock_report, export_local_backup
 from backend.app.services.manual_evidence_dashboard import summarize_manual_evidence_dashboard
 from backend.app.services.snapshot_metadata import (
     ensure_macro_score_explanation as _ensure_macro_score_explanation,
@@ -194,6 +196,31 @@ def daily_report_by_date(report_date: str) -> DailyResearchReport:
 @router.post("/analyze-stock", response_model=AnalyzeStockResponse)
 def analyze_stock_endpoint(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     return _ensure_safe_response(analyze_stock(request))
+
+
+@router.post("/analyze-stock/export", response_model=AnalyzeStockExportResponse)
+def analyze_stock_export_endpoint(request: AnalyzeStockExportRequest) -> AnalyzeStockExportResponse:
+    return _ensure_safe_response(export_analyze_stock_report(request))
+
+
+@router.get("/local-backup/export", response_model=LocalBackupExportResponse)
+def local_backup_export_endpoint(
+    include_manual_evidence: bool = Query(default=True),
+    include_candidate_workspace: bool = Query(default=True),
+    include_evidence_dashboard: bool = Query(default=True),
+    include_archived: bool = Query(default=True),
+    include_rejected: bool = Query(default=True),
+    format: str = Query(default="json"),
+) -> LocalBackupExportResponse:
+    if format != "json":
+        raise HTTPException(status_code=422, detail={"error": "Only json backup export format is supported.", "not_investment_advice": True})
+    return _ensure_safe_response(export_local_backup(
+        include_manual_evidence=include_manual_evidence,
+        include_candidate_workspace=include_candidate_workspace,
+        include_evidence_dashboard=include_evidence_dashboard,
+        include_archived=include_archived,
+        include_rejected=include_rejected,
+    ))
 
 
 @router.get("/candidates/dashboard", response_model=CandidateDashboardResponse)

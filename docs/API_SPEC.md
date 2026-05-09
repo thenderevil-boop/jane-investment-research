@@ -427,6 +427,108 @@ Response:
 }
 ```
 
+### POST /api/analyze-stock/export
+
+Phase 25 validation report export for the primary analyze-stock workflow. The endpoint internally calls the existing `POST /api/analyze-stock` pipeline, does not change scoring, does not persist request-scoped qualitative evidence, and returns either a structured JSON validation export or a concise Markdown report.
+
+Request:
+
+```json
+{
+  "ticker": "NVDA",
+  "market": "US",
+  "research_context": {
+    "theme": "AI infrastructure",
+    "user_reason": "External trend research"
+  },
+  "qualitative_evidence": [],
+  "format": "json",
+  "include_raw_evidence": false,
+  "include_manual_evidence": true,
+  "include_candidate_metadata": false,
+  "redact_sensitive_fields": true
+}
+```
+
+Response:
+
+```json
+{
+  "export_id": "export_...",
+  "generated_at": "2026-05-09T15:01:06Z",
+  "ticker": "NVDA",
+  "format": "json",
+  "filename": "jane-validation-NVDA-2026-05-09T150106Z.json",
+  "content_type": "application/json",
+  "report": {
+    "export_metadata": {
+      "schema_version": "phase25_validation_export_v1",
+      "not_investment_advice": true
+    },
+    "validation_summary": {},
+    "data_quality_summary": {},
+    "evidence_matrix": [],
+    "score_driver_breakdown": {},
+    "next_manual_checks": []
+  },
+  "source_status": {
+    "source_type": "derived",
+    "provider": "analyze_stock_export",
+    "freshness_window": "export_generated_at",
+    "fallback_used": false
+  },
+  "not_investment_advice": true
+}
+```
+
+JSON exports include source quality, source status, limitations, missing data, evidence matrix, score driver breakdown, risk flags, and next manual checks. `raw_evidence` is included only when `include_raw_evidence=true`. Markdown exports return `report` as a readable string with the same research-reference disclaimer. Export output redacts secrets, raw provider URLs, and local paths.
+
+### GET /api/local-backup/export
+
+Phase 25 local backup export. This endpoint reads local stores only and never calls analyze-stock, yfinance, SEC, FRED, web, source URLs, paid APIs, or provider caches. It is backup/export only; import/restore is not implemented.
+
+Query parameters:
+
+- `include_manual_evidence`: boolean, default `true`
+- `include_candidate_workspace`: boolean, default `true`
+- `include_evidence_dashboard`: boolean, default `true`
+- `include_archived`: boolean, default `true`
+- `include_rejected`: boolean, default `true`
+- `format`: `json`
+
+Response:
+
+```json
+{
+  "backup_metadata": {
+    "backup_id": "backup_...",
+    "generated_at": "2026-05-09T15:01:06Z",
+    "schema_version": "phase25_local_backup_v1",
+    "not_investment_advice": true,
+    "limitations": [
+      "Local backup contains user-provided workflow metadata and evidence records.",
+      "Manual evidence is not independently verified.",
+      "Candidate status is not investment advice."
+    ]
+  },
+  "manual_evidence": {
+    "items": [],
+    "dashboard_summary": {}
+  },
+  "candidate_workspace": {
+    "items": [],
+    "dashboard_summary": {}
+  },
+  "source_status": {
+    "source_type": "derived",
+    "provider": "local_backup_export",
+    "freshness_window": "local_export_generated_at",
+    "fallback_used": false
+  },
+  "not_investment_advice": true
+}
+```
+
 ### Manual Evidence Library
 
 `ManualQualitativeEvidence`:

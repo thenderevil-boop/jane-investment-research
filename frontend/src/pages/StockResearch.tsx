@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { analyzeStock } from '../api/client';
+import { analyzeStock, exportAnalyzeStockReport } from '../api/client';
 import DataSourceBadge from '../components/DataSourceBadge';
 import EvidencePanel from '../components/EvidencePanel';
 import JaneReferencePanel from '../components/JaneReferencePanel';
@@ -116,6 +116,18 @@ function displayValue(value: unknown) {
   if (Array.isArray(value)) return value.join(', ');
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
+}
+
+function downloadText(filename: string, contentType: string, content: string) {
+  const blob = new Blob([content], { type: contentType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 export function resolveScoreSourceStatus(score?: ScoreLike): DataSourceStatus | null {
@@ -656,6 +668,64 @@ export function ManualChecksSection({ checks }: { checks?: NextManualCheck[] }) 
   );
 }
 
+export function ValidationReportExportSection({
+  ticker,
+  theme,
+  userReason,
+  qualitativeEvidenceJson,
+}: {
+  ticker: string;
+  theme: string;
+  userReason: string;
+  qualitativeEvidenceJson: string;
+}) {
+  const [includeRawEvidence, setIncludeRawEvidence] = useState(false);
+  const [includeManualEvidence, setIncludeManualEvidence] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+  const [filename, setFilename] = useState('');
+
+  async function runExport(format: 'json' | 'markdown') {
+    setExporting(true);
+    setExportError('');
+    try {
+      const qualitativeEvidence = parseQualitativeEvidenceJson(qualitativeEvidenceJson);
+      const response = await exportAnalyzeStockReport({
+        ticker,
+        market: 'US',
+        research_context: { theme, user_reason: userReason },
+        qualitative_evidence: qualitativeEvidence,
+        format,
+        include_raw_evidence: includeRawEvidence,
+        include_manual_evidence: includeManualEvidence,
+        redact_sensitive_fields: true,
+      });
+      const content = typeof response.report === 'string' ? response.report : JSON.stringify(response.report, null, 2);
+      downloadText(response.filename, response.content_type, content);
+      setFilename(response.filename);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Unable to export validation report');
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <section className="pageSection">
+      <h2>Validation Report Export</h2>
+      <p className="muted">Export is research reference only. Not investment advice.</p>
+      <div className="filterBar">
+        <label><input type="checkbox" checked={includeRawEvidence} onChange={(event) => setIncludeRawEvidence(event.target.checked)} /> Include raw evidence</label>
+        <label><input type="checkbox" checked={includeManualEvidence} onChange={(event) => setIncludeManualEvidence(event.target.checked)} /> Include manual evidence summary</label>
+        <button type="button" onClick={() => runExport('json')} disabled={exporting}>{exporting ? 'Exporting...' : 'Export JSON'}</button>
+        <button type="button" onClick={() => runExport('markdown')} disabled={exporting}>{exporting ? 'Exporting...' : 'Export Markdown'}</button>
+      </div>
+      {filename && <p className="muted">Generated filename: {filename}</p>}
+      {exportError && <p className="errorText">{exportError}</p>}
+    </section>
+  );
+}
+
 export default function StockResearch() {
   const [ticker, setTicker] = useState('NVDA');
   const [theme, setTheme] = useState('AI infrastructure');
@@ -728,6 +798,7 @@ export default function StockResearch() {
 
       {result && (
         <>
+          <ValidationReportExportSection ticker={ticker} theme={theme} userReason={userReason} qualitativeEvidenceJson={qualitativeEvidenceJson} />
           <CandidateSummarySection result={result} />
           <AnalyzeDataQualitySection dataQuality={result.data_quality_summary} />
           <JaneCompanyQualitySection quality={result.jane_company_quality} profile={result.company_profile} />

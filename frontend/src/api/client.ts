@@ -1,4 +1,4 @@
-import type { ApiError, CandidateAnalysisHistoryItem, CandidateAnalyzeResponse, CandidateDashboard, CandidateFilters, CandidateResearchItem, CandidateResearchItemCreate, CandidateReviewNote, CandidateReviewNoteCreate, DailyReport, ManualEvidenceDashboard, ManualEvidenceDashboardFilters, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, QualitativeEvidenceInput, ResearchContext, StockAnalysis } from '../types';
+import type { AnalyzeStockExportPayload, AnalyzeStockExportResponse, ApiError, CandidateAnalysisHistoryItem, CandidateAnalyzeResponse, CandidateDashboard, CandidateFilters, CandidateResearchItem, CandidateResearchItemCreate, CandidateReviewNote, CandidateReviewNoteCreate, DailyReport, LocalBackupExportOptions, LocalBackupExportResponse, ManualEvidenceDashboard, ManualEvidenceDashboardFilters, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, QualitativeEvidenceInput, ResearchContext, StockAnalysis } from '../types';
 
 async function parseJson<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') ?? '';
@@ -211,4 +211,36 @@ export function analyzeStock(ticker: string, researchContext?: ResearchContext, 
       qualitative_evidence: trimmedEvidence,
     }),
   });
+}
+
+export function exportAnalyzeStockReport(payload: AnalyzeStockExportPayload): Promise<AnalyzeStockExportResponse> {
+  return request<AnalyzeStockExportResponse>('/api/analyze-stock/export', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...payload,
+      ticker: payload.ticker.trim().toUpperCase(),
+      market: 'US',
+      research_context: {
+        theme: payload.research_context?.theme?.trim() || undefined,
+        user_reason: payload.research_context?.user_reason?.trim() || undefined,
+      },
+      qualitative_evidence: payload.qualitative_evidence?.length ? payload.qualitative_evidence : undefined,
+      include_raw_evidence: payload.include_raw_evidence ?? false,
+      include_manual_evidence: payload.include_manual_evidence ?? true,
+      include_candidate_metadata: payload.include_candidate_metadata ?? false,
+      redact_sensitive_fields: payload.redact_sensitive_fields ?? true,
+    }),
+  });
+}
+
+export function exportLocalBackup(options: LocalBackupExportOptions = {}): Promise<LocalBackupExportResponse> {
+  const params = new URLSearchParams();
+  params.set('format', options.format ?? 'json');
+  if (options.include_manual_evidence !== undefined) params.set('include_manual_evidence', String(options.include_manual_evidence));
+  if (options.include_candidate_workspace !== undefined) params.set('include_candidate_workspace', String(options.include_candidate_workspace));
+  if (options.include_evidence_dashboard !== undefined) params.set('include_evidence_dashboard', String(options.include_evidence_dashboard));
+  if (options.include_archived !== undefined) params.set('include_archived', String(options.include_archived));
+  if (options.include_rejected !== undefined) params.set('include_rejected', String(options.include_rejected));
+  return request<LocalBackupExportResponse>(`/api/local-backup/export?${params.toString()}`);
 }

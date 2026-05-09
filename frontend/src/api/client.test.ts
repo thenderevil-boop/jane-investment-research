@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { addCandidateNote, analyzeCandidate, analyzeStock, archiveCandidate, archiveManualEvidence, createCandidate, getCandidateAnalysisHistory, getCandidateDashboard, getCandidateNotes, getLatestDailyReport, getManualEvidenceDashboard, listCandidates, refreshCandidateEvidenceSummary, restoreCandidate, updateCandidate, listManualEvidence, updateManualEvidence, createManualEvidence } from './client';
+import { addCandidateNote, analyzeCandidate, analyzeStock, archiveCandidate, archiveManualEvidence, createCandidate, exportAnalyzeStockReport, exportLocalBackup, getCandidateAnalysisHistory, getCandidateDashboard, getCandidateNotes, getLatestDailyReport, getManualEvidenceDashboard, listCandidates, refreshCandidateEvidenceSummary, restoreCandidate, updateCandidate, listManualEvidence, updateManualEvidence, createManualEvidence } from './client';
 
 describe('api client', () => {
   afterEach(() => {
@@ -92,6 +92,27 @@ describe('api client', () => {
     await getManualEvidenceDashboard({ ticker: 'nvda', review_status: 'unreviewed', stale_only: true, has_comparison_context: true });
     const calls = (fetchMock as unknown as { mock: { calls: Array<[string, RequestInit | undefined]> } }).mock.calls;
     expect(calls[0][0]).toBe('/api/manual-evidence/dashboard?ticker=NVDA&review_status=unreviewed&stale_only=true&has_comparison_context=true');
+  });
+
+  it('calls export endpoints with normalized payload and options', async () => {
+    const fetchMock = vi.fn(async () => new Response('{"export_id":"export_1","generated_at":"2026-05-09T15:01:06Z","ticker":"NVDA","format":"json","filename":"jane-validation-NVDA-2026-05-09T150106Z.json","content_type":"application/json","report":{},"source_status":{"source_type":"derived","provider":"analyze_stock_export","source_date":"2026-05-09T15:01:06Z","is_fresh":true,"freshness_window":"export_generated_at","fallback_used":false,"limitations":[],"missing_data":[]},"not_investment_advice":true}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    await exportAnalyzeStockReport({
+      ticker: 'nvda',
+      format: 'json',
+      research_context: { theme: 'AI infrastructure', user_reason: 'External trend research' },
+      include_raw_evidence: true,
+      include_manual_evidence: true,
+    });
+    let calls = (fetchMock as unknown as { mock: { calls: Array<[string, RequestInit | undefined]> } }).mock.calls;
+    expect(calls[0][0]).toBe('/api/analyze-stock/export');
+    expect(JSON.parse(String(calls[0][1]?.body)).ticker).toBe('NVDA');
+    expect(JSON.parse(String(calls[0][1]?.body)).include_raw_evidence).toBe(true);
+
+    fetchMock.mockResolvedValueOnce(new Response('{"backup_metadata":{"backup_id":"backup_1","generated_at":"2026-05-09T15:01:06Z","schema_version":"phase25_local_backup_v1","not_investment_advice":true,"limitations":[]},"source_status":{"source_type":"derived","provider":"local_backup_export","source_date":"2026-05-09T15:01:06Z","is_fresh":true,"freshness_window":"local_export_generated_at","fallback_used":false,"limitations":[],"missing_data":[]},"not_investment_advice":true}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    await exportLocalBackup({ include_archived: false, include_rejected: false });
+    calls = (fetchMock as unknown as { mock: { calls: Array<[string, RequestInit | undefined]> } }).mock.calls;
+    expect(calls[1][0]).toBe('/api/local-backup/export?format=json&include_archived=false&include_rejected=false');
   });
 
   it('calls candidate workspace endpoints', async () => {

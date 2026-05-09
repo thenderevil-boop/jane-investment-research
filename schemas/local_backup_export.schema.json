@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Local Backup Export",
+  "type": "object",
+  "required": ["backup_metadata", "source_status", "not_investment_advice"],
+  "properties": {
+    "backup_metadata": {
+      "type": "object",
+      "required": ["backup_id", "generated_at", "schema_version", "not_investment_advice", "limitations"],
+      "properties": {
+        "backup_id": {"type": "string"},
+        "generated_at": {"type": "string"},
+        "schema_version": {"const": "phase25_local_backup_v1"},
+        "not_investment_advice": {"const": true},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "manual_evidence": {
+      "type": ["object", "null"],
+      "properties": {
+        "items": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+        "dashboard_summary": {"type": "object", "additionalProperties": true}
+      },
+      "additionalProperties": false
+    },
+    "candidate_workspace": {
+      "type": ["object", "null"],
+      "properties": {
+        "items": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+        "dashboard_summary": {"type": "object", "additionalProperties": true}
+      },
+      "additionalProperties": false
+    },
+    "source_status": {
+      "type": "object",
+      "required": ["source_type", "provider", "freshness_window", "fallback_used"],
+      "properties": {
+        "source_type": {"const": "derived"},
+        "provider": {"const": "local_backup_export"},
+        "source_date": {"type": "string"},
+        "fetched_at": {"type": ["string", "null"]},
+        "is_fresh": {"type": "boolean"},
+        "freshness_window": {"const": "local_export_generated_at"},
+        "fallback_used": {"const": false},
+        "fallback_reason": {"type": ["string", "null"]},
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "missing_data": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "not_investment_advice": {"const": true}
+  },
+  "additionalProperties": false
+}

@@ -938,6 +938,53 @@ export type StockAnalysis = {
   not_investment_advice?: boolean;
 };
 
+export type AnalyzeStockExportPayload = {
+  ticker: string;
+  market?: 'US';
+  research_context?: ResearchContext;
+  qualitative_evidence?: QualitativeEvidenceInput[];
+  format: 'json' | 'markdown';
+  include_raw_evidence?: boolean;
+  include_manual_evidence?: boolean;
+  include_candidate_metadata?: boolean;
+  redact_sensitive_fields?: boolean;
+};
+
+export type AnalyzeStockExportResponse = {
+  export_id: string;
+  generated_at: string;
+  ticker: string;
+  format: 'json' | 'markdown';
+  filename: string;
+  content_type: string;
+  report: Record<string, unknown> | string;
+  source_status: DataSourceStatus;
+  not_investment_advice: boolean;
+};
+
+export type LocalBackupExportOptions = {
+  include_manual_evidence?: boolean;
+  include_candidate_workspace?: boolean;
+  include_evidence_dashboard?: boolean;
+  include_archived?: boolean;
+  include_rejected?: boolean;
+  format?: 'json';
+};
+
+export type LocalBackupExportResponse = {
+  backup_metadata: {
+    backup_id: string;
+    generated_at: string;
+    schema_version: 'phase25_local_backup_v1';
+    not_investment_advice: boolean;
+    limitations: string[];
+  };
+  manual_evidence?: Record<string, unknown> | null;
+  candidate_workspace?: Record<string, unknown> | null;
+  source_status: DataSourceStatus;
+  not_investment_advice: boolean;
+};
+
 export type ApiError = Error & {
   status?: number;
 };

@@ -123,7 +123,7 @@ MVP can run natively on Windows. Avoid Linux-only shell assumptions in app code.
 
 Build in phases.
 
-Current implementation has reached Phase 24.6 (validation-first UX and repo hygiene cleanup) on top of Phase 24 candidate workspace review notes, analysis history, filters, badges, and UX hardening. Phase 24.6 is alignment and cleanup only; it must not add product features, APIs, scoring changes, analyze-stock behavior changes, parser changes, scraping, source URL fetching, news, YouTube, sentiment, paid APIs, or Future Industry Radar work.
+Current implementation has reached Phase 25 (analyze-stock validation report export and local backup) on top of Phase 24.6 validation-first UX and repo hygiene cleanup. Phase 25 adds export/backup support only; it must not change scoring, analyze-stock behavior, SEC parsers, macro parsers, Form 4 parsers, 13F parsers, Companyfacts parsers, scraping, source URL fetching, news, YouTube, sentiment, paid APIs, or Future Industry Radar work.
 
 Phase labels in historical docs may be non-contiguous. For current development, prefer these implementation references in order:
 
@@ -313,6 +313,16 @@ Phase 24 candidate workspace notes:
 - Candidate workspace dashboard must not call live providers, discover tickers, scrape, fetch URLs, or validate source URLs.
 - Candidate Workspace must remain a ticker validation workflow surface, not a full research notebook, task manager, portfolio tracker, trading journal, or execution workflow.
 
+Phase 25 export and backup notes:
+
+- `POST /api/analyze-stock/export` packages the existing analyze-stock response as JSON or Markdown validation report output and must not change scoring.
+- Analyze-stock export must not persist request-scoped qualitative evidence.
+- Exported validation reports must preserve source quality, source status, limitations, missing data, evidence matrix, score driver breakdown, and next manual checks.
+- `GET /api/local-backup/export` reads local Manual Evidence Library and Candidate Workspace stores only.
+- Local backup must not call analyze-stock, live providers, web sources, source URLs, provider caches, import/restore, cloud sync, or scheduling.
+- Export and backup output must redact secrets, raw provider URLs, and local paths where present.
+- Export and backup features support validation review only and must not expand Candidate Workspace into a research notebook.
+
 Phase 19 manual evidence library notes:
 
 - Saved qualitative evidence is local-only, user-provided, reusable by ticker, and not independently verified.
@@ -367,6 +377,8 @@ Before marking a task complete:
 17. Confirm review notes are append-only audit metadata only and do not affect scoring.
 18. Confirm evidence and workspace endpoints include `not_investment_advice: true` where applicable.
 19. Confirm `source_type` never equals `mixed`.
+20. Confirm analyze-stock export does not change scoring or persist request-scoped qualitative evidence.
+21. Confirm local backup export reads local stores only and does not call analyze-stock or live providers.
 
 ## Data Freshness Contract
 

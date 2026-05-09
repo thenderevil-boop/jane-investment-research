@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { archiveManualEvidence, getManualEvidenceDashboard, updateManualEvidence } from '../api/client';
+import { archiveManualEvidence, exportLocalBackup, getManualEvidenceDashboard, updateManualEvidence } from '../api/client';
 import SignalBadge from '../components/SignalBadge';
 import type { ManualEvidenceDashboard, ManualEvidenceDashboardFilters, ManualEvidenceDashboardQueueItem } from '../types';
 
@@ -18,6 +18,23 @@ function SummaryCard({ label, value }: { label: string; value: string | number }
       <div className="scoreRow"><strong>{value}</strong></div>
     </div>
   );
+}
+
+function backupFilename(generatedAt?: string) {
+  const stamp = new Date(generatedAt || Date.now()).toISOString().replace(/\.\d{3}Z$/, 'Z').replace(/:/g, '');
+  return `jane-local-backup-${stamp}.json`;
+}
+
+function downloadJson(filename: string, payload: unknown) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function QueueTable({ title, items, onMarkReviewed, onArchive }: {
@@ -65,6 +82,8 @@ export default function EvidenceDashboard() {
   const [filters, setFilters] = useState<ManualEvidenceDashboardFilters>({ ticker: '', review_status: '', stale_only: false, has_comparison_context: null });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [backupOptions, setBackupOptions] = useState({ includeManualEvidence: true, includeCandidateWorkspace: true, includeArchivedRejected: true });
+  const [backupFilenameText, setBackupFilenameText] = useState('');
 
   async function refresh(nextFilters = filters) {
     setLoading(true);
@@ -90,6 +109,25 @@ export default function EvidenceDashboard() {
   async function archiveEvidence(evidenceId: string) {
     await archiveManualEvidence(evidenceId);
     await refresh();
+  }
+
+  async function onExportBackup() {
+    setError('');
+    try {
+      const backup = await exportLocalBackup({
+        include_manual_evidence: backupOptions.includeManualEvidence,
+        include_candidate_workspace: backupOptions.includeCandidateWorkspace,
+        include_evidence_dashboard: true,
+        include_archived: backupOptions.includeArchivedRejected,
+        include_rejected: backupOptions.includeArchivedRejected,
+        format: 'json',
+      });
+      const filename = backupFilename(backup.backup_metadata.generated_at);
+      downloadJson(filename, backup);
+      setBackupFilenameText(filename);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to export local backup');
+    }
   }
 
   const summary = dashboard?.summary;
@@ -129,6 +167,18 @@ export default function EvidenceDashboard() {
       </section>
 
       {error && <p className="errorText">{error}</p>}
+
+      <section className="pageSection">
+        <h2>Local Backup Export</h2>
+        <p className="muted">Backup contains local user-provided evidence and workspace metadata. It does not verify claims.</p>
+        <div className="filterBar">
+          <label><input type="checkbox" checked={backupOptions.includeManualEvidence} onChange={(event) => setBackupOptions({ ...backupOptions, includeManualEvidence: event.target.checked })} /> Include manual evidence</label>
+          <label><input type="checkbox" checked={backupOptions.includeCandidateWorkspace} onChange={(event) => setBackupOptions({ ...backupOptions, includeCandidateWorkspace: event.target.checked })} /> Include candidate workspace</label>
+          <label><input type="checkbox" checked={backupOptions.includeArchivedRejected} onChange={(event) => setBackupOptions({ ...backupOptions, includeArchivedRejected: event.target.checked })} /> Include archived/rejected</label>
+          <button type="button" onClick={onExportBackup}>Export Local Backup JSON</button>
+        </div>
+        {backupFilenameText && <p className="muted">Generated filename: {backupFilenameText}</p>}
+      </section>
 
       {summary && (
         <section className="pageSection">
