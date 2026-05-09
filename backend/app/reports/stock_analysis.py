@@ -24,6 +24,7 @@ from backend.app.schemas.stock_analysis import (
     NextManualCheck,
     ResearchVerdict,
     ScoreDriverBreakdown,
+    ValidationQualitySummary,
 )
 from backend.app.utils.freshness import build_source_status, summarize_data_quality
 from backend.app.utils.forbidden_language import detect_forbidden_language
@@ -787,6 +788,49 @@ def _build_fundamentals_cross_check(sec_facts: dict, yfinance_fundamentals: dict
         limitations.append("SEC latest FY values may be compared with yfinance TTM/provider-normalized values; period mismatch can create differences.")
     if invalid:
         limitations.append("SEC Companyfacts is available, but some derived metrics require period-alignment review.")
+    review_metrics = []
+    for item in checked:
+        if item["status"] not in {"divergent", "moderate_difference", "sec_invalid_period_alignment"}:
+            continue
+        metric = item["name"]
+        if metric in {"free_cash_flow_ttm"}:
+            why = "Cash-flow definitions can differ across filings, provider normalization, and period selection."
+        elif metric in {"cash_and_equivalents", "total_debt"}:
+            why = "Balance-sheet classification can vary by concept mapping and provider normalization."
+        elif metric in {"revenue_ttm", "gross_margin_pct", "operating_margin_pct"}:
+            why = "Core operating metrics affect financial-quality validation and should be checked by period."
+        else:
+            why = "The metric can change validation confidence when provider values differ materially."
+        review_metrics.append(
+            {
+                "metric": metric,
+                "sec_value": item["sec_value"],
+                "yfinance_value": item["yfinance_value"],
+                "difference_pct": item["difference_pct"],
+                "status": item["status"],
+                "why_it_matters": why,
+                "review_hint": "Compare the latest SEC filing period, yfinance provider-normalized period, and any concept mapping notes before increasing validation confidence.",
+            }
+        )
+    likely_reasons = []
+    if divergent or invalid:
+        likely_reasons.extend([
+            "SEC Companyfacts is filing-backed, but issuer concept coverage and period alignment can vary.",
+            "Yfinance is a provider-normalized research reference and may use TTM or adjusted fields.",
+            "Statement classification differences can affect cash, debt, and free-cash-flow comparisons.",
+        ])
+    elif comparable:
+        likely_reasons.append("Comparable metrics are directionally aligned under available fields.")
+    else:
+        likely_reasons.append("Comparable metrics are missing from one or both providers.")
+    manual_priority = "high" if divergent or invalid else "medium" if comparable and agreement == "moderate" else "low"
+    confidence_impact = (
+        "Material discrepancies cap confidence until reviewed."
+        if manual_priority == "high"
+        else "Cross-check is usable as preliminary validation, with normal provider-period caveats."
+        if comparable
+        else "Insufficient comparable metrics limit filing-backed confirmation."
+    )
     source_status = build_source_status(
         {
             "source_type": "derived",
@@ -811,6 +855,14 @@ def _build_fundamentals_cross_check(sec_facts: dict, yfinance_fundamentals: dict
             "boost_applied": agreement in {"high", "moderate"} and bool(comparable),
             "penalty_applied": agreement == "low",
             "reason": summary,
+        },
+        "explanation": {
+            "agreement_level": agreement,
+            "plain_language_summary": summary,
+            "likely_reasons": likely_reasons,
+            "metrics_requiring_review": review_metrics,
+            "confidence_impact": confidence_impact,
+            "manual_check_priority": manual_priority,
         },
         "source_status": source_status,
         "limitations": limitations,
@@ -969,6 +1021,48 @@ def _build_valuation_context(profile: dict, financials: dict) -> ScoreObject:
             "fallback_reason": profile_status.get("fallback_reason") or fundamentals_status.get("fallback_reason"),
         }
     )
+    threshold_context = {
+        "price_to_sales_ttm": "Elevated proxy threshold >= 15; moderate context begins around 8.",
+        "ev_to_sales_ttm": "Elevated proxy threshold >= 18; moderate context begins around 10.",
+        "price_to_free_cash_flow_ttm": "Elevated proxy threshold >= 60 when free cash flow is positive and comparable.",
+        "ev_to_free_cash_flow_ttm": "Supplemental cash-flow multiple; unavailable or negative FCF limits interpretation.",
+    }
+    valuation_explanation = {
+        "valuation_risk_label": label if label in {"elevated", "moderate", "low"} else "unavailable",
+        "plain_language_summary": (
+            "Valuation risk appears elevated under available proxy metrics; this is research context only."
+            if label == "elevated"
+            else summary
+        ),
+        "metrics_used": [
+            {
+                "name": "price_to_sales_ttm",
+                "value": price_to_sales,
+                "threshold_context": threshold_context["price_to_sales_ttm"],
+                "limitation": "Uses market cap and revenue TTM inputs; provider timing can differ.",
+            },
+            {
+                "name": "ev_to_sales_ttm",
+                "value": ev_to_sales,
+                "threshold_context": threshold_context["ev_to_sales_ttm"],
+                "limitation": "Uses enterprise value and revenue TTM inputs; debt and cash classification can differ.",
+            },
+            {
+                "name": "price_to_free_cash_flow_ttm",
+                "value": price_to_fcf,
+                "threshold_context": threshold_context["price_to_free_cash_flow_ttm"],
+                "limitation": "Free cash flow can vary by provider normalization and period alignment.",
+            },
+            {
+                "name": "ev_to_free_cash_flow_ttm",
+                "value": ev_to_fcf,
+                "threshold_context": threshold_context["ev_to_free_cash_flow_ttm"],
+                "limitation": "Supplemental context only when FCF is available and positive.",
+            },
+        ],
+        "why_it_matters": "Valuation context helps identify whether validation confidence should be tempered by price-to-fundamental proxy risk.",
+        "manual_review_hint": "Compare current valuation proxies with sector peers, growth durability, margins, and latest filing-backed fundamentals before increasing validation confidence.",
+    }
     return ScoreObject(
         name="valuation_context_score",
         score=score,
@@ -985,6 +1079,7 @@ def _build_valuation_context(profile: dict, financials: dict) -> ScoreObject:
             "revenue_growth_yoy_pct": financials.get("revenue_yoy_growth_pct"),
             "valuation_risk_label": label,
             "valuation_summary": summary,
+            "explanation": valuation_explanation,
             "source_status": source_status.model_dump(mode="json"),
             "limitations": limitations,
             "missing_data": missing,
@@ -1006,6 +1101,7 @@ def _build_valuation_context(profile: dict, financials: dict) -> ScoreObject:
         limitations=limitations,
         missing_data=missing,
         source_status=source_status,
+        explanation=valuation_explanation,
     )
 
 
@@ -1854,6 +1950,55 @@ def _build_institutional_13f(score: ScoreObject, ticker: str, sec_filings: dict)
     }
 
 
+def _smart_money_source_quality_breakdown(smart_money: ScoreObject, insider_activity: dict, institutional_13f: dict) -> dict:
+    form4_status = _status_dict(insider_activity.get("source_status") or (smart_money.raw_data.get("form4") or {}).get("source_status"))
+    thirteen_f_status = _status_dict(institutional_13f.get("source_status") or (smart_money.raw_data.get("institutional_13f") or {}).get("source_status"))
+    options_component = (smart_money.derived_metrics.get("components") or {}).get("options_abnormal_activity") or {}
+    options_raw = smart_money.raw_data.get("options") or {}
+    form4_source_type = form4_status.get("source_type") or "unknown"
+    form4_fallback = bool(form4_status.get("fallback_used") or form4_source_type == "fallback")
+    thirteen_f_source_type = thirteen_f_status.get("source_type") or "mock"
+    options_source_type = _status_dict(options_component.get("source_status")).get("source_type") or "mock"
+    target_evidence = institutional_13f.get("candidate_specific_evidence") or {}
+    no_candidate_match = target_evidence.get("matched_in_13f") is False
+    mock_options = options_source_type == "mock" or not options_component.get("source_status")
+    aggregate_limited = form4_fallback or thirteen_f_source_type in {"mock", "fallback", "unknown"} or mock_options
+    return {
+        "form4": {
+            "source_type": form4_source_type,
+            "fallback_used": form4_fallback,
+            "interpretation": (
+                "Form 4 evidence is fallback or cached-after-failure limited and should be treated as a constraint."
+                if form4_fallback
+                else "Form 4 evidence is research context based on available SEC filing rows."
+            ),
+            "score_impact": "Limited or neutral impact when fallback/cached-after-failure data is present." if form4_fallback else "Can affect smart-money score only under disclosed Form 4 transaction-code rules.",
+        },
+        "institutional_13f": {
+            "source_type": thirteen_f_source_type,
+            "is_delayed_quarterly": True,
+            "is_real_time_signal": False,
+            "interpretation": (
+                "No candidate-specific 13F match is treated as context only, not support."
+                if no_candidate_match
+                else "13F evidence is delayed quarterly filing context and may not reflect current positioning."
+            ),
+            "score_impact": "Candidate-specific 13F support is allowed only for qualified filing-backed matches; portfolio context alone is not support.",
+        },
+        "options": {
+            "source_type": options_source_type,
+            "interpretation": (
+                "Options component remains mock context and should not dominate smart-money interpretation."
+                if mock_options
+                else "Options component is supplemental research context only."
+            ),
+            "score_impact": "Mock options are preliminary and cap aggregate interpretation clarity." if mock_options else "Supplemental component under configured source limits.",
+        },
+        "aggregate_interpretation": "mixed_with_fallback_or_mock_components; smart-money output is preliminary." if aggregate_limited else "source_quality_constraints_disclosed",
+        "not_investment_advice": True,
+    }
+
+
 def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
     company_status = _status_dict(response.company_profile.get("source_status"))
     financial_status = _status_dict(response.financial_quality.source_status)
@@ -1873,7 +2018,7 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
     signal_insufficient = [signal for signal in response.financial_statement_signals.signals if signal.status == "insufficient"]
     qualitative = response.qualitative_evidence_assessment
     comparison = response.comparison_evidence_assessment
-    return [
+    rows = [
         {
             "category": "macro_environment",
             "status": _score_status(response.macro_regime.score),
@@ -2141,6 +2286,43 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
             "limitations": ["Risk flags are deterministic research checks and require human review."],
         },
     ]
+    cross_explanation = response.fundamentals_cross_check.get("explanation") or {}
+    smart_breakdown = response.smart_money.source_quality_breakdown or {}
+    for row in rows:
+        category = row["category"]
+        row.setdefault("why_it_matters", None)
+        row.setdefault("review_priority", "none")
+        row.setdefault("affects_final_score", None)
+        row.setdefault("is_deprecated", False)
+        row.setdefault("replaced_by", None)
+        if category == "legacy_leadership_score":
+            row.update(
+                {
+                    "is_deprecated": True,
+                    "replaced_by": "jane_company_quality",
+                    "affects_final_score": False,
+                    "review_priority": "low",
+                    "why_it_matters": "This backward-compatible mock row is visible for audit only; jane_company_quality is the active company-quality model.",
+                }
+            )
+        elif category == "fundamentals_cross_check":
+            row["review_priority"] = cross_explanation.get("manual_check_priority", "low")
+            row["why_it_matters"] = "Provider discrepancies can cap confidence because SEC filing-backed concepts and yfinance normalized fields may differ by period or classification."
+        elif category == "smart_money":
+            aggregate = str(smart_breakdown.get("aggregate_interpretation") or "")
+            row["review_priority"] = "high" if "fallback" in aggregate else "medium" if "mock" in aggregate else "low"
+            row["why_it_matters"] = "Smart-money evidence combines delayed 13F, Form 4 source quality, and mock options context, so source constraints affect confidence."
+        elif category == "qualitative_evidence":
+            row["review_priority"] = "high" if qualitative.unreviewed_active_count or qualitative.stale_count or qualitative.criteria_still_insufficient else "medium" if qualitative.accepted_evidence_count else "high"
+            row["why_it_matters"] = "Jane qualitative criteria remain preliminary unless user-provided evidence is reviewed and current."
+        elif category == "comparison_evidence":
+            stronger_unverified = comparison.claimed_advantage_breakdown.get("stronger", 0) and comparison.reviewed_comparison_count < comparison.accepted_comparison_count
+            row["review_priority"] = "high" if stronger_unverified or comparison.stale_comparison_count else "medium" if comparison.accepted_comparison_count else "low"
+            row["why_it_matters"] = "Peer and claimed-advantage evidence is user-provided and requires manual validation before increasing confidence."
+        elif category == "valuation_context":
+            row["review_priority"] = "medium" if response.valuation_context.label == "elevated" else "low" if response.valuation_context.label in {"moderate", "low"} else "medium"
+            row["why_it_matters"] = "Valuation risk is context that can limit validation confidence when proxy multiples are elevated or unavailable."
+    return rows
 
 
 def _build_manual_checks(response: AnalyzeStockResponse) -> list[dict]:
@@ -2166,6 +2348,17 @@ def _build_manual_checks(response: AnalyzeStockResponse) -> list[dict]:
                 "area": "filings",
                 "check": "Manually verify missing SEC concepts in latest filing.",
                 "reason": "SEC Companyfacts concept coverage varies and missing concepts are not inferred.",
+            }
+        )
+    cross_explanation = response.fundamentals_cross_check.get("explanation") or {}
+    if cross_explanation.get("manual_check_priority") == "high":
+        metrics = cross_explanation.get("metrics_requiring_review") or []
+        checks.append(
+            {
+                "priority": "high",
+                "area": "filings",
+                "check": "Review material SEC/yfinance metric differences by filing period and provider normalization.",
+                "reason": f"{len(metrics)} comparable metric(s) require review before increasing validation confidence.",
             }
         )
     if has_mock and not profile_live:
@@ -2399,7 +2592,70 @@ def _build_manual_checks(response: AnalyzeStockResponse) -> list[dict]:
             },
         ]
     )
-    return checks
+    legacy_mock_present = bool(getattr(response.leadership_score, "deprecated", False) or _status_dict(response.leadership_score.source_status).get("source_type") == "mock")
+    if legacy_mock_present:
+        checks.append(
+            {
+                "priority": "low",
+                "area": "leadership",
+                "check": "Treat legacy mock leadership as deprecated audit context only.",
+                "reason": "jane_company_quality replaces legacy_leadership_score and the legacy row does not affect final score.",
+            }
+        )
+    smart_breakdown = response.smart_money.source_quality_breakdown or {}
+    if (smart_breakdown.get("form4") or {}).get("fallback_used"):
+        checks.append(
+            {
+                "priority": "high",
+                "area": "smart_money",
+                "check": "Review Form 4 source quality before interpreting smart-money evidence.",
+                "reason": "Form 4 fallback or cached-after-failure limits smart-money confidence.",
+            }
+        )
+    if response.valuation_context.label == "elevated":
+        checks.append(
+            {
+                "priority": "medium",
+                "area": "valuation",
+                "check": "Review elevated valuation proxy metrics against growth and peer context.",
+                "reason": "Valuation risk appears elevated under available proxy metrics and is research context only.",
+            }
+        )
+    priority_weight = {"high": 0, "medium": 1, "low": 2}
+    area_weight = {"source_quality": 0, "filings": 1, "smart_money": 2, "qualitative_evidence": 3, "leadership": 4, "valuation": 5, "company_fundamentals": 6, "risk": 7}
+    blocking_phrases = ("divergence", "fallback", "mock", "missing", "stale", "unreviewed", "source quality")
+    related_by_area = {
+        "source_quality": "data_quality_summary",
+        "filings": "fundamentals_cross_check",
+        "smart_money": "smart_money",
+        "qualitative_evidence": "qualitative_evidence",
+        "leadership": "jane_company_quality",
+        "valuation": "valuation_context",
+        "company_fundamentals": "financial_statement_signals",
+        "risk": "risk_flags",
+    }
+    deduped = []
+    seen: set[tuple[str, str]] = set()
+    for check in checks:
+        key = (str(check.get("area")), " ".join(str(check.get("check", "")).lower().split()))
+        if key in seen:
+            continue
+        seen.add(key)
+        text = f"{check.get('check', '')} {check.get('reason', '')}".lower()
+        blocking = check.get("priority") == "high" and any(phrase in text for phrase in blocking_phrases)
+        area = str(check.get("area") or "source_quality")
+        enriched = {
+            **check,
+            "blocking": blocking,
+            "category": area,
+            "related_evidence_category": related_by_area.get(area),
+            "reason_short": str(check.get("reason", ""))[:140],
+        }
+        deduped.append(enriched)
+    deduped.sort(key=lambda item: (priority_weight.get(item["priority"], 9), 0 if item["blocking"] else 1, area_weight.get(item["area"], 9), item["check"]))
+    for index, item in enumerate(deduped, start=1):
+        item["priority_rank"] = index
+    return deduped
 
 
 def _build_score_driver_breakdown(response: AnalyzeStockResponse) -> dict:
@@ -2854,6 +3110,68 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
     }
 
 
+def _build_validation_quality_summary(response: AnalyzeStockResponse) -> dict:
+    dq = response.data_quality_summary
+    manual_checks = [
+        item.model_dump(mode="json") if hasattr(item, "model_dump") else dict(item)
+        for item in response.next_manual_checks
+    ]
+    high_priority = [item for item in manual_checks if item.get("priority") == "high"]
+    blocking = [item for item in manual_checks if item.get("blocking")]
+    supporting = []
+    limiting = []
+    if response.macro_regime.score >= 56:
+        supporting.append("Macro environment has usable macro_v12_5 context.")
+    if response.fundamentals_cross_check.get("agreement_level") in {"high", "moderate"}:
+        supporting.append("SEC/yfinance fundamentals cross-check is usable with provider-period caveats.")
+    if response.financial_statement_signals.label in {"strong", "adequate"}:
+        supporting.append("Financial statement signals provide structured validation context.")
+    if response.qualitative_evidence_assessment.accepted_evidence_count:
+        supporting.append("User-provided qualitative evidence is available for preliminary validation.")
+    if dq.fallback_evidence_categories:
+        limiting.append("limited by fallback data")
+    if dq.mock_evidence_categories:
+        limiting.append("limited by mock or deprecated compatibility evidence")
+    if dq.insufficient_evidence_categories:
+        limiting.append("insufficient qualitative evidence")
+    if response.fundamentals_cross_check.get("agreement_level") == "low":
+        limiting.append("SEC/yfinance discrepancy requires manual review")
+    if response.valuation_context.label == "elevated":
+        limiting.append("valuation risk appears elevated under available proxy metrics")
+    if dq.source_quality_grade == "A" and not high_priority and len(response.missing_data) <= 2:
+        level = "high_quality_validation"
+    elif dq.source_quality_grade == "B":
+        level = "usable_preliminary_validation"
+    elif dq.source_quality_grade == "C":
+        level = "limited_validation"
+    else:
+        level = "insufficient_validation"
+    if dq.fallback_evidence_categories or dq.mock_evidence_categories or response.qualitative_evidence_assessment.accepted_evidence_count:
+        level = "usable_preliminary_validation" if level == "high_quality_validation" else level
+    if dq.source_quality_grade == "D" or len(response.missing_data) >= 9:
+        level = "insufficient_validation"
+    why_by_level = {
+        "high_quality_validation": "Structured evidence is broad enough for high quality validation, while remaining research-only.",
+        "usable_preliminary_validation": "Usable preliminary validation is available, but source constraints or user-provided evidence require manual review.",
+        "limited_validation": "Validation is limited by fallback, mock, stale, or incomplete core evidence.",
+        "insufficient_validation": "Core evidence is missing or too limited for more than initial triage.",
+    }
+    cap_reason = dq.confidence_cap_reason
+    return {
+        "ticker": response.ticker,
+        "overall_validation_level": level,
+        "why": why_by_level[level],
+        "primary_supporting_evidence": supporting[:6] or ["No primary supporting evidence is strong enough to highlight yet."],
+        "primary_limiting_factors": sorted(set(limiting))[:8] or ["Manual review is still required before increasing validation confidence."],
+        "manual_review_required": bool(high_priority or blocking or limiting or response.missing_data),
+        "highest_priority_review_items": [item.get("check", "") for item in manual_checks[:5]],
+        "data_quality_grade": dq.source_quality_grade,
+        "confidence_cap_applied": dq.confidence_cap_applied,
+        "confidence_cap_reason": cap_reason,
+        "not_investment_advice": True,
+    }
+
+
 def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     fixture = STOCK_FIXTURES.get(request.ticker, DEFAULT_STOCK)
     market_context = read_market_data()
@@ -2894,8 +3212,11 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     if legacy_limitation not in leadership_score.limitations:
         leadership_score.limitations.append(legacy_limitation)
     leadership_score.deprecated_by = "jane_company_quality"
+    leadership_score.deprecated = True
+    leadership_score.replaced_by = "jane_company_quality"
     leadership_score.affects_score = False
     leadership_score.legacy_affects_score = False
+    leadership_score.affects_final_score = False
     leadership_score.source_quality = "mock_only"
     market_timing_context = evaluate_market_timing(engine_context)
     overheat_risk = evaluate_overheat(engine_context)
@@ -2970,6 +3291,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     )
     insider_activity_payload = _build_insider_activity(insider_activity)
     institutional_13f_payload = _build_institutional_13f(institutional_13f, request.ticker, sec_filings)
+    smart_money.source_quality_breakdown = _smart_money_source_quality_breakdown(smart_money, insider_activity_payload, institutional_13f_payload)
 
     response = AnalyzeStockResponse(
         ticker=request.ticker,
@@ -2989,6 +3311,19 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
             "primary_risks": [],
             "missing_or_mock_evidence": [],
             "next_manual_checks": [],
+        },
+        validation_quality_summary={
+            "ticker": request.ticker,
+            "overall_validation_level": "insufficient_validation",
+            "why": "Pending evidence composition.",
+            "primary_supporting_evidence": [],
+            "primary_limiting_factors": [],
+            "manual_review_required": True,
+            "highest_priority_review_items": [],
+            "data_quality_grade": "D",
+            "confidence_cap_applied": False,
+            "confidence_cap_reason": None,
+            "not_investment_advice": True,
         },
         evidence_matrix=[],
         data_quality_summary={
@@ -3098,4 +3433,5 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     response.next_manual_checks = [NextManualCheck.model_validate(item) for item in _build_manual_checks(response)]
     response.score_driver_breakdown = ScoreDriverBreakdown.model_validate(_build_score_driver_breakdown(response))
     response.candidate_validation_summary = CandidateValidationSummary.model_validate(_build_candidate_summary(response))
+    response.validation_quality_summary = ValidationQualitySummary.model_validate(_build_validation_quality_summary(response))
     return AnalyzeStockResponse.model_validate(_sanitize_api_secret_markers(response.model_dump(mode="json")))

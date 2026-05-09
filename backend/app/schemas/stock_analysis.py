@@ -74,6 +74,20 @@ class CandidateValidationSummary(BaseModel):
     next_manual_checks: list[str]
 
 
+class ValidationQualitySummary(BaseModel):
+    ticker: str
+    overall_validation_level: Literal["high_quality_validation", "usable_preliminary_validation", "limited_validation", "insufficient_validation"]
+    why: str
+    primary_supporting_evidence: list[str]
+    primary_limiting_factors: list[str]
+    manual_review_required: bool
+    highest_priority_review_items: list[str]
+    data_quality_grade: Literal["A", "B", "C", "D"]
+    confidence_cap_applied: bool
+    confidence_cap_reason: str | None = None
+    not_investment_advice: bool = True
+
+
 class EvidenceMatrixItem(BaseModel):
     category: Literal[
         "macro_environment",
@@ -100,6 +114,11 @@ class EvidenceMatrixItem(BaseModel):
     summary: str
     key_evidence: list[str]
     limitations: list[str]
+    why_it_matters: str | None = None
+    review_priority: Literal["high", "medium", "low", "none"] = "none"
+    affects_final_score: bool | None = None
+    is_deprecated: bool = False
+    replaced_by: str | None = None
 
 
 class AnalyzeStockDataQualitySummary(BaseModel):
@@ -285,6 +304,11 @@ class NextManualCheck(BaseModel):
     area: Literal["company_fundamentals", "leadership", "qualitative_evidence", "filings", "smart_money", "valuation", "risk", "source_quality"]
     check: str
     reason: str
+    priority_rank: int = Field(default=999, ge=1)
+    blocking: bool = False
+    category: str | None = None
+    related_evidence_category: str | None = None
+    reason_short: str = ""
 
 
 class AnalyzeStockResponse(BaseModel):
@@ -293,6 +317,7 @@ class AnalyzeStockResponse(BaseModel):
     analysis_mode: Literal["ticker_validation"] = "ticker_validation"
     research_verdict: ResearchVerdict
     candidate_validation_summary: CandidateValidationSummary
+    validation_quality_summary: ValidationQualitySummary
     evidence_matrix: list[EvidenceMatrixItem]
     data_quality_summary: AnalyzeStockDataQualitySummary
     score_driver_breakdown: ScoreDriverBreakdown

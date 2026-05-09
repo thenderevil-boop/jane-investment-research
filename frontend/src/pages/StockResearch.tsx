@@ -7,7 +7,7 @@ import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
-import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, JaneCompanyQuality, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis } from '../types';
+import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, JaneCompanyQuality, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ValidationQualitySummary } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
 const qualitativeCriteria = new Set(['monopoly_power', 'visionary_founder_ceo', 'disruptive_innovation', 'network_effect', 'continuous_r_and_d', 'mega_trend_fit']);
@@ -116,6 +116,10 @@ function displayValue(value: unknown) {
   if (Array.isArray(value)) return value.join(', ');
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
+}
+
+function listFromUnknown(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((item) => typeof item === 'string' ? item : JSON.stringify(item)) : [];
 }
 
 function downloadText(filename: string, contentType: string, content: string) {
@@ -242,6 +246,36 @@ export function CandidateSummarySection({ result }: { result: StockAnalysis }) {
       </div>
       {!!summary.missing_or_mock_evidence.length && (
         <p className="sourceWarning">Missing or mock evidence: {summary.missing_or_mock_evidence.join(', ')}</p>
+      )}
+    </section>
+  );
+}
+
+export function ValidationQualitySummarySection({ summary }: { summary?: ValidationQualitySummary }) {
+  if (!summary) return null;
+  return (
+    <section className="pageSection">
+      <h2>Validation Quality Summary</h2>
+      <div className="summaryMain">
+        <span className="smallPill">{summary.overall_validation_level}</span>
+        <span className="smallPill">Grade {summary.data_quality_grade}</span>
+        {summary.manual_review_required && <span className="smallPill">manual review required</span>}
+        {summary.confidence_cap_applied && <span className="smallPill">confidence capped</span>}
+      </div>
+      <p>{summary.why}</p>
+      {summary.confidence_cap_reason && <p className="sourceWarning">{summary.confidence_cap_reason}</p>}
+      <div className="twoColumn">
+        <div>
+          <h3>Supporting evidence</h3>
+          <ul>{summary.primary_supporting_evidence.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+        <div>
+          <h3>Limiting factors</h3>
+          <ul>{summary.primary_limiting_factors.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+      </div>
+      {!!summary.highest_priority_review_items.length && (
+        <p className="muted">Highest priority checks: {summary.highest_priority_review_items.join(' | ')}</p>
       )}
     </section>
   );
@@ -529,16 +563,23 @@ export function FundamentalsCrossCheckSection({ crossCheck }: { crossCheck?: Rec
   if (!crossCheck) return null;
   const sourceStatus = crossCheck.source_status as DataSourceStatus | undefined;
   const metrics = Array.isArray(crossCheck.checked_metrics) ? crossCheck.checked_metrics as Array<Record<string, unknown>> : [];
+  const explanation = crossCheck.explanation as Record<string, unknown> | undefined;
+  const reviewMetrics = Array.isArray(explanation?.metrics_requiring_review) ? explanation.metrics_requiring_review as Array<Record<string, unknown>> : [];
   const agreement = String(crossCheck.agreement_level ?? 'insufficient');
   return (
     <section className="pageSection">
-      <h2>Fundamentals Cross-Check</h2>
+      <h2>Fundamentals Cross-Check Explanation</h2>
       <div className="summaryMain">
         <span className="smallPill">{agreement}</span>
+        {Boolean(explanation?.manual_check_priority) && <span className="smallPill">review {String(explanation?.manual_check_priority)}</span>}
         {sourceStatus && <DataSourceBadge status={sourceStatus} />}
       </div>
       {agreement === 'low' && <p className="sourceWarning">SEC/yfinance discrepancy requires manual review.</p>}
-      <p>{String(crossCheck.summary ?? '')}</p>
+      <p>{String(explanation?.plain_language_summary ?? crossCheck.summary ?? '')}</p>
+      {!!listFromUnknown(explanation?.likely_reasons).length && (
+        <ul>{listFromUnknown(explanation?.likely_reasons).map((item) => <li key={item}>{item}</li>)}</ul>
+      )}
+      {Boolean(explanation?.confidence_impact) && <p className="muted">{String(explanation?.confidence_impact)}</p>}
       <div className="tableWrap">
         <table>
           <thead><tr><th>Metric</th><th>yfinance</th><th>SEC</th><th>Difference</th><th>Status</th></tr></thead>
@@ -555,6 +596,81 @@ export function FundamentalsCrossCheckSection({ crossCheck }: { crossCheck?: Rec
           </tbody>
         </table>
       </div>
+      {!!reviewMetrics.length && (
+        <div className="tableWrap">
+          <table>
+            <thead><tr><th>Review metric</th><th>Why it matters</th><th>Review hint</th></tr></thead>
+            <tbody>
+              {reviewMetrics.map((metric) => (
+                <tr key={String(metric.metric)}>
+                  <td>{displayKey(String(metric.metric))}</td>
+                  <td>{String(metric.why_it_matters ?? '')}</td>
+                  <td>{String(metric.review_hint ?? '')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+export function SmartMoneySourceQualitySection({ smartMoney }: { smartMoney?: ScoreLike }) {
+  const breakdown = smartMoney?.source_quality_breakdown as Record<string, Record<string, unknown>> | undefined;
+  if (!breakdown) return null;
+  const rows = ['form4', 'institutional_13f', 'options'].map((key) => ({ key, value: breakdown[key] ?? {} }));
+  return (
+    <section className="pageSection">
+      <h2>Smart Money Source Quality Breakdown</h2>
+      <div className="tableWrap">
+        <table>
+          <thead><tr><th>Component</th><th>Source type</th><th>Interpretation</th><th>Score impact</th></tr></thead>
+          <tbody>
+            {rows.map(({ key, value }) => (
+              <tr key={key}>
+                <td>{displayKey(key)}</td>
+                <td>{displayValue(value.source_type)}</td>
+                <td>{displayValue(value.interpretation)}</td>
+                <td>{displayValue(value.score_impact)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {breakdown.aggregate_interpretation && <p className="sourceWarning">{String(breakdown.aggregate_interpretation)}</p>}
+    </section>
+  );
+}
+
+export function ValuationRiskExplanationSection({ valuation }: { valuation?: ScoreLike }) {
+  const explanation = (valuation?.explanation ?? valuation?.raw_data?.explanation) as Record<string, unknown> | undefined;
+  if (!explanation) return null;
+  const metrics = Array.isArray(explanation.metrics_used) ? explanation.metrics_used as Array<Record<string, unknown>> : [];
+  return (
+    <section className="pageSection">
+      <h2>Valuation Risk Explanation</h2>
+      <div className="summaryMain">
+        <span className="smallPill">{String(explanation.valuation_risk_label ?? valuation?.label ?? 'unavailable')}</span>
+      </div>
+      <p>{String(explanation.plain_language_summary ?? '')}</p>
+      <div className="tableWrap">
+        <table>
+          <thead><tr><th>Metric</th><th>Value</th><th>Threshold context</th><th>Limitation</th></tr></thead>
+          <tbody>
+            {metrics.map((metric) => (
+              <tr key={String(metric.name)}>
+                <td>{displayKey(String(metric.name))}</td>
+                <td>{displayValue(metric.value)}</td>
+                <td>{String(metric.threshold_context ?? '')}</td>
+                <td>{String(metric.limitation ?? '')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {Boolean(explanation.why_it_matters) && <p className="muted">{String(explanation.why_it_matters)}</p>}
+      {Boolean(explanation.manual_review_hint) && <p className="sourceWarning">{String(explanation.manual_review_hint)}</p>}
     </section>
   );
 }
@@ -600,20 +716,32 @@ export function EvidenceMatrixSection({ rows }: { rows?: EvidenceMatrixItem[] })
       <h2>Evidence Matrix</h2>
       <div className="evidenceMatrix">
         {rows.map((row) => (
-          <article className="evidenceRow" key={row.category}>
+          <article className={`evidenceRow ${row.is_deprecated ? 'deprecatedEvidenceRow' : ''}`} key={row.category}>
             <div className="evidenceRowHeader">
               <h3>{displayKey(row.category)}</h3>
               <div>
                 <SignalBadge label={row.status} variant={row.status === 'caution' || row.status === 'insufficient' ? 'warning' : 'neutral'} />
                 <DataSourceBadge status={sourceQualityStatus(row.source_quality)} />
                 <span className="smallPill">{row.source_quality}</span>
+                {row.review_priority && row.review_priority !== 'none' && <span className="smallPill">review {row.review_priority}</span>}
+                {row.affects_final_score === false && <span className="smallPill">not scoring</span>}
+                {row.is_deprecated && <span className="smallPill">deprecated</span>}
               </div>
             </div>
             <p>{row.summary}</p>
+            {row.replaced_by && <p className="muted">Replaced by {row.replaced_by}.</p>}
+            {row.why_it_matters && <p className="muted">{row.why_it_matters}</p>}
             {(row.source_quality === 'mock_only' || row.source_quality === 'mixed_with_fallback') && (
               <p className="sourceWarning">{row.source_quality === 'mock_only' ? 'Mock-only evidence; treat as preliminary.' : 'Fallback or mixed source quality; manual confirmation required.'}</p>
             )}
-            <ul>{row.key_evidence.map((item) => <li key={item}>{item}</li>)}</ul>
+            {row.is_deprecated ? (
+              <details>
+                <summary>Legacy mock details</summary>
+                <ul>{row.key_evidence.map((item) => <li key={item}>{item}</li>)}</ul>
+              </details>
+            ) : (
+              <ul>{row.key_evidence.map((item) => <li key={item}>{item}</li>)}</ul>
+            )}
             {!!row.limitations.length && <p className="muted">Limitations: {row.limitations.join(' ')}</p>}
           </article>
         ))}
@@ -652,18 +780,29 @@ export function ScoreDriverSection({ result }: { result: StockAnalysis }) {
 }
 
 export function ManualChecksSection({ checks }: { checks?: NextManualCheck[] }) {
+  const [showAll, setShowAll] = useState(false);
   if (!checks?.length) return null;
+  const visibleChecks = showAll ? checks : checks.slice(0, 8);
   return (
     <section className="pageSection">
       <h2>Next Manual Checks</h2>
       <ul className="checkList">
-        {checks.map((item) => (
+        {visibleChecks.map((item) => (
           <li key={`${item.area}-${item.check}`}>
             <span className={`checkPriority ${item.priority}`}>{item.priority}</span>
-            <div><strong>{displayKey(item.area)}</strong><span>{item.check}</span><small>{item.reason}</small></div>
+            <div>
+              <strong>#{item.priority_rank ?? '?'} {displayKey(item.category ?? item.area)} {item.blocking ? '(blocking)' : ''}</strong>
+              <span>{item.check}</span>
+              <small>{item.reason_short || item.reason}</small>
+            </div>
           </li>
         ))}
       </ul>
+      {checks.length > 8 && (
+        <button type="button" onClick={() => setShowAll((value) => !value)}>
+          {showAll ? 'Show top checks' : `Show all checks (${checks.length})`}
+        </button>
+      )}
     </section>
   );
 }
@@ -800,6 +939,7 @@ export default function StockResearch() {
         <>
           <ValidationReportExportSection ticker={ticker} theme={theme} userReason={userReason} qualitativeEvidenceJson={qualitativeEvidenceJson} />
           <CandidateSummarySection result={result} />
+          <ValidationQualitySummarySection summary={result.validation_quality_summary} />
           <AnalyzeDataQualitySection dataQuality={result.data_quality_summary} />
           <JaneCompanyQualitySection quality={result.jane_company_quality} profile={result.company_profile} />
           <QualitativeEvidenceAssessmentSection assessment={result.qualitative_evidence_assessment} />
@@ -808,6 +948,8 @@ export default function StockResearch() {
           <SecFinancialFactsSection facts={result.sec_financial_facts} />
           <FundamentalsCrossCheckSection crossCheck={result.fundamentals_cross_check} />
           <CompanyFundamentalsSection result={result} />
+          <SmartMoneySourceQualitySection smartMoney={result.smart_money} />
+          <ValuationRiskExplanationSection valuation={result.valuation_context} />
           <EvidenceMatrixSection rows={result.evidence_matrix} />
           <ScoreDriverSection result={result} />
           <ManualChecksSection checks={result.next_manual_checks} />

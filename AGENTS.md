@@ -123,7 +123,7 @@ MVP can run natively on Windows. Avoid Linux-only shell assumptions in app code.
 
 Build in phases.
 
-Current implementation has reached Phase 25 (analyze-stock validation report export and local backup) on top of Phase 24.6 validation-first UX and repo hygiene cleanup. Phase 25 adds export/backup support only; it must not change scoring, analyze-stock behavior, SEC parsers, macro parsers, Form 4 parsers, 13F parsers, Companyfacts parsers, scraping, source URL fetching, news, YouTube, sentiment, paid APIs, or Future Industry Radar work.
+Current implementation has reached Phase 26 (analyze-stock validation quality hardening) on top of Phase 25 validation report export and local backup. Phase 26 adds explanation, prioritization, and frontend clarity only; it must not change scoring, SEC parsers, macro parsers, Form 4 parsers, 13F parsers, Companyfacts parsers, scraping, source URL fetching, news, YouTube, sentiment, paid APIs, Candidate Workspace scope, or Future Industry Radar work.
 
 Phase labels in historical docs may be non-contiguous. For current development, prefer these implementation references in order:
 
@@ -323,6 +323,15 @@ Phase 25 export and backup notes:
 - Export and backup output must redact secrets, raw provider URLs, and local paths where present.
 - Export and backup features support validation review only and must not expand Candidate Workspace into a research notebook.
 
+Phase 26 validation quality notes:
+
+- `validation_quality_summary` is explanatory and does not alter scoring by itself.
+- SEC/yfinance fundamentals explanations are provider-normalization and period-alignment aids; neither provider is treated as always correct.
+- `legacy_leadership_score` is deprecated, mock-only, replaced by `jane_company_quality`, and does not affect final score.
+- Smart-money evidence may include delayed quarterly 13F, cached/fallback Form 4 constraints, and mock options context; these constraints must be visible.
+- Valuation risk is research context only.
+- `next_manual_checks` are validation tasks, not investment instructions.
+
 Phase 19 manual evidence library notes:
 
 - Saved qualitative evidence is local-only, user-provided, reusable by ticker, and not independently verified.
@@ -379,6 +388,8 @@ Before marking a task complete:
 19. Confirm `source_type` never equals `mixed`.
 20. Confirm analyze-stock export does not change scoring or persist request-scoped qualitative evidence.
 21. Confirm local backup export reads local stores only and does not call analyze-stock or live providers.
+22. Confirm validation quality explanations remain conservative and do not add recommendation language.
+23. Confirm prioritized manual checks remain validation tasks and not action instructions.
 
 ## Data Freshness Contract
 

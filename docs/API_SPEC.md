@@ -110,12 +110,22 @@ Primary endpoint. Validates a user-provided US ticker using structured evidence 
 Phase 14 makes the response a candidate validation report rather than a loose bundle of engine outputs. Phase 15 adds live/cached company profile, financial quality, and derived valuation context through repository-backed yfinance data when company data is enabled. Phase 16 adds evidence-based Jane company quality and financial statement signals so mock leadership no longer acts as the primary company-quality driver. The main user-facing fields are:
 
 - `candidate_validation_summary`: concise research-priority summary, strengths, risks, mock/fallback disclosure, and next checks.
+- `validation_quality_summary`: explanation-only validation quality level, supporting evidence, limiting factors, review need, data-quality grade, and confidence-cap status. This field does not alter scoring by itself.
 - `qualitative_evidence_assessment`: optional manual qualitative evidence validation results when the request includes structured qualitative evidence.
 - `comparison_evidence_assessment`: manual competitor/comparison evidence summary for peer context hooks.
 - `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, qualitative evidence, comparison evidence, Jane company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
 - `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, qualitative evidence counts, and excluded scoring indicators.
 - `score_driver_breakdown`: positive, limiting, and neutral score drivers.
 - `next_manual_checks`: research-oriented checks for source quality, fundamentals, filings, valuation, and risk.
+
+Phase 26 adds explanation-only validation-quality hardening:
+
+- `fundamentals_cross_check.explanation` explains SEC/yfinance agreement, likely normalization or period reasons, metrics requiring review, confidence impact, and manual-check priority.
+- `legacy_leadership_score` evidence rows and `leadership_score` mark the legacy mock score as deprecated, replaced by `jane_company_quality`, and non-scoring.
+- `smart_money.source_quality_breakdown` discloses Form 4 source quality, delayed quarterly 13F constraints, and mock options context.
+- `valuation_context.explanation` frames valuation proxy risk as research context only.
+- `next_manual_checks` include `priority_rank`, `blocking`, normalized `category`, `related_evidence_category`, and `reason_short`.
+- Evidence matrix rows may include `why_it_matters`, `review_priority`, `affects_final_score`, `is_deprecated`, and `replaced_by`.
 
 Raw evidence remains available in the legacy score objects, `raw_data`, and debug/expandable frontend panels for audit. Mock and fallback data reduce confidence. The endpoint must keep `not_investment_advice=true` and must not emit trading instructions.
 

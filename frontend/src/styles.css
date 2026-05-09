@@ -634,6 +634,11 @@ th {
   padding: 12px;
 }
 
+.deprecatedEvidenceRow {
+  background: #f8fafc;
+  opacity: 0.78;
+}
+
 .evidenceRowHeader {
   align-items: flex-start;
   display: flex;

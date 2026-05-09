@@ -65,6 +65,25 @@ export type EvidenceMatrixItem = {
   summary: string;
   key_evidence: string[];
   limitations: string[];
+  why_it_matters?: string | null;
+  review_priority?: 'high' | 'medium' | 'low' | 'none';
+  affects_final_score?: boolean | null;
+  is_deprecated?: boolean;
+  replaced_by?: string | null;
+};
+
+export type ValidationQualitySummary = {
+  ticker: string;
+  overall_validation_level: 'high_quality_validation' | 'usable_preliminary_validation' | 'limited_validation' | 'insufficient_validation';
+  why: string;
+  primary_supporting_evidence: string[];
+  primary_limiting_factors: string[];
+  manual_review_required: boolean;
+  highest_priority_review_items: string[];
+  data_quality_grade: 'A' | 'B' | 'C' | 'D';
+  confidence_cap_applied: boolean;
+  confidence_cap_reason?: string | null;
+  not_investment_advice: boolean;
 };
 
 export type AnalyzeStockDataQualitySummary = {
@@ -217,6 +236,11 @@ export type NextManualCheck = {
   area: 'company_fundamentals' | 'leadership' | 'qualitative_evidence' | 'filings' | 'smart_money' | 'valuation' | 'risk' | 'source_quality';
   check: string;
   reason: string;
+  priority_rank?: number;
+  blocking?: boolean;
+  category?: string | null;
+  related_evidence_category?: string | null;
+  reason_short?: string;
 };
 
 export type QualitativeEvidenceInput = {
@@ -760,6 +784,8 @@ export type ScoreLike = {
   limitations?: string[];
   missing_data?: string[];
   source_status?: DataSourceStatus | null;
+  source_quality_breakdown?: Record<string, unknown> | null;
+  explanation?: Record<string, unknown> | null;
   macro_data_quality?: Record<string, unknown> | null;
   macro_score_explanation?: MacroScoreExplanation | null;
   components?: unknown[];
@@ -908,6 +934,7 @@ export type StockAnalysis = {
   analysis_mode?: 'ticker_validation';
   research_verdict?: ResearchVerdict;
   candidate_validation_summary?: CandidateValidationSummary;
+  validation_quality_summary?: ValidationQualitySummary;
   evidence_matrix?: EvidenceMatrixItem[];
   data_quality_summary?: AnalyzeStockDataQualitySummary;
   score_driver_breakdown?: ScoreDriverBreakdown;

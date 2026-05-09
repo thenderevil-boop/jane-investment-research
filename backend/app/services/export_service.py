@@ -116,6 +116,7 @@ def _build_json_report(request: AnalyzeStockExportRequest, analysis: dict[str, A
             "primary_strengths": summary.get("primary_strengths", []),
             "primary_risks": summary.get("primary_risks", []),
         },
+        "validation_quality_summary": analysis.get("validation_quality_summary"),
         "data_quality_summary": analysis.get("data_quality_summary"),
         "macro_context": analysis.get("macro_regime"),
         "company_quality": analysis.get("jane_company_quality"),
@@ -123,6 +124,7 @@ def _build_json_report(request: AnalyzeStockExportRequest, analysis: dict[str, A
         "sec_financial_facts": analysis.get("sec_financial_facts"),
         "fundamentals_cross_check": analysis.get("fundamentals_cross_check"),
         "smart_money": analysis.get("smart_money"),
+        "valuation_context": analysis.get("valuation_context"),
         "qualitative_evidence_assessment": _manual_assessment(analysis, request.include_manual_evidence),
         "comparison_evidence_assessment": analysis.get("comparison_evidence_assessment"),
         "evidence_matrix": analysis.get("evidence_matrix", []),
@@ -160,6 +162,10 @@ def _markdown_report(request: AnalyzeStockExportRequest, analysis: dict[str, Any
     verdict = analysis.get("research_verdict") or {}
     summary = analysis.get("candidate_validation_summary") or {}
     dq = analysis.get("data_quality_summary") or {}
+    vq = analysis.get("validation_quality_summary") or {}
+    cross_explanation = (analysis.get("fundamentals_cross_check") or {}).get("explanation") or {}
+    smart_breakdown = (analysis.get("smart_money") or {}).get("source_quality_breakdown") or {}
+    valuation_explanation = ((analysis.get("valuation_context") or {}).get("explanation") or ((analysis.get("valuation_context") or {}).get("raw_data") or {}).get("explanation") or {})
     context = request.research_context.model_dump(mode="json") if request.research_context else {}
     evidence_rows = analysis.get("evidence_matrix") or []
     drivers = analysis.get("score_driver_breakdown") or {}
@@ -175,6 +181,12 @@ def _markdown_report(request: AnalyzeStockExportRequest, analysis: dict[str, Any
         f"- Confidence: {verdict.get('confidence', 'N/A')}\n"
         f"- Data quality grade: {dq.get('source_quality_grade', 'N/A')}\n"
         f"- Summary: {summary.get('overall_summary') or verdict.get('summary', 'N/A')}",
+        "## Validation Quality Summary\n"
+        f"- Level: {vq.get('overall_validation_level', 'N/A')}\n"
+        f"- Why: {vq.get('why', 'N/A')}\n"
+        f"- Manual review required: {vq.get('manual_review_required', True)}\n"
+        f"- Confidence cap: {vq.get('confidence_cap_applied', False)}"
+        + (f" - {vq.get('confidence_cap_reason')}" if vq.get("confidence_cap_reason") else ""),
         "## Thesis Context\n"
         f"- Theme: {context.get('theme') or 'N/A'}\n"
         f"- User reason: {context.get('user_reason') or 'N/A'}",
@@ -185,6 +197,10 @@ def _markdown_report(request: AnalyzeStockExportRequest, analysis: dict[str, Any
         f"- Mode: {dq.get('mode', 'N/A')}\n"
         f"- Summary: {dq.get('source_quality_summary', 'N/A')}\n"
         f"- Missing or insufficient categories: {', '.join(dq.get('insufficient_evidence_categories', []) or []) or 'None listed'}",
+        "## Source Quality Constraints\n"
+        f"- Mock evidence: {', '.join(dq.get('mock_evidence_categories', []) or []) or 'None listed'}\n"
+        f"- Fallback evidence: {', '.join(dq.get('fallback_evidence_categories', []) or []) or 'None listed'}\n"
+        f"- Confidence cap reason: {dq.get('confidence_cap_reason') or 'None listed'}",
         "## Macro Context\n"
         f"- Label: {(analysis.get('macro_regime') or {}).get('label', 'N/A')}\n"
         f"- Score: {(analysis.get('macro_regime') or {}).get('score', 'N/A')}\n"
@@ -200,13 +216,20 @@ def _markdown_report(request: AnalyzeStockExportRequest, analysis: dict[str, Any
         "## SEC Financial Facts\n"
         f"- Source type: {(((analysis.get('sec_financial_facts') or {}).get('source_status') or {}).get('source_type')) or 'N/A'}\n"
         f"- Missing data: {', '.join((analysis.get('sec_financial_facts') or {}).get('missing_data', []) or []) or 'None listed'}",
-        "## Fundamentals Cross-Check\n"
+        "## Fundamentals Cross-Check Explanation\n"
         f"- Agreement: {(analysis.get('fundamentals_cross_check') or {}).get('agreement_level', 'N/A')}\n"
-        f"- Summary: {(analysis.get('fundamentals_cross_check') or {}).get('summary', 'N/A')}",
-        "## Smart Money\n"
+        f"- Summary: {cross_explanation.get('plain_language_summary') or (analysis.get('fundamentals_cross_check') or {}).get('summary', 'N/A')}\n"
+        f"- Review priority: {cross_explanation.get('manual_check_priority', 'N/A')}",
+        "## Smart Money Source Quality\n"
         f"- Label: {(analysis.get('smart_money') or {}).get('label', 'N/A')}\n"
         f"- Score: {(analysis.get('smart_money') or {}).get('score', 'N/A')}\n"
-        f"- Limitations: {' '.join((analysis.get('smart_money') or {}).get('limitations', []) or []) or 'None listed'}",
+        f"- Form 4: {(smart_breakdown.get('form4') or {}).get('interpretation', 'N/A')}\n"
+        f"- 13F: {(smart_breakdown.get('institutional_13f') or {}).get('interpretation', 'N/A')}\n"
+        f"- Options: {(smart_breakdown.get('options') or {}).get('interpretation', 'N/A')}",
+        "## Valuation Risk Context\n"
+        f"- Label: {valuation_explanation.get('valuation_risk_label', 'N/A')}\n"
+        f"- Summary: {valuation_explanation.get('plain_language_summary', 'N/A')}\n"
+        f"- Manual review hint: {valuation_explanation.get('manual_review_hint', 'N/A')}",
         "## Qualitative Evidence\n"
         f"- Accepted: {(analysis.get('qualitative_evidence_assessment') or {}).get('accepted_evidence_count', 0)}\n"
         "- Manual evidence remains user_provided and is not independently verified.",
@@ -221,7 +244,13 @@ def _markdown_report(request: AnalyzeStockExportRequest, analysis: dict[str, Any
         "Positive drivers:\n" + _bullet_list([item.get("summary") for item in positive]) + "\n\n"
         "Limiting drivers:\n" + _bullet_list([item.get("summary") for item in limiting]) + "\n\n"
         "Neutral drivers:\n" + _bullet_list([item.get("summary") for item in neutral]),
-        "## Next Manual Checks\n" + _bullet_list(analysis.get("next_manual_checks", [])),
+        "## Next Manual Checks\n"
+        "See prioritized validation tasks below.",
+        "## Prioritized Manual Checks\n" + _bullet_list([
+            f"#{item.get('priority_rank', '?')} {item.get('priority')} {item.get('category') or item.get('area')}: {item.get('check')}"
+            for item in analysis.get("next_manual_checks", [])
+            if isinstance(item, dict)
+        ]),
         "## Limitations\n" + _bullet_list(EXPORT_LIMITATIONS + (analysis.get("missing_data") or [])),
     ])
 

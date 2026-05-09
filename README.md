@@ -88,6 +88,8 @@ Phase 24.6 makes the validation workflow explicit in the frontend and repo hygie
 
 Phase 25 adds validation report export and local backup. `POST /api/analyze-stock/export` runs the existing analyze-stock pipeline unchanged, then returns a JSON or Markdown validation report for review. The export does not change scoring, does not persist request-scoped qualitative evidence, redacts sensitive fields, preserves source quality, limitations, missing data, evidence matrix, score drivers, and manual checks, and remains research reference only. `GET /api/local-backup/export` reads local Manual Evidence Library and Candidate Workspace stores for backup only; it does not call analyze-stock, live providers, web sources, provider caches, import/restore, cloud sync, or scheduling.
 
+Phase 26 hardens analyze-stock validation quality without adding data sources or workspace features. `validation_quality_summary` explains whether the current output is high-quality, usable preliminary, limited, or insufficient validation and does not alter scoring by itself. Fundamentals cross-checks now include plain-language SEC/yfinance discrepancy explanations, smart-money output discloses delayed 13F, Form 4 fallback/cached limitations, and mock options constraints, legacy mock leadership is visibly deprecated and replaced by `jane_company_quality`, valuation risk is framed as research context only, and manual checks are prioritized validation tasks rather than investment instructions.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
@@ -118,6 +120,7 @@ Completed live integrations now documented in this README:
 - Phase 24.5: documentation, scope boundary, testing, and repo hygiene alignment
 - Phase 24.6: validation-first frontend entry point and repo hygiene cleanup
 - Phase 25: analyze-stock validation report export and local backup
+- Phase 26: analyze-stock validation quality hardening
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 

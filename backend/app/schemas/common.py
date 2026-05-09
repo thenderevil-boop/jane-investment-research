@@ -44,6 +44,8 @@ class ScoreObject(BaseModel):
     limitations: list[str]
     missing_data: list[str]
     source_status: DataSourceStatus | None = None
+    source_quality_breakdown: dict[str, Any] | None = None
+    explanation: dict[str, Any] | None = None
 
 
 class VerificationItem(BaseModel):

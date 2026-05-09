@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { DataSourceStatus, ScoreLike, StockAnalysis } from '../types';
-import StockResearch, { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection, ValidationReportExportSection, parseQualitativeEvidenceJson } from './StockResearch';
+import StockResearch, { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, parseQualitativeEvidenceJson } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -662,12 +662,79 @@ describe('StockResearch presentation helpers', () => {
             area: 'source_quality',
             check: 'Verify company profile and fundamentals with live company data.',
             reason: 'Mock evidence is present.',
+            priority_rank: 1,
+            blocking: true,
+            category: 'source_quality',
+            reason_short: 'Mock evidence is present.',
           },
         ]}
       />,
     );
     expect(html).toContain('Next Manual Checks');
     expect(html).toContain('Verify company profile');
+    expect(html).toContain('#1 source quality');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders Validation Quality Summary panel', () => {
+    const html = renderToStaticMarkup(
+      <ValidationQualitySummarySection
+        summary={{
+          ticker: 'NVDA',
+          overall_validation_level: 'usable_preliminary_validation',
+          why: 'Usable preliminary validation is available.',
+          primary_supporting_evidence: ['Macro context is usable.'],
+          primary_limiting_factors: ['insufficient qualitative evidence'],
+          manual_review_required: true,
+          highest_priority_review_items: ['Review source quality.'],
+          data_quality_grade: 'B',
+          confidence_cap_applied: true,
+          confidence_cap_reason: 'Source constraints cap confidence.',
+          not_investment_advice: true,
+        }}
+      />,
+    );
+    expect(html).toContain('Validation Quality Summary');
+    expect(html).toContain('usable_preliminary_validation');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders Smart Money Source Quality Breakdown panel', () => {
+    const html = renderToStaticMarkup(
+      <SmartMoneySourceQualitySection
+        smartMoney={{
+          ...score(mockStatus),
+          source_quality_breakdown: {
+            form4: { source_type: 'fallback', interpretation: 'Fallback-limited.', score_impact: 'Limited impact.' },
+            institutional_13f: { source_type: 'mock', interpretation: 'Delayed quarterly evidence.', score_impact: 'Context only.' },
+            options: { source_type: 'mock', interpretation: 'Mock context.', score_impact: 'Preliminary.' },
+            aggregate_interpretation: 'mixed_with_fallback_or_mock_components',
+          },
+        }}
+      />,
+    );
+    expect(html).toContain('Smart Money Source Quality Breakdown');
+    expect(html).toContain('Delayed quarterly evidence');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders Valuation Risk Explanation panel', () => {
+    const html = renderToStaticMarkup(
+      <ValuationRiskExplanationSection
+        valuation={{
+          ...score(mockStatus),
+          explanation: {
+            valuation_risk_label: 'elevated',
+            plain_language_summary: 'Valuation risk appears elevated under available proxy metrics.',
+            metrics_used: [{ name: 'price_to_sales_ttm', value: 24, threshold_context: 'Elevated proxy threshold >= 15.', limitation: 'Provider timing can differ.' }],
+            why_it_matters: 'Proxy risk can temper validation confidence.',
+            manual_review_hint: 'Compare with peer context.',
+          },
+        }}
+      />,
+    );
+    expect(html).toContain('Valuation Risk Explanation');
+    expect(html).toContain('price to sales ttm');
     expect(html).not.toContain('[object Object]');
   });
 });
