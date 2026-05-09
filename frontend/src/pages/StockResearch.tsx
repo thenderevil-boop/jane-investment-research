@@ -699,6 +699,7 @@ export default function StockResearch() {
           <p className="eyebrow">Stock Research</p>
           <h1>US Ticker Research</h1>
           <p>Research reference only. Not investment advice.</p>
+          <p className="muted">Primary workflow: submit a ticker to validate the idea using evidence, data quality, and missing-data checks.</p>
         </div>
       </header>
 

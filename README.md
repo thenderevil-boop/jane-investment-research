@@ -84,6 +84,8 @@ Phase 24 hardens the Candidate Research Workspace UX and audit trail. Candidates
 
 Phase 24.5 aligns documentation, scope boundaries, testing expectations, and repo hygiene with the Phase 24 implementation. It does not add product features, APIs, scoring changes, analyze-stock behavior changes, parser changes, live providers, scraping, source URL fetching, news, YouTube, sentiment, or Future Industry Radar work. The product boundary remains ticker validation for user-provided US-listed ideas.
 
+Phase 24.6 makes the validation workflow explicit in the frontend and repo hygiene. Stock Research is the default UI because `POST /api/analyze-stock` is the primary product workflow. Candidate Workspace, Evidence Library, and Evidence Dashboard remain supporting local workflow and evidence-quality aids; they are not recommendation surfaces or general note systems.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
@@ -112,6 +114,7 @@ Completed live integrations now documented in this README:
 - Phase 23: candidate research workspace and watchlist review flow
 - Phase 24: candidate workspace review notes, analysis history, filters, badges, and UX hardening
 - Phase 24.5: documentation, scope boundary, testing, and repo hygiene alignment
+- Phase 24.6: validation-first frontend entry point and repo hygiene cleanup
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 
@@ -192,7 +195,9 @@ Jane Company Quality, financial statement signals, and smart-money evidence help
 Market Timing and Macro Regime tell us whether the current research environment is favorable, neutral, fearful, or overheated.
 None of these are direct investment recommendations.
 
-Candidate Workspace is local workflow metadata for externally discovered ticker ideas. Review notes are append-only audit notes only, candidate status is workflow state only, and neither review notes nor candidate status affect scoring. The system should not expand into a full research notebook, task manager, portfolio tracker, trading journal, or execution workflow.
+Primary product workflow is `POST /api/analyze-stock` and the Stock Research UI. The user supplies ticker and theme context externally, and the system validates the candidate using available evidence, source quality, missing data, and conservative Jane-style criteria.
+
+Candidate Workspace is only a local queue for user-supplied tickers and latest validation metadata. Evidence Library and Evidence Dashboard exist only to support validation evidence quality. Review notes are append-only audit notes only, candidate status is workflow state only, and neither review notes nor candidate status affect scoring. The system should not expand into a full research notebook, task manager, portfolio tracker, trading journal, or execution workflow. Future work should prioritize analyze-stock validation quality, data quality, evidence quality, and export/backup rather than workspace expansion.
 
 ## Environment Variables Reference
 
@@ -449,7 +454,7 @@ $env:MARKET_DATA_PROVIDER="yfinance"
 uvicorn backend.app.main:app --reload
 ```
 
-Live market data remains limited to US market prices. FRED, SEC filings, news, YouTube, options, and 13F integrations are not connected yet.
+Live provider integrations are limited to configured research evidence sources such as yfinance, FRED, SEC EDGAR Form 4, SEC 13F, and SEC Companyfacts. News, YouTube, social/sentiment, options, paid qualitative providers, and automatic theme discovery are not connected.
 
 ## Phase 9 Live Macro / FRED Data
 
@@ -636,7 +641,7 @@ SEC 13F URL strategy:
 - The information table filename is not assumed to be `form13fInfoTable.xml`; actual XML filenames are ranked from the filing index.
 - The index HTML filename keeps dashes in the accession number.
 
-13F source status uses `freshness_window="quarterly_filing_delay"`. It does not use market latest-trading-day freshness or Form 4 recency rules. 13F is delayed quarterly evidence, may lag up to 45 days after quarter end, and may not show shorts, many derivatives, or current positions.
+13F source status uses `freshness_window="quarterly_filing_delay"`. Fresh window covers the latest quarter-end filing plus the 45-day SEC deadline, and cache TTL is days-based through `SEC_13F_CACHE_TTL_DAYS`. It does not use market latest-trading-day freshness or Form 4 recency rules.
 
 13F value normalization:
 

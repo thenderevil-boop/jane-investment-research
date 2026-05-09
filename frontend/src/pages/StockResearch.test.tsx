@@ -37,6 +37,7 @@ function score(status: DataSourceStatus | null = mockStatus): ScoreLike {
 describe('StockResearch presentation helpers', () => {
   it('renders qualitative evidence JSON input on the stock research form', () => {
     const html = renderToStaticMarkup(<StockResearch />);
+    expect(html).toContain('Primary workflow: submit a ticker to validate the idea using evidence, data quality, and missing-data checks.');
     expect(html).toContain('Qualitative Evidence JSON');
     expect(html).toContain('Structured qualitative evidence');
     expect(html).not.toContain('[object Object]');

@@ -30,6 +30,8 @@ Phase 23 adds a local Candidate Research Workspace. Candidate entries are user-p
 
 Phase 24 extends that same local workspace with review note history, compact analysis metadata history, status transition validation, filters, sorting, review queue reason codes, and evidence coverage badges. These fields are local UX and audit metadata only. Review notes are not reusable manual evidence unless explicitly saved through `/api/manual-evidence`, analysis history stores compact metadata rather than full reports, and badges do not change scoring.
 
+Phase 24.6 makes the validation-first workflow explicit. Stock Research and `POST /api/analyze-stock` remain the primary product path for user-supplied tickers. Candidate Workspace, Evidence Library, and Evidence Dashboard are supporting local workflow and evidence-quality tools only; they do not discover tickers, call live providers for dashboards, fetch source URLs, or affect analyze-stock scoring.
+
 Phase 15 live-enables company profile and fundamentals through the existing repository-backed yfinance dependency. `company_profile` may be live or cached-live with `provider: "yfinance"`. `financial_quality` may use yfinance fundamentals and provider-normalized fields. `valuation_context` is derived from yfinance profile and fundamentals inputs with `provider: "derived_from_yfinance"`. Valuation context is risk context only. Missing financial fields are listed in `missing_data` and are not fabricated. If yfinance is unavailable after a live attempt, mock fallback data is clearly labeled with `fallback_used=true`. Leadership evidence remains mock-disclosed until a later live leadership phase.
 
 Phase 16 uses the same yfinance fundamentals path to harden company-quality evidence. `jane_company_quality` is derived from explicit Jane criteria and only scores criteria that have available evidence. Qualitative moat, founder/CEO, network effect, and disruption evidence is marked insufficient when unavailable. `research_context.theme` is user context only and does not verify mega-trend fit. `financial_statement_signals` derives revenue growth, operating margin, net income, operating cash flow, cash buffer, debt, receivables, inventory, CapEx/OCF, and dilution checks from available fundamentals. Missing fields are not fabricated.
@@ -561,7 +563,7 @@ Interpretation:
 - FRED daily rates: `daily_rate_5_business_days`.
 - FRED monthly macro: `monthly_macro_latest_observation`.
 - Form 4: `form4_recent_180_days`.
-- 13F: `quarterly_filing_delay`, not daily freshness.
+- 13F: `quarterly_filing_delay`. Fresh window covers the latest quarter-end filing plus 45-day SEC deadline. Cache TTL is days-based (`SEC_13F_CACHE_TTL_DAYS`). Not daily freshness.
 - Options future: requires an explicit provider-specific timestamp and should not use stale mock data.
 - News/sentiment future: source timestamp and deduplication are required.
 - Mock data is excluded from stale-data counts but must be disclosed as mock.

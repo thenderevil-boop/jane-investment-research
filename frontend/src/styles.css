@@ -48,6 +48,20 @@ button, input, select, textarea {
   color: #ffffff;
 }
 
+.appBoundary {
+  background: #ffffff;
+  border-bottom: 1px solid #d8dee8;
+  color: #475569;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding: 10px 24px;
+}
+
+.appBoundary p {
+  margin: 0;
+}
+
 .page {
   margin: 0 auto;
   max-width: 1180px;

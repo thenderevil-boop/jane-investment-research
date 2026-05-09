@@ -34,11 +34,14 @@ Future Industry Radar is optional/future/reference only. Do not rebuild automati
 This system is a ticker validation system for user-provided US-listed stock ideas, not a general-purpose research note system.
 
 - The primary workflow is `POST /api/analyze-stock`.
+- The primary frontend workflow is the Stock Research UI for validating a user-supplied ticker.
 - Candidate Workspace is limited to local ticker validation workflow metadata for externally discovered ideas.
 - Candidate review notes are append-only audit notes only and never affect scoring.
 - Candidate status is workflow state only, never investment advice, and never a scoring input.
 - Manual Evidence Library records are local, user-provided evidence inventory and review-readiness metadata; they are not independently verified research notes unless a future safety-reviewed design explicitly changes that boundary.
+- Evidence Library and Evidence Dashboard exist only to support validation evidence quality.
 - The system must not become a full research notebook, task manager, portfolio tracker, trading journal, or execution workflow.
+- Future work should prioritize analyze-stock validation quality, data quality, evidence quality, and export/backup, not workspace expansion.
 - Do not add news, YouTube, sentiment, scraping, source URL fetching, paid qualitative providers, or automatic theme/ticker discovery as part of Candidate Workspace or manual evidence flows.
 
 ## Hard Safety Rules
@@ -120,7 +123,7 @@ MVP can run natively on Windows. Avoid Linux-only shell assumptions in app code.
 
 Build in phases.
 
-Current implementation has reached Phase 24 (candidate workspace review notes, analysis history, filters, badges, and UX hardening). Phase 24.5 is documentation, scope-boundary, testing, and repo hygiene alignment only; it must not add product features, APIs, scoring changes, analyze-stock behavior changes, parser changes, scraping, source URL fetching, news, YouTube, sentiment, or Future Industry Radar work.
+Current implementation has reached Phase 24.6 (validation-first UX and repo hygiene cleanup) on top of Phase 24 candidate workspace review notes, analysis history, filters, badges, and UX hardening. Phase 24.6 is alignment and cleanup only; it must not add product features, APIs, scoring changes, analyze-stock behavior changes, parser changes, scraping, source URL fetching, news, YouTube, sentiment, paid APIs, or Future Industry Radar work.
 
 Phase labels in historical docs may be non-contiguous. For current development, prefer these implementation references in order:
 
