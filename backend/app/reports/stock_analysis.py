@@ -175,6 +175,8 @@ def _source_quality_from_status(status: dict, *, category: str = "") -> str:
         return "user_provided"
     if category == "macro_environment" and source_type == "derived" and provider.startswith("mixed_FRED"):
         return "derived_live"
+    if category == "insider_activity" and source_type == "mock":
+        return "mixed_with_fallback"
     if fallback_used:
         return "mixed_with_fallback"
     if category in {"sec_financial_facts"} and source_type in {"live", "cached_live"}:
@@ -442,7 +444,7 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
     )
     return {
         "ticker": ticker,
-        "evidence_count": len(items) + ignored_count + deduplicated_count,
+        "evidence_count": len(items) + deduplicated_count,
         "accepted_evidence_count": len(accepted_items),
         "rejected_evidence_count": len(items) - len(accepted_items),
         "saved_evidence_count": len(saved_items),
@@ -1628,7 +1630,7 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
             "status": _score_status(response.macro_regime.score),
             "score": response.macro_regime.score,
             "confidence": response.macro_regime.confidence,
-            "source_quality": "derived_live" if _macro_is_derived_live_quality(response.macro_regime) else _source_quality_from_status(_status_dict(response.macro_regime.source_status), category="macro_environment"),
+            "source_quality": "derived_live" if _macro_is_derived_live_quality(response.macro_regime) else ("mixed_with_fallback" if _macro_active_scoring_uses_fallback(response.macro_regime) else "derived_live"),
             "summary": f"Macro score is {response.macro_regime.label} under macro_v12_5.",
             "key_evidence": _limited(
                 [
@@ -1815,7 +1817,7 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
             "status": _score_status(response.smart_money.score),
             "score": response.smart_money.score,
             "confidence": response.smart_money.confidence,
-            "source_quality": _source_quality_from_status(smart_status),
+            "source_quality": "mixed_with_fallback" if insider_status.get("source_type") == "mock" else _source_quality_from_status(smart_status),
             "summary": "Aggregate smart-money score combines Form 4, 13F, and mock options context.",
             "key_evidence": _limited([f"Score: {response.smart_money.score}", f"Label: {response.smart_money.label}"], "Smart-money evidence unavailable."),
             "limitations": _limited(response.smart_money.limitations, "Smart-money source limitations unavailable."),
@@ -2630,8 +2632,8 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         response.human_verification_queue.append("Review stale live or derived data source status before interpreting scores.")
     if response.data_quality.missing_source_date_components:
         response.human_verification_queue.append("Review components with missing source dates before interpreting scores.")
-    response.data_quality_summary = AnalyzeStockDataQualitySummary.model_validate(_build_data_quality_summary(response))
     response.evidence_matrix = [EvidenceMatrixItem.model_validate(item) for item in _build_evidence_matrix(response)]
+    response.data_quality_summary = AnalyzeStockDataQualitySummary.model_validate(_build_data_quality_summary(response))
     response.next_manual_checks = [NextManualCheck.model_validate(item) for item in _build_manual_checks(response)]
     response.score_driver_breakdown = ScoreDriverBreakdown.model_validate(_build_score_driver_breakdown(response))
     response.candidate_validation_summary = CandidateValidationSummary.model_validate(_build_candidate_summary(response))

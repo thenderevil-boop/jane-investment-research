@@ -55,7 +55,7 @@ def _institutional_label(score: float) -> str:
 def _insider_label(score: float) -> str:
     if score >= 70:
         return "insider_accumulation_observed"
-    if score < 40:
+    if score <= 40:
         return "insider_distribution_risk"
     return "insider_activity_neutral"
 
@@ -316,6 +316,20 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
     )
 
 
+def _is_likely_systematic_plan(items: list[dict]) -> bool:
+    if len(items) < 4:
+        return False
+    dates = sorted(item.get("transaction_date", "") for item in items)
+    distinct_months = len(set(d[:7] for d in dates if d))
+    if distinct_months < len(dates) * 0.6:
+        return False
+    values = [item.get("value", 0) or 0 for item in items]
+    avg = sum(values) / len(values) if values else 0
+    if avg <= 0:
+        return False
+    return all(abs(v - avg) / avg < 0.5 for v in values)
+
+
 def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
     transactions = data.get("form4_transactions", [])
     source_status = data.get("form4_source_status") or data.get("source_status") or {}
@@ -350,6 +364,7 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
     all_transaction_codes_missing = bool(transactions) and all(not code(item) for item in transactions)
     if all_transaction_codes_missing:
         missing.append("transaction_code")
+    likely_systematic = _is_likely_systematic_plan(disposition_items)
     if fallback_mock_form4:
         score = 50
     elif all_transaction_codes_missing:
@@ -361,7 +376,7 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
     elif net_value > 0:
         score = 70
     elif disposition_count >= 2 or net_value < 0:
-        score = 20
+        score = 40 if likely_systematic else 20
     else:
         score = 50
     limitations = [
@@ -369,6 +384,11 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
         "Only code P is counted as insider accumulation; code S is counted as disposition.",
         "Codes M, A, F, G, D, V, J, and unknown codes are not counted as accumulation by default.",
     ]
+    if likely_systematic:
+        limitations.append(
+            "Disposition pattern suggests a possible systematic plan (e.g. 10b5-1). "
+            "Negative weight is reduced. Requires human verification."
+        )
     if all_transaction_codes_missing:
         limitations.append("All live Form 4 rows are missing transaction codes, so Form 4 does not boost the smart-money score.")
     if fallback_mock_form4:

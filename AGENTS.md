@@ -108,7 +108,7 @@ MVP can run natively on Windows. Avoid Linux-only shell assumptions in app code.
 
 Build in phases.
 
-Current implementation has reached Phase 11 official SEC EDGAR 13F integration. Phase labels in historical docs may be non-contiguous. For current development, prefer these implementation references in order:
+Current implementation has reached Phase 19 local reusable manual qualitative evidence library. Phase labels in historical docs may be non-contiguous. For current development, prefer these implementation references in order:
 
 1. JSON schemas under `schemas/`
 2. Backend and frontend tests

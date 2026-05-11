@@ -13,4 +13,5 @@ frontend/.vite/
 frontend/tsconfig.tsbuildinfo
 
 backend/raw_store/cache/
+backend/raw_store/manual_evidence/
 

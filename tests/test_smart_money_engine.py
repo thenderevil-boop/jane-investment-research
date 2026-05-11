@@ -213,3 +213,61 @@ def test_final_smart_money_score_weights_components() -> None:
         "options_abnormal_activity",
     }
     assert_no_prohibited_language(payload)
+
+
+def _make_disposition(date: str, value: float) -> dict:
+    return {
+        "insider_name": "Mock Officer",
+        "role": "Officer",
+        "transaction_code": "S",
+        "transaction_type": "disposition",
+        "shares": int(value / 50),
+        "price": 50.0,
+        "value": value,
+        "transaction_date": date,
+        "filing_date": date,
+    }
+
+
+def test_high_disposition_count_with_no_accumulation_scores_low() -> None:
+    transactions = [
+        _make_disposition(f"2026-{str(m).zfill(2)}-15", 500_000)
+        for m in range(1, 7)
+        for _ in range(27)
+    ]
+    assert len(transactions) == 162
+    result = evaluate_form4_insider_signal({"form4_transactions": transactions})
+    payload = result.model_dump()
+    assert result.score == 20, f"Expected 20 for clustered dispositions, got {result.score}"
+    assert result.label == "insider_distribution_risk"
+    assert payload["derived_metrics"]["disposition_count_180d"] == 162
+    assert_no_prohibited_language(payload)
+
+
+def test_possible_systematic_plan_reduces_disposition_penalty() -> None:
+    transactions = [
+        _make_disposition(f"2025-{str(m).zfill(2)}-15", 1_000_000)
+        for m in range(1, 13)
+    ]
+    result = evaluate_form4_insider_signal({"form4_transactions": transactions})
+    payload = result.model_dump()
+    assert result.score == 40, f"Expected 40 for monthly-distributed systematic dispositions, got {result.score}"
+    assert result.label == "insider_distribution_risk"
+    assert any("systematic plan" in lim.lower() or "10b5-1" in lim for lim in result.limitations)
+    assert_no_prohibited_language(payload)
+
+
+def test_irregular_disposition_dates_not_flagged_as_systematic() -> None:
+    transactions = [
+        _make_disposition("2026-01-03", 1_000_000),
+        _make_disposition("2026-01-04", 2_000_000),
+        _make_disposition("2026-01-05", 500_000),
+        _make_disposition("2026-01-06", 3_000_000),
+        _make_disposition("2026-01-07", 100_000),
+    ]
+    result = evaluate_form4_insider_signal({"form4_transactions": transactions})
+    assert result.score == 20, f"Expected 20 for clustered same-month dispositions, got {result.score}"
+    assert not any("systematic plan" in lim.lower() or "10b5-1" in lim for lim in result.limitations)
+    assert_no_prohibited_language(result.model_dump())
+
+
