@@ -1,0 +1,64 @@
+問題一（已確認）：AGENTS.md 仍寫 Phase 11，實際是 Phase 26
+測試 test_phase106_hardening.py 裡有一行：
+pythonassert "## Current Implementation Status" in readme
+代表 README 的現況標題有被測試覆蓋，但 AGENTS.md 的 Current implementation has reached Phase 11 這行從來沒有被任何測試檢查，所以一直沒有被更新。這個問題已存在六次 review，仍未修正。
+
+問題二（新發現）：leadership_engine.py 完全是 mock，但 Phase 26 tests 把它標為 deprecated
+讀完 leadership_engine.py，確認了幾件事：
+整個引擎只使用 MOCK_SOURCE 和 MOCK_SOURCE_DATE，沒有任何 live data 路徑。評分邏輯是 _fallback_evidence_from_points，從 mock fixture 裡的 leadership_points 分配分數，與真實公司數據完全無關。
+但 Phase 26 測試已經正確地把它標為 deprecated：
+pythonassert legacy["deprecated"] is True
+assert legacy["affects_final_score"] is False
+assert legacy["source_quality"] == "mock_only"
+這表示 jane_company_quality 已經取代了 leadership_engine 成為真正的評分驅動，這個架構決定是正確的。leadership_engine.py 現在只是歷史參考，不影響最終分數。
+
+問題三（新發現）：Form 4 的 S 交易沒有 10b5-1 計畫偵測
+smart_money_engine.py 的 evaluate_form4_insider_signal 函數在 disposition_count >= 2 or net_value < 0 時直接給 score = 20，沒有任何計畫性賣出偵測邏輯。
+上次 review 就提到這個問題，給了修正 prompt，但程式碼沒有更新。對 NVDA 這種 Jensen Huang 有定期 10b5-1 計畫賣出的公司，這個邏輯會把 score 壓到 20，造成 smart money 分數嚴重低估。
+修正方式：
+python# 在 evaluate_form4_insider_signal 裡加入
+def _is_likely_systematic_plan(items: list[dict]) -> bool:
+    if len(items) < 4:
+        return False
+    dates = sorted(item.get("transaction_date", "") for item in items)
+    # 如果日期分佈均勻（每月都有）且金額相似，視為計畫性賣出
+    if len(set(d[:7] for d in dates if d)) >= len(dates) * 0.6:
+        values = [item.get("value", 0) or 0 for item in items]
+        avg = sum(values) / len(values)
+        if all(abs(v - avg) / avg < 0.5 for v in values if avg > 0):
+            return True
+    return False
+
+# 在分數計算前加
+likely_systematic = _is_likely_systematic_plan(disposition_items)
+if likely_systematic:
+    disposition_weight = 0.3  # 降低計畫性賣出的負面權重
+    # 加入說明
+    limitations.append(
+        "Disposition pattern suggests possible systematic plan (e.g. 10b5-1). "
+        "Negative weight reduced. Requires human verification."
+    )
+
+問題四（新發現）：jane_company_quality 的 insufficient 狀態正確處理了，但分數計算的透明度不足
+從 Phase 16 測試可以確認：
+pythonassert criteria["monopoly_power"]["affects_score"] is False
+assert criteria["visionary_founder_ceo"]["status"] == "insufficient"
+insufficient 的 criteria 已經有 affects_score: False，不是計為 0，這個問題在 Phase 16 已經正確修復了。上次擔心的評分失真主要是 jane_company_quality 有 6/10 項是 insufficient，但因為它們都被標為 affects_score: False，實際上不影響分數——只有 derived_live 的 4 項才影響分數。這個邏輯是正確的。
+但問題是 research_verdict 和 candidate_validation_summary 的顯示沒有清楚說明「分數低是因為證據不足，不是因為公司差」，用戶看到的標籤可能仍然讓人誤解。測試裡有：
+pythonassert quality["not_investment_advice"] is True
+assert "recommend" not in json.dumps(quality).lower()
+但沒有測試確認 UI 上的說明文字是否清楚區分「insufficient = pending」和「negative evidence」。
+
+問題五（新發現）：測試覆蓋有一個明顯缺口
+40 個測試檔案，總計約 370 個測試，覆蓋相當全面。但有一個缺口：沒有任何測試驗證 Form 4 的 disposition 計分邏輯在 NVDA 這類定期賣出案例下的行為。
+test_smart_money_engine.py 只有 5 個測試，且從 Phase 10 以後沒有新增對應 Phase 14-26 功能的 smart money 測試。建議加入：
+pythondef test_high_disposition_count_with_no_accumulation_scores_low():
+    # 確認 162 個 S 交易的場景分數為 20
+    ...
+
+def test_possible_systematic_plan_reduces_disposition_penalty():
+    # 確認月度均勻分佈的 S 交易有不同處理
+    ...
+
+總結表
+項目狀態說明架構方向（analyze-stock first）✅ 正確Phase 26 完全對齊安全規則（禁止語言）✅ 正確每個測試都有 detect_forbidden_languageinsufficient 不計為 0✅ 已修復Phase 16 正確處理 affects_score: Falsesource_type: mixed 排除✅ 正確測試明確驗證AGENTS.md Phase 現況行❌ 未修仍寫 Phase 11，實際 Phase 26Form 4 系統性賣出偵測❌ 未實作會壓低 NVDA 等公司的 smart money 分數Smart money 測試缺口⚠️ 部分Phase 14-26 的 Form 4 邏輯缺乏測試覆蓋
