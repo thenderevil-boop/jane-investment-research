@@ -10,7 +10,30 @@ import WarningBanner from '../components/WarningBanner';
 import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, JaneCompanyQuality, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ValidationQualitySummary } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
-const qualitativeCriteria = new Set(['monopoly_power', 'visionary_founder_ceo', 'disruptive_innovation', 'network_effect', 'continuous_r_and_d', 'mega_trend_fit']);
+export const janeLeadershipCriteria = [
+  { name: 'monopoly_power', displayName: 'Monopoly Power / High Entry Barrier', description: 'Durable market power, switching costs, entry barriers, ecosystem control, or defensible share.' },
+  { name: 'visionary_founder_ceo', displayName: 'Visionary Founder / CEO', description: 'Founder-like ownership, long-term vision, execution record, and strategic discipline.' },
+  { name: 'early_skepticism', displayName: 'Early Skepticism', description: 'Material skepticism followed by improved operating, adoption, or filing evidence.' },
+  { name: 'disruptive_innovation', displayName: 'Disruptive Innovation', description: 'Products or business architecture that change customer behavior, cost curves, or industry structure.' },
+  { name: 'superior_technology_r_and_d', displayName: 'Superior Technology and R&D', description: 'Technology capability, R&D intensity, patents, cadence, or technical benchmarks.' },
+  { name: 'scalable_business_model', displayName: 'Scalable Business Model', description: 'Growth potential with operating leverage, repeatable distribution, and resilient margins.' },
+  { name: 'brand_power_fandom', displayName: 'Brand Power / Fandom', description: 'Brand trust or customer attachment supporting pricing, retention, or adoption.' },
+  { name: 'data_advantage', displayName: 'Data Advantage', description: 'Proprietary data, usage scale, feedback loops, or data infrastructure that improve products.' },
+  { name: 'capital_allocation', displayName: 'Capital Allocation', description: 'Disciplined use of capital across R&D, acquisitions, balance sheet, and shareholder-return choices.' },
+  { name: 'cash_flow_creation', displayName: 'Cash Flow Creation', description: 'Durable cash flow after operating needs and reinvestment requirements.' },
+  { name: 'mega_trend_fit', displayName: 'Mega Trend Fit', description: 'Alignment with a durable long-cycle theme rather than narrative only.' },
+  { name: 'talent_attraction_retention', displayName: 'Talent Attraction / Retention', description: 'Ability to attract and retain critical technical, operational, or leadership talent.' },
+  { name: 'global_expansion', displayName: 'Global Expansion', description: 'Expansion across geographies, customer segments, or channels with execution evidence.' },
+  { name: 'life_changing_necessary_product', displayName: 'Life-Changing Necessary Product', description: 'A product customers treat as important, workflow-critical, or difficult to replace.' },
+  { name: 'regulatory_government_relationship', displayName: 'Regulatory / Government Relationship', description: 'Regulatory posture, government demand, approvals, or policy relationships requiring review.' },
+  { name: 'network_effect', displayName: 'Network Effect', description: 'Value that increases as users, developers, customers, partners, or data participants grow.' },
+  { name: 'mission_narrative_power', displayName: 'Mission / Narrative Power', description: 'Mission clarity and narrative strength that can attract customers, talent, capital, or ecosystem participation.' },
+  { name: 'patents_ip', displayName: 'Patents / IP', description: 'Patents, trade secrets, software assets, or IP supporting durability or differentiation.' },
+  { name: 'vc_institutional_support', displayName: 'VC / Institutional Support', description: 'Sophisticated long-horizon capital support, strategic investors, or institutional validation as research context.' },
+  { name: 'retention_repurchase_rate', displayName: 'Retention / Repurchase Rate', description: 'Customers continue using, renewing, expanding, or repeatedly purchasing.' },
+] as const;
+
+const qualitativeCriteria = new Set([...janeLeadershipCriteria.map((criterion) => criterion.name), 'continuous_r_and_d']);
 const qualitativeEvidenceTypes = new Set([
   'market_share',
   'patent',
@@ -929,6 +952,16 @@ export default function StockResearch() {
             rows={8}
             placeholder='[{"criterion":"network_effect","evidence_type":"platform_ecosystem","summary":"Specific claim requiring manual verification.","source_label":"User research note","source_date":"2026-05-06","confidence":0.65,"user_provided":true,"limitations":["Requires manual verification."]}]'
           />
+          <details className="criteriaHelp">
+            <summary>Jane 20 criteria reference</summary>
+            <ul>
+              {janeLeadershipCriteria.map((criterion) => (
+                <li key={criterion.name}>
+                  <strong>{criterion.name}</strong>: {criterion.description}
+                </li>
+              ))}
+            </ul>
+          </details>
         </details>
         <button type="submit" disabled={loading}>{loading ? 'Analyzing...' : 'Run research'}</button>
       </form>

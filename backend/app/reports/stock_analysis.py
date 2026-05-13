@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
+from functools import lru_cache
+from pathlib import Path
 
 from backend.app.data_sources.mock_data import DEFAULT_STOCK, MOCK_SOURCE_DATE, STOCK_FIXTURES
 from backend.app.engines.leadership_engine import evaluate_leadership
@@ -37,14 +40,7 @@ USER_QUALITATIVE_LIMITATIONS = [
     "Manual source review is required.",
 ]
 QUALITATIVE_CORE_CRITERIA = ["monopoly_power", "visionary_founder_ceo", "disruptive_innovation", "network_effect"]
-SUPPORTED_QUALITATIVE_CRITERIA = {
-    "monopoly_power",
-    "visionary_founder_ceo",
-    "disruptive_innovation",
-    "network_effect",
-    "continuous_r_and_d",
-    "mega_trend_fit",
-}
+JANE_LEADERSHIP_CRITERIA_PATH = Path(__file__).resolve().parents[1] / "data" / "jane_leadership_criteria.json"
 SUPPORTED_QUALITATIVE_EVIDENCE_TYPES = {
     "market_share",
     "patent",
@@ -89,15 +85,34 @@ SUPPORTED_COMPARISON_TYPES = {
     "other",
 }
 SUPPORTED_CLAIMED_ADVANTAGES = {"stronger", "similar", "weaker", "unclear"}
-QUALITATIVE_ALLOWED_TYPES_BY_CRITERION = {
-    "monopoly_power": {"market_share", "switching_cost", "brand_power", "platform_ecosystem", "patent", "market_share_comparison", "pricing_power_comparison", "switching_cost_comparison", "competitor_comparison", "other"},
-    "visionary_founder_ceo": {"founder_operator", "management_tenure", "filing_reference", "other"},
-    "disruptive_innovation": {"product_disruption", "patent", "customer_adoption", "r_and_d_intensity", "filing_reference", "product_capability_comparison", "r_and_d_comparison"},
-    "network_effect": {"platform_ecosystem", "developer_ecosystem", "customer_adoption", "switching_cost", "ecosystem_comparison", "switching_cost_comparison"},
-    "continuous_r_and_d": {"r_and_d_intensity", "patent", "filing_reference", "user_provided_note", "r_and_d_comparison", "other"},
-    "mega_trend_fit": {"customer_adoption", "platform_ecosystem", "filing_reference", "user_provided_note", "competitor_comparison", "product_capability_comparison", "other"},
-}
 SECRET_MARKERS = ("FRED_API_KEY", "SEC_EDGAR_USER_AGENT", "api_key", "apikey", "secret", "token=")
+
+
+@lru_cache(maxsize=1)
+def load_jane_leadership_criteria() -> list[dict]:
+    with JANE_LEADERSHIP_CRITERIA_PATH.open(encoding="utf-8") as criteria_file:
+        criteria = json.load(criteria_file)
+    return list(criteria)
+
+
+def _qualitative_allowed_types_by_criterion() -> dict[str, set[str]]:
+    allowed = {
+        str(item["name"]): set(str(value) for value in item.get("accepted_evidence_types", []))
+        for item in load_jane_leadership_criteria()
+    }
+    allowed["continuous_r_and_d"] = {
+        "r_and_d_intensity",
+        "patent",
+        "filing_reference",
+        "user_provided_note",
+        "r_and_d_comparison",
+        "other",
+    }
+    return allowed
+
+
+QUALITATIVE_ALLOWED_TYPES_BY_CRITERION = _qualitative_allowed_types_by_criterion()
+SUPPORTED_QUALITATIVE_CRITERIA = set(QUALITATIVE_ALLOWED_TYPES_BY_CRITERION)
 
 
 def _research_verdict(

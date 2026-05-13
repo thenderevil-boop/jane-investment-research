@@ -1,0 +1,182 @@
+[
+  {
+    "name": "monopoly_power",
+    "display_name_zh": "壟斷力或高進入門檻",
+    "display_name_en": "Monopoly Power / High Entry Barrier",
+    "description": "Evidence that the company may have durable market power, switching costs, entry barriers, ecosystem control, or defensible market share.",
+    "accepted_evidence_types": ["market_share", "switching_cost", "brand_power", "platform_ecosystem", "patent", "market_share_comparison", "pricing_power_comparison", "switching_cost_comparison", "competitor_comparison", "user_provided_note", "other"],
+    "manual_check_questions": ["What measurable barrier limits competitors?", "Is the claimed advantage current and source-backed?", "What evidence could disconfirm the moat claim?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "visionary_founder_ceo",
+    "display_name_zh": "願景型創辦人或執行長",
+    "display_name_en": "Visionary Founder / CEO",
+    "description": "Evidence that leadership has founder-like ownership, long-term vision, execution record, and credible strategic discipline.",
+    "accepted_evidence_types": ["founder_operator", "management_tenure", "filing_reference", "user_provided_note", "other"],
+    "manual_check_questions": ["Is the current leader still operationally important?", "What source supports execution quality?", "Are leadership transitions or governance risks visible?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "early_skepticism",
+    "display_name_zh": "早期被懷疑但逐步驗證",
+    "display_name_en": "Early Skepticism",
+    "description": "Evidence that the company faced material skepticism while later operating data, adoption, or filings improved the validation case.",
+    "accepted_evidence_types": ["customer_adoption", "filing_reference", "product_disruption", "user_provided_note", "other"],
+    "manual_check_questions": ["What was the original skepticism?", "Which current evidence has changed the validation picture?", "Is the claim based on measurable adoption rather than hype?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "disruptive_innovation",
+    "display_name_zh": "顛覆式創新",
+    "display_name_en": "Disruptive Innovation",
+    "description": "Evidence that products, services, or business architecture materially change customer behavior, cost curves, or industry structure.",
+    "accepted_evidence_types": ["product_disruption", "patent", "customer_adoption", "r_and_d_intensity", "filing_reference", "product_capability_comparison", "r_and_d_comparison", "user_provided_note", "other"],
+    "manual_check_questions": ["What existing process or market is being displaced?", "Is adoption visible in customer, revenue, or filing evidence?", "What incumbent response could weaken the claim?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "superior_technology_r_and_d",
+    "display_name_zh": "技術與研發優勢",
+    "display_name_en": "Superior Technology and R&D",
+    "description": "Evidence that technology capability, R&D intensity, patents, product cadence, or technical benchmarks create a durable validation signal.",
+    "accepted_evidence_types": ["r_and_d_intensity", "patent", "filing_reference", "product_capability_comparison", "r_and_d_comparison", "user_provided_note", "other"],
+    "manual_check_questions": ["Which technical metric or filing supports the claim?", "Is R&D translating into product or financial outcomes?", "Are patents or capabilities still relevant?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "scalable_business_model",
+    "display_name_zh": "可擴張商業模式",
+    "display_name_en": "Scalable Business Model",
+    "description": "Evidence that revenue can grow with operating leverage, repeatable distribution, and margins that can remain resilient at larger scale.",
+    "accepted_evidence_types": ["customer_adoption", "platform_ecosystem", "filing_reference", "competitor_comparison", "user_provided_note", "other"],
+    "manual_check_questions": ["Does growth require proportional cost increases?", "Do margins or unit economics support scalability?", "Which bottlenecks could limit expansion?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "brand_power_fandom",
+    "display_name_zh": "品牌力與粉絲黏著",
+    "display_name_en": "Brand Power / Fandom",
+    "description": "Evidence that brand trust, community attachment, or customer enthusiasm supports pricing, retention, or adoption.",
+    "accepted_evidence_types": ["brand_power", "customer_adoption", "pricing_power_comparison", "user_provided_note", "other"],
+    "manual_check_questions": ["Is brand power visible beyond anecdotes?", "Does brand strength support pricing or retention?", "Could sentiment reverse under product or service issues?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "data_advantage",
+    "display_name_zh": "數據優勢",
+    "display_name_en": "Data Advantage",
+    "description": "Evidence that proprietary data, usage scale, feedback loops, or data infrastructure improves products or competitive position.",
+    "accepted_evidence_types": ["platform_ecosystem", "developer_ecosystem", "customer_adoption", "filing_reference", "ecosystem_comparison", "user_provided_note", "other"],
+    "manual_check_questions": ["What data is proprietary or hard to replicate?", "How does data improve the product or economics?", "Are privacy or access constraints material?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "capital_allocation",
+    "display_name_zh": "資本配置能力",
+    "display_name_en": "Capital Allocation",
+    "description": "Evidence that management allocates capital with discipline across R&D, acquisitions, balance sheet, and shareholder-return choices.",
+    "accepted_evidence_types": ["filing_reference", "r_and_d_intensity", "competitor_comparison", "user_provided_note", "other"],
+    "manual_check_questions": ["What capital-allocation decisions created or protected value?", "Are acquisitions, R&D, or balance-sheet choices disciplined?", "What evidence shows poor allocation risk?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "cash_flow_creation",
+    "display_name_zh": "自由現金流創造",
+    "display_name_en": "Cash Flow Creation",
+    "description": "Evidence that the company can create durable cash flow after operating needs and reinvestment requirements.",
+    "accepted_evidence_types": ["filing_reference", "competitor_comparison", "user_provided_note", "other"],
+    "manual_check_questions": ["Is cash flow recurring or cyclical?", "How much reinvestment is required to sustain growth?", "Are working-capital or CapEx assumptions clear?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "mega_trend_fit",
+    "display_name_zh": "長期大趨勢契合",
+    "display_name_en": "Mega Trend Fit",
+    "description": "Evidence that the company is aligned with a durable long-cycle theme rather than a short-lived narrative.",
+    "accepted_evidence_types": ["customer_adoption", "platform_ecosystem", "filing_reference", "competitor_comparison", "product_capability_comparison", "user_provided_note", "other"],
+    "manual_check_questions": ["Which long-cycle theme is relevant?", "Is the company directly exposed to the theme?", "What evidence separates trend fit from narrative only?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "talent_attraction_retention",
+    "display_name_zh": "人才吸引與留任",
+    "display_name_en": "Talent Attraction / Retention",
+    "description": "Evidence that the company can attract and retain critical technical, operational, or leadership talent.",
+    "accepted_evidence_types": ["management_tenure", "founder_operator", "filing_reference", "user_provided_note", "other"],
+    "manual_check_questions": ["Which roles are strategically critical?", "Is retention supported by disclosed or user-provided evidence?", "Are key-person or culture risks visible?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "global_expansion",
+    "display_name_zh": "全球市場擴張",
+    "display_name_en": "Global Expansion",
+    "description": "Evidence that the company can expand across geographies, customer segments, or channels while managing local execution risk.",
+    "accepted_evidence_types": ["customer_adoption", "filing_reference", "competitor_comparison", "market_share_comparison", "user_provided_note", "other"],
+    "manual_check_questions": ["Which regions or segments are expanding?", "Are revenue and operational evidence aligned?", "What localization, currency, or regulatory risks matter?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "life_changing_necessary_product",
+    "display_name_zh": "改變生活且必要的產品",
+    "display_name_en": "Life-Changing Necessary Product",
+    "description": "Evidence that customers treat the product as important, habit-forming, workflow-critical, or difficult to replace.",
+    "accepted_evidence_types": ["customer_adoption", "switching_cost", "platform_ecosystem", "product_capability_comparison", "user_provided_note", "other"],
+    "manual_check_questions": ["What customer workflow or life pattern depends on the product?", "Is necessity visible in retention, usage, or switching costs?", "Can alternatives reduce necessity?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "regulatory_government_relationship",
+    "display_name_zh": "監管與政府關係",
+    "display_name_en": "Regulatory / Government Relationship",
+    "description": "Evidence that regulatory posture, government demand, approvals, or policy relationships create support or risk that must be reviewed.",
+    "accepted_evidence_types": ["filing_reference", "competitor_comparison", "user_provided_note", "other"],
+    "manual_check_questions": ["Is government exposure supportive, risky, or both?", "Which filings or policies support the claim?", "Could regulatory change impair the thesis?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "network_effect",
+    "display_name_zh": "網絡效應",
+    "display_name_en": "Network Effect",
+    "description": "Evidence that product value increases as users, developers, customers, partners, or data participants grow.",
+    "accepted_evidence_types": ["platform_ecosystem", "developer_ecosystem", "customer_adoption", "switching_cost", "ecosystem_comparison", "switching_cost_comparison", "user_provided_note", "other"],
+    "manual_check_questions": ["Who are the network participants?", "How does each additional participant increase value?", "Can competitors bootstrap a similar network?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "mission_narrative_power",
+    "display_name_zh": "使命與敘事力量",
+    "display_name_en": "Mission / Narrative Power",
+    "description": "Evidence that mission clarity and narrative strength help attract customers, talent, capital, or ecosystem participation.",
+    "accepted_evidence_types": ["founder_operator", "brand_power", "customer_adoption", "user_provided_note", "other"],
+    "manual_check_questions": ["Is the narrative backed by operating evidence?", "Does mission strength attract customers or talent?", "Could narrative strength mask weak fundamentals?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "patents_ip",
+    "display_name_zh": "專利與智慧財產",
+    "display_name_en": "Patents / IP",
+    "description": "Evidence that patents, trade secrets, software assets, or intellectual property strengthen durability or product differentiation.",
+    "accepted_evidence_types": ["patent", "filing_reference", "product_capability_comparison", "r_and_d_comparison", "user_provided_note", "other"],
+    "manual_check_questions": ["Which IP is material to the business?", "Is the IP enforceable or economically meaningful?", "Can competitors route around it?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "vc_institutional_support",
+    "display_name_zh": "創投或機構支持",
+    "display_name_en": "VC / Institutional Support",
+    "description": "Evidence that sophisticated long-horizon capital support, strategic investors, or institutional validation exists as research context.",
+    "accepted_evidence_types": ["filing_reference", "competitor_comparison", "user_provided_note", "other"],
+    "manual_check_questions": ["Which institutions or strategic investors are relevant?", "Is support current or historical?", "Does support provide resources, governance, or only signal value?"],
+    "default_status": "insufficient"
+  },
+  {
+    "name": "retention_repurchase_rate",
+    "display_name_zh": "留存與復購率",
+    "display_name_en": "Retention / Repurchase Rate",
+    "description": "Evidence that customers continue using, renewing, expanding, or repeatedly purchasing the product or service.",
+    "accepted_evidence_types": ["customer_adoption", "switching_cost", "filing_reference", "competitor_comparison", "user_provided_note", "other"],
+    "manual_check_questions": ["What retention, renewal, or usage evidence is available?", "Is repurchase behavior recurring and profitable?", "Are churn or cohort risks visible?"],
+    "default_status": "insufficient"
+  }
+]

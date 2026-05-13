@@ -173,7 +173,8 @@ Phase 17c data-quality category behavior:
 Phase 18 qualitative evidence behavior:
 
 - Request body may include optional `qualitative_evidence` items with `criterion`, `evidence_type`, `summary`, `source_label`, optional `source_url`, optional `source_date`, `confidence`, `user_provided`, and `limitations`.
-- Supported criteria are `monopoly_power`, `visionary_founder_ceo`, `disruptive_innovation`, `network_effect`, `continuous_r_and_d`, and `mega_trend_fit`.
+- Phase 27 canonical criteria are loaded from `backend/app/data/jane_leadership_criteria.json`: `monopoly_power`, `visionary_founder_ceo`, `early_skepticism`, `disruptive_innovation`, `superior_technology_r_and_d`, `scalable_business_model`, `brand_power_fandom`, `data_advantage`, `capital_allocation`, `cash_flow_creation`, `mega_trend_fit`, `talent_attraction_retention`, `global_expansion`, `life_changing_necessary_product`, `regulatory_government_relationship`, `network_effect`, `mission_narrative_power`, `patents_ip`, `vc_institutional_support`, and `retention_repurchase_rate`.
+- Legacy request compatibility remains for `continuous_r_and_d`; it maps to the prior structured qualitative evidence flow and is not part of the canonical Jane 20 file.
 - User-provided evidence is labeled `source_quality="user_provided"` and uses `source_type="derived"` with provider `user_provided_qualitative_evidence`.
 - The API does not fetch `source_url`, validate it externally, scrape websites, or ingest news/social/video/sentiment providers.
 - User-provided evidence is preliminary, not independently verified, not mock evidence, and not fallback evidence.
@@ -656,7 +657,7 @@ Response:
     "average_quality_score": 68.33,
     "quality_label_breakdown": {"high": 1, "medium": 1, "low": 1, "incomplete": 0},
     "review_status_breakdown": {"unreviewed": 2, "reviewed": 1, "rejected": 0, "archived": 0},
-    "criteria_coverage": {"monopoly_power": 0, "visionary_founder_ceo": 1, "disruptive_innovation": 0, "network_effect": 1, "continuous_r_and_d": 1, "mega_trend_fit": 0}
+    "criteria_coverage": {"monopoly_power": 0, "visionary_founder_ceo": 1, "disruptive_innovation": 0, "network_effect": 1, "superior_technology_r_and_d": 1, "mega_trend_fit": 0}
   },
   "ticker_summaries": [],
   "review_queue": [],
