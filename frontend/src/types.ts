@@ -257,6 +257,16 @@ export type QualitativeEvidenceInput = {
   comparison_context?: ComparisonContext | null;
 };
 
+export type JaneLeadershipCriterionDefinition = {
+  name: string;
+  display_name_zh: string;
+  display_name_en: string;
+  description: string;
+  accepted_evidence_types: string[];
+  manual_check_questions: string[];
+  default_status: 'insufficient';
+};
+
 export type ComparisonContext = {
   comparison_type: 'competitor' | 'market_share' | 'product_capability' | 'platform_ecosystem' | 'customer_adoption' | 'pricing_power' | 'switching_cost' | 'r_and_d_intensity' | 'other';
   subject_company?: string | null;

@@ -99,26 +99,28 @@ Overheat Risk Engine
 
 Jane's future leader stock framework includes 20 criteria:
 
-1. monopoly power or high entry barrier
-2. visionary founder / CEO
-3. strong early skepticism
-4. disruptive innovation
-5. superior technology and R&D commitment
-6. scalable business model
-7. strong brand and fandom
-8. data advantage
-9. capital allocation ability
-10. free cash flow creation
-11. mega trend alignment
-12. talent attraction and retention
-13. global market expansion
-14. product changes life and becomes necessary
-15. regulatory / government relationship
-16. network effects
-17. mission and narrative power
-18. key patents and IP
-19. VC / institutional support
-20. high retention / repurchase rate
+1. `monopoly_power` - monopoly power or high entry barrier
+2. `visionary_founder_ceo` - visionary founder / CEO
+3. `early_skepticism` - strong early skepticism
+4. `disruptive_innovation` - disruptive innovation
+5. `superior_technology_r_and_d` - superior technology and R&D commitment
+6. `scalable_business_model` - scalable business model
+7. `brand_power_fandom` - strong brand and fandom
+8. `data_advantage` - data advantage
+9. `capital_allocation` - capital allocation ability
+10. `cash_flow_creation` - free cash flow creation
+11. `mega_trend_fit` - mega trend alignment
+12. `talent_attraction_retention` - talent attraction and retention
+13. `global_expansion` - global market expansion
+14. `life_changing_necessary_product` - product changes life and becomes necessary
+15. `regulatory_government_relationship` - regulatory / government relationship
+16. `network_effect` - network effects
+17. `mission_narrative_power` - mission and narrative power
+18. `patents_ip` - key patents and IP
+19. `vc_institutional_support` - VC / institutional support
+20. `retention_repurchase_rate` - high retention / repurchase rate
+
+Phase 27 stores this canonical model in `backend/app/data/jane_leadership_criteria.json` with display names, descriptions, accepted evidence types, manual check questions, and the default status `insufficient`.
 
 Implementation module:
 

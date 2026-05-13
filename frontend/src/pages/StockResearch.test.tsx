@@ -80,6 +80,43 @@ describe('StockResearch presentation helpers', () => {
     expect(() => parseQualitativeEvidenceJson('[{"criterion":"network_effect","evidence_type":"platform_ecosystem","summary":"x","source_label":"note","confidence":2,"user_provided":true}]')).toThrow('between 0 and 1');
   });
 
+  it('accepts each canonical Jane 20 qualitative criterion and rejects unsupported criteria', () => {
+    const canonicalCriteria = [
+      'monopoly_power',
+      'visionary_founder_ceo',
+      'early_skepticism',
+      'disruptive_innovation',
+      'superior_technology_r_and_d',
+      'scalable_business_model',
+      'brand_power_fandom',
+      'data_advantage',
+      'capital_allocation',
+      'cash_flow_creation',
+      'mega_trend_fit',
+      'talent_attraction_retention',
+      'global_expansion',
+      'life_changing_necessary_product',
+      'regulatory_government_relationship',
+      'network_effect',
+      'mission_narrative_power',
+      'patents_ip',
+      'vc_institutional_support',
+      'retention_repurchase_rate',
+    ];
+    const parsed = parseQualitativeEvidenceJson(JSON.stringify(canonicalCriteria.map((criterion) => ({
+      criterion,
+      evidence_type: 'user_provided_note',
+      summary: `Specific ${criterion} claim requiring manual verification with cited user evidence.`,
+      source_label: 'User research note',
+      confidence: 0.6,
+      user_provided: true,
+      limitations: ['Manual review required.'],
+    }))));
+
+    expect(parsed?.map((item) => item.criterion)).toEqual(canonicalCriteria);
+    expect(() => parseQualitativeEvidenceJson('[{"criterion":"unsupported_criterion","evidence_type":"user_provided_note","summary":"x","source_label":"note","confidence":0.5,"user_provided":true}]')).toThrow('unsupported criterion');
+  });
+
   it('validates request-scoped comparison evidence JSON', () => {
     const parsed = parseQualitativeEvidenceJson(JSON.stringify([
       {
