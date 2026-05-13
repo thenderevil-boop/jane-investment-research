@@ -122,7 +122,9 @@ Phase 26 adds explanation-only validation-quality hardening:
 
 - `fundamentals_cross_check.explanation` explains SEC/yfinance agreement, likely normalization or period reasons, metrics requiring review, confidence impact, and manual-check priority.
 - `legacy_leadership_score` evidence rows and `leadership_score` mark the legacy mock score as deprecated, replaced by `jane_company_quality`, and non-scoring.
-- `smart_money.source_quality_breakdown` discloses Form 4 source quality, delayed quarterly 13F constraints, and mock options context.
+- Phase 26.4 source-quality hardening keeps `macro_environment` derived through `macro_v12_5`; excluded/non-scoring CNN Fear & Greed or unsupported ISM PMI context does not downgrade macro source quality when active scoring inputs are live/cached/derived and non-fallback.
+- `smart_money.source_quality_breakdown` discloses Form 4 source quality, delayed quarterly 13F constraints, and mock options context. Mock, fallback, or cached-after-failure Form 4 is treated as `mixed_with_fallback` for smart-money and insider-activity source quality because Form 4 is live-capable evidence.
+- Form 4 repeated distributed code `S` dispositions may surface `likely_systematic_plan=true` with `systematic_plan_confidence="heuristic"`. This is not confirmation of a 10b5-1 plan without filing footnote review, and remains cautionary validation evidence.
 - `valuation_context.explanation` frames valuation proxy risk as research context only.
 - `next_manual_checks` include `priority_rank`, `blocking`, normalized `category`, `related_evidence_category`, and `reason_short`.
 - Evidence matrix rows may include `why_it_matters`, `review_priority`, `affects_final_score`, `is_deprecated`, and `replaced_by`.
@@ -181,7 +183,7 @@ Phase 18 qualitative evidence behavior:
 Phase 19 manual evidence library behavior:
 
 - `/api/manual-evidence` provides local CRUD for reusable user-provided qualitative evidence by ticker.
-- Analyze-stock automatically loads saved evidence for the requested ticker, excludes `archived` and `rejected` saved items from scoring, and merges saved evidence with request-scoped `qualitative_evidence`.
+- Analyze-stock automatically loads saved evidence for the requested ticker, excludes `archived` and `rejected` saved items from scoring and active evidence counts, and merges saved evidence with request-scoped `qualitative_evidence`.
 - Evidence items include `origin` values of `saved_library` or `request_scoped`; saved items include `evidence_id` and `review_status`.
 - Duplicate saved/request evidence is deduplicated by `evidence_id` when present, otherwise by ticker, criterion, evidence type, summary, and source label.
 - Request-scoped evidence is not automatically persisted.
@@ -195,7 +197,7 @@ Phase 20 manual evidence review behavior:
 - `source_reliability_label` describes the manually entered source category, but the system does not fetch or validate `source_url`.
 - `review_status="reviewed"` means local human review only. Reviewed evidence remains `source_quality="user_provided"` and `verification_level="user_provided"`.
 - Evidence can be marked stale when `source_date` is older than the review window or `expires_at` has passed. Stale evidence remains visible but has capped qualitative impact and triggers manual checks.
-- Archived/rejected evidence remains stored for audit and is ignored by analyze-stock scoring.
+- Archived/rejected evidence remains stored for audit and is ignored by analyze-stock scoring, active `evidence_count`, `accepted_evidence_count`, criteria coverage, and positive score drivers.
 - Manual evidence cannot make `source_quality_grade` A by itself and cannot generate investment instructions.
 
 Phase 21 comparison evidence behavior:
@@ -671,7 +673,7 @@ Research verdict labels describe research priority only: `worth_deep_research`, 
 
 `institutional_13f` is candidate-focused. It includes `candidate_specific_evidence`, `portfolio_context`, `source_status`, `limitations`, and `missing_data`. A configured manager portfolio is context only unless the candidate has matched 13F evidence with `score_contribution_allowed=true`.
 
-`insider_activity` summarizes SEC Form 4 evidence. Only transaction code `P` counts as accumulation evidence; only code `S` counts as disposition evidence. Cached or fallback evidence is described as limited source context.
+`insider_activity` summarizes SEC Form 4 evidence. Only transaction code `P` counts as accumulation evidence; only code `S` counts as disposition evidence. Mock, cached-after-failure, or fallback evidence is described as limited source context. A likely systematic code `S` disposition pattern is heuristic only, not confirmed 10b5-1 evidence without filing footnote review.
 
 `financial_quality.raw_data` may include `revenue_ttm`, `revenue_yoy_growth_pct`, `revenue_3y_cagr_pct`, `gross_margin_pct`, `operating_margin_pct`, `free_cash_flow_ttm`, `free_cash_flow_margin_pct`, `cash_and_equivalents`, `total_debt`, `net_cash_or_debt`, `debt_to_equity`, `shares_outstanding`, and `share_dilution_3y_pct`. Missing fields are listed in `missing_data` and are not fabricated.
 

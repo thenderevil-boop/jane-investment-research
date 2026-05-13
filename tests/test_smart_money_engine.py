@@ -213,3 +213,85 @@ def test_final_smart_money_score_weights_components() -> None:
         "options_abnormal_activity",
     }
     assert_no_prohibited_language(payload)
+
+
+def _disposition_transaction(date: str, value: float) -> dict:
+    return {
+        "insider_name": "Mock Officer",
+        "role": "Officer",
+        "transaction_code": "S",
+        "transaction_type": "disposition",
+        "shares": value / 100,
+        "price": 100.0,
+        "value": value,
+        "transaction_date": date,
+        "filing_date": date,
+    }
+
+
+def test_distributed_similar_dispositions_are_likely_systematic_but_cautionary() -> None:
+    result = evaluate_form4_insider_signal(
+        {
+            "form4_transactions": [
+                _disposition_transaction("2026-01-10", 100000),
+                _disposition_transaction("2026-02-10", 110000),
+                _disposition_transaction("2026-03-10", 95000),
+                _disposition_transaction("2026-04-10", 105000),
+            ],
+            "form4_source_status": {"source_type": "live", "provider": "SEC EDGAR", "source_date": "2026-04-10"},
+        }
+    )
+    payload = result.model_dump()
+    assert result.score == 40
+    assert payload["derived_metrics"]["likely_systematic_plan"] is True
+    assert payload["derived_metrics"]["systematic_plan_confidence"] == "heuristic"
+    assert any("not independently confirmed" in item for item in payload["limitations"])
+    assert any("manual review" in item for item in payload["limitations"])
+    assert_no_prohibited_language(payload)
+
+
+def test_dense_same_month_dispositions_do_not_trigger_systematic_plan() -> None:
+    result = evaluate_form4_insider_signal(
+        {
+            "form4_transactions": [
+                _disposition_transaction("2026-04-01", 100000),
+                _disposition_transaction("2026-04-08", 110000),
+                _disposition_transaction("2026-04-15", 95000),
+                _disposition_transaction("2026-04-22", 105000),
+            ],
+            "form4_source_status": {"source_type": "live", "provider": "SEC EDGAR", "source_date": "2026-04-22"},
+        }
+    )
+    assert result.score == 20
+    assert result.derived_metrics["likely_systematic_plan"] is False
+
+
+def test_fewer_than_four_dispositions_do_not_trigger_systematic_plan() -> None:
+    result = evaluate_form4_insider_signal(
+        {
+            "form4_transactions": [
+                _disposition_transaction("2026-01-10", 100000),
+                _disposition_transaction("2026-02-10", 105000),
+                _disposition_transaction("2026-03-10", 95000),
+            ],
+            "form4_source_status": {"source_type": "live", "provider": "SEC EDGAR", "source_date": "2026-03-10"},
+        }
+    )
+    assert result.score == 20
+    assert result.derived_metrics["likely_systematic_plan"] is False
+
+
+def test_irregular_disposition_amounts_do_not_trigger_systematic_plan() -> None:
+    result = evaluate_form4_insider_signal(
+        {
+            "form4_transactions": [
+                _disposition_transaction("2026-01-10", 100000),
+                _disposition_transaction("2026-02-10", 500000),
+                _disposition_transaction("2026-03-10", 90000),
+                _disposition_transaction("2026-04-10", 20000),
+            ],
+            "form4_source_status": {"source_type": "live", "provider": "SEC EDGAR", "source_date": "2026-04-10"},
+        }
+    )
+    assert result.score == 20
+    assert result.derived_metrics["likely_systematic_plan"] is False

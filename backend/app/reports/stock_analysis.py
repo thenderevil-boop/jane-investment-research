@@ -203,6 +203,8 @@ def _source_quality_from_status(status: dict, *, category: str = "") -> str:
     fallback_used = bool(status.get("fallback_used")) or source_type == "fallback"
     if provider == "user_provided_qualitative_evidence":
         return "user_provided"
+    if category == "insider_activity" and (source_type == "mock" or fallback_used):
+        return "mixed_with_fallback"
     if category == "macro_environment" and source_type == "derived" and provider.startswith("mixed_FRED"):
         return "derived_live"
     if fallback_used:
@@ -578,7 +580,7 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
     )
     return {
         "ticker": ticker,
-        "evidence_count": len(items) + ignored_count + deduplicated_count,
+        "evidence_count": len(accepted_items),
         "accepted_evidence_count": len(accepted_items),
         "rejected_evidence_count": len(items) - len(accepted_items),
         "saved_evidence_count": len(saved_items),
@@ -1956,7 +1958,7 @@ def _smart_money_source_quality_breakdown(smart_money: ScoreObject, insider_acti
     options_component = (smart_money.derived_metrics.get("components") or {}).get("options_abnormal_activity") or {}
     options_raw = smart_money.raw_data.get("options") or {}
     form4_source_type = form4_status.get("source_type") or "unknown"
-    form4_fallback = bool(form4_status.get("fallback_used") or form4_source_type == "fallback")
+    form4_fallback = bool(form4_status.get("fallback_used") or form4_source_type in {"mock", "fallback"})
     thirteen_f_source_type = thirteen_f_status.get("source_type") or "mock"
     options_source_type = _status_dict(options_component.get("source_status")).get("source_type") or "mock"
     target_evidence = institutional_13f.get("candidate_specific_evidence") or {}
@@ -1968,11 +1970,11 @@ def _smart_money_source_quality_breakdown(smart_money: ScoreObject, insider_acti
             "source_type": form4_source_type,
             "fallback_used": form4_fallback,
             "interpretation": (
-                "Form 4 evidence is fallback or cached-after-failure limited and should be treated as a constraint."
+                "Form 4 evidence is fallback, mock, or cached-after-failure limited and should be treated as a constraint."
                 if form4_fallback
                 else "Form 4 evidence is research context based on available SEC filing rows."
             ),
-            "score_impact": "Limited or neutral impact when fallback/cached-after-failure data is present." if form4_fallback else "Can affect smart-money score only under disclosed Form 4 transaction-code rules.",
+            "score_impact": "Limited or neutral impact when fallback, mock, or cached-after-failure data is present." if form4_fallback else "Can affect smart-money score only under disclosed Form 4 transaction-code rules.",
         },
         "institutional_13f": {
             "source_type": thirteen_f_source_type,
@@ -2288,7 +2290,10 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
     ]
     cross_explanation = response.fundamentals_cross_check.get("explanation") or {}
     smart_breakdown = response.smart_money.source_quality_breakdown or {}
+    form4_breakdown = smart_breakdown.get("form4") or {}
     for row in rows:
+        if row["category"] == "smart_money" and form4_breakdown.get("fallback_used"):
+            row["source_quality"] = "mixed_with_fallback"
         category = row["category"]
         row.setdefault("why_it_matters", None)
         row.setdefault("review_priority", "none")
@@ -3428,8 +3433,8 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         response.human_verification_queue.append("Review stale live or derived data source status before interpreting scores.")
     if response.data_quality.missing_source_date_components:
         response.human_verification_queue.append("Review components with missing source dates before interpreting scores.")
-    response.data_quality_summary = AnalyzeStockDataQualitySummary.model_validate(_build_data_quality_summary(response))
     response.evidence_matrix = [EvidenceMatrixItem.model_validate(item) for item in _build_evidence_matrix(response)]
+    response.data_quality_summary = AnalyzeStockDataQualitySummary.model_validate(_build_data_quality_summary(response))
     response.next_manual_checks = [NextManualCheck.model_validate(item) for item in _build_manual_checks(response)]
     response.score_driver_breakdown = ScoreDriverBreakdown.model_validate(_build_score_driver_breakdown(response))
     response.candidate_validation_summary = CandidateValidationSummary.model_validate(_build_candidate_summary(response))

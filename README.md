@@ -88,7 +88,7 @@ Phase 24.6 makes the validation workflow explicit in the frontend and repo hygie
 
 Phase 25 adds validation report export and local backup. `POST /api/analyze-stock/export` runs the existing analyze-stock pipeline unchanged, then returns a JSON or Markdown validation report for review. The export does not change scoring, does not persist request-scoped qualitative evidence, redacts sensitive fields, preserves source quality, limitations, missing data, evidence matrix, score drivers, and manual checks, and remains research reference only. `GET /api/local-backup/export` reads local Manual Evidence Library and Candidate Workspace stores for backup only; it does not call analyze-stock, live providers, web sources, provider caches, import/restore, cloud sync, or scheduling.
 
-Phase 26 hardens analyze-stock validation quality without adding data sources or workspace features. `validation_quality_summary` explains whether the current output is high-quality, usable preliminary, limited, or insufficient validation and does not alter scoring by itself. Fundamentals cross-checks now include plain-language SEC/yfinance discrepancy explanations, smart-money output discloses delayed 13F, Form 4 fallback/cached limitations, and mock options constraints, legacy mock leadership is visibly deprecated and replaced by `jane_company_quality`, valuation risk is framed as research context only, and manual checks are prioritized validation tasks rather than investment instructions.
+Phase 26.4 hardens analyze-stock source quality and Form 4 interpretation without adding data sources or workspace features. `validation_quality_summary` remains explanation-only. Macro environment source quality is derived through `macro_v12_5`, so excluded non-scoring CNN Fear & Greed or unsupported ISM PMI context does not downgrade the macro row when active inputs are live/cached/derived and non-fallback. Smart-money output treats mock, fallback, or cached-after-failure Form 4 as `mixed_with_fallback`; 13F remains delayed quarterly evidence, options remain mock/preliminary, and repeated distributed code `S` dispositions may be labeled only as a likely systematic heuristic, not a confirmed 10b5-1 plan. Archived or rejected manual evidence is audit-only and excluded from active evidence counts and scoring support.
 
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
@@ -120,7 +120,7 @@ Completed live integrations now documented in this README:
 - Phase 24.5: documentation, scope boundary, testing, and repo hygiene alignment
 - Phase 24.6: validation-first frontend entry point and repo hygiene cleanup
 - Phase 25: analyze-stock validation report export and local backup
-- Phase 26: analyze-stock validation quality hardening
+- Phase 26.4: source quality and Form 4 interpretation hardening
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 
@@ -608,6 +608,8 @@ Form 4 transaction-code handling:
 - Duplicate transaction rows are removed by ticker, accession number, insider name, transaction date, code, security title, shares, price, and ownership type.
 - Daily report raw Form 4 transactions are capped at the latest 25 rows while summary metrics use all rows in the lookback window.
 - Mock fallback Form 4 data is not used to boost smart-money score.
+- Mock, fallback, or cached-after-failure Form 4 source context is surfaced as `mixed_with_fallback` in analyze-stock smart-money and insider-activity source quality.
+- Distributed, similar-sized repeated code `S` dispositions may reduce the severity of the disposition signal through a likely systematic pattern heuristic. This is not confirmation of a 10b5-1 plan without filing footnote review, and the pattern remains cautionary.
 - Form 4 output is research evidence only and is not a trading instruction.
 
 ## Phase 11 Official SEC EDGAR 13F

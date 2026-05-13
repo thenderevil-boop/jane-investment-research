@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from backend.app import config
@@ -66,6 +67,56 @@ def _options_label(score: float) -> str:
     if score >= 40:
         return "smart_money_neutral"
     return "risk_warning"
+
+
+def _transaction_amount(item: dict[str, Any]) -> float | None:
+    value = item.get("value")
+    if isinstance(value, (int, float)) and value > 0:
+        return float(value)
+    shares = item.get("shares")
+    price = item.get("price")
+    if isinstance(shares, (int, float)) and isinstance(price, (int, float)) and shares > 0 and price > 0:
+        return float(shares) * float(price)
+    return None
+
+
+def _transaction_month(item: dict[str, Any]) -> str | None:
+    raw_date = str(item.get("transaction_date") or item.get("filing_date") or "").strip()
+    if not raw_date:
+        return None
+    try:
+        parsed = date.fromisoformat(raw_date[:10])
+    except ValueError:
+        return None
+    return f"{parsed.year:04d}-{parsed.month:02d}"
+
+
+def _is_likely_systematic_plan(transactions: list[dict[str, Any]]) -> bool:
+    disposition_rows = [
+        item
+        for item in transactions
+        if str(item.get("transaction_code") or "").strip().upper() == "S"
+        and str(item.get("transaction_category") or item.get("transaction_type") or "") == "disposition"
+    ]
+    if len(disposition_rows) < 4:
+        return False
+    months = [_transaction_month(item) for item in disposition_rows]
+    amounts = [_transaction_amount(item) for item in disposition_rows]
+    if any(month is None for month in months) or any(amount is None for amount in amounts):
+        return False
+    represented_months = set(months)
+    if len(represented_months) <= 1:
+        return False
+    monthly_distribution = {month: months.count(month) for month in represented_months}
+    if max(monthly_distribution.values()) == len(disposition_rows):
+        return False
+    average_amount = sum(amounts) / len(amounts)
+    if average_amount <= 0:
+        return False
+    lower = average_amount * 0.5
+    upper = average_amount * 1.5
+    consistent_count = sum(1 for amount in amounts if lower <= amount <= upper)
+    return consistent_count / len(amounts) >= 0.75
 
 
 def _score_object(
@@ -346,6 +397,7 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
     largest_accumulation_value = max((item.get("value", 0) or 0 for item in accumulation_items), default=0)
     latest_transaction_date = max((item.get("transaction_date", "") for item in transactions), default="")
     latest_filing_date = max((item.get("filing_date", "") for item in transactions), default="")
+    likely_systematic_plan = _is_likely_systematic_plan(transactions)
     missing = [] if transactions else ["form4_transactions"]
     all_transaction_codes_missing = bool(transactions) and all(not code(item) for item in transactions)
     if all_transaction_codes_missing:
@@ -362,6 +414,8 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
         score = 70
     elif disposition_count >= 2 or net_value < 0:
         score = 20
+        if likely_systematic_plan:
+            score = 40
     else:
         score = 50
     limitations = [
@@ -373,6 +427,9 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
         limitations.append("All live Form 4 rows are missing transaction codes, so Form 4 does not boost the smart-money score.")
     if fallback_mock_form4:
         limitations.append("Mock fallback Form 4 data is not used to boost smart-money score.")
+    if likely_systematic_plan:
+        limitations.append("Disposition pattern resembles systematic selling, but 10b5-1 plan status is not independently confirmed without filing footnote review.")
+        limitations.append("Repeated code S transactions can still represent selling pressure and require manual review.")
     for item in transactions:
         for limitation in item.get("limitations", []) or []:
             if limitation not in limitations:
@@ -404,6 +461,8 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
             "largest_accumulation_value": largest_accumulation_value,
             "latest_transaction_date": latest_transaction_date,
             "latest_filing_date": latest_filing_date,
+            "likely_systematic_plan": likely_systematic_plan,
+            "systematic_plan_confidence": "heuristic" if likely_systematic_plan else "none",
         },
         {
             "multiple_officer_activity_count": 2,

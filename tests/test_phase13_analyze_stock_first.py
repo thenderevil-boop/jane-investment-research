@@ -116,7 +116,11 @@ def test_phase14_analyze_stock_composition_layers() -> None:
         assert category in matrix
         assert matrix[category]["summary"]
         assert isinstance(matrix[category]["key_evidence"], list)
-    assert matrix["macro_environment"]["source_quality"] == "derived_live"
+    macro_scoring = payload["macro_regime"]["macro_data_quality"]["scoring"]
+    if macro_scoring["fallback_active_components"] or macro_scoring["active_available_weight_pct"] <= 0:
+        assert matrix["macro_environment"]["source_quality"] == "mixed_with_fallback"
+    else:
+        assert matrix["macro_environment"]["source_quality"] == "derived_live"
     assert matrix["legacy_leadership_score"]["source_quality"] == "mock_only"
 
     quality = payload["data_quality_summary"]

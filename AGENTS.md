@@ -123,7 +123,7 @@ MVP can run natively on Windows. Avoid Linux-only shell assumptions in app code.
 
 Build in phases.
 
-Current implementation has reached Phase 26 (analyze-stock validation quality hardening) on top of Phase 25 validation report export and local backup. Phase 26 adds explanation, prioritization, and frontend clarity only; it must not change scoring, SEC parsers, macro parsers, Form 4 parsers, 13F parsers, Companyfacts parsers, scraping, source URL fetching, news, YouTube, sentiment, paid APIs, Candidate Workspace scope, or Future Industry Radar work.
+Current implementation has reached Phase 26.4 source quality and Form 4 interpretation hardening on top of Phase 25 validation report export and local backup. Phase 26.4 clarifies source-quality semantics and a conservative Form 4 disposition-pattern heuristic; it must not change macro_v12_5 scoring, SEC parsers, macro parsers, Form 4 fetch behavior, 13F parsers, Companyfacts parsers, scraping, source URL fetching, news, YouTube, sentiment, paid APIs, Candidate Workspace scope, or Future Industry Radar work.
 
 Phase labels in historical docs may be non-contiguous. For current development, prefer these implementation references in order:
 
@@ -328,7 +328,9 @@ Phase 26 validation quality notes:
 - `validation_quality_summary` is explanatory and does not alter scoring by itself.
 - SEC/yfinance fundamentals explanations are provider-normalization and period-alignment aids; neither provider is treated as always correct.
 - `legacy_leadership_score` is deprecated, mock-only, replaced by `jane_company_quality`, and does not affect final score.
-- Smart-money evidence may include delayed quarterly 13F, cached/fallback Form 4 constraints, and mock options context; these constraints must be visible.
+- `macro_environment` is derived through `macro_v12_5`; excluded/non-scoring context inputs such as CNN Fear & Greed or unsupported ISM PMI do not downgrade macro source quality when active scoring inputs are live/cached/derived and non-fallback.
+- Smart-money evidence may include delayed quarterly 13F, cached/fallback/mock Form 4 constraints, and mock options context; these constraints must be visible. Mock or fallback Form 4 is treated as `mixed_with_fallback` because Form 4 is live-capable evidence.
+- Repeated distributed code `S` dispositions may be labeled a likely systematic pattern only as a heuristic. Do not claim a confirmed 10b5-1 plan without filing footnote review; the pattern remains cautionary and requires manual review.
 - Valuation risk is research context only.
 - `next_manual_checks` are validation tasks, not investment instructions.
 
@@ -338,7 +340,7 @@ Phase 19 manual evidence library notes:
 - `POST /api/analyze-stock` automatically loads non-archived, non-rejected saved manual evidence for the requested ticker and merges it with request-scoped `qualitative_evidence`.
 - Request-scoped qualitative evidence must not be silently persisted; the user must explicitly create saved evidence through the manual-evidence API.
 - Saved manual evidence remains preliminary, cannot make qualitative criteria independently verified, cannot make source quality grade A by itself, and must not be counted as mock or fallback evidence.
-- Archived or rejected saved evidence must not affect analyze-stock scoring.
+- Archived or rejected saved evidence must not affect analyze-stock scoring, active evidence counts, accepted evidence counts, criteria support, or positive score drivers.
 
 Phase 16 company-quality notes:
 
