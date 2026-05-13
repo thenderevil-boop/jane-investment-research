@@ -86,20 +86,50 @@ SUPPORTED_COMPARISON_TYPES = {
 }
 SUPPORTED_CLAIMED_ADVANTAGES = {"stronger", "similar", "weaker", "unclear"}
 SECRET_MARKERS = ("FRED_API_KEY", "SEC_EDGAR_USER_AGENT", "api_key", "apikey", "secret", "token=")
+FALLBACK_QUALITATIVE_ALLOWED_TYPES_BY_CRITERION = {
+    "monopoly_power": {"market_share", "switching_cost", "brand_power", "platform_ecosystem", "patent", "market_share_comparison", "pricing_power_comparison", "switching_cost_comparison", "competitor_comparison", "user_provided_note", "other"},
+    "visionary_founder_ceo": {"founder_operator", "management_tenure", "filing_reference", "user_provided_note", "other"},
+    "early_skepticism": {"customer_adoption", "filing_reference", "product_disruption", "user_provided_note", "other"},
+    "disruptive_innovation": {"product_disruption", "patent", "customer_adoption", "r_and_d_intensity", "filing_reference", "product_capability_comparison", "r_and_d_comparison", "user_provided_note", "other"},
+    "superior_technology_r_and_d": {"r_and_d_intensity", "patent", "filing_reference", "product_capability_comparison", "r_and_d_comparison", "user_provided_note", "other"},
+    "scalable_business_model": {"customer_adoption", "platform_ecosystem", "filing_reference", "competitor_comparison", "user_provided_note", "other"},
+    "brand_power_fandom": {"brand_power", "customer_adoption", "pricing_power_comparison", "user_provided_note", "other"},
+    "data_advantage": {"platform_ecosystem", "developer_ecosystem", "customer_adoption", "filing_reference", "ecosystem_comparison", "user_provided_note", "other"},
+    "capital_allocation": {"filing_reference", "r_and_d_intensity", "competitor_comparison", "user_provided_note", "other"},
+    "cash_flow_creation": {"filing_reference", "competitor_comparison", "user_provided_note", "other"},
+    "mega_trend_fit": {"customer_adoption", "platform_ecosystem", "filing_reference", "competitor_comparison", "product_capability_comparison", "user_provided_note", "other"},
+    "talent_attraction_retention": {"management_tenure", "founder_operator", "filing_reference", "user_provided_note", "other"},
+    "global_expansion": {"customer_adoption", "filing_reference", "competitor_comparison", "market_share_comparison", "user_provided_note", "other"},
+    "life_changing_necessary_product": {"customer_adoption", "switching_cost", "platform_ecosystem", "product_capability_comparison", "user_provided_note", "other"},
+    "regulatory_government_relationship": {"filing_reference", "competitor_comparison", "user_provided_note", "other"},
+    "network_effect": {"platform_ecosystem", "developer_ecosystem", "customer_adoption", "switching_cost", "ecosystem_comparison", "switching_cost_comparison", "user_provided_note", "other"},
+    "mission_narrative_power": {"founder_operator", "brand_power", "customer_adoption", "user_provided_note", "other"},
+    "patents_ip": {"patent", "filing_reference", "product_capability_comparison", "r_and_d_comparison", "user_provided_note", "other"},
+    "vc_institutional_support": {"filing_reference", "competitor_comparison", "user_provided_note", "other"},
+    "retention_repurchase_rate": {"customer_adoption", "switching_cost", "filing_reference", "competitor_comparison", "user_provided_note", "other"},
+}
 
 
 @lru_cache(maxsize=1)
 def load_jane_leadership_criteria() -> list[dict]:
-    with JANE_LEADERSHIP_CRITERIA_PATH.open(encoding="utf-8") as criteria_file:
-        criteria = json.load(criteria_file)
-    return list(criteria)
+    try:
+        with JANE_LEADERSHIP_CRITERIA_PATH.open(encoding="utf-8") as criteria_file:
+            criteria = json.load(criteria_file)
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return []
+    if not isinstance(criteria, list):
+        return []
+    return [item for item in criteria if isinstance(item, dict)]
 
 
 def _qualitative_allowed_types_by_criterion() -> dict[str, set[str]]:
     allowed = {
         str(item["name"]): set(str(value) for value in item.get("accepted_evidence_types", []))
         for item in load_jane_leadership_criteria()
+        if item.get("name")
     }
+    if not allowed:
+        allowed = {key: set(value) for key, value in FALLBACK_QUALITATIVE_ALLOWED_TYPES_BY_CRITERION.items()}
     allowed["continuous_r_and_d"] = {
         "r_and_d_intensity",
         "patent",

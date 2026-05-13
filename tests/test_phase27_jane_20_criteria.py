@@ -103,3 +103,23 @@ def test_phase27_legacy_six_qualitative_criteria_still_work():
     assert assessment["accepted_evidence_count"] == 6
     assert assessment["rejected_evidence_count"] == 0
     assert set(LEGACY_SIX_CRITERIA).issubset(set(assessment["criteria_covered"]))
+
+
+def test_phase27_criteria_fallback_keeps_assessment_working_when_json_file_is_unavailable(monkeypatch):
+    from backend.app.reports import stock_analysis
+
+    stock_analysis.load_jane_leadership_criteria.cache_clear()
+    monkeypatch.setattr(stock_analysis, "JANE_LEADERSHIP_CRITERIA_PATH", Path("backend/app/data/missing_jane_leadership_criteria.json"))
+
+    try:
+        assessment = stock_analysis._build_qualitative_evidence_assessment(
+            "NVDA",
+            [_evidence_item("network_effect"), _evidence_item("superior_technology_r_and_d")],
+        )
+    finally:
+        stock_analysis.load_jane_leadership_criteria.cache_clear()
+        monkeypatch.setattr(stock_analysis, "JANE_LEADERSHIP_CRITERIA_PATH", Path("backend/app/data/jane_leadership_criteria.json"))
+
+    assert assessment["accepted_evidence_count"] == 2
+    assert assessment["rejected_evidence_count"] == 0
+    assert set(["network_effect", "superior_technology_r_and_d"]).issubset(set(assessment["criteria_covered"]))
