@@ -41,9 +41,9 @@ class LeadershipScore(BaseModel):
     criteria: list[LeadershipCriterion]
     source_status: DataSourceStatus | None = None
     deprecated_by: str | None = None
-    deprecated: bool = False
-    replaced_by: str | None = None
-    affects_score: bool = True
-    legacy_affects_score: bool = True
-    affects_final_score: bool = True
-    source_quality: str | None = None
+    deprecated: bool = True
+    replaced_by: str | None = "jane_company_quality"
+    affects_score: bool = False
+    legacy_affects_score: bool = False
+    affects_final_score: bool = False
+    source_quality: str = "mock_only"

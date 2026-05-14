@@ -120,3 +120,14 @@ def test_low_confidence_flows_to_aggregate_score() -> None:
     assert result.confidence == 0.2
     assert all(criterion.confidence == 0.2 for criterion in result.criteria)
     assert_no_prohibited_language(result.model_dump())
+
+
+def test_legacy_leadership_score_is_marked_deprecated_mock_only() -> None:
+    result = evaluate_leadership({"ticker": "LEGACY", "company_name": "Legacy Leadership Mock"})
+
+    assert result.deprecated is True
+    assert result.replaced_by == "jane_company_quality"
+    assert result.affects_score is False
+    assert result.legacy_affects_score is False
+    assert result.affects_final_score is False
+    assert result.source_quality == "mock_only"

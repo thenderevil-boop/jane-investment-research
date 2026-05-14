@@ -181,4 +181,10 @@ def evaluate_leadership(data: dict[str, Any]) -> LeadershipScore:
         limitations=[LIMITATION],
         missing_data=aggregate_missing,
         criteria=criteria,
+        deprecated=True,
+        replaced_by="jane_company_quality",
+        affects_score=False,
+        legacy_affects_score=False,
+        affects_final_score=False,
+        source_quality="mock_only",
     )

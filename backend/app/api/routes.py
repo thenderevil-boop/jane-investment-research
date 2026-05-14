@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from backend.app import config
 from backend.app.data_sources.mock_data import DEFAULT_STOCK, MOCK_SOURCE, MOCK_SOURCE_DATE, STOCK_FIXTURES
+from backend.app.engines.jane_criteria_canonical import JANE_CRITERIA
 from backend.app.jobs.daily_research_refresh import refresh_daily_research_snapshot
 from backend.app.middleware.safety_filter import SafetyViolationError, check_safety
 from backend.app.pipelines.research_pipeline import build_daily_report
@@ -27,6 +28,7 @@ from backend.app.raw_store.repository import (
 from backend.app.reports.stock_analysis import analyze_stock
 from backend.app.schemas.daily_report import DailyReportMetadata, DailyResearchReport
 from backend.app.schemas.health import HealthResponse
+from backend.app.schemas.jane_criteria import JaneCriteriaResponse
 from backend.app.schemas.macro_regime import MacroRegimeOutput
 from backend.app.schemas.manual_evidence import ManualEvidenceQualityLabel, ManualEvidenceReviewStatus, ManualEvidenceCriterion, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, ManualQualitativeEvidencePatch
 from backend.app.schemas.manual_evidence_dashboard import ManualEvidenceDashboardFilters, ManualEvidenceDashboardResponse
@@ -87,6 +89,11 @@ def _ensure_safe_response(model):
 @router.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return _ensure_safe_response(HealthResponse())
+
+
+@router.get("/jane-criteria", response_model=JaneCriteriaResponse)
+def jane_criteria() -> JaneCriteriaResponse:
+    return _ensure_safe_response(JaneCriteriaResponse(criteria=JANE_CRITERIA, count=len(JANE_CRITERIA)))
 
 
 @router.get("/data-health", response_model=DataHealthResponse)
