@@ -77,6 +77,7 @@ def test_full_leadership_score_reaches_worth_deep_research() -> None:
     assert result.missing_data == []
     assert_criterion_contract(payload["criteria"])
     assert_no_prohibited_language(payload)
+    assert result.confidence == 0.79
 
 
 def test_partial_leadership_score_uses_half_points() -> None:

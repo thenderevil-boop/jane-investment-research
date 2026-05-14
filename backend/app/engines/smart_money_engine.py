@@ -8,6 +8,7 @@ from backend.app.data_sources.mock_data import MOCK_SOURCE, MOCK_SOURCE_DATE
 from backend.app.engines.sec_13f_aggregation import aggregate_13f_holdings, compare_13f_quarter_over_quarter, summarize_13f_portfolio
 from backend.app.engines.sec_13f_target_matching import match_13f_targets, normalize_target_security_map
 from backend.app.schemas.common import ScoreObject
+from backend.app.utils.confidence import source_confidence_weights
 from backend.app.utils.freshness import build_source_status
 
 BASE_LIMITATION = "Some smart-money subcomponents remain mock; SEC Form 4 and SEC 13F components may use live/cached SEC EDGAR when enabled."
@@ -30,9 +31,10 @@ def _capped_qoq_changes(qoq_changes: list[dict[str, Any]], limit: int = THIRTEEN
     )[:limit]
 
 
-def _confidence(missing_data: list[str]) -> float:
+def _confidence(missing_data: list[str], source_type: str | None = None) -> float:
     completeness = max(0.35, 1 - len(missing_data) * 0.14)
-    return round(completeness * 0.40 + 0.90 * 0.30 + 0.80 * 0.30, 2)
+    recency, reliability = source_confidence_weights(source_type)
+    return round(completeness * 0.40 + recency * 0.30 + reliability * 0.30, 2)
 
 
 def _aggregate_label(score: float) -> str:
@@ -132,8 +134,10 @@ def _score_object(
     source: list[str] | None = None,
     source_date: str | None = None,
     source_status: dict[str, Any] | None = None,
+    source_type: str | None = None,
 ) -> ScoreObject:
     missing = missing_data or []
+    confidence_source_type = source_type or "mock"
     result = ScoreObject(
         name=name,
         score=round(score, 2),
@@ -144,7 +148,7 @@ def _score_object(
         trend=trend,
         source=source or MOCK_SOURCE,
         source_date=source_date or MOCK_SOURCE_DATE,
-        confidence=_confidence(missing),
+        confidence=_confidence(missing, confidence_source_type),
         limitations=limitations or [BASE_LIMITATION],
         missing_data=missing,
     )
@@ -317,6 +321,7 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
             source=source_status.get("source") or source_snapshot.get("source") or MOCK_SOURCE,
             source_date=source_status.get("source_date") or latest_report_date or latest_filing_date or MOCK_SOURCE_DATE,
             source_status=component_source_status,
+            source_type=source_type,
         )
     missing = [field for field in ["quarter", "filing_date"] if not raw.get(field)]
     holder_count_change = raw.get("holder_count_change", 0)
@@ -364,6 +369,7 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
         {"institutional_support": "up" if score >= 60 else "down" if score == 20 else "stable"},
         [*THIRTEEN_F_LIMITATIONS, "Mock 13F fixture is not used to boost smart-money score."],
         missing,
+        source_type=source_type,
     )
 
 
@@ -476,6 +482,7 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
         source=source if isinstance(source, list) else [str(source)],
         source_date=source_date,
         source_status=source_status,
+        source_type=source_status.get("source_type"),
     )
 
 

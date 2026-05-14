@@ -7,13 +7,15 @@ from backend.app.schemas.crisis import CrisisOutput
 from backend.app.schemas.common import ScoreObject
 from backend.app.schemas.macro_regime import MacroRegimeOutput
 from backend.app.schemas.risk_allocation import RiskAllocationReference, RiskPostureLabel
+from backend.app.utils.confidence import source_confidence_weights
 
 LIMITATION = "Phase 7.1 deterministic mock risk reference engine; no live source connection."
 
 
 def _confidence(missing_data: list[str]) -> float:
     completeness = max(0.35, 1 - len(missing_data) * 0.10)
-    return round(completeness * 0.40 + 0.90 * 0.30 + 0.80 * 0.30, 2)
+    recency, reliability = source_confidence_weights("derived")
+    return round(completeness * 0.40 + recency * 0.30 + reliability * 0.30, 2)
 
 
 def _reference(posture: RiskPostureLabel) -> dict[str, RiskPostureLabel]:

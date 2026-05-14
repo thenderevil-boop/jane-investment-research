@@ -4,6 +4,7 @@ from typing import Any
 
 from backend.app.data_sources.mock_data import MOCK_SOURCE, MOCK_SOURCE_DATE
 from backend.app.schemas.leadership import LeadershipCriterion, LeadershipScore
+from backend.app.utils.confidence import source_confidence_weights
 
 LIMITATION = "Phase 3 deterministic mock leadership engine; no live source connection."
 
@@ -45,7 +46,8 @@ def _confidence(supported_count: int, missing_data: list[str], override: float |
     data_completeness = min(1.0, supported_count / 3)
     if missing_data:
         data_completeness = min(data_completeness, 0.35)
-    return round(data_completeness * 0.40 + 0.90 * 0.30 + 0.80 * 0.30, 2)
+    recency, reliability = source_confidence_weights("mock")
+    return round(data_completeness * 0.40 + recency * 0.30 + reliability * 0.30, 2)
 
 
 def _score_from_supported_count(count: int) -> float:

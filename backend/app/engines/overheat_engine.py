@@ -4,14 +4,16 @@ from typing import Any
 
 from backend.app.data_sources.mock_data import MOCK_SOURCE, MOCK_SOURCE_DATE
 from backend.app.schemas.common import ScoreObject
+from backend.app.utils.confidence import source_confidence_weights
 
 LIMITATION = "Phase 2 deterministic mock engine; no live source connection."
 LIVE_LIMITATION = "Deterministic engine using repository-backed live market price features where available."
 
 
-def _confidence(missing_data: list[str]) -> float:
+def _confidence(missing_data: list[str], source_type: str | None = "mock") -> float:
     completeness = max(0.35, 1 - len(missing_data) * 0.12)
-    return round(completeness * 0.40 + 0.90 * 0.30 + 0.80 * 0.30, 2)
+    recency, reliability = source_confidence_weights(source_type)
+    return round(completeness * 0.40 + recency * 0.30 + reliability * 0.30, 2)
 
 
 def _score(
@@ -35,7 +37,7 @@ def _score(
         trend=trend,
         source=MOCK_SOURCE,
         source_date=MOCK_SOURCE_DATE,
-        confidence=_confidence(missing),
+        confidence=_confidence(missing, "mock"),
         limitations=[LIMITATION],
         missing_data=missing,
     )
@@ -268,7 +270,7 @@ def evaluate_overheat(data: dict[str, Any]) -> ScoreObject:
         },
         source=_source(data),
         source_date=_source_date(data),
-        confidence=_confidence(missing),
+        confidence=_confidence(missing, data.get("source_type") or "mock"),
         limitations=_limitations(data),
         missing_data=missing,
     )

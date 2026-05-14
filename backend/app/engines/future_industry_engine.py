@@ -5,13 +5,15 @@ from typing import Any
 from backend.app.data_sources.mock_data import MOCK_SOURCE, MOCK_SOURCE_DATE, THEMES
 from backend.app.features.theme_features import THEME_WEIGHTS, normalize_theme_fixture, theme_component_scores, theme_label, weighted_theme_score
 from backend.app.schemas.future_theme import FutureTheme
+from backend.app.utils.confidence import source_confidence_weights
 
 LIMITATION = "Phase 7.1 deterministic mock future industry engine; live theme sources are not connected."
 
 
 def _confidence(missing_data: list[str]) -> float:
     completeness = max(0.35, 1 - len(missing_data) * 0.10)
-    return round(completeness * 0.40 + 0.90 * 0.30 + 0.80 * 0.30, 2)
+    recency, reliability = source_confidence_weights("mock")
+    return round(completeness * 0.40 + recency * 0.30 + reliability * 0.30, 2)
 
 
 def evaluate_future_theme(theme_fixture: dict[str, Any] | tuple) -> FutureTheme:

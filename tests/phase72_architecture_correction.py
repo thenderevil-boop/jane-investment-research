@@ -73,6 +73,7 @@ def test_future_industry_engine_returns_componentized_theme_scores() -> None:
     ]:
         assert key in components
     assert first.candidate_companies
+    assert first.confidence <= 0.75
     assert detect_forbidden_language(first.model_dump()) == []
 
 
@@ -86,7 +87,7 @@ def test_future_industry_engine_handles_missing_data_theme() -> None:
     )
     assert theme.label == "insufficient_data"
     assert theme.score == 0
-    assert theme.confidence < 0.9
+    assert theme.confidence == 0.63
 
 
 def test_risk_allocation_engine_uses_allowed_research_labels() -> None:

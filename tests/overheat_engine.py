@@ -43,6 +43,27 @@ def test_overheated_environment_reaches_high_risk_warning() -> None:
     assert "fear_greed_greed_score" not in result.derived_metrics["components"]
     assert "fear_greed" not in result.raw_data
     assert_no_prohibited_language(result.model_dump())
+    assert result.confidence == 0.79
+
+
+def test_live_overheat_confidence_can_exceed_085() -> None:
+    result = evaluate_overheat(
+        {
+            "source_type": "live",
+            "source": ["yfinance"],
+            "source_date": "2026-05-12",
+            "index_gain_vs_prior_cycle_high": 34.0,
+            "index_gain_from_recent_trough": 48.0,
+            "distance_from_52w_high": 0.0,
+            "index_extension_from_200d_pct": 32.0,
+            "media_hype_ratio": 3.3,
+            "youtube_hype_ratio": 3.2,
+            "user_reported_social_heat": "high",
+            "friends_asking_about_stock": True,
+        }
+    )
+
+    assert result.confidence == 0.97
 
 
 def test_neutral_overheat_environment_stays_normal() -> None:

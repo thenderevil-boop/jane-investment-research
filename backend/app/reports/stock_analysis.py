@@ -1780,9 +1780,27 @@ def _macro_is_derived_live_quality(macro_regime) -> bool:
     return all(item.get("affects_score") is False and item.get("weight", 0) == 0 for item in excluded)
 
 
+def _macro_environment_source_quality(macro_regime) -> str:
+    quality = getattr(macro_regime, "macro_data_quality", None)
+    scoring = getattr(quality, "scoring", {}) if quality else {}
+    active_available = scoring.get("active_available_weight_pct")
+    if _macro_is_derived_live_quality(macro_regime):
+        return "derived_live"
+    if _macro_active_scoring_uses_fallback(macro_regime) or (
+        active_available is not None and float(active_available) <= 0
+    ):
+        return "mixed_with_fallback"
+    return _source_quality_from_status(_status_dict(macro_regime.source_status), category="macro_environment")
+
+
 def _category_is_fallback_evidence(category: str, status: dict, response: AnalyzeStockResponse) -> bool:
     if category == "macro_environment":
-        return _macro_active_scoring_uses_fallback(response.macro_regime)
+        quality = getattr(response.macro_regime, "macro_data_quality", None)
+        scoring = getattr(quality, "scoring", {}) if quality else {}
+        active_available = scoring.get("active_available_weight_pct")
+        return _macro_active_scoring_uses_fallback(response.macro_regime) or (
+            active_available is not None and float(active_available) <= 0
+        )
     if _status_is_fallback_evidence(status):
         return True
     if category == "legacy_leadership_score":
@@ -1860,11 +1878,12 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "criteria_supported": comparison.criteria_supported,
         "claimed_advantage_breakdown": comparison.claimed_advantage_breakdown,
     }
-    mock_categories = sorted(
-        name for name, status in component_statuses.items() if status.get("source_type") == "mock"
-    )
     fallback_categories = sorted(
         name for name, status in component_statuses.items() if _category_is_fallback_evidence(name, status, response)
+    )
+    fallback_category_set = set(fallback_categories)
+    mock_categories = sorted(
+        name for name, status in component_statuses.items() if status.get("source_type") == "mock" and name not in fallback_category_set
     )
     missing_source_date_categories = sorted(
         name for name, status in component_statuses.items() if not status.get("source_date") and status.get("source_type") != "unknown"
@@ -2071,7 +2090,7 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
             "status": _score_status(response.macro_regime.score),
             "score": response.macro_regime.score,
             "confidence": response.macro_regime.confidence,
-            "source_quality": "derived_live" if _macro_is_derived_live_quality(response.macro_regime) else _source_quality_from_status(_status_dict(response.macro_regime.source_status), category="macro_environment"),
+            "source_quality": _macro_environment_source_quality(response.macro_regime),
             "summary": f"Macro score is {response.macro_regime.label} under macro_v12_5.",
             "key_evidence": _limited(
                 [

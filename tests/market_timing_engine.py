@@ -74,6 +74,36 @@ def test_extreme_fear_environment_scores_as_favorable_research_context() -> None
     assert "fear_greed" not in result.raw_data
     assert_score_contract(payload)
     assert_no_prohibited_language(payload)
+    assert result.confidence == 0.79
+
+
+def test_live_market_timing_confidence_can_exceed_085() -> None:
+    result = evaluate_market_timing(
+        {
+            "source_type": "live",
+            "source": ["yfinance"],
+            "source_date": "2026-05-12",
+            "consecutive_rate_cut_count": 2,
+            "rate_trend": "easing",
+            "sp500_drawdown_pct": -24.0,
+            "nasdaq_drawdown_pct": -30.0,
+            "index_range_20d_pct": 6.0,
+            "realized_vol_20d": 24.0,
+            "previous_realized_vol_20d": 32.0,
+            "vix": 34.0,
+            "vix_recent_spike": True,
+            "vix_trend": "falling",
+            "vix_falling_from_spike": True,
+            "cash_to_market_cap_pct": 12.0,
+            "revenue_growth_yoy_pct": [12.0, 14.0, 18.0],
+            "revenue_cagr_3y_pct": 14.5,
+            "founder_is_ceo": True,
+            "net_insider_buy_value_180d": 500000,
+            "insider_buy_count_180d": 2,
+        }
+    )
+
+    assert result.confidence == 0.97
 
 
 def test_neutral_environment_scores_below_confirmation_level() -> None:

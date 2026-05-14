@@ -77,6 +77,67 @@ def test_13f_delay_limitation_and_required_dates() -> None:
     assert any("not used to boost" in item for item in payload["limitations"])
     assert_score_contract(payload)
     assert_no_prohibited_language(payload)
+    assert result.confidence == 0.79
+
+
+def test_mock_13f_confidence_uses_mock_source_weights() -> None:
+    result = evaluate_13f_institutional_support(
+        {
+            "institutional_13f": {
+                "quarter": "2026-Q1",
+                "filing_date": "2026-05-15",
+            },
+            "institutional_13f_source_status": {
+                "source_type": "mock",
+                "provider": "mock",
+                "source_date": "2026-05-15",
+            },
+        }
+    )
+
+    assert result.confidence == 0.79
+
+
+def test_fallback_form4_confidence_uses_fallback_source_weights() -> None:
+    result = evaluate_form4_insider_signal(
+        {
+            "form4_transactions": [],
+            "form4_source_status": {
+                "source_type": "fallback",
+                "provider": "mock",
+                "source_date": "2026-05-01",
+            },
+        }
+    )
+
+    assert result.confidence == 0.67
+
+
+def test_live_form4_confidence_can_exceed_085() -> None:
+    result = evaluate_form4_insider_signal(
+        {
+            "form4_transactions": [
+                {
+                    "insider_name": "Mock Director",
+                    "role": "Director",
+                    "transaction_code": "P",
+                    "transaction_type": "accumulation",
+                    "shares": 100,
+                    "price": 25.0,
+                    "value": 2500,
+                    "transaction_date": "2026-04-10",
+                    "filing_date": "2026-04-12",
+                }
+            ],
+            "form4_source_status": {
+                "source_type": "live",
+                "provider": "SEC EDGAR",
+                "source_date": "2026-04-12",
+            },
+        }
+    )
+
+    assert result.confidence == 0.97
 
 
 def test_insider_net_buying_equivalent_accumulation_is_positive() -> None:
