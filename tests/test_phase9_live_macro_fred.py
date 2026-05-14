@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -51,8 +51,19 @@ def monthly_rows(values: list[float], start_year: int = 2025, start_month: int =
     return rows
 
 
-def daily_rows(values: list[float]) -> list[dict]:
-    return [{"date": f"2026-05-{4 + index:02d}", "value": str(value)} for index, value in enumerate(values)]
+def _recent_business_days(count: int, *, as_of: datetime | None = None) -> list[str]:
+    current = (as_of or datetime.now(timezone.utc)).date()
+    dates: list[str] = []
+    while len(dates) < count:
+        if current.weekday() < 5:
+            dates.append(current.isoformat())
+        current -= timedelta(days=1)
+    return list(reversed(dates))
+
+
+def daily_rows(values: list[float], *, as_of: datetime | None = None) -> list[dict]:
+    dates = _recent_business_days(len(values), as_of=as_of)
+    return [{"date": date_text, "value": str(value)} for date_text, value in zip(dates, values)]
 
 
 def fred_payloads() -> dict[str, list[dict]]:

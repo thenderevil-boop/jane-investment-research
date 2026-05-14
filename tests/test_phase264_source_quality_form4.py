@@ -148,6 +148,19 @@ def test_phase264_macro_environment_excluded_context_does_not_become_mock_only(m
     assert all(item["affects_score"] is False and item["weight"] == 0 for item in excluded)
 
 
+def test_phase264_macro_environment_with_no_active_live_weight_is_limited_not_mock_only(monkeypatch):
+    _use_tmp_stores(monkeypatch)
+    payload = _analyze()
+    matrix = {item["category"]: item for item in payload["evidence_matrix"]}
+    data_quality = payload["data_quality_summary"]
+    scoring = payload["macro_regime"]["macro_data_quality"]["scoring"]
+
+    assert scoring["active_available_weight_pct"] <= 0
+    assert matrix["macro_environment"]["source_quality"] == "mixed_with_fallback"
+    assert "macro_environment" not in data_quality["mock_evidence_categories"]
+    assert "macro_environment" in data_quality["fallback_evidence_categories"]
+
+
 def test_phase264_archived_rejected_manual_evidence_excluded_from_active_counts(monkeypatch):
     _use_tmp_stores(monkeypatch)
     active_one = client.post("/api/manual-evidence", json=_manual_payload()).json()
