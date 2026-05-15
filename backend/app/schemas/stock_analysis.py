@@ -23,6 +23,9 @@ class ResearchContext(BaseModel):
 class QualitativeEvidenceInput(BaseModel):
     evidence_id: str | None = None
     criterion: str
+    criterion_id: int | None = Field(default=None, ge=1, le=20)
+    criterion_name: str | None = None
+    submetric: str | None = None
     evidence_type: str
     summary: str = ""
     source_label: str = ""
@@ -147,6 +150,9 @@ class QualitativeEvidenceAssessmentItem(BaseModel):
     origin: Literal["saved_library", "request_scoped"] = "request_scoped"
     review_status: str | None = None
     criterion: str
+    criterion_id: int | None = None
+    criterion_name: str | None = None
+    submetric: str | None = None
     evidence_type: str
     summary: str
     source_label: str

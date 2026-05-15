@@ -1,4 +1,4 @@
-import type { AnalyzeStockExportPayload, AnalyzeStockExportResponse, ApiError, CandidateAnalysisHistoryItem, CandidateAnalyzeResponse, CandidateDashboard, CandidateFilters, CandidateResearchItem, CandidateResearchItemCreate, CandidateReviewNote, CandidateReviewNoteCreate, DailyReport, LocalBackupExportOptions, LocalBackupExportResponse, ManualEvidenceDashboard, ManualEvidenceDashboardFilters, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, QualitativeEvidenceInput, ResearchContext, StockAnalysis } from '../types';
+import type { AnalyzeStockExportPayload, AnalyzeStockExportResponse, ApiError, CandidateAnalysisHistoryItem, CandidateAnalyzeResponse, CandidateDashboard, CandidateFilters, CandidateResearchItem, CandidateResearchItemCreate, CandidateReviewNote, CandidateReviewNoteCreate, DailyReport, JaneCriteriaResponse, LocalBackupExportOptions, LocalBackupExportResponse, ManualEvidenceDashboard, ManualEvidenceDashboardFilters, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, QualitativeEvidenceInput, ResearchContext, StockAnalysis } from '../types';
 
 async function parseJson<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') ?? '';
@@ -64,6 +64,10 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function getLatestDailyReport(): Promise<DailyReport> {
   return request<DailyReport>('/api/daily-report/latest');
+}
+
+export function getJaneCriteria(): Promise<JaneCriteriaResponse> {
+  return request<JaneCriteriaResponse>('/api/jane-criteria');
 }
 
 export function listManualEvidence(ticker?: string, reviewStatus?: string): Promise<ManualQualitativeEvidence[]> {

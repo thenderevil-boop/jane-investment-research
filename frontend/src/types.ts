@@ -246,6 +246,9 @@ export type NextManualCheck = {
 export type QualitativeEvidenceInput = {
   evidence_id?: string | null;
   criterion: string;
+  criterion_id?: number | null;
+  criterion_name?: string | null;
+  submetric?: string | null;
   evidence_type: string;
   summary: string;
   source_label: string;
@@ -255,6 +258,24 @@ export type QualitativeEvidenceInput = {
   user_provided: boolean;
   limitations: string[];
   comparison_context?: ComparisonContext | null;
+};
+
+export type JaneEvidenceType = 'financial_proxy' | 'qualitative' | 'semi_structured';
+
+export type JaneCriterion = {
+  criterion_id: number;
+  criterion_name: string;
+  submetrics: string[];
+  evidence_type: JaneEvidenceType;
+  auto_derivable_submetrics: string[];
+  requires_user_input_submetrics: string[];
+  financial_proxy_source?: string | null;
+};
+
+export type JaneCriteriaResponse = {
+  criteria: JaneCriterion[];
+  count: number;
+  not_investment_advice: true;
 };
 
 export type JaneLeadershipCriterionDefinition = {

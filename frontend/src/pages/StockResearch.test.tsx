@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
-import type { DataSourceStatus, ScoreLike, StockAnalysis } from '../types';
-import StockResearch, { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, parseQualitativeEvidenceJson } from './StockResearch';
+import { describe, expect, it, vi, afterEach } from 'vitest';
+import type { DataSourceStatus, JaneCriterion, ScoreLike, StockAnalysis } from '../types';
+import { getJaneCriteria } from '../api/client';
+import StockResearch, { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -15,6 +16,10 @@ const mockStatus: DataSourceStatus = {
   limitations: [],
   missing_data: [],
 };
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 function score(status: DataSourceStatus | null = mockStatus): ScoreLike {
   return {
@@ -40,7 +45,66 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Primary workflow: submit a ticker to validate the idea using evidence, data quality, and missing-data checks.');
     expect(html).toContain('Qualitative Evidence JSON');
     expect(html).toContain('Structured qualitative evidence');
+    expect(html).toContain('Jane 20 Criteria Evidence Input');
+    expect(html).toContain('User-provided evidence is local validation context only');
     expect(html).not.toContain('[object Object]');
+  });
+
+  it('fetches Jane criteria from the canonical API endpoint', async () => {
+    const payload = {
+      criteria: [
+        {
+          criterion_id: 1,
+          criterion_name: 'Market Monopoly / Entry Barrier',
+          submetrics: ['switching_cost'],
+          evidence_type: 'qualitative',
+          auto_derivable_submetrics: [],
+          requires_user_input_submetrics: ['switching_cost'],
+          financial_proxy_source: null,
+        },
+      ],
+      count: 1,
+      not_investment_advice: true,
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      json: async () => payload,
+    } as unknown as Response);
+
+    await expect(getJaneCriteria()).resolves.toEqual(payload);
+    expect(fetchMock).toHaveBeenCalledWith('/api/jane-criteria', undefined);
+  });
+
+  it('builds canonical Jane criteria evidence input for analyze requests', () => {
+    const criterion: JaneCriterion = {
+      criterion_id: 1,
+      criterion_name: 'Market Monopoly / Entry Barrier',
+      submetrics: ['switching_cost'],
+      evidence_type: 'qualitative',
+      auto_derivable_submetrics: [],
+      requires_user_input_submetrics: ['switching_cost'],
+      financial_proxy_source: null,
+    };
+
+    const evidence = buildJaneCriteriaEvidenceInput({
+      criterion,
+      submetric: 'switching_cost',
+      summary: 'Customer migration requires workflow retraining and data migration.',
+      sourceLabel: 'user research note',
+      confidence: 0.6,
+    });
+
+    expect(evidence).toMatchObject({
+      criterion: 'monopoly_power',
+      criterion_id: 1,
+      criterion_name: 'Market Monopoly / Entry Barrier',
+      submetric: 'switching_cost',
+      evidence_type: 'switching_cost',
+      user_provided: true,
+    });
+    expect(evidence.limitations.join(' ')).toContain('local validation context only');
   });
 
   it('renders validation report export controls without adding an editor', () => {
@@ -75,6 +139,23 @@ describe('StockResearch presentation helpers', () => {
     ]));
 
     expect(parsed?.[0].criterion).toBe('network_effect');
+    const canonical = parseQualitativeEvidenceJson(JSON.stringify([
+      {
+        criterion: 'monopoly_power',
+        criterion_id: 1,
+        criterion_name: 'Market Monopoly / Entry Barrier',
+        submetric: 'switching_cost',
+        evidence_type: 'switching_cost',
+        summary: 'Customer migration requires workflow retraining and data migration.',
+        source_label: 'user research note',
+        confidence: 0.6,
+        user_provided: true,
+        limitations: ['Manual review required.'],
+      },
+    ]));
+    expect(canonical?.[0].criterion_id).toBe(1);
+    expect(canonical?.[0].criterion_name).toBe('Market Monopoly / Entry Barrier');
+    expect(canonical?.[0].submetric).toBe('switching_cost');
     expect(() => parseQualitativeEvidenceJson('[{"criterion":"unsupported","evidence_type":"platform_ecosystem","summary":"x","source_label":"note","confidence":0.5,"user_provided":true}]')).toThrow('unsupported criterion');
     expect(() => parseQualitativeEvidenceJson('[{"criterion":"network_effect","evidence_type":"platform_ecosystem","summary":"","source_label":"note","confidence":0.5,"user_provided":true}]')).toThrow('needs a summary');
     expect(() => parseQualitativeEvidenceJson('[{"criterion":"network_effect","evidence_type":"platform_ecosystem","summary":"x","source_label":"note","confidence":2,"user_provided":true}]')).toThrow('between 0 and 1');

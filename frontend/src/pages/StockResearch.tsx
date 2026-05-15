@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { analyzeStock, exportAnalyzeStockReport } from '../api/client';
+import { analyzeStock, exportAnalyzeStockReport, getJaneCriteria } from '../api/client';
 import DataSourceBadge from '../components/DataSourceBadge';
 import EvidencePanel from '../components/EvidencePanel';
 import JaneReferencePanel from '../components/JaneReferencePanel';
@@ -7,7 +7,7 @@ import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
-import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, JaneCompanyQuality, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ValidationQualitySummary } from '../types';
+import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, JaneCompanyQuality, JaneCriterion, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ValidationQualitySummary } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
 export const janeLeadershipCriteria = [
@@ -34,6 +34,9 @@ export const janeLeadershipCriteria = [
 ] as const;
 
 const qualitativeCriteria = new Set([...janeLeadershipCriteria.map((criterion) => criterion.name), 'continuous_r_and_d']);
+const janeCriterionSlugsById: Record<number, string> = Object.fromEntries(
+  janeLeadershipCriteria.map((criterion, index) => [index + 1, criterion.name]),
+) as Record<number, string>;
 const qualitativeEvidenceTypes = new Set([
   'market_share',
   'patent',
@@ -59,6 +62,33 @@ const qualitativeEvidenceTypes = new Set([
 ]);
 const comparisonTypes = new Set(['competitor', 'market_share', 'product_capability', 'platform_ecosystem', 'customer_adoption', 'pricing_power', 'switching_cost', 'r_and_d_intensity', 'other']);
 const claimedAdvantages = new Set(['stronger', 'similar', 'weaker', 'unclear']);
+
+export function buildJaneCriteriaEvidenceInput({
+  criterion,
+  submetric,
+  summary,
+  sourceLabel,
+  confidence,
+}: {
+  criterion: JaneCriterion;
+  submetric: string;
+  summary: string;
+  sourceLabel: string;
+  confidence: number;
+}): QualitativeEvidenceInput {
+  return {
+    criterion: janeCriterionSlugsById[criterion.criterion_id] ?? criterion.criterion_name,
+    criterion_id: criterion.criterion_id,
+    criterion_name: criterion.criterion_name,
+    submetric,
+    evidence_type: qualitativeEvidenceTypes.has(submetric) ? submetric : 'user_provided_note',
+    summary: summary.trim(),
+    source_label: sourceLabel.trim(),
+    confidence,
+    user_provided: true,
+    limitations: ['User-provided evidence is local validation context only and requires human verification.'],
+  };
+}
 
 export function parseQualitativeEvidenceJson(value: string): QualitativeEvidenceInput[] | undefined {
   if (!value.trim()) return undefined;
@@ -893,14 +923,73 @@ export default function StockResearch() {
   const [theme, setTheme] = useState('AI infrastructure');
   const [userReason, setUserReason] = useState('External trend research');
   const [qualitativeEvidenceJson, setQualitativeEvidenceJson] = useState('');
+  const [janeCriteria, setJaneCriteria] = useState<JaneCriterion[]>([]);
+  const [selectedCriterionId, setSelectedCriterionId] = useState(1);
+  const [selectedSubmetric, setSelectedSubmetric] = useState('');
+  const [evidenceSummary, setEvidenceSummary] = useState('');
+  const [evidenceSourceLabel, setEvidenceSourceLabel] = useState('User research note');
+  const [evidenceConfidence, setEvidenceConfidence] = useState(0.6);
   const [result, setResult] = useState<StockAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const analyzeAbortRef = useRef<AbortController | null>(null);
   const warningTerms = useMemo(() => detectForbiddenLanguage(result), [result]);
   const criteria = result?.leadership_score?.criteria as Array<Record<string, unknown>> | undefined;
+  const userInputCriteria = useMemo(() => janeCriteria.filter((criterion) => criterion.requires_user_input_submetrics.length > 0), [janeCriteria]);
+  const selectedCriterion = useMemo(
+    () => userInputCriteria.find((criterion) => criterion.criterion_id === selectedCriterionId) ?? userInputCriteria[0],
+    [selectedCriterionId, userInputCriteria],
+  );
 
   useEffect(() => () => analyzeAbortRef.current?.abort(), []);
+
+  useEffect(() => {
+    let active = true;
+    getJaneCriteria()
+      .then((response) => {
+        if (!active) return;
+        const requiringUserInput = response.criteria.filter((criterion) => criterion.requires_user_input_submetrics.length > 0);
+        setJaneCriteria(response.criteria);
+        if (requiringUserInput[0]) {
+          setSelectedCriterionId(requiringUserInput[0].criterion_id);
+          setSelectedSubmetric(requiringUserInput[0].requires_user_input_submetrics[0] ?? 'user_provided_note');
+        }
+      })
+      .catch(() => {
+        if (active) setJaneCriteria([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedCriterion) return;
+    if (!selectedCriterion.requires_user_input_submetrics.includes(selectedSubmetric)) {
+      setSelectedSubmetric(selectedCriterion.requires_user_input_submetrics[0] ?? 'user_provided_note');
+    }
+  }, [selectedCriterion, selectedSubmetric]);
+
+  function addJaneEvidenceInput() {
+    if (!selectedCriterion || !selectedSubmetric || !evidenceSummary.trim() || !evidenceSourceLabel.trim()) {
+      setError('Jane criteria evidence needs a criterion, submetric, summary, and source label.');
+      return;
+    }
+    const existingEvidence = parseQualitativeEvidenceJson(qualitativeEvidenceJson) ?? [];
+    const nextEvidence = [
+      ...existingEvidence,
+      buildJaneCriteriaEvidenceInput({
+        criterion: selectedCriterion,
+        submetric: selectedSubmetric,
+        summary: evidenceSummary,
+        sourceLabel: evidenceSourceLabel,
+        confidence: evidenceConfidence,
+      }),
+    ];
+    setQualitativeEvidenceJson(JSON.stringify(nextEvidence, null, 2));
+    setEvidenceSummary('');
+    setError('');
+  }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -942,6 +1031,29 @@ export default function StockResearch() {
         <input id="theme" value={theme} onChange={(event) => setTheme(event.target.value)} />
         <label htmlFor="reason">Reason</label>
         <input id="reason" value={userReason} onChange={(event) => setUserReason(event.target.value)} />
+        <details className="qualitativeEvidenceInput" open>
+          <summary>Jane 20 Criteria Evidence Input</summary>
+          <p className="muted">User-provided evidence is local validation context only. It is not independently verified and does not provide investment advice.</p>
+          <label htmlFor="janeCriterion">Criterion</label>
+          <select id="janeCriterion" value={selectedCriterion?.criterion_id ?? ''} onChange={(event) => setSelectedCriterionId(Number(event.target.value))}>
+            {userInputCriteria.length ? userInputCriteria.map((criterion) => (
+              <option key={criterion.criterion_id} value={criterion.criterion_id}>{criterion.criterion_id}. {criterion.criterion_name}</option>
+            )) : <option value="">Loading canonical criteria...</option>}
+          </select>
+          <label htmlFor="janeSubmetric">Submetric</label>
+          <select id="janeSubmetric" value={selectedSubmetric} onChange={(event) => setSelectedSubmetric(event.target.value)}>
+            {(selectedCriterion?.requires_user_input_submetrics ?? []).map((submetric) => (
+              <option key={submetric} value={submetric}>{submetric}</option>
+            ))}
+          </select>
+          <label htmlFor="janeEvidenceSummary">Evidence summary</label>
+          <textarea id="janeEvidenceSummary" rows={3} value={evidenceSummary} onChange={(event) => setEvidenceSummary(event.target.value)} placeholder="Specific claim requiring manual verification." />
+          <label htmlFor="janeEvidenceSource">Source label</label>
+          <input id="janeEvidenceSource" value={evidenceSourceLabel} onChange={(event) => setEvidenceSourceLabel(event.target.value)} />
+          <label htmlFor="janeEvidenceConfidence">Confidence</label>
+          <input id="janeEvidenceConfidence" type="number" min="0" max="1" step="0.05" value={evidenceConfidence} onChange={(event) => setEvidenceConfidence(Number(event.target.value))} />
+          <button type="button" onClick={addJaneEvidenceInput}>Add Jane evidence to JSON</button>
+        </details>
         <details className="qualitativeEvidenceInput">
           <summary>Qualitative Evidence JSON</summary>
           <label htmlFor="qualitativeEvidence">Structured qualitative evidence</label>
