@@ -29,6 +29,7 @@ from backend.app.schemas.stock_analysis import (
     NextManualCheck,
     ResearchVerdict,
     ScoreDriverBreakdown,
+    ValidationOSReport,
     ValidationQualitySummary,
 )
 from backend.app.utils.freshness import build_source_status, summarize_data_quality
@@ -3373,6 +3374,90 @@ def _build_validation_quality_summary(response: AnalyzeStockResponse) -> dict:
     }
 
 
+def _build_validation_os_report(response: AnalyzeStockResponse) -> dict:
+    coverage = response.jane_criteria_coverage
+    validation = response.validation_quality_summary
+    candidate = response.candidate_validation_summary
+    dq = response.data_quality_summary
+    manual_checks = [item.check for item in response.next_manual_checks[:6]]
+    gap_rows = [
+        item
+        for item in coverage.criteria
+        if item.coverage_status in {"partial", "insufficient"}
+    ]
+    gap_rows.sort(key=lambda item: (0 if item.coverage_status == "partial" else 1, item.criterion_id))
+    top_gaps = [
+        {
+            "criterion_id": item.criterion_id,
+            "criterion_name": item.criterion_name,
+            "coverage_status": item.coverage_status,
+            "missing_submetrics": item.missing_submetrics[:6],
+            "next_manual_check": item.next_manual_check,
+        }
+        for item in gap_rows[:6]
+    ]
+    caveats = []
+    if dq.mock_evidence_categories:
+        caveats.append(f"Mock or deprecated compatibility evidence remains in: {', '.join(dq.mock_evidence_categories[:5])}.")
+    if dq.fallback_evidence_categories:
+        caveats.append(f"Fallback evidence remains in: {', '.join(dq.fallback_evidence_categories[:5])}.")
+    if dq.missing_source_date_categories:
+        caveats.append(f"Missing source dates remain in: {', '.join(dq.missing_source_date_categories[:5])}.")
+    if response.qualitative_evidence_assessment.accepted_evidence_count:
+        caveats.append("User-provided qualitative evidence is local validation context and still requires source review.")
+    if not caveats:
+        caveats.append("Source quality caveats are still disclosed; manual verification remains required for research use.")
+    coverage_gap_count = coverage.partial_count + coverage.insufficient_count
+    report_sections = [
+        "candidate_context",
+        "macro_backdrop",
+        "jane_quality",
+        "evidence_coverage",
+        "financial_signals",
+        "smart_money",
+        "manual_verification",
+        "source_quality",
+    ]
+    return {
+        "ticker": response.ticker,
+        "research_label": response.research_verdict.label,
+        "validation_level": validation.overall_validation_level,
+        "data_quality_grade": dq.source_quality_grade,
+        "report_sections": report_sections,
+        "executive_summary": (
+            f"{response.ticker} validation workflow summary: {candidate.overall_summary} "
+            f"Jane criteria coverage has {coverage.covered_count} covered, {coverage.partial_count} partial, "
+            f"and {coverage.insufficient_count} insufficient criteria. Manual verification remains required."
+        ),
+        "macro_backdrop": candidate.environment_assessment,
+        "jane_quality_summary": candidate.company_assessment,
+        "jane_criteria_coverage_summary": {
+            "covered_count": coverage.covered_count,
+            "partial_count": coverage.partial_count,
+            "insufficient_count": coverage.insufficient_count,
+            "coverage_gap_count": coverage_gap_count,
+            "user_input_required_count": coverage.user_input_required_count,
+            "financial_proxy_available_count": coverage.financial_proxy_available_count,
+            "source_quality_summary": coverage.source_quality_summary,
+        },
+        "financial_signals_summary": f"Financial statement signals are {response.financial_statement_signals.label} with {response.financial_statement_signals.confidence:.2f} confidence.",
+        "smart_money_summary": candidate.smart_money_assessment,
+        "top_strengths": candidate.primary_strengths[:6],
+        "top_limitations": candidate.primary_risks[:6],
+        "top_evidence_gaps": top_gaps,
+        "top_manual_checks": manual_checks or validation.highest_priority_review_items[:6] or response.human_verification_queue[:6],
+        "source_quality_caveats": caveats,
+        "manual_verification_required": bool(validation.manual_review_required or coverage_gap_count or response.human_verification_queue),
+        "scoring_note": "Validation OS Report is non-scoring and does not change the final research verdict.",
+        "limitations": [
+            "This report organizes existing analyze-stock outputs and does not add new data providers.",
+            "Coverage and user-provided evidence are research validation context only.",
+            "This is not investment advice.",
+        ],
+        "not_investment_advice": True,
+    }
+
+
 def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     fixture = STOCK_FIXTURES.get(request.ticker, DEFAULT_STOCK)
     market_context = read_market_data()
@@ -3636,4 +3721,5 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     response.score_driver_breakdown = ScoreDriverBreakdown.model_validate(_build_score_driver_breakdown(response))
     response.candidate_validation_summary = CandidateValidationSummary.model_validate(_build_candidate_summary(response))
     response.validation_quality_summary = ValidationQualitySummary.model_validate(_build_validation_quality_summary(response))
+    response.validation_os_report = ValidationOSReport.model_validate(_build_validation_os_report(response))
     return AnalyzeStockResponse.model_validate(_sanitize_api_secret_markers(response.model_dump(mode="json")))

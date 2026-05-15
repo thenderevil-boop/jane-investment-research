@@ -309,6 +309,45 @@ export type JaneCriteriaCoverageMatrix = {
   not_investment_advice: boolean;
 };
 
+export type ValidationOSEvidenceGap = {
+  criterion_id: number;
+  criterion_name: string;
+  coverage_status: 'partial' | 'insufficient';
+  missing_submetrics: string[];
+  next_manual_check?: string | null;
+};
+
+export type ValidationOSReport = {
+  ticker: string;
+  research_label: string;
+  validation_level: string;
+  data_quality_grade: 'A' | 'B' | 'C' | 'D';
+  report_sections: string[];
+  executive_summary: string;
+  macro_backdrop: string;
+  jane_quality_summary: string;
+  jane_criteria_coverage_summary: {
+    covered_count: number;
+    partial_count: number;
+    insufficient_count: number;
+    coverage_gap_count: number;
+    user_input_required_count: number;
+    financial_proxy_available_count: number;
+    source_quality_summary: string;
+  };
+  financial_signals_summary: string;
+  smart_money_summary: string;
+  top_strengths: string[];
+  top_limitations: string[];
+  top_evidence_gaps: ValidationOSEvidenceGap[];
+  top_manual_checks: string[];
+  source_quality_caveats: string[];
+  manual_verification_required: boolean;
+  scoring_note: string;
+  limitations: string[];
+  not_investment_advice: boolean;
+};
+
 export type JaneLeadershipCriterionDefinition = {
   name: string;
   display_name_zh: string;
@@ -999,6 +1038,7 @@ export type StockAnalysis = {
   validation_quality_summary?: ValidationQualitySummary;
   evidence_matrix?: EvidenceMatrixItem[];
   jane_criteria_coverage?: JaneCriteriaCoverageMatrix;
+  validation_os_report?: ValidationOSReport;
   data_quality_summary?: AnalyzeStockDataQualitySummary;
   score_driver_breakdown?: ScoreDriverBreakdown;
   next_manual_checks?: NextManualCheck[];

@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import type { DataSourceStatus, JaneCriterion, ScoreLike, StockAnalysis } from '../types';
 import { getJaneCriteria } from '../api/client';
-import StockResearch, { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
+import StockResearch, { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ValidationOSReportSection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -559,6 +559,60 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Market Monopoly / Moat');
     expect(html).toContain('insufficient');
     expect(html).toContain('This is context, not verified evidence');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders Validation OS Report with summary, gaps, and caveats', () => {
+    const html = renderToStaticMarkup(
+      <ValidationOSReportSection
+        report={{
+          ticker: 'NVDA',
+          research_label: 'watchlist_candidate',
+          validation_level: 'usable_preliminary_validation',
+          data_quality_grade: 'B',
+          report_sections: ['candidate_context', 'macro_backdrop', 'jane_quality', 'evidence_coverage', 'financial_signals', 'smart_money', 'manual_verification', 'source_quality'],
+          executive_summary: 'NVDA validation workflow summary: structured evidence exists and manual verification remains required.',
+          macro_backdrop: 'Macro environment is normal.',
+          jane_quality_summary: 'Jane company quality is preliminary.',
+          jane_criteria_coverage_summary: {
+            covered_count: 0,
+            partial_count: 1,
+            insufficient_count: 19,
+            coverage_gap_count: 20,
+            user_input_required_count: 20,
+            financial_proxy_available_count: 6,
+            source_quality_summary: 'Jane 20 coverage: 0 covered, 1 partial, 19 insufficient.',
+          },
+          financial_signals_summary: 'Financial statement signals are adequate.',
+          smart_money_summary: 'Smart-money assessment is neutral.',
+          top_strengths: ['Macro environment has usable macro_v12_5 context.'],
+          top_limitations: ['Manual validation required for user-provided qualitative claims.'],
+          top_evidence_gaps: [
+            {
+              criterion_id: 1,
+              criterion_name: 'Market Monopoly / Entry Barrier',
+              coverage_status: 'partial',
+              missing_submetrics: ['market_share', 'pricing_power'],
+              next_manual_check: 'Verify Jane criterion 1 missing submetrics.',
+            },
+          ],
+          top_manual_checks: ['Verify company fundamentals with current filings.'],
+          source_quality_caveats: ['User-provided qualitative evidence is local validation context and still requires source review.'],
+          manual_verification_required: true,
+          scoring_note: 'Validation OS Report is non-scoring and does not change the final research verdict.',
+          limitations: ['This report organizes existing analyze-stock outputs and does not add new data providers.'],
+          not_investment_advice: true,
+        }}
+      />,
+    );
+
+    expect(html).toContain('Validation OS Report');
+    expect(html).toContain('NVDA validation workflow summary');
+    expect(html).toContain('Coverage gaps: 20');
+    expect(html).toContain('Market Monopoly / Entry Barrier');
+    expect(html).toContain('market_share, pricing_power');
+    expect(html).toContain('non-scoring');
+    expect(html).toContain('Not investment advice');
     expect(html).not.toContain('[object Object]');
   });
 

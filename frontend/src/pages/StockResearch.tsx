@@ -7,7 +7,7 @@ import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
-import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ValidationQualitySummary } from '../types';
+import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ValidationOSReport, ValidationQualitySummary } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
 export const janeLeadershipCriteria = [
@@ -843,6 +843,75 @@ export function JaneCriteriaCoverageSection({ coverage }: { coverage?: JaneCrite
   );
 }
 
+export function ValidationOSReportSection({ report }: { report?: ValidationOSReport }) {
+  if (!report) return null;
+  return (
+    <section className="pageSection">
+      <h2>Validation OS Report</h2>
+      <div className="verdictBand">
+        <SignalBadge label={report.research_label} variant="neutral" />
+        <span>Validation: {displayKey(report.validation_level)}</span>
+        <span>Data quality: {report.data_quality_grade}</span>
+        <span>Coverage gaps: {report.jane_criteria_coverage_summary.coverage_gap_count}</span>
+      </div>
+      <p>{report.executive_summary}</p>
+      <p className="sourceWarning">{report.scoring_note} Not investment advice.</p>
+      <div className="twoColumn">
+        <div>
+          <h3>Context Summary</h3>
+          <p><strong>Macro:</strong> {report.macro_backdrop}</p>
+          <p><strong>Jane quality:</strong> {report.jane_quality_summary}</p>
+          <p><strong>Financial signals:</strong> {report.financial_signals_summary}</p>
+          <p><strong>Smart money:</strong> {report.smart_money_summary}</p>
+        </div>
+        <div>
+          <h3>Coverage Summary</h3>
+          <ul>
+            <li>Covered: {report.jane_criteria_coverage_summary.covered_count}</li>
+            <li>Partial: {report.jane_criteria_coverage_summary.partial_count}</li>
+            <li>Insufficient: {report.jane_criteria_coverage_summary.insufficient_count}</li>
+            <li>User input required: {report.jane_criteria_coverage_summary.user_input_required_count}</li>
+            <li>Financial proxy available: {report.jane_criteria_coverage_summary.financial_proxy_available_count}</li>
+          </ul>
+        </div>
+      </div>
+      <div className="twoColumn">
+        <div>
+          <h3>Top Strengths</h3>
+          <ul>{report.top_strengths.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+        <div>
+          <h3>Top Limitations</h3>
+          <ul>{report.top_limitations.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+      </div>
+      {report.top_evidence_gaps.length > 0 && (
+        <div>
+          <h3>Top Evidence Gaps</h3>
+          <ul>
+            {report.top_evidence_gaps.map((gap) => (
+              <li key={gap.criterion_id}>
+                <strong>{gap.criterion_id}. {gap.criterion_name}</strong> — {gap.coverage_status}. Missing: {gap.missing_submetrics.join(', ')}{gap.next_manual_check ? ` ${gap.next_manual_check}` : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className="twoColumn">
+        <div>
+          <h3>Manual Checks</h3>
+          <ul>{report.top_manual_checks.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+        <div>
+          <h3>Source Quality Caveats</h3>
+          <ul>{report.source_quality_caveats.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+      </div>
+      {report.limitations.length > 0 && <p className="muted">Limitations: {report.limitations.join(' ')}</p>}
+    </section>
+  );
+}
+
 function DriverList({ title, drivers }: { title: string; drivers?: ScoreDriver[] }) {
   if (!drivers?.length) return null;
   return (
@@ -1124,6 +1193,7 @@ export default function StockResearch() {
         <>
           <ValidationReportExportSection ticker={ticker} theme={theme} userReason={userReason} qualitativeEvidenceJson={qualitativeEvidenceJson} />
           <CandidateSummarySection result={result} />
+          <ValidationOSReportSection report={result.validation_os_report} />
           <ValidationQualitySummarySection summary={result.validation_quality_summary} />
           <AnalyzeDataQualitySection dataQuality={result.data_quality_summary} />
           <JaneCompanyQualitySection quality={result.jane_company_quality} profile={result.company_profile} />

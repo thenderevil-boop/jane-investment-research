@@ -166,6 +166,37 @@ class JaneCriteriaCoverageMatrix(BaseModel):
     not_investment_advice: bool = True
 
 
+class ValidationOSEvidenceGap(BaseModel):
+    criterion_id: int = Field(ge=1, le=20)
+    criterion_name: str
+    coverage_status: Literal["partial", "insufficient"]
+    missing_submetrics: list[str]
+    next_manual_check: str | None = None
+
+
+class ValidationOSReport(BaseModel):
+    ticker: str = ""
+    research_label: str = "insufficient_data"
+    validation_level: str = "insufficient_validation"
+    data_quality_grade: Literal["A", "B", "C", "D"] = "D"
+    report_sections: list[str] = Field(default_factory=list)
+    executive_summary: str = "Validation OS Report has not been computed."
+    macro_backdrop: str = ""
+    jane_quality_summary: str = ""
+    jane_criteria_coverage_summary: dict[str, int | str] = Field(default_factory=dict)
+    financial_signals_summary: str = ""
+    smart_money_summary: str = ""
+    top_strengths: list[str] = Field(default_factory=list)
+    top_limitations: list[str] = Field(default_factory=list)
+    top_evidence_gaps: list[ValidationOSEvidenceGap] = Field(default_factory=list)
+    top_manual_checks: list[str] = Field(default_factory=list)
+    source_quality_caveats: list[str] = Field(default_factory=list)
+    manual_verification_required: bool = True
+    scoring_note: str = "Validation OS Report is non-scoring and does not change the final research verdict."
+    limitations: list[str] = Field(default_factory=list)
+    not_investment_advice: bool = True
+
+
 class AnalyzeStockDataQualitySummary(BaseModel):
     mode: Literal["live_with_fallback", "mixed_preliminary", "mostly_mock", "insufficient"]
     confidence_cap_applied: bool
@@ -368,6 +399,7 @@ class AnalyzeStockResponse(BaseModel):
     validation_quality_summary: ValidationQualitySummary
     evidence_matrix: list[EvidenceMatrixItem]
     jane_criteria_coverage: JaneCriteriaCoverageMatrix = Field(default_factory=JaneCriteriaCoverageMatrix)
+    validation_os_report: ValidationOSReport = Field(default_factory=ValidationOSReport)
     data_quality_summary: AnalyzeStockDataQualitySummary
     score_driver_breakdown: ScoreDriverBreakdown
     next_manual_checks: list[NextManualCheck]
