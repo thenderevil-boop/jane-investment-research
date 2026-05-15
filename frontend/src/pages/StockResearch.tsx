@@ -7,7 +7,7 @@ import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
-import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, JaneCompanyQuality, JaneCriterion, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ValidationQualitySummary } from '../types';
+import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ValidationQualitySummary } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
 export const janeLeadershipCriteria = [
@@ -803,6 +803,46 @@ export function EvidenceMatrixSection({ rows }: { rows?: EvidenceMatrixItem[] })
   );
 }
 
+export function JaneCriteriaCoverageSection({ coverage }: { coverage?: JaneCriteriaCoverageMatrix }) {
+  if (!coverage?.criteria?.length) return null;
+  return (
+    <section className="pageSection">
+      <h2>Jane Criteria Coverage Matrix</h2>
+      <p className="muted">{coverage.source_quality_summary}</p>
+      <p className="sourceWarning">Coverage is for validation workflow only. Not investment advice.</p>
+      <div className="metricGrid">
+        <span className="smallPill">Covered: {coverage.covered_count}</span>
+        <span className="smallPill">Partial: {coverage.partial_count}</span>
+        <span className="smallPill">Insufficient: {coverage.insufficient_count}</span>
+        <span className="smallPill">User input required: {coverage.user_input_required_count}</span>
+        <span className="smallPill">Financial proxy available: {coverage.financial_proxy_available_count}</span>
+      </div>
+      <div className="evidenceMatrix">
+        {coverage.criteria.map((row) => (
+          <article className="evidenceRow" key={row.criterion_id}>
+            <div className="evidenceRowHeader">
+              <h3>{row.criterion_id}. {row.criterion_name}</h3>
+              <div>
+                <SignalBadge label={row.coverage_status} variant={row.coverage_status === 'covered' ? 'positive' : 'warning'} />
+                <span className="smallPill">{row.source_quality}</span>
+                <span className="smallPill">{row.evidence_type}</span>
+                {row.requires_human_verification && <span className="smallPill">human verification</span>}
+              </div>
+            </div>
+            <p>{row.summary}</p>
+            {row.covered_submetrics.length > 0 && <p><strong>Covered:</strong> {row.covered_submetrics.join(', ')}</p>}
+            {row.missing_submetrics.length > 0 && <p><strong>Missing:</strong> {row.missing_submetrics.join(', ')}</p>}
+            {row.requires_user_input_submetrics.length > 0 && <p className="muted">Requires user input: {row.requires_user_input_submetrics.join(', ')}</p>}
+            {row.financial_proxy_source && <p className="muted">Financial proxy source: {row.financial_proxy_source}</p>}
+            {row.next_manual_check && <p className="sourceWarning">{row.next_manual_check}</p>}
+            {row.limitations.length > 0 && <p className="muted">Limitations: {row.limitations.join(' ')}</p>}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function DriverList({ title, drivers }: { title: string; drivers?: ScoreDriver[] }) {
   if (!drivers?.length) return null;
   return (
@@ -1089,6 +1129,7 @@ export default function StockResearch() {
           <JaneCompanyQualitySection quality={result.jane_company_quality} profile={result.company_profile} />
           <QualitativeEvidenceAssessmentSection assessment={result.qualitative_evidence_assessment} />
           <ComparisonEvidenceAssessmentSection assessment={result.comparison_evidence_assessment} />
+          <JaneCriteriaCoverageSection coverage={result.jane_criteria_coverage} />
           <FinancialStatementSignalsSection signals={result.financial_statement_signals} />
           <SecFinancialFactsSection facts={result.sec_financial_facts} />
           <FundamentalsCrossCheckSection crossCheck={result.fundamentals_cross_check} />

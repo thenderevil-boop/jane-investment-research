@@ -124,6 +124,48 @@ class EvidenceMatrixItem(BaseModel):
     replaced_by: str | None = None
 
 
+class JaneCriterionCoverageItem(BaseModel):
+    criterion_id: int = Field(ge=1, le=20)
+    criterion_name: str
+    evidence_type: Literal["financial_proxy", "qualitative", "semi_structured"]
+    coverage_status: Literal["covered", "partial", "insufficient"]
+    source_quality: Literal[
+        "filing_backed",
+        "derived_live",
+        "cached_live",
+        "user_context",
+        "user_provided",
+        "mixed_with_fallback",
+        "mock_only",
+        "provider_backed",
+        "derived_from_mixed_sources",
+        "insufficient",
+    ]
+    confidence: float = Field(ge=0, le=1)
+    auto_derivable_submetrics: list[str]
+    requires_user_input_submetrics: list[str]
+    covered_submetrics: list[str]
+    missing_submetrics: list[str]
+    evidence_item_count: int = 0
+    accepted_evidence_item_count: int = 0
+    financial_proxy_source: str | None = None
+    requires_human_verification: bool = True
+    summary: str
+    limitations: list[str]
+    next_manual_check: str | None = None
+
+
+class JaneCriteriaCoverageMatrix(BaseModel):
+    criteria: list[JaneCriterionCoverageItem] = Field(default_factory=list)
+    covered_count: int = 0
+    partial_count: int = 0
+    insufficient_count: int = 0
+    user_input_required_count: int = 0
+    financial_proxy_available_count: int = 0
+    source_quality_summary: str = "Jane criteria coverage has not been computed."
+    not_investment_advice: bool = True
+
+
 class AnalyzeStockDataQualitySummary(BaseModel):
     mode: Literal["live_with_fallback", "mixed_preliminary", "mostly_mock", "insufficient"]
     confidence_cap_applied: bool
@@ -325,6 +367,7 @@ class AnalyzeStockResponse(BaseModel):
     candidate_validation_summary: CandidateValidationSummary
     validation_quality_summary: ValidationQualitySummary
     evidence_matrix: list[EvidenceMatrixItem]
+    jane_criteria_coverage: JaneCriteriaCoverageMatrix = Field(default_factory=JaneCriteriaCoverageMatrix)
     data_quality_summary: AnalyzeStockDataQualitySummary
     score_driver_breakdown: ScoreDriverBreakdown
     next_manual_checks: list[NextManualCheck]

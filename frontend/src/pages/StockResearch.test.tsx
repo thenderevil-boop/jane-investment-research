@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import type { DataSourceStatus, JaneCriterion, ScoreLike, StockAnalysis } from '../types';
 import { getJaneCriteria } from '../api/client';
-import StockResearch, { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
+import StockResearch, { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -596,6 +596,51 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('user_provided');
     expect(html).toContain('moderate');
     expect(html).toContain('Network Effect');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders Jane Criteria Coverage Matrix with counts and missing submetrics', () => {
+    const html = renderToStaticMarkup(
+      <JaneCriteriaCoverageSection
+        coverage={{
+          covered_count: 0,
+          partial_count: 1,
+          insufficient_count: 19,
+          user_input_required_count: 20,
+          financial_proxy_available_count: 6,
+          source_quality_summary: 'Jane 20 coverage: 0 covered, 1 partial, 19 insufficient.',
+          not_investment_advice: true,
+          criteria: [
+            {
+              criterion_id: 1,
+              criterion_name: 'Market Monopoly / Entry Barrier',
+              evidence_type: 'qualitative',
+              coverage_status: 'partial',
+              source_quality: 'user_provided',
+              confidence: 0.6,
+              auto_derivable_submetrics: [],
+              requires_user_input_submetrics: ['switching_cost', 'network_effect'],
+              covered_submetrics: ['switching_cost'],
+              missing_submetrics: ['network_effect'],
+              evidence_item_count: 1,
+              accepted_evidence_item_count: 1,
+              financial_proxy_source: null,
+              requires_human_verification: true,
+              summary: 'Jane criterion 1 coverage is partial.',
+              limitations: ['User-provided evidence still requires manual source verification.'],
+              next_manual_check: 'Verify Jane criterion 1 missing submetrics: network_effect.',
+            },
+          ],
+        }}
+      />,
+    );
+    expect(html).toContain('Jane Criteria Coverage Matrix');
+    expect(html).toContain('Partial: 1');
+    expect(html).toContain('Insufficient: 19');
+    expect(html).toContain('Market Monopoly / Entry Barrier');
+    expect(html).toContain('switching_cost');
+    expect(html).toContain('network_effect');
+    expect(html).toContain('Not investment advice');
     expect(html).not.toContain('[object Object]');
   });
 

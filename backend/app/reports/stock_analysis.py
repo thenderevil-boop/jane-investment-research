@@ -6,6 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from backend.app.data_sources.mock_data import DEFAULT_STOCK, MOCK_SOURCE_DATE, STOCK_FIXTURES
+from backend.app.engines.jane_criteria_canonical import JANE_CRITERIA
 from backend.app.engines.leadership_engine import evaluate_leadership
 from backend.app.engines.macro_regime_engine import evaluate_macro_regime
 from backend.app.engines.market_timing_engine import evaluate_market_timing
@@ -23,6 +24,7 @@ from backend.app.schemas.stock_analysis import (
     CandidateValidationSummary,
     EvidenceMatrixItem,
     FinancialStatementSignals,
+    JaneCriteriaCoverageMatrix,
     JaneCompanyQuality,
     NextManualCheck,
     ResearchVerdict,
@@ -85,6 +87,29 @@ SUPPORTED_COMPARISON_TYPES = {
     "other",
 }
 SUPPORTED_CLAIMED_ADVANTAGES = {"stronger", "similar", "weaker", "unclear"}
+JANE_CANONICAL_LEGACY_SLUGS_BY_ID = {
+    1: "monopoly_power",
+    2: "visionary_founder_ceo",
+    3: "early_skepticism",
+    4: "disruptive_innovation",
+    5: "superior_technology_r_and_d",
+    6: "scalable_business_model",
+    7: "brand_power_fandom",
+    8: "data_advantage",
+    9: "capital_allocation",
+    10: "cash_flow_creation",
+    11: "mega_trend_fit",
+    12: "talent_attraction_retention",
+    13: "global_expansion",
+    14: "life_changing_necessary_product",
+    15: "regulatory_government_relationship",
+    16: "network_effect",
+    17: "mission_narrative_power",
+    18: "patents_ip",
+    19: "vc_institutional_support",
+    20: "retention_repurchase_rate",
+}
+JANE_CANONICAL_ID_BY_LEGACY_SLUG = {slug: criterion_id for criterion_id, slug in JANE_CANONICAL_LEGACY_SLUGS_BY_ID.items()}
 SECRET_MARKERS = ("FRED_API_KEY", "SEC_EDGAR_USER_AGENT", "api_key", "apikey", "secret", "token=")
 FALLBACK_QUALITATIVE_ALLOWED_TYPES_BY_CRITERION = {
     "monopoly_power": {"market_share", "switching_cost", "brand_power", "platform_ecosystem", "patent", "market_share_comparison", "pricing_power_comparison", "switching_cost_comparison", "competitor_comparison", "user_provided_note", "other"},
@@ -2068,6 +2093,110 @@ def _smart_money_source_quality_breakdown(smart_money: ScoreObject, insider_acti
     }
 
 
+def _coverage_source_quality(items: list[dict]) -> str:
+    accepted = [item for item in items if item.get("accepted") is True]
+    if not accepted:
+        return "insufficient"
+    qualities = {str(item.get("source_quality") or "user_provided") for item in accepted}
+    if "filing_backed" in qualities:
+        return "filing_backed"
+    if "derived_live" in qualities:
+        return "derived_live"
+    if "user_provided" in qualities:
+        return "user_provided"
+    return sorted(qualities)[0]
+
+
+def _accepted_jane_evidence_by_criterion(qualitative_assessment: dict) -> dict[int, list[dict]]:
+    grouped: dict[int, list[dict]] = {}
+    for item in qualitative_assessment.get("evidence_items") or []:
+        if not isinstance(item, dict):
+            continue
+        criterion_id = item.get("criterion_id")
+        if criterion_id is None:
+            criterion_id = JANE_CANONICAL_ID_BY_LEGACY_SLUG.get(str(item.get("criterion") or ""))
+        if criterion_id is None:
+            continue
+        try:
+            canonical_id = int(criterion_id)
+        except (TypeError, ValueError):
+            continue
+        if canonical_id < 1 or canonical_id > 20:
+            continue
+        grouped.setdefault(canonical_id, []).append(item)
+    return grouped
+
+
+def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
+    evidence_by_id = _accepted_jane_evidence_by_criterion(response.qualitative_evidence_assessment.model_dump(mode="json"))
+    rows = []
+    for criterion in JANE_CRITERIA:
+        criterion_id = int(criterion["criterion_id"])
+        all_submetrics = list(criterion.get("submetrics") or [])
+        auto_submetrics = list(criterion.get("auto_derivable_submetrics") or [])
+        required_user_submetrics = list(criterion.get("requires_user_input_submetrics") or [])
+        items = evidence_by_id.get(criterion_id, [])
+        accepted_items = [item for item in items if item.get("accepted") is True]
+        covered = sorted(
+            {
+                str(item.get("submetric"))
+                for item in accepted_items
+                if item.get("submetric") and str(item.get("submetric")) in all_submetrics
+            }
+        )
+        missing = [submetric for submetric in all_submetrics if submetric not in covered]
+        if covered and not missing:
+            status = "covered"
+        elif covered:
+            status = "partial"
+        else:
+            status = "insufficient"
+        source_quality = _coverage_source_quality(items)
+        next_manual_check = None
+        if missing:
+            next_manual_check = f"Verify Jane criterion {criterion_id} missing submetrics: {', '.join(missing[:4])}."
+        limitations = [
+            "Coverage matrix measures evidence completeness only and does not change scoring logic.",
+            "User-provided evidence still requires manual source verification.",
+        ]
+        if auto_submetrics:
+            limitations.append("Auto-derivable submetrics are listed but Phase 28 does not deepen financial proxy calculations.")
+        rows.append(
+            {
+                "criterion_id": criterion_id,
+                "criterion_name": criterion["criterion_name"],
+                "evidence_type": criterion["evidence_type"],
+                "coverage_status": status,
+                "source_quality": source_quality,
+                "confidence": max((float(item.get("confidence") or 0) for item in accepted_items), default=0.0),
+                "auto_derivable_submetrics": auto_submetrics,
+                "requires_user_input_submetrics": required_user_submetrics,
+                "covered_submetrics": covered,
+                "missing_submetrics": missing,
+                "evidence_item_count": len(items),
+                "accepted_evidence_item_count": len(accepted_items),
+                "financial_proxy_source": criterion.get("financial_proxy_source"),
+                "requires_human_verification": bool(missing or required_user_submetrics),
+                "summary": f"Jane criterion {criterion_id} coverage is {status} based on accepted canonical evidence.",
+                "limitations": limitations,
+                "next_manual_check": next_manual_check,
+            }
+        )
+    covered_count = sum(1 for item in rows if item["coverage_status"] == "covered")
+    partial_count = sum(1 for item in rows if item["coverage_status"] == "partial")
+    insufficient_count = sum(1 for item in rows if item["coverage_status"] == "insufficient")
+    return {
+        "criteria": rows,
+        "covered_count": covered_count,
+        "partial_count": partial_count,
+        "insufficient_count": insufficient_count,
+        "user_input_required_count": sum(1 for item in rows if item["requires_user_input_submetrics"]),
+        "financial_proxy_available_count": sum(1 for item in rows if item["financial_proxy_source"]),
+        "source_quality_summary": f"Jane 20 coverage: {covered_count} covered, {partial_count} partial, {insufficient_count} insufficient. Coverage is non-scoring and for validation workflow only.",
+        "not_investment_advice": True,
+    }
+
+
 def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
     company_status = _status_dict(response.company_profile.get("source_status"))
     financial_status = _status_dict(response.financial_quality.source_status)
@@ -3501,6 +3630,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     if response.data_quality.missing_source_date_components:
         response.human_verification_queue.append("Review components with missing source dates before interpreting scores.")
     response.evidence_matrix = [EvidenceMatrixItem.model_validate(item) for item in _build_evidence_matrix(response)]
+    response.jane_criteria_coverage = JaneCriteriaCoverageMatrix.model_validate(_build_jane_criteria_coverage(response))
     response.data_quality_summary = AnalyzeStockDataQualitySummary.model_validate(_build_data_quality_summary(response))
     response.next_manual_checks = [NextManualCheck.model_validate(item) for item in _build_manual_checks(response)]
     response.score_driver_breakdown = ScoreDriverBreakdown.model_validate(_build_score_driver_breakdown(response))
