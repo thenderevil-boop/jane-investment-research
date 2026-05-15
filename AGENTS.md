@@ -123,7 +123,7 @@ MVP can run natively on Windows. Avoid Linux-only shell assumptions in app code.
 
 Build in phases.
 
-Current implementation has reached Phase 26.4 source quality and Form 4 interpretation hardening on top of Phase 25 validation report export and local backup. Phase 26.4 clarifies source-quality semantics and a conservative Form 4 disposition-pattern heuristic; it must not change macro_v12_5 scoring, SEC parsers, macro parsers, Form 4 fetch behavior, 13F parsers, Companyfacts parsers, scraping, source URL fetching, news, YouTube, sentiment, paid APIs, Candidate Workspace scope, or Future Industry Radar work.
+Current implementation has reached Phase 28 Jane criteria coverage matrix on top of Phase 27 canonical Jane 20 criteria and Phase 26.4 source quality and Form 4 interpretation hardening. Phase 27 standardizes the canonical Jane criteria file, request metadata, and qualitative-evidence validation contract. Phase 28 adds `jane_criteria_coverage` as a non-scoring validation workflow output that tracks coverage across the canonical Jane 20 criteria, accepted evidence items, covered and missing submetrics, human-verification needs, and next manual checks. These phases must not change macro_v12_5 scoring, SEC parsers, macro parsers, Form 4 fetch behavior, 13F parsers, Companyfacts parsers, scraping, source URL fetching, news, YouTube, sentiment, paid APIs, Candidate Workspace scope, or Future Industry Radar work.
 
 Phase labels in historical docs may be non-contiguous. For current development, prefer these implementation references in order:
 

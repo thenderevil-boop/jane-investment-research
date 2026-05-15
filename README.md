@@ -90,13 +90,17 @@ Phase 25 adds validation report export and local backup. `POST /api/analyze-stoc
 
 Phase 26.4 hardens analyze-stock source quality and Form 4 interpretation without adding data sources or workspace features. `validation_quality_summary` remains explanation-only. Macro environment source quality is derived through `macro_v12_5`, so excluded non-scoring CNN Fear & Greed or unsupported ISM PMI context does not downgrade the macro row when active inputs are live/cached/derived and non-fallback. Smart-money output treats mock, fallback, or cached-after-failure Form 4 as `mixed_with_fallback`; 13F remains delayed quarterly evidence, options remain mock/preliminary, and repeated distributed code `S` dispositions may be labeled only as a likely systematic heuristic, not a confirmed 10b5-1 plan. Archived or rejected manual evidence is audit-only and excluded from active evidence counts and scoring support.
 
+Phase 27 standardizes the canonical Jane 20 qualitative criteria contract. `backend/app/data/jane_leadership_criteria.json` is the canonical criteria file, request-scoped `qualitative_evidence` may include optional `criterion_id`, `criterion_name`, and `submetric` metadata, and analyze-stock preserves backward compatibility for legacy qualitative request flows while rejecting unsupported canonical criteria IDs.
+
+Phase 28 adds `jane_criteria_coverage` to analyze-stock as a non-scoring validation workflow output. The coverage matrix reports all 20 canonical Jane criteria, evidence type, coverage status, covered and missing submetrics, evidence counts, human-verification requirements, and next manual checks without changing `evidence_matrix`, legacy leadership boundaries, or final scoring logic.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
 
 ## Current Implementation Status
 
-`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced through Phase 13 architecture realignment.
+`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 28 validation workflow contract.
 
 Completed live integrations now documented in this README:
 
@@ -121,6 +125,8 @@ Completed live integrations now documented in this README:
 - Phase 24.6: validation-first frontend entry point and repo hygiene cleanup
 - Phase 25: analyze-stock validation report export and local backup
 - Phase 26.4: source quality and Form 4 interpretation hardening
+- Phase 27: canonical Jane 20 criteria contract and request metadata support
+- Phase 28: Jane criteria coverage matrix for non-scoring validation completeness
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 

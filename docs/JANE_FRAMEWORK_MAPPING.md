@@ -122,6 +122,8 @@ Jane's future leader stock framework includes 20 criteria:
 
 Phase 27 stores this canonical model in `backend/app/data/jane_leadership_criteria.json` with display names, descriptions, accepted evidence types, manual check questions, and the default status `insufficient`.
 
+Phase 28 maps the same canonical 20-criteria model into analyze-stock `jane_criteria_coverage`, a non-scoring coverage matrix that tracks covered and missing submetrics, accepted evidence counts, and required human verification for validation completeness.
+
 Implementation module:
 
 ```text

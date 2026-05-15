@@ -114,6 +114,7 @@ Phase 14 makes the response a candidate validation report rather than a loose bu
 - `qualitative_evidence_assessment`: optional manual qualitative evidence validation results when the request includes structured qualitative evidence.
 - `comparison_evidence_assessment`: manual competitor/comparison evidence summary for peer context hooks.
 - `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, qualitative evidence, comparison evidence, Jane company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
+- `jane_criteria_coverage`: non-scoring coverage matrix across the canonical Jane 20 criteria, accepted evidence items, covered and missing submetrics, and next manual checks.
 - `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, qualitative evidence counts, and excluded scoring indicators.
 - `score_driver_breakdown`: positive, limiting, and neutral score drivers.
 - `next_manual_checks`: research-oriented checks for source quality, fundamentals, filings, valuation, and risk.
@@ -174,12 +175,20 @@ Phase 18 qualitative evidence behavior:
 
 - Request body may include optional `qualitative_evidence` items with `criterion`, `evidence_type`, `summary`, `source_label`, optional `source_url`, optional `source_date`, `confidence`, `user_provided`, and `limitations`.
 - Phase 27 canonical criteria are loaded from `backend/app/data/jane_leadership_criteria.json`: `monopoly_power`, `visionary_founder_ceo`, `early_skepticism`, `disruptive_innovation`, `superior_technology_r_and_d`, `scalable_business_model`, `brand_power_fandom`, `data_advantage`, `capital_allocation`, `cash_flow_creation`, `mega_trend_fit`, `talent_attraction_retention`, `global_expansion`, `life_changing_necessary_product`, `regulatory_government_relationship`, `network_effect`, `mission_narrative_power`, `patents_ip`, `vc_institutional_support`, and `retention_repurchase_rate`.
+- Phase 27 request compatibility also allows optional `criterion_id`, `criterion_name`, and `submetric` metadata for canonical evidence capture. `criterion_id` must be between 1 and 20 when provided.
 - Legacy request compatibility remains for `continuous_r_and_d`; it maps to the prior structured qualitative evidence flow and is not part of the canonical Jane 20 file.
 - User-provided evidence is labeled `source_quality="user_provided"` and uses `source_type="derived"` with provider `user_provided_qualitative_evidence`.
 - The API does not fetch `source_url`, validate it externally, scrape websites, or ingest news/social/video/sentiment providers.
 - User-provided evidence is preliminary, not independently verified, not mock evidence, and not fallback evidence.
 - Accepted user evidence can partially support a qualitative Jane criterion, but confidence is capped conservatively and user evidence alone cannot make `jane_company_quality.label="evidence_backed"`.
 - `research_context.theme` remains context only unless structured qualitative evidence is supplied.
+
+Phase 28 Jane criteria coverage behavior:
+
+- Analyze-stock returns `jane_criteria_coverage` with 20 canonical rows keyed by `criterion_id`.
+- Each row reports `evidence_type`, `coverage_status`, `source_quality`, `auto_derivable_submetrics`, `requires_user_input_submetrics`, `covered_submetrics`, `missing_submetrics`, evidence counts, `requires_human_verification`, limitations, and an optional `next_manual_check`.
+- Coverage matrix output is validation completeness only. It does not change `evidence_matrix`, `leadership_score` deprecation semantics, or final scoring logic by itself.
+- Rejected or unsupported evidence must not mark a submetric as covered.
 
 Phase 19 manual evidence library behavior:
 
