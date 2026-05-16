@@ -711,6 +711,7 @@
         "price_reference_warmup": {
           "anyOf": [
             {
+              "additionalProperties": true,
               "type": "object"
             },
             {
@@ -980,6 +981,39 @@
         "candidate_companies"
       ],
       "title": "FutureTheme",
+      "type": "object"
+    },
+    "HumanVerificationQueueItem": {
+      "properties": {
+        "item": {
+          "title": "Item",
+          "type": "string"
+        },
+        "question": {
+          "title": "Question",
+          "type": "string"
+        },
+        "jane_reference": {
+          "title": "Jane Reference",
+          "type": "string"
+        },
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "needs_human_verification": {
+          "default": true,
+          "title": "Needs Human Verification",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "item",
+        "question",
+        "jane_reference",
+        "action"
+      ],
+      "title": "HumanVerificationQueueItem",
       "type": "object"
     },
     "JaneReferenceCondition": {
@@ -1613,6 +1647,32 @@
             }
           ],
           "default": null
+        },
+        "source_quality_breakdown": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Quality Breakdown"
+        },
+        "explanation": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Explanation"
         }
       },
       "required": [
@@ -1802,7 +1862,6 @@
       "type": "array"
     },
     "smart_money_summary": {
-      "description": "Deprecated compatibility alias. Use smart_money as the canonical field.",
       "$ref": "#/$defs/ScoreObject"
     },
     "smart_money": {
@@ -1845,7 +1904,14 @@
     },
     "human_verification_queue": {
       "items": {
-        "type": "string"
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "$ref": "#/$defs/HumanVerificationQueueItem"
+          }
+        ]
       },
       "title": "Human Verification Queue",
       "type": "array"

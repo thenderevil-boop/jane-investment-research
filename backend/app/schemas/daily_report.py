@@ -3,7 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 from backend.app.schemas.candidate import StockCandidate
-from backend.app.schemas.common import DataQualitySummary, DataSourceStatus, ScoreObject
+from backend.app.schemas.common import DataQualitySummary, DataSourceStatus, HumanVerificationQueueItem, ScoreObject
 from backend.app.schemas.crisis import CrisisOutput
 from backend.app.schemas.future_theme import FutureTheme
 from backend.app.schemas.macro_regime import MacroRegimeOutput
@@ -59,7 +59,7 @@ class DailyResearchReport(BaseModel):
     jane_reference_conditions: JaneReferenceConditions | None = None
     limitations: list[str]
     missing_data: list[str]
-    human_verification_queue: list[str]
+    human_verification_queue: list[str | HumanVerificationQueueItem]
     data_quality: DataQualitySummary | None = None
     source_status: DataSourceStatus | None = None
     daily_report_metadata: DailyReportMetadata | None = None

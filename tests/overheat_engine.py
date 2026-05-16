@@ -33,6 +33,10 @@ def test_overheated_environment_reaches_high_risk_warning() -> None:
             "fear_greed": 91,
             "media_hype_ratio": 3.3,
             "youtube_hype_ratio": 3.2,
+            "current_volume": 2_500_000,
+            "avg_volume_52w": 1_000_000,
+            "current_price": 130.0,
+            "ma_200d": 100.0,
             "user_reported_social_heat": "high",
             "friends_asking_about_stock": True,
         }
@@ -58,6 +62,10 @@ def test_live_overheat_confidence_can_exceed_085() -> None:
             "index_extension_from_200d_pct": 32.0,
             "media_hype_ratio": 3.3,
             "youtube_hype_ratio": 3.2,
+            "current_volume": 2_500_000,
+            "avg_volume_52w": 1_000_000,
+            "current_price": 130.0,
+            "ma_200d": 100.0,
             "user_reported_social_heat": "high",
             "friends_asking_about_stock": True,
         }
@@ -76,11 +84,15 @@ def test_neutral_overheat_environment_stays_normal() -> None:
             "fear_greed": 50,
             "media_hype_ratio": 1.0,
             "youtube_hype_ratio": 1.0,
+            "current_volume": 1_000_000,
+            "avg_volume_52w": 1_000_000,
+            "current_price": 100.0,
+            "ma_200d": 100.0,
             "user_reported_social_heat": "low",
             "friends_asking_about_stock": False,
         }
     )
-    assert result.score == 0
+    assert result.score == 1.2
     assert result.label == "normal"
     assert_no_prohibited_language(result.model_dump())
 
@@ -114,10 +126,77 @@ def test_200d_extension_is_supplemental_not_primary_overheat_benchmark() -> None
             "fear_greed": 50,
             "media_hype_ratio": 1.0,
             "youtube_hype_ratio": 1.0,
-            "user_reported_social_heat": "low",
+            "current_volume": 1_000_000,
+            "avg_volume_52w": 1_000_000,
+            "current_price": 135.0,
+            "ma_200d": 100.0,
         }
     )
     index_component = result.derived_metrics["components"]["index_overextension_score"]
     assert index_component["score"] == 0
     assert index_component["derived_metrics"]["supplemental_200d_extension"] == 35.0
     assert result.label == "normal"
+
+
+def test_volume_and_extension_context_scores_high_when_volume_and_price_are_extended() -> None:
+    result = evaluate_overheat(
+        {
+            "index_gain_vs_prior_cycle_high": 5.0,
+            "index_gain_from_recent_trough": 10.0,
+            "distance_from_52w_high": -10.0,
+            "media_hype_ratio": 1.0,
+            "youtube_hype_ratio": 1.0,
+            "current_volume": 2_500_000,
+            "avg_volume_52w": 1_000_000,
+            "current_price": 130.0,
+            "ma_200d": 100.0,
+            "user_reported_social_heat": "low",
+        }
+    )
+
+    component = result.derived_metrics["components"]["volume_and_extension_context_score"]
+    assert component["score"] >= 75
+    assert component["derived_metrics"]["volume_ratio"] == 2.5
+    assert component["derived_metrics"]["price_vs_200d_pct"] == 30.0
+    assert "user_reported_social_heat_score" not in result.derived_metrics["components"]
+
+
+def test_volume_and_extension_context_missing_volume_and_ma_fields_are_reported() -> None:
+    result = evaluate_overheat(
+        {
+            "index_gain_vs_prior_cycle_high": 5.0,
+            "index_gain_from_recent_trough": 10.0,
+            "distance_from_52w_high": -10.0,
+            "media_hype_ratio": 1.0,
+            "youtube_hype_ratio": 1.0,
+        }
+    )
+
+    component = result.derived_metrics["components"]["volume_and_extension_context_score"]
+    assert component["score"] == 10
+    assert component["missing_data"] == ["volume_ratio_52w", "price_vs_200d_ma"]
+    assert "volume_ratio_52w" in result.missing_data
+    assert "price_vs_200d_ma" in result.missing_data
+
+
+def test_user_reported_social_heat_no_longer_changes_overheat_score() -> None:
+    base = {
+        "index_gain_vs_prior_cycle_high": 5.0,
+        "index_gain_from_recent_trough": 10.0,
+        "distance_from_52w_high": -10.0,
+        "media_hype_ratio": 1.0,
+        "youtube_hype_ratio": 1.0,
+        "current_volume": 1_300_000,
+        "avg_volume_52w": 1_000_000,
+        "current_price": 108.0,
+        "ma_200d": 100.0,
+        "user_reported_social_heat": "low",
+        "friends_asking_about_stock": False,
+    }
+    hot_social = {
+        **base,
+        "user_reported_social_heat": "high",
+        "friends_asking_about_stock": True,
+    }
+
+    assert evaluate_overheat(base).score == evaluate_overheat(hot_social).score

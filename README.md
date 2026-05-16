@@ -96,7 +96,9 @@ Phase 28 adds `jane_criteria_coverage` to analyze-stock as a non-scoring validat
 
 Phase 29 adds `validation_os_report` to analyze-stock as a non-scoring explainability and validation workflow report. It summarizes the current research label, validation level, data-quality grade, macro backdrop, Jane quality context, Jane criteria coverage counts and gaps, financial statement signals, smart-money context, manual checks, source-quality caveats, and research-only limitations without changing final scoring logic or adding new providers.
 
-Phase 30 adds analyze-stock contract/docs synchronization guardrails. `tools/generate_schemas.py` regenerates `schemas/analyze_stock.schema.json` from the backend Pydantic `AnalyzeStockResponse`, and `tests/phase30_contract_docs_sync.py` verifies the committed schema, API docs, status docs, changelog, frontend TypeScript types, and live analyze-stock payload remain aligned with Phase 27b/28/29 fields. Phase 30 does not change scoring, provider behavior, endpoint behavior, or frontend UX.
+Phase 30 adds analyze-stock contract/docs synchronization guardrails. `tools/generate_schemas.py` regenerates committed JSON schemas from the backend Pydantic contracts, and `tests/phase30_contract_docs_sync.py` verifies the committed analyze-stock schema, API docs, status docs, changelog, frontend TypeScript types, and live analyze-stock payload remain aligned with Phase 27b/28/29 fields. Phase 30 does not change scoring, provider behavior, endpoint behavior, or frontend UX.
+
+Phase 31 replaces the overheat score's `user_reported_social_heat_score` with yfinance-derived `volume_and_extension_context_score`. The new 0.12-weight component uses `current_volume / avg_volume_52w` and price extension versus the 200-day moving average. Jane's social heat idea remains available only as a structured human-verification item (`jane_social_heat_check`) when `overheat_score >= 60`; it is not a scoring input.
 
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
@@ -104,7 +106,7 @@ Daily reports remain available as snapshot-first background context, source heal
 
 ## Current Implementation Status
 
-`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 30 validation workflow contract.
+`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 31 overheat validation workflow contract.
 
 Completed live integrations now documented in this README:
 
@@ -133,6 +135,7 @@ Completed live integrations now documented in this README:
 - Phase 28: Jane criteria coverage matrix for non-scoring validation completeness
 - Phase 29: Validation OS Report explainability layer for non-scoring analyze-stock summaries
 - Phase 30: analyze-stock contract, schema, docs, and change-note synchronization
+- Phase 31: overheat volume/extension context replaces scored user-reported social heat
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 

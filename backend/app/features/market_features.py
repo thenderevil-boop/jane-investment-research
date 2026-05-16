@@ -63,6 +63,13 @@ def _average_volume(rows: list[dict[str, Any]], days: int = 20) -> float | None:
     return sum(volumes) / len(volumes)
 
 
+def _moving_average(values: list[float], days: int) -> float | None:
+    window = values[-days:]
+    if len(window) < days:
+        return None
+    return sum(window) / len(window)
+
+
 def _days_since_low(rows: list[dict[str, Any]], days: int = 252) -> int | None:
     window = rows[-days:]
     if not window:
@@ -87,6 +94,9 @@ def build_price_features(snapshot: dict[str, Any]) -> dict[str, Any]:
     realized_vol_20d = _realized_vol(closes, 20)
     previous_realized_vol_20d = _realized_vol(closes[:-20], 20) if len(closes) >= 41 else None
     range_20d = _range_pct(rows, 20)
+    average_volume_20d = _average_volume(rows, 20)
+    average_volume_52w = _average_volume(rows, 252)
+    ma_200d = _moving_average(closes, 200)
     vol_falling = realized_vol_20d is not None and previous_realized_vol_20d is not None and realized_vol_20d < previous_realized_vol_20d
     range_stable = range_20d is not None and range_20d <= 8
     source = snapshot.get("source", "unknown")
@@ -100,7 +110,11 @@ def build_price_features(snapshot: dict[str, Any]) -> dict[str, Any]:
         "provider": provider,
         "latest_close": _round(latest_close),
         "latest_volume": latest_volume,
-        "average_volume_20d": _round(_average_volume(rows, 20), 0),
+        "current_price": _round(latest_close),
+        "current_volume": latest_volume,
+        "average_volume_20d": _round(average_volume_20d, 0),
+        "avg_volume_52w": _round(average_volume_52w, 0),
+        "ma_200d": _round(ma_200d),
         "drawdown_from_52w_high": _round(_pct_change(latest_close, high_52w)),
         "drawdown_from_all_time_high": _round(_pct_change(latest_close, all_time_high)),
         "distance_from_52w_high": _round(_pct_change(latest_close, high_52w)),
@@ -159,7 +173,11 @@ def build_market_snapshot_features(
         "stabilization_status": spy["stabilization_status"],
         "latest_close": spy["latest_close"],
         "latest_volume": spy["latest_volume"],
+        "current_price": spy["current_price"],
+        "current_volume": spy["current_volume"],
         "average_volume_20d": spy["average_volume_20d"],
+        "avg_volume_52w": spy["avg_volume_52w"],
+        "ma_200d": spy["ma_200d"],
         "days_since_low": spy["days_since_low"],
         "vix": _round(latest_vix),
         "vix_recent_spike": vix_recent_spike,

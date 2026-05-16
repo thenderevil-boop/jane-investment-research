@@ -855,6 +855,39 @@
       "title": "FinancialStatementSignals",
       "type": "object"
     },
+    "HumanVerificationQueueItem": {
+      "properties": {
+        "item": {
+          "title": "Item",
+          "type": "string"
+        },
+        "question": {
+          "title": "Question",
+          "type": "string"
+        },
+        "jane_reference": {
+          "title": "Jane Reference",
+          "type": "string"
+        },
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "needs_human_verification": {
+          "default": true,
+          "title": "Needs Human Verification",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "item",
+        "question",
+        "jane_reference",
+        "action"
+      ],
+      "title": "HumanVerificationQueueItem",
+      "type": "object"
+    },
     "JaneCompanyQuality": {
       "properties": {
         "name": {
@@ -3111,7 +3144,14 @@
     },
     "human_verification_queue": {
       "items": {
-        "type": "string"
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "$ref": "#/$defs/HumanVerificationQueueItem"
+          }
+        ]
       },
       "title": "Human Verification Queue",
       "type": "array"

@@ -27,6 +27,7 @@ from backend.app.schemas.candidate import StockCandidate
 from backend.app.schemas.common import DataSourceStatus, ScoreObject
 from backend.app.schemas.daily_report import DailyResearchReport, JaneReferenceCondition, JaneReferenceConditions
 from backend.app.utils.freshness import build_source_status, summarize_data_quality
+from backend.app.utils.human_verification import append_jane_social_heat_check
 from backend.app.utils.performance import add_timing, finalize_performance_context, reset_performance_context
 
 JANE_REFERENCE_CONDITIONS_PATH = Path(__file__).resolve().parents[1] / "data" / "jane_reference_conditions.json"
@@ -365,6 +366,7 @@ def build_daily_report(
             "market_context_reused_from_daily_market_data": (macro_regime.raw_data.get("raw_market_context") or {}).get("diagnostics", {}).get("market_context_reused_from_daily_market_data"),
             "confidence_adjustment_applied": macro_regime.macro_data_quality.confidence_adjustment_applied,
         }
+    append_jane_social_heat_check(report.human_verification_queue, overheat_risk.score)
     if report.data_quality.stale_components:
         report.human_verification_queue.append("Review stale live or derived data source status before interpreting scores.")
     if report.data_quality.missing_source_date_components:

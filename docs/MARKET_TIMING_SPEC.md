@@ -158,10 +158,10 @@ Formula:
 
 ```text
 overheat_score =
-  index_cycle_heat_score * 0.38 +
-  media_hype_score * 0.32 +
-  youtube_hype_score * 0.18 +
-  user_reported_social_heat_score * 0.12
+  index_overextension_score * 0.38 +      # price cycle heat
+  media_hype_score * 0.32 +               # mock until provider
+  youtube_hype_score * 0.18 +             # mock until provider
+  volume_and_extension_context_score * 0.12  # yfinance-derived
 ```
 
 Primary index heat inputs:
@@ -171,6 +171,21 @@ Primary index heat inputs:
 - `distance_from_52w_high`
 
 `index_extension_from_200d_pct` remains supplemental context only.
+
+Phase 31 volume/extension context:
+
+```text
+volume_ratio = current_volume / avg_volume_52w
+price_vs_200d = (current_price - ma_200d) / ma_200d * 100
+
+if volume_ratio >= 2.5 and price_vs_200d >= 30: score = 100
+elif volume_ratio >= 2.0 or price_vs_200d >= 25: score = 75
+elif volume_ratio >= 1.5 or price_vs_200d >= 15: score = 50
+elif volume_ratio >= 1.2 or price_vs_200d >= 8: score = 30
+else: score = 10
+```
+
+`user_reported_social_heat` is not a scoring input after Phase 31. Jane's social heat signal is preserved as a structured `human_verification_queue` item when `overheat_score >= 60`.
 
 Labels:
 

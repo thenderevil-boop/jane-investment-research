@@ -34,6 +34,7 @@ from backend.app.schemas.stock_analysis import (
 )
 from backend.app.utils.freshness import build_source_status, summarize_data_quality
 from backend.app.utils.forbidden_language import detect_forbidden_language
+from backend.app.utils.human_verification import append_jane_social_heat_check
 
 MOCK_LEADERSHIP_CONFIDENCE_CAP = 0.72
 MOCK_EVIDENCE_LIMITATION = "Mock evidence limits analyze-stock confidence; treat mock-based components as preliminary validation only."
@@ -3418,6 +3419,14 @@ def _build_validation_os_report(response: AnalyzeStockResponse) -> dict:
         "manual_verification",
         "source_quality",
     ]
+    queue_manual_checks = [
+        item
+        if isinstance(item, str)
+        else item.get("question", item.get("item", "Review structured verification item."))
+        if isinstance(item, dict)
+        else getattr(item, "question", getattr(item, "item", "Review structured verification item."))
+        for item in response.human_verification_queue[:6]
+    ]
     return {
         "ticker": response.ticker,
         "research_label": response.research_verdict.label,
@@ -3445,7 +3454,7 @@ def _build_validation_os_report(response: AnalyzeStockResponse) -> dict:
         "top_strengths": candidate.primary_strengths[:6],
         "top_limitations": candidate.primary_risks[:6],
         "top_evidence_gaps": top_gaps,
-        "top_manual_checks": manual_checks or validation.highest_priority_review_items[:6] or response.human_verification_queue[:6],
+        "top_manual_checks": manual_checks or validation.highest_priority_review_items[:6] or queue_manual_checks,
         "source_quality_caveats": caveats,
         "manual_verification_required": bool(validation.manual_review_required or coverage_gap_count or response.human_verification_queue),
         "scoring_note": "Validation OS Report is non-scoring and does not change the final research verdict.",
@@ -3473,8 +3482,6 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     engine_context = {
         **fixture,
         **market_context,
-        "user_reported_social_heat": request.user_context.social_discussion_level,
-        "friends_asking_about_stock": request.user_context.friends_asking_about_stock,
     }
     missing_data = list(fixture["missing_data"])
     if company_profile.get("source_status", {}).get("source_type") not in {"live", "cached_live", "derived"}:
@@ -3661,7 +3668,6 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
             flag
             for flag, present in {
                 "valuation_context_elevated": valuation_context.label == "elevated",
-                "social_heat_elevated": request.user_context.social_discussion_level == "high",
                 "financial_quality_mixed": financial_quality.score < 50,
                 "macro_context_cautious": macro_regime.score < 45,
             }.items()
@@ -3690,6 +3696,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     response.data_quality = summarize_data_quality(statuses)
     if response.data_quality.mock_components and MOCK_EVIDENCE_LIMITATION not in response.data_quality.limitations:
         response.data_quality.limitations.append(MOCK_EVIDENCE_LIMITATION)
+    append_jane_social_heat_check(response.human_verification_queue, overheat_risk.score)
     if macro_regime.macro_data_quality:
         response.data_quality.macro = {
             "provider": macro_regime.source_status.provider if macro_regime.source_status else macro_snapshot.get("provider", "unknown"),

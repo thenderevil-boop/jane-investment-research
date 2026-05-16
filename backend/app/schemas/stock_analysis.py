@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from backend.app.schemas.common import DataQualitySummary, DataSourceStatus, ScoreObject
+from backend.app.schemas.common import DataQualitySummary, DataSourceStatus, HumanVerificationQueueItem, ScoreObject
 from backend.app.schemas.daily_report import JaneReferenceConditions
 from backend.app.schemas.leadership import LeadershipScore
 from backend.app.schemas.macro_regime import MacroRegimeOutput
@@ -423,7 +423,7 @@ class AnalyzeStockResponse(BaseModel):
     jane_reference_conditions: JaneReferenceConditions | None = None
     jane_quality_methodology_reference: JaneQualityMethodologyReference | None = None
     missing_data: list[str]
-    human_verification_queue: list[str]
+    human_verification_queue: list[str | HumanVerificationQueueItem]
     data_quality: DataQualitySummary | None = None
     source_status: DataSourceStatus | None = None
     not_investment_advice: bool = True

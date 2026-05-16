@@ -52,3 +52,11 @@ class VerificationItem(BaseModel):
     area: str
     reason: str
     priority: str = "medium"
+
+
+class HumanVerificationQueueItem(BaseModel):
+    item: str
+    question: str
+    jane_reference: str
+    action: str
+    needs_human_verification: bool = True

@@ -200,10 +200,18 @@ Phase 29 Validation OS Report behavior:
 
 Phase 30 analyze-stock contract sync behavior:
 
-- `schemas/analyze_stock.schema.json` is generated from `AnalyzeStockResponse.model_json_schema()` and can be refreshed with `python tools/generate_schemas.py` from the repository root.
+- `schemas/analyze_stock.schema.json` and `schemas/daily_report.schema.json` are generated from backend Pydantic response schemas and can be refreshed with `python tools/generate_schemas.py` from the repository root.
 - `tests/phase30_contract_docs_sync.py` verifies the committed schema matches the backend Pydantic response schema, Phase 27b qualitative evidence metadata remains documented, Phase 28/29 response fields remain present in schema/docs/frontend TypeScript types, and live analyze-stock payloads expose the documented non-scoring fields.
 - README, AGENTS.md, API_SPEC, CHANGELOG, JSON schema, frontend types, and tests must be updated together whenever future phases change analyze-stock request or response contracts.
 - Phase 30 adds no scoring changes, provider changes, endpoint behavior changes, frontend UX changes, or investment-instruction language.
+
+Phase 31 overheat and human-verification behavior:
+
+- `overheat_risk.derived_metrics.components` now uses `volume_and_extension_context_score` instead of `user_reported_social_heat_score`.
+- Overheat component weights are `index_overextension_score: 0.38`, `media_hype_score: 0.32`, `youtube_hype_score: 0.18`, and `volume_and_extension_context_score: 0.12`; label thresholds remain unchanged.
+- `volume_and_extension_context_score` is derived from yfinance market features: `volume_ratio = current_volume / avg_volume_52w` and `price_vs_200d = (current_price - ma_200d) / ma_200d * 100`.
+- `GET /api/daily-report/latest` and `POST /api/analyze-stock` may include a structured `jane_social_heat_check` in `human_verification_queue` when `overheat_score >= 60`. This preserves Jane's social heat signal as human judgment only; it is not a scoring input.
+- `human_verification_queue` remains backward-compatible with string entries and may also contain objects with `item`, `question`, `jane_reference`, `action`, and `needs_human_verification`.
 
 Phase 19 manual evidence library behavior:
 

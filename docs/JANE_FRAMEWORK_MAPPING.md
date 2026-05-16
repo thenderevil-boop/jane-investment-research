@@ -86,8 +86,11 @@ Jane's overheat framework includes:
 
 - broad market rises 30% or more from prior high or trough context
 - media and YouTube hype surge
-- people around the user frequently discuss a stock
+- yfinance-derived volume expansion and price extension versus the 200-day moving average
+- people around the user frequently discuss a stock as a human-verification signal only
 - speculative attention rises
+
+Phase 31 note: `user_reported_social_heat` is no longer a scoring input because post-2020 social/media acceleration can keep discussion elevated for extended theme-driven bull markets. It is preserved as the `jane_social_heat_check` human-verification prompt when `overheat_score >= 60`.
 
 Implementation module:
 

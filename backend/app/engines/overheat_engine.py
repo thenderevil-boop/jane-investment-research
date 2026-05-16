@@ -208,20 +208,75 @@ def youtube_hype_component(data: dict[str, Any]) -> ScoreObject:
     )
 
 
-def user_social_heat_component(data: dict[str, Any]) -> ScoreObject:
-    level = data.get("user_reported_social_heat", "low")
-    friends_asking = bool(data.get("friends_asking_about_stock", False))
-    base = {"low": 0, "medium": 45, "high": 75}.get(level, 0)
-    score = min(100, base + (15 if friends_asking else 0))
+def _numeric(data: dict[str, Any], *keys: str) -> float | None:
+    for key in keys:
+        value = data.get(key)
+        if value is None:
+            continue
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def volume_and_extension_context_component(data: dict[str, Any]) -> ScoreObject:
+    current_volume = _numeric(data, "current_volume", "latest_volume")
+    avg_volume_52w = _numeric(data, "avg_volume_52w", "average_volume_52w")
+    current_price = _numeric(data, "current_price", "latest_close")
+    ma_200d = _numeric(data, "ma_200d")
+
+    if current_volume is not None and avg_volume_52w is not None and avg_volume_52w != 0:
+        volume_ratio = current_volume / avg_volume_52w
+    else:
+        volume_ratio = None
+    if current_price is not None and ma_200d is not None and ma_200d != 0:
+        price_vs_200d = (current_price - ma_200d) / ma_200d * 100
+    else:
+        price_vs_200d = None
+
+    missing: list[str] = []
+    if volume_ratio is None:
+        missing.append("volume_ratio_52w")
+    if price_vs_200d is None:
+        missing.append("price_vs_200d_ma")
+
+    if volume_ratio is None or price_vs_200d is None:
+        score = 10
+    elif volume_ratio >= 2.5 and price_vs_200d >= 30:
+        score = 100
+    elif volume_ratio >= 2.0 or price_vs_200d >= 25:
+        score = 75
+    elif volume_ratio >= 1.5 or price_vs_200d >= 15:
+        score = 50
+    elif volume_ratio >= 1.2 or price_vs_200d >= 8:
+        score = 30
+    else:
+        score = 10
+
     label = "high_risk_warning" if score >= 80 else "overheated" if score >= 60 else "elevated_heat" if score >= 40 else "normal"
     return _score(
-        "user_reported_social_heat_score",
+        "volume_and_extension_context_score",
         score,
         label,
-        {"user_reported_social_heat": level, "friends_asking_about_stock": friends_asking},
-        {"social_heat_score": score},
-        {"high_social_heat_score": 75, "friends_discussion_additive": 15},
-        {"social_attention": "up" if score >= 60 else "stable"},
+        {
+            "current_volume": current_volume,
+            "avg_volume_52w": avg_volume_52w,
+            "current_price": current_price,
+            "ma_200d": ma_200d,
+        },
+        {
+            "volume_ratio": round(volume_ratio, 2) if volume_ratio is not None else None,
+            "price_vs_200d_pct": round(price_vs_200d, 2) if price_vs_200d is not None else None,
+        },
+        {
+            "high_volume_ratio": 2.5,
+            "high_price_vs_200d_pct": 30,
+            "elevated_volume_ratio": 1.2,
+            "elevated_price_vs_200d_pct": 8,
+        },
+        {"volume_extension_context": "up" if score >= 75 else "elevated" if score >= 30 else "stable"},
+        missing,
     )
 
 
@@ -240,14 +295,15 @@ def evaluate_overheat(data: dict[str, Any]) -> ScoreObject:
         index_overextension_component(data),
         media_hype_component(data),
         youtube_hype_component(data),
-        user_social_heat_component(data),
+        volume_and_extension_context_component(data),
     ]
     _mark_live_derived(components[0], data)
+    _mark_live_derived(components[3], data)
     weights = {
         "index_overextension_score": 0.38,
         "media_hype_score": 0.32,
         "youtube_hype_score": 0.18,
-        "user_reported_social_heat_score": 0.12,
+        "volume_and_extension_context_score": 0.12,
     }
     total = sum(component.score * weights[component.name] for component in components)
     missing = sorted({item for component in components for item in component.missing_data})

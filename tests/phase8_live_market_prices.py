@@ -146,6 +146,45 @@ def test_market_features_calculate_drawdown_correctly():
     assert features["index_gain_from_recent_trough"] == 0.0
 
 
+def test_market_features_include_52w_volume_and_200d_ma_context():
+    rows = [
+        {
+            "date": f"2026-01-{(index % 28) + 1:02d}",
+            "open": 100.0,
+            "high": 101.0,
+            "low": 99.0,
+            "close": float(index + 1),
+            "volume": 1_000_000,
+        }
+        for index in range(251)
+    ]
+    rows.append(
+        {
+            "date": "2026-02-01",
+            "open": 252.0,
+            "high": 253.0,
+            "low": 251.0,
+            "close": 252.0,
+            "volume": 2_520_000,
+        }
+    )
+    features = build_price_features(
+        {
+            "ticker": "SPY",
+            "source": "yfinance",
+            "source_date": "2026-02-01",
+            "rows": rows,
+            "limitations": [],
+            "missing_data": [],
+        }
+    )
+
+    assert features["current_price"] == 252.0
+    assert features["current_volume"] == 2_520_000
+    assert features["avg_volume_52w"] == 1_006_032.0
+    assert features["ma_200d"] == 152.5
+
+
 def test_market_timing_engine_works_with_repository_backed_market_features():
     spy = make_snapshot("SPY", [140] * 30 + [100] * 10 + [101, 102, 103, 104, 105])
     qqq = make_snapshot("QQQ", [150] * 30 + [95] * 10 + [96, 97, 98, 99, 100])

@@ -981,6 +981,16 @@ export type RiskAllocation = {
   source_status?: DataSourceStatus | null;
 };
 
+export type HumanVerificationQueueItem = {
+  item: string;
+  question: string;
+  jane_reference: string;
+  action: string;
+  needs_human_verification: boolean;
+};
+
+export type HumanVerificationQueueEntry = string | HumanVerificationQueueItem;
+
 export type DailyReport = {
   date: string;
   market: string;
@@ -1006,7 +1016,7 @@ export type DailyReport = {
   jane_reference_conditions?: JaneReferenceConditions | null;
   limitations?: string[];
   missing_data?: string[];
-  human_verification_queue?: string[];
+  human_verification_queue?: HumanVerificationQueueEntry[];
   data_quality?: DataQualitySummary | null;
   source_status?: DataSourceStatus | null;
   daily_report_metadata?: DailyReportMetadata | null;
@@ -1061,7 +1071,7 @@ export type StockAnalysis = {
   jane_reference_conditions?: JaneReferenceConditions | null;
   jane_quality_methodology_reference?: JaneQualityMethodologyReference | null;
   missing_data?: string[];
-  human_verification_queue?: string[];
+  human_verification_queue?: HumanVerificationQueueEntry[];
   data_quality?: DataQualitySummary | null;
   source_status?: DataSourceStatus | null;
   comparison_evidence_assessment?: ComparisonEvidenceAssessment;
