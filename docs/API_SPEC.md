@@ -198,6 +198,13 @@ Phase 29 Validation OS Report behavior:
 - The report must include `not_investment_advice: true`, avoid direct investment instructions, and must not expose secrets such as `FRED_API_KEY` or `SEC_EDGAR_USER_AGENT`.
 - Phase 29 does not add live providers, news, scraping, sentiment, source URL fetching, or any buy/sell/hold language.
 
+Phase 30 analyze-stock contract sync behavior:
+
+- `schemas/analyze_stock.schema.json` is generated from `AnalyzeStockResponse.model_json_schema()` and can be refreshed with `python tools/generate_schemas.py` from the repository root.
+- `tests/phase30_contract_docs_sync.py` verifies the committed schema matches the backend Pydantic response schema, Phase 27b qualitative evidence metadata remains documented, Phase 28/29 response fields remain present in schema/docs/frontend TypeScript types, and live analyze-stock payloads expose the documented non-scoring fields.
+- README, AGENTS.md, API_SPEC, CHANGELOG, JSON schema, frontend types, and tests must be updated together whenever future phases change analyze-stock request or response contracts.
+- Phase 30 adds no scoring changes, provider changes, endpoint behavior changes, frontend UX changes, or investment-instruction language.
+
 Phase 19 manual evidence library behavior:
 
 - `/api/manual-evidence` provides local CRUD for reusable user-provided qualitative evidence by ticker.

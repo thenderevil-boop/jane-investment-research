@@ -1,5 +1,13 @@
 # Changelog
 
+## Phase 30 — Analyze-Stock Contract / Docs Sync
+
+- Added `tests/phase30_contract_docs_sync.py` to guard against drift between backend Pydantic models, committed JSON schema, API docs, status docs, changelog, frontend TypeScript types, and live analyze-stock payloads.
+- Added `tools/generate_schemas.py` to regenerate `schemas/analyze_stock.schema.json` from `AnalyzeStockResponse.model_json_schema()`.
+- Confirmed Phase 27b qualitative evidence metadata (`criterion_id`, `criterion_name`, `submetric`), Phase 28 `jane_criteria_coverage`, and Phase 29 `validation_os_report` are represented in contract surfaces.
+- Updated README, AGENTS.md, and API_SPEC to mark Phase 30 as a contract/docs synchronization guardrail.
+- This phase does not change scoring, endpoint behavior, provider behavior, frontend UX, or investment-advice boundaries.
+
 ## Phase 29 — Validation OS Report
 
 - Added `validation_os_report` to `POST /api/analyze-stock` as a non-scoring explainability and validation workflow report.
