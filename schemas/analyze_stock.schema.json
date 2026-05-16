@@ -1041,6 +1041,202 @@
       "title": "JaneCompanyQualityCriterion",
       "type": "object"
     },
+    "JaneCriteriaCoverageMatrix": {
+      "properties": {
+        "criteria": {
+          "items": {
+            "$ref": "#/$defs/JaneCriterionCoverageItem"
+          },
+          "title": "Criteria",
+          "type": "array"
+        },
+        "covered_count": {
+          "default": 0,
+          "title": "Covered Count",
+          "type": "integer"
+        },
+        "partial_count": {
+          "default": 0,
+          "title": "Partial Count",
+          "type": "integer"
+        },
+        "insufficient_count": {
+          "default": 0,
+          "title": "Insufficient Count",
+          "type": "integer"
+        },
+        "user_input_required_count": {
+          "default": 0,
+          "title": "User Input Required Count",
+          "type": "integer"
+        },
+        "financial_proxy_available_count": {
+          "default": 0,
+          "title": "Financial Proxy Available Count",
+          "type": "integer"
+        },
+        "source_quality_summary": {
+          "default": "Jane criteria coverage has not been computed.",
+          "title": "Source Quality Summary",
+          "type": "string"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "title": "JaneCriteriaCoverageMatrix",
+      "type": "object"
+    },
+    "JaneCriterionCoverageItem": {
+      "properties": {
+        "criterion_id": {
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Criterion Id",
+          "type": "integer"
+        },
+        "criterion_name": {
+          "title": "Criterion Name",
+          "type": "string"
+        },
+        "evidence_type": {
+          "enum": [
+            "financial_proxy",
+            "qualitative",
+            "semi_structured"
+          ],
+          "title": "Evidence Type",
+          "type": "string"
+        },
+        "coverage_status": {
+          "enum": [
+            "covered",
+            "partial",
+            "insufficient"
+          ],
+          "title": "Coverage Status",
+          "type": "string"
+        },
+        "source_quality": {
+          "enum": [
+            "filing_backed",
+            "derived_live",
+            "cached_live",
+            "user_context",
+            "user_provided",
+            "mixed_with_fallback",
+            "mock_only",
+            "provider_backed",
+            "derived_from_mixed_sources",
+            "insufficient"
+          ],
+          "title": "Source Quality",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "auto_derivable_submetrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Auto Derivable Submetrics",
+          "type": "array"
+        },
+        "requires_user_input_submetrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Requires User Input Submetrics",
+          "type": "array"
+        },
+        "covered_submetrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Covered Submetrics",
+          "type": "array"
+        },
+        "missing_submetrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Submetrics",
+          "type": "array"
+        },
+        "evidence_item_count": {
+          "default": 0,
+          "title": "Evidence Item Count",
+          "type": "integer"
+        },
+        "accepted_evidence_item_count": {
+          "default": 0,
+          "title": "Accepted Evidence Item Count",
+          "type": "integer"
+        },
+        "financial_proxy_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Financial Proxy Source"
+        },
+        "requires_human_verification": {
+          "default": true,
+          "title": "Requires Human Verification",
+          "type": "boolean"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "next_manual_check": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Manual Check"
+        }
+      },
+      "required": [
+        "criterion_id",
+        "criterion_name",
+        "evidence_type",
+        "coverage_status",
+        "source_quality",
+        "confidence",
+        "auto_derivable_submetrics",
+        "requires_user_input_submetrics",
+        "covered_submetrics",
+        "missing_submetrics",
+        "summary",
+        "limitations"
+      ],
+      "title": "JaneCriterionCoverageItem",
+      "type": "object"
+    },
     "JaneQualityMethodologyReference": {
       "properties": {
         "framework": {
@@ -1374,7 +1570,7 @@
           "title": "Deprecated By"
         },
         "deprecated": {
-          "default": false,
+          "default": true,
           "title": "Deprecated",
           "type": "boolean"
         },
@@ -1387,35 +1583,28 @@
               "type": "null"
             }
           ],
-          "default": null,
+          "default": "jane_company_quality",
           "title": "Replaced By"
         },
         "affects_score": {
-          "default": true,
+          "default": false,
           "title": "Affects Score",
           "type": "boolean"
         },
         "legacy_affects_score": {
-          "default": true,
+          "default": false,
           "title": "Legacy Affects Score",
           "type": "boolean"
         },
         "affects_final_score": {
-          "default": true,
+          "default": false,
           "title": "Affects Final Score",
           "type": "boolean"
         },
         "source_quality": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Source Quality"
+          "default": "mock_only",
+          "title": "Source Quality",
+          "type": "string"
         }
       },
       "required": [
@@ -2052,6 +2241,42 @@
           "title": "Criterion",
           "type": "string"
         },
+        "criterion_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Criterion Id"
+        },
+        "criterion_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Criterion Name"
+        },
+        "submetric": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Submetric"
+        },
         "evidence_type": {
           "title": "Evidence Type",
           "type": "string"
@@ -2462,6 +2687,190 @@
       "title": "ScoreObject",
       "type": "object"
     },
+    "ValidationOSEvidenceGap": {
+      "properties": {
+        "criterion_id": {
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Criterion Id",
+          "type": "integer"
+        },
+        "criterion_name": {
+          "title": "Criterion Name",
+          "type": "string"
+        },
+        "coverage_status": {
+          "enum": [
+            "partial",
+            "insufficient"
+          ],
+          "title": "Coverage Status",
+          "type": "string"
+        },
+        "missing_submetrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Submetrics",
+          "type": "array"
+        },
+        "next_manual_check": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Manual Check"
+        }
+      },
+      "required": [
+        "criterion_id",
+        "criterion_name",
+        "coverage_status",
+        "missing_submetrics"
+      ],
+      "title": "ValidationOSEvidenceGap",
+      "type": "object"
+    },
+    "ValidationOSReport": {
+      "properties": {
+        "ticker": {
+          "default": "",
+          "title": "Ticker",
+          "type": "string"
+        },
+        "research_label": {
+          "default": "insufficient_data",
+          "title": "Research Label",
+          "type": "string"
+        },
+        "validation_level": {
+          "default": "insufficient_validation",
+          "title": "Validation Level",
+          "type": "string"
+        },
+        "data_quality_grade": {
+          "default": "D",
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D"
+          ],
+          "title": "Data Quality Grade",
+          "type": "string"
+        },
+        "report_sections": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Report Sections",
+          "type": "array"
+        },
+        "executive_summary": {
+          "default": "Validation OS Report has not been computed.",
+          "title": "Executive Summary",
+          "type": "string"
+        },
+        "macro_backdrop": {
+          "default": "",
+          "title": "Macro Backdrop",
+          "type": "string"
+        },
+        "jane_quality_summary": {
+          "default": "",
+          "title": "Jane Quality Summary",
+          "type": "string"
+        },
+        "jane_criteria_coverage_summary": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "title": "Jane Criteria Coverage Summary",
+          "type": "object"
+        },
+        "financial_signals_summary": {
+          "default": "",
+          "title": "Financial Signals Summary",
+          "type": "string"
+        },
+        "smart_money_summary": {
+          "default": "",
+          "title": "Smart Money Summary",
+          "type": "string"
+        },
+        "top_strengths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Top Strengths",
+          "type": "array"
+        },
+        "top_limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Top Limitations",
+          "type": "array"
+        },
+        "top_evidence_gaps": {
+          "items": {
+            "$ref": "#/$defs/ValidationOSEvidenceGap"
+          },
+          "title": "Top Evidence Gaps",
+          "type": "array"
+        },
+        "top_manual_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Top Manual Checks",
+          "type": "array"
+        },
+        "source_quality_caveats": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Quality Caveats",
+          "type": "array"
+        },
+        "manual_verification_required": {
+          "default": true,
+          "title": "Manual Verification Required",
+          "type": "boolean"
+        },
+        "scoring_note": {
+          "default": "Validation OS Report is non-scoring and does not change the final research verdict.",
+          "title": "Scoring Note",
+          "type": "string"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "title": "ValidationOSReport",
+      "type": "object"
+    },
     "ValidationQualitySummary": {
       "properties": {
         "ticker": {
@@ -2586,6 +2995,12 @@
       },
       "title": "Evidence Matrix",
       "type": "array"
+    },
+    "jane_criteria_coverage": {
+      "$ref": "#/$defs/JaneCriteriaCoverageMatrix"
+    },
+    "validation_os_report": {
+      "$ref": "#/$defs/ValidationOSReport"
     },
     "data_quality_summary": {
       "$ref": "#/$defs/AnalyzeStockDataQualitySummary"

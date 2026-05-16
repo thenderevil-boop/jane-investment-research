@@ -124,6 +124,8 @@ Phase 27 stores this canonical model in `backend/app/data/jane_leadership_criter
 
 Phase 28 maps the same canonical 20-criteria model into analyze-stock `jane_criteria_coverage`, a non-scoring coverage matrix that tracks covered and missing submetrics, accepted evidence counts, and required human verification for validation completeness.
 
+Phase 29 surfaces the same coverage and evidence gaps through analyze-stock `validation_os_report`, a non-scoring explainability layer that summarizes Jane quality context, coverage gaps, manual checks, source-quality caveats, and research-only limitations without changing the final score or verdict.
+
 Implementation module:
 
 ```text

@@ -94,13 +94,15 @@ Phase 27 standardizes the canonical Jane 20 qualitative criteria contract. `back
 
 Phase 28 adds `jane_criteria_coverage` to analyze-stock as a non-scoring validation workflow output. The coverage matrix reports all 20 canonical Jane criteria, evidence type, coverage status, covered and missing submetrics, evidence counts, human-verification requirements, and next manual checks without changing `evidence_matrix`, legacy leadership boundaries, or final scoring logic.
 
+Phase 29 adds `validation_os_report` to analyze-stock as a non-scoring explainability and validation workflow report. It summarizes the current research label, validation level, data-quality grade, macro backdrop, Jane quality context, Jane criteria coverage counts and gaps, financial statement signals, smart-money context, manual checks, source-quality caveats, and research-only limitations without changing final scoring logic or adding new providers.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
 
 ## Current Implementation Status
 
-`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 28 validation workflow contract.
+`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 29 validation workflow contract.
 
 Completed live integrations now documented in this README:
 
@@ -127,6 +129,7 @@ Completed live integrations now documented in this README:
 - Phase 26.4: source quality and Form 4 interpretation hardening
 - Phase 27: canonical Jane 20 criteria contract and request metadata support
 - Phase 28: Jane criteria coverage matrix for non-scoring validation completeness
+- Phase 29: Validation OS Report explainability layer for non-scoring analyze-stock summaries
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 

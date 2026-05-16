@@ -190,6 +190,14 @@ Phase 28 Jane criteria coverage behavior:
 - Coverage matrix output is validation completeness only. It does not change `evidence_matrix`, `leadership_score` deprecation semantics, or final scoring logic by itself.
 - Rejected or unsupported evidence must not mark a submetric as covered.
 
+Phase 29 Validation OS Report behavior:
+
+- Analyze-stock returns `validation_os_report` as a non-scoring explainability layer.
+- The report summarizes existing outputs only: `research_label`, `validation_level`, `data_quality_grade`, macro backdrop, Jane quality summary, Jane criteria coverage counts and gaps, financial statement signals, smart-money context, top strengths, top limitations, top evidence gaps, manual checks, and source-quality caveats.
+- `validation_os_report.scoring_note` must state that the report is non-scoring and does not change the final research verdict.
+- The report must include `not_investment_advice: true`, avoid direct investment instructions, and must not expose secrets such as `FRED_API_KEY` or `SEC_EDGAR_USER_AGENT`.
+- Phase 29 does not add live providers, news, scraping, sentiment, source URL fetching, or any buy/sell/hold language.
+
 Phase 19 manual evidence library behavior:
 
 - `/api/manual-evidence` provides local CRUD for reusable user-provided qualitative evidence by ticker.
