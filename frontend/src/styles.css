@@ -603,6 +603,46 @@ th {
   padding: 10px;
 }
 
+.analystBrief, .dataCoverageBrief {
+  border-color: #cbd5e1;
+}
+
+.briefMetricGrid, .threeColumn {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  margin-bottom: 14px;
+}
+
+.briefMetricGrid div, .threeColumn div, .briefOverheatContext {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.briefMetricGrid span, .briefOverheatContext span {
+  color: #64748b;
+  display: block;
+  font-size: 12px;
+}
+
+.briefMetricGrid strong {
+  display: block;
+  margin-top: 4px;
+}
+
+.briefOverheatContext {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-bottom: 14px;
+}
+
+.briefOverheatContext strong {
+  flex-basis: 100%;
+}
+
 .fundamentalsGrid {
   display: grid;
   gap: 10px;

@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import type { DataSourceStatus, JaneCriterion, ScoreLike, StockAnalysis } from '../types';
 import { getJaneCriteria } from '../api/client';
-import StockResearch, { AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ValidationOSReportSection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
+import StockResearch, { AnalystBriefSection, AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ValidationOSReportSection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -105,6 +105,100 @@ describe('StockResearch presentation helpers', () => {
       user_provided: true,
     });
     expect(evidence.limitations.join(' ')).toContain('local validation context only');
+  });
+
+  it('renders analyst brief with triage fields and Phase 31 overheat context', () => {
+    const result = {
+      ticker: 'NVDA',
+      market: 'US',
+      candidate_validation_summary: {
+        ticker: 'NVDA',
+        research_priority: 'watchlist_candidate',
+        score: 42,
+        confidence: 0.72,
+        environment_assessment: 'Macro environment is neutral_to_constructive.',
+        company_assessment: 'Company evidence is live/cached-live.',
+        smart_money_assessment: 'Smart-money assessment is limited by fallback components.',
+        data_quality_assessment: 'Source quality grade B.',
+        overall_summary: 'NVDA is usable for preliminary validation but still needs manual evidence checks.',
+        primary_strengths: ['Macro context is usable.', 'Company profile is live.'],
+        primary_risks: ['Manual qualitative evidence still needs source review.'],
+        missing_or_mock_evidence: ['Some components are fallback.'],
+        next_manual_checks: ['Verify monopoly power evidence.'],
+      },
+      validation_os_report: {
+        ticker: 'NVDA',
+        research_label: 'watchlist_candidate',
+        validation_level: 'usable_preliminary_validation',
+        data_quality_grade: 'B',
+        report_sections: [],
+        executive_summary: 'Validation summary text.',
+        macro_backdrop: 'Macro environment is neutral_to_constructive.',
+        jane_quality_summary: 'Jane quality is preliminary.',
+        jane_criteria_coverage_summary: {
+          covered_count: 2,
+          partial_count: 3,
+          insufficient_count: 15,
+          coverage_gap_count: 18,
+          user_input_required_count: 18,
+          financial_proxy_available_count: 6,
+          source_quality_summary: 'Jane 20 coverage is preliminary.',
+        },
+        financial_signals_summary: 'Financial signals are adequate.',
+        smart_money_summary: 'Smart money is limited.',
+        top_strengths: ['Macro context is usable.'],
+        top_limitations: ['Manual evidence required.'],
+        top_evidence_gaps: [],
+        top_manual_checks: ['Verify monopoly power evidence.'],
+        source_quality_caveats: ['Some components are fallback.'],
+        manual_verification_required: true,
+        scoring_note: 'Non-scoring report.',
+        limitations: [],
+        not_investment_advice: true,
+      },
+      macro_regime: { score: 62, label: 'neutral_to_constructive', confidence: 0.95 },
+      overheat_risk: {
+        score: 63,
+        label: 'overheated',
+        confidence: 0.72,
+        derived_metrics: {
+          components: {
+            volume_and_extension_context_score: {
+              score: 75,
+              label: 'overheated',
+              derived_metrics: { volume_ratio: 2.5, price_vs_200d_pct: 30 },
+            },
+          },
+        },
+      },
+      financial_quality: { score: 52, label: 'adequate', confidence: 0.7 },
+      smart_money: { score: 48, label: 'neutral', confidence: 0.62 },
+      human_verification_queue: [
+        {
+          item: 'jane_social_heat_check',
+          question: 'Have non-investor friends or family recently asked you about this stock or theme unprompted?',
+          jane_reference: 'Jane handbook social heat check.',
+          action: 'If yes, treat as additional overheat evidence. Not a scoring input — human judgment required.',
+          needs_human_verification: true,
+        },
+      ],
+      not_investment_advice: true,
+    } as StockAnalysis;
+
+    const html = renderToStaticMarkup(<AnalystBriefSection result={result} />);
+
+    expect(html).toContain('Analyst Brief');
+    expect(html).toContain('watchlist candidate');
+    expect(html).toContain('Data quality: B');
+    expect(html).toContain('Macro: neutral to constructive');
+    expect(html).toContain('Overheat: overheated');
+    expect(html).toContain('Volume ratio: 2.5x');
+    expect(html).toContain('Price vs 200d MA: 30%');
+    expect(html).toContain('Social heat: human verification only');
+    expect(html).toContain('Verify monopoly power evidence.');
+    expect(html).toContain('Not investment advice');
+    expect(html).not.toContain('Social heat score');
+    expect(html).not.toContain('[object Object]');
   });
 
   it('renders validation report export controls without adding an editor', () => {

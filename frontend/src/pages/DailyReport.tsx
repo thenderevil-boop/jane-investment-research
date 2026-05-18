@@ -46,6 +46,45 @@ function collectLimitations(report?: DailyReport): string[] {
   return Array.from(new Set([...scoreLimitations, ...(report.crisis?.limitations ?? []), ...(report.risk_allocation?.limitations ?? []), ...(report.limitations ?? [])]));
 }
 
+function collectSourceStatuses(report: DailyReport) {
+  return [
+    report.macro_regime?.source_status,
+    report.market_timing?.source_status,
+    report.overheat_risk?.source_status,
+    report.crisis_risk?.source_status,
+    (report.smart_money ?? report.smart_money_summary)?.source_status,
+    ...(report.future_themes ?? []).map((theme) => theme.source_status),
+  ].filter(Boolean);
+}
+
+export function DailyDataCoverageSummary({ report }: { report: DailyReport }) {
+  const statuses = collectSourceStatuses(report);
+  const liveOrDerived = statuses.filter((status) => ['live', 'cached_live', 'derived'].includes(status?.source_type ?? '')).length;
+  const fallback = statuses.filter((status) => status?.source_type === 'fallback').length;
+  const mock = statuses.filter((status) => status?.source_type === 'mock').length;
+  const staleOrMissing = statuses.filter((status) => !status?.is_fresh || !status?.source_date).length;
+  const topLimitations = collectLimitations(report).slice(0, 2);
+
+  return (
+    <section className="pageSection dataCoverageBrief">
+      <div className="panelHeader">
+        <div>
+          <p className="eyebrow">Data Coverage</p>
+          <h2>Source health summary</h2>
+          <p className="muted">Compact source-quality view before detailed evidence panels.</p>
+        </div>
+      </div>
+      <div className="briefMetricGrid">
+        <div><span>Live / derived</span><strong>{liveOrDerived}</strong></div>
+        <div><span>Fallback</span><strong>{fallback}</strong></div>
+        <div><span>Mock</span><strong>{mock}</strong></div>
+        <div><span>Stale / missing date</span><strong>{staleOrMissing}</strong></div>
+      </div>
+      {topLimitations.length > 0 && <ul className="noteList">{topLimitations.map((item) => <li key={item}>{item}</li>)}</ul>}
+    </section>
+  );
+}
+
 function latestSourceDate(report: DailyReport): string {
   const dates = [
     report.macro_regime?.source_status?.source_date,
@@ -92,6 +131,7 @@ export default function DailyReport() {
         </div>
         <div className="disclaimer">Research reference only. Not investment advice.</div>
       </header>
+      <DailyDataCoverageSummary report={report} />
       <DataQualitySummary summary={report.data_quality} latestSourceDate={latestSourceDate(report)} />
 
       <Section title="Market State">

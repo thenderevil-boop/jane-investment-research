@@ -1,5 +1,13 @@
 # Changelog
 
+## Phase 31.5 — Analyst Brief UI Readability
+
+- Added Stock Research Analyst Brief as the first result section using existing analyze-stock fields.
+- Surfaced Phase 31 volume/extension overheat context and social-heat human-verification wording in the UI.
+- Moved export below the first-screen triage summary and collapsed raw evidence panels by default.
+- Added Daily Report Data Coverage summary to reduce first-screen source-mode noise.
+- No backend scoring, provider, schema, or API contract changes.
+
 ## Phase 31 — Overheat Volume & Extension Context
 
 - Replaced `user_reported_social_heat_score` with `volume_and_extension_context_score` in overheat scoring while keeping the 0.12 component weight and existing label thresholds.

@@ -171,6 +171,24 @@ function displayValue(value: unknown) {
   return String(value);
 }
 
+function displayOptionalKey(value?: string | null) {
+  return value ? displayKey(value) : 'N/A';
+}
+
+function formatPercentValue(value: unknown): string {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 'N/A';
+  return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}%`;
+}
+
+function formatRatioValue(value: unknown): string {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 'N/A';
+  return `${value.toFixed(1)}x`;
+}
+
+function listFirst(items: string[] | undefined, count = 3): string[] {
+  return (items ?? []).filter(Boolean).slice(0, count);
+}
+
 function listFromUnknown(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => typeof item === 'string' ? item : JSON.stringify(item)) : [];
 }
@@ -197,6 +215,70 @@ export function resolveScoreSourceStatus(score?: ScoreLike): DataSourceStatus | 
     return (nestedStatus as { source_status?: DataSourceStatus }).source_status ?? null;
   }
   return null;
+}
+
+type VolumeExtensionComponent = ScoreLike & { derived_metrics?: Record<string, unknown> };
+
+function getVolumeExtensionComponent(result: StockAnalysis): VolumeExtensionComponent | undefined {
+  const components = result.overheat_risk?.derived_metrics?.components;
+  if (components && typeof components === 'object' && !Array.isArray(components) && 'volume_and_extension_context_score' in components) {
+    return (components as Record<string, VolumeExtensionComponent>).volume_and_extension_context_score;
+  }
+  return undefined;
+}
+
+function hasSocialHeatHumanCheck(result: StockAnalysis): boolean {
+  return (result.human_verification_queue ?? []).some((item) => (
+    typeof item === 'string'
+      ? item.toLowerCase().includes('social heat')
+      : item.item === 'jane_social_heat_check'
+  ));
+}
+
+export function AnalystBriefSection({ result }: { result: StockAnalysis }) {
+  const report = result.validation_os_report;
+  const summary = result.candidate_validation_summary;
+  const volumeContext = getVolumeExtensionComponent(result);
+  const volumeRatio = volumeContext?.derived_metrics?.volume_ratio;
+  const priceVs200d = volumeContext?.derived_metrics?.price_vs_200d_pct;
+  const socialHeatCheck = hasSocialHeatHumanCheck(result);
+  const strengths = listFirst(report?.top_strengths ?? summary?.primary_strengths, 3);
+  const limitations = listFirst(report?.top_limitations ?? summary?.primary_risks, 3);
+  const manualChecks = listFirst(report?.top_manual_checks ?? summary?.next_manual_checks, 3);
+  const label = report?.research_label ?? summary?.research_priority ?? result.research_verdict?.label ?? 'preliminary_validation';
+
+  return (
+    <section className="pageSection analystBrief">
+      <div className="panelHeader">
+        <div>
+          <p className="eyebrow">Analyst Brief</p>
+          <h2>{result.ticker} research triage</h2>
+          <p className="muted">First-screen summary for research prioritization. Not investment advice.</p>
+        </div>
+        <SignalBadge label={displayKey(label)} variant={label === 'high_risk_context' ? 'warning' : 'neutral'} />
+      </div>
+      <div className="briefMetricGrid">
+        <div><span>Validation</span><strong>{displayOptionalKey(report?.validation_level ?? summary?.research_priority)}</strong></div>
+        <div><span>Data quality</span><strong>Data quality: {report?.data_quality_grade ?? result.data_quality_summary?.source_quality_grade ?? 'N/A'}</strong></div>
+        <div><span>Macro</span><strong>Macro: {displayOptionalKey(result.macro_regime?.label)}</strong></div>
+        <div><span>Overheat</span><strong>Overheat: {displayOptionalKey(result.overheat_risk?.label)}</strong></div>
+        <div><span>Financial quality</span><strong>{displayOptionalKey(result.financial_quality?.label)}</strong></div>
+        <div><span>Smart money</span><strong>{displayOptionalKey(result.smart_money?.label)}</strong></div>
+      </div>
+      <div className="briefOverheatContext">
+        <strong>Phase 31 overheat context</strong>
+        <span>Volume ratio: {formatRatioValue(volumeRatio)}</span>
+        <span>Price vs 200d MA: {formatPercentValue(priceVs200d)}</span>
+        <span>Social heat: {socialHeatCheck ? 'human verification only' : 'not scoring input'}</span>
+      </div>
+      <div className="threeColumn">
+        <div><h3>Top strengths</h3><ul>{strengths.map((item) => <li key={item}>{item}</li>)}</ul></div>
+        <div><h3>Top limitations</h3><ul>{limitations.map((item) => <li key={item}>{item}</li>)}</ul></div>
+        <div><h3>Manual checks</h3><ul>{manualChecks.map((item) => <li key={item}>{item}</li>)}</ul></div>
+      </div>
+      <p className="sourceWarning">Research reference only. Not investment advice.</p>
+    </section>
+  );
 }
 
 export function ProfileGrid({ profile }: { profile?: Record<string, unknown> }) {
@@ -1140,7 +1222,7 @@ export default function StockResearch() {
         <input id="theme" value={theme} onChange={(event) => setTheme(event.target.value)} />
         <label htmlFor="reason">Reason</label>
         <input id="reason" value={userReason} onChange={(event) => setUserReason(event.target.value)} />
-        <details className="qualitativeEvidenceInput" open>
+        <details className="qualitativeEvidenceInput">
           <summary>Jane 20 Criteria Evidence Input</summary>
           <p className="muted">User-provided evidence is local validation context only. It is not independently verified and does not provide investment advice.</p>
           <label htmlFor="janeCriterion">Criterion</label>
@@ -1191,9 +1273,10 @@ export default function StockResearch() {
 
       {result && (
         <>
-          <ValidationReportExportSection ticker={ticker} theme={theme} userReason={userReason} qualitativeEvidenceJson={qualitativeEvidenceJson} />
+          <AnalystBriefSection result={result} />
           <CandidateSummarySection result={result} />
           <ValidationOSReportSection report={result.validation_os_report} />
+          <ValidationReportExportSection ticker={ticker} theme={theme} userReason={userReason} qualitativeEvidenceJson={qualitativeEvidenceJson} />
           <ValidationQualitySummarySection summary={result.validation_quality_summary} />
           <AnalyzeDataQualitySection dataQuality={result.data_quality_summary} />
           <JaneCompanyQualitySection quality={result.jane_company_quality} profile={result.company_profile} />
@@ -1281,16 +1364,19 @@ export default function StockResearch() {
           </section>
 
           <section className="pageSection">
-            <h2>Raw Evidence Panels</h2>
-            <RawDataPanel title="Macro raw evidence" rawData={result.macro_regime?.raw_data} derivedMetrics={result.macro_regime?.derived_metrics} benchmark={result.macro_regime?.benchmark} trend={result.macro_regime?.trend} limitations={result.macro_regime?.limitations} missingData={result.macro_regime?.missing_data} sourceStatus={resolveScoreSourceStatus(result.macro_regime)} />
-            <RawDataPanel title="Leadership raw evidence" rawData={result.leadership_score?.raw_data} derivedMetrics={result.leadership_score?.derived_metrics} benchmark={result.leadership_score?.benchmark} trend={result.leadership_score?.trend} limitations={result.leadership_score?.limitations} missingData={result.leadership_score?.missing_data} sourceStatus={resolveScoreSourceStatus(result.leadership_score)} />
-            <RawDataPanel title="Jane company quality raw evidence" rawData={{ criteria: result.jane_company_quality?.criteria }} derivedMetrics={{ score: result.jane_company_quality?.score, label: result.jane_company_quality?.label }} limitations={result.jane_company_quality?.limitations} missingData={result.jane_company_quality?.missing_data} sourceStatus={result.jane_company_quality?.source_status} />
-            <RawDataPanel title="Financial statement signals raw evidence" rawData={{ signals: result.financial_statement_signals?.signals }} derivedMetrics={{ score: result.financial_statement_signals?.score, label: result.financial_statement_signals?.label }} limitations={result.financial_statement_signals?.limitations} missingData={result.financial_statement_signals?.missing_data} sourceStatus={result.financial_statement_signals?.source_status} />
-            <RawDataPanel title="SEC financial facts raw evidence" rawData={result.sec_financial_facts} derivedMetrics={(result.sec_financial_facts?.derived_metrics as Record<string, unknown>) ?? {}} limitations={(result.sec_financial_facts?.limitations as string[]) ?? []} missingData={(result.sec_financial_facts?.missing_data as string[]) ?? []} sourceStatus={result.sec_financial_facts?.source_status as DataSourceStatus | undefined} />
-            <RawDataPanel title="Fundamentals cross-check raw evidence" rawData={result.fundamentals_cross_check} derivedMetrics={{ agreement_level: result.fundamentals_cross_check?.agreement_level }} limitations={(result.fundamentals_cross_check?.limitations as string[]) ?? []} missingData={(result.fundamentals_cross_check?.missing_data as string[]) ?? []} sourceStatus={result.fundamentals_cross_check?.source_status as DataSourceStatus | undefined} />
-            <RawDataPanel title="Smart money raw evidence" rawData={result.smart_money?.raw_data} derivedMetrics={result.smart_money?.derived_metrics} benchmark={result.smart_money?.benchmark} trend={result.smart_money?.trend} limitations={result.smart_money?.limitations} missingData={result.smart_money?.missing_data} sourceStatus={resolveScoreSourceStatus(result.smart_money)} />
-            <RawDataPanel title="Insider Form 4 raw evidence" rawData={result.insider_activity?.raw_data} derivedMetrics={result.insider_activity?.derived_metrics} benchmark={result.insider_activity?.benchmark} trend={result.insider_activity?.trend} limitations={result.insider_activity?.limitations} missingData={result.insider_activity?.missing_data} sourceStatus={resolveScoreSourceStatus(result.insider_activity)} />
-            <RawDataPanel title="Institutional 13F raw evidence" rawData={result.institutional_13f?.raw_data} derivedMetrics={result.institutional_13f?.derived_metrics} benchmark={result.institutional_13f?.benchmark} trend={result.institutional_13f?.trend} limitations={result.institutional_13f?.limitations} missingData={result.institutional_13f?.missing_data} sourceStatus={resolveScoreSourceStatus(result.institutional_13f)} />
+            <details>
+              <summary>Raw Evidence Panels</summary>
+              <p className="muted">Detailed raw data, derived metrics, benchmarks, limitations, and missing-data diagnostics for audit/debug review.</p>
+              <RawDataPanel title="Macro raw evidence" rawData={result.macro_regime?.raw_data} derivedMetrics={result.macro_regime?.derived_metrics} benchmark={result.macro_regime?.benchmark} trend={result.macro_regime?.trend} limitations={result.macro_regime?.limitations} missingData={result.macro_regime?.missing_data} sourceStatus={resolveScoreSourceStatus(result.macro_regime)} />
+              <RawDataPanel title="Leadership raw evidence" rawData={result.leadership_score?.raw_data} derivedMetrics={result.leadership_score?.derived_metrics} benchmark={result.leadership_score?.benchmark} trend={result.leadership_score?.trend} limitations={result.leadership_score?.limitations} missingData={result.leadership_score?.missing_data} sourceStatus={resolveScoreSourceStatus(result.leadership_score)} />
+              <RawDataPanel title="Jane company quality raw evidence" rawData={{ criteria: result.jane_company_quality?.criteria }} derivedMetrics={{ score: result.jane_company_quality?.score, label: result.jane_company_quality?.label }} limitations={result.jane_company_quality?.limitations} missingData={result.jane_company_quality?.missing_data} sourceStatus={result.jane_company_quality?.source_status} />
+              <RawDataPanel title="Financial statement signals raw evidence" rawData={{ signals: result.financial_statement_signals?.signals }} derivedMetrics={{ score: result.financial_statement_signals?.score, label: result.financial_statement_signals?.label }} limitations={result.financial_statement_signals?.limitations} missingData={result.financial_statement_signals?.missing_data} sourceStatus={result.financial_statement_signals?.source_status} />
+              <RawDataPanel title="SEC financial facts raw evidence" rawData={result.sec_financial_facts} derivedMetrics={(result.sec_financial_facts?.derived_metrics as Record<string, unknown>) ?? {}} limitations={(result.sec_financial_facts?.limitations as string[]) ?? []} missingData={(result.sec_financial_facts?.missing_data as string[]) ?? []} sourceStatus={result.sec_financial_facts?.source_status as DataSourceStatus | undefined} />
+              <RawDataPanel title="Fundamentals cross-check raw evidence" rawData={result.fundamentals_cross_check} derivedMetrics={{ agreement_level: result.fundamentals_cross_check?.agreement_level }} limitations={(result.fundamentals_cross_check?.limitations as string[]) ?? []} missingData={(result.fundamentals_cross_check?.missing_data as string[]) ?? []} sourceStatus={result.fundamentals_cross_check?.source_status as DataSourceStatus | undefined} />
+              <RawDataPanel title="Smart money raw evidence" rawData={result.smart_money?.raw_data} derivedMetrics={result.smart_money?.derived_metrics} benchmark={result.smart_money?.benchmark} trend={result.smart_money?.trend} limitations={result.smart_money?.limitations} missingData={result.smart_money?.missing_data} sourceStatus={resolveScoreSourceStatus(result.smart_money)} />
+              <RawDataPanel title="Insider Form 4 raw evidence" rawData={result.insider_activity?.raw_data} derivedMetrics={result.insider_activity?.derived_metrics} benchmark={result.insider_activity?.benchmark} trend={result.insider_activity?.trend} limitations={result.insider_activity?.limitations} missingData={result.insider_activity?.missing_data} sourceStatus={resolveScoreSourceStatus(result.insider_activity)} />
+              <RawDataPanel title="Institutional 13F raw evidence" rawData={result.institutional_13f?.raw_data} derivedMetrics={result.institutional_13f?.derived_metrics} benchmark={result.institutional_13f?.benchmark} trend={result.institutional_13f?.trend} limitations={result.institutional_13f?.limitations} missingData={result.institutional_13f?.missing_data} sourceStatus={resolveScoreSourceStatus(result.institutional_13f)} />
+            </details>
           </section>
         </>
       )}

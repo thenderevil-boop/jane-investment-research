@@ -100,13 +100,15 @@ Phase 30 adds analyze-stock contract/docs synchronization guardrails. `tools/gen
 
 Phase 31 replaces the overheat score's `user_reported_social_heat_score` with yfinance-derived `volume_and_extension_context_score`. The new 0.12-weight component uses `current_volume / avg_volume_52w` and price extension versus the 200-day moving average. Jane's social heat idea remains available only as a structured human-verification item (`jane_social_heat_check`) when `overheat_score >= 60`; it is not a scoring input.
 
+Phase 31.5 adds a frontend analyst-readability pass. Stock Research now starts with an Analyst Brief that summarizes research label, validation level, data quality, macro context, overheat context, top strengths, top limitations, and manual checks before detailed evidence/debug panels. Daily Report adds a compact Data Coverage summary. This phase does not change scoring, providers, backend contracts, JSON schemas, or investment-advice boundaries.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
 
 ## Current Implementation Status
 
-`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 31 overheat validation workflow contract.
+`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 31.5 analyst-readability UI on top of the Phase 31 overheat validation workflow contract.
 
 Completed live integrations now documented in this README:
 
@@ -136,6 +138,7 @@ Completed live integrations now documented in this README:
 - Phase 29: Validation OS Report explainability layer for non-scoring analyze-stock summaries
 - Phase 30: analyze-stock contract, schema, docs, and change-note synchronization
 - Phase 31: overheat volume/extension context replaces scored user-reported social heat
+- Phase 31.5: frontend Analyst Brief and compact data coverage readability pass
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 
