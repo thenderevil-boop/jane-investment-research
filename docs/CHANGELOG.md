@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 31.6 — Form 4 Fallback Scoring Hotfix
+
+- Treat any Form 4 `source_type=fallback` as unreliable fallback for insider-activity scoring, even when the provider remains `SEC EDGAR` because cached/live SEC data was unavailable.
+- Set fallback Form 4 insider activity to neutral `score=40` with `insider_activity_neutral` label and neutral trend so fallback disposition rows do not become `insider_distribution_risk`.
+- Preserve the separate mock-fallback guardrail that prevents mock fallback Form 4 data from boosting smart-money score.
+- Added regression coverage for SEC EDGAR fallback disposition rows and updated fallback mock expectations to preserve the slight fallback penalty.
+
 ## Phase 31.5 — Analyst Brief UI Readability
 
 - Added Stock Research Analyst Brief as the first result section using existing analyze-stock fields.

@@ -224,6 +224,7 @@ Parsing and output controls:
 - Duplicate rows are removed using ticker, CIK, accession number, insider name, transaction date, transaction code, security title, shares, price, ownership type, and acquired/disposed code.
 - Form 4 freshness uses `form4_recent_180_days` based on latest filing date, not latest expected trading day.
 - Daily report raw Form 4 rows are capped at 25. Derived metrics use all lookback-window rows.
+- Any `source_type=fallback` Form 4 payload is scored as neutral fallback (`score=40`, `insider_activity_neutral`, neutral trend); fallback disposition counts are shown for review but are not scored as distribution risk.
 - Mock fallback Form 4 data is not used to boost the smart-money score.
 - If all live rows are missing transaction codes, label is neutral or insufficient, `transaction_code` is reported as missing data, and Form 4 does not increase the component score.
 - 13F is official SEC EDGAR-backed when `USE_LIVE_SEC_13F=true`, `SEC_EDGAR_USER_AGENT` is configured, and manager CIKs or supported local manager names are configured.
@@ -232,7 +233,8 @@ Parsing and output controls:
 Score:
 
 ```text
-if multiple officers/directors show accumulation and no disposition: score = 100
+if source_type is fallback: score = 40
+elif multiple officers/directors show accumulation and no disposition: score = 100
 elif CEO/founder accumulation is observed and net accumulation value is positive: score = 90
 elif net accumulation value is positive: score = 70
 elif repeated disposition activity is observed: score = 20

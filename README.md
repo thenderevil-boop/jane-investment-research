@@ -102,13 +102,15 @@ Phase 31 replaces the overheat score's `user_reported_social_heat_score` with yf
 
 Phase 31.5 adds a frontend analyst-readability pass. Stock Research now starts with an Analyst Brief that summarizes research label, validation level, data quality, macro context, overheat context, top strengths, top limitations, and manual checks before detailed evidence/debug panels. Daily Report adds a compact Data Coverage summary. This phase does not change scoring, providers, backend contracts, JSON schemas, or investment-advice boundaries.
 
+Phase 31.6 fixes Form 4 fallback scoring. Any Form 4 `source_type=fallback` is treated as unreliable fallback for insider-activity scoring regardless of provider label, so fallback SEC EDGAR disposition rows produce neutral `score=40`, `insider_activity_neutral`, and neutral trend instead of `insider_distribution_risk`. Mock fallback data remains prevented from boosting smart-money score.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
 
 ## Current Implementation Status
 
-`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 31.5 analyst-readability UI on top of the Phase 31 overheat validation workflow contract.
+`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 31.6 Form 4 fallback scoring hotfix on top of the Phase 31.5 analyst-readability UI and Phase 31 overheat validation workflow contract.
 
 Completed live integrations now documented in this README:
 

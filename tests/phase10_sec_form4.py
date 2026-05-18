@@ -292,8 +292,9 @@ def test_fallback_mock_form4_does_not_boost_smart_money_score():
         }
     )
 
-    assert result.score == 50
+    assert result.score == 40
     assert result.label == "insider_activity_neutral"
+    assert "Live SEC Form 4 fetch failed; fallback data used. Disposition count from fallback data is not scored." in result.limitations
     assert "Mock fallback Form 4 data is not used to boost smart-money score." in result.limitations
 
 

@@ -378,7 +378,8 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
     source_status = data.get("form4_source_status") or data.get("source_status") or {}
     source = source_status.get("source") or (["SEC EDGAR"] if source_status.get("provider") == "SEC EDGAR" else MOCK_SOURCE)
     source_date = source_status.get("source_date") or max((item.get("filing_date", "") for item in transactions), default=MOCK_SOURCE_DATE)
-    fallback_mock_form4 = source_status.get("source_type") == "fallback" and source_status.get("provider") == "mock"
+    any_fallback_form4 = source_status.get("source_type") == "fallback"
+    fallback_mock_form4 = any_fallback_form4 and source_status.get("provider") == "mock"
 
     def category(item: dict[str, Any]) -> str:
         return str(item.get("transaction_category") or item.get("transaction_type") or "other")
@@ -408,8 +409,8 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
     all_transaction_codes_missing = bool(transactions) and all(not code(item) for item in transactions)
     if all_transaction_codes_missing:
         missing.append("transaction_code")
-    if fallback_mock_form4:
-        score = 50
+    if any_fallback_form4:
+        score = 40
     elif all_transaction_codes_missing:
         score = 50
     elif accumulation_count >= 2 and disposition_count == 0:
@@ -431,6 +432,8 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
     ]
     if all_transaction_codes_missing:
         limitations.append("All live Form 4 rows are missing transaction codes, so Form 4 does not boost the smart-money score.")
+    if any_fallback_form4:
+        limitations.append("Live SEC Form 4 fetch failed; fallback data used. Disposition count from fallback data is not scored.")
     if fallback_mock_form4:
         limitations.append("Mock fallback Form 4 data is not used to boost smart-money score.")
     if likely_systematic_plan:
@@ -445,7 +448,7 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
     return _score_object(
         "insider_form4_signal_score",
         score,
-        "insufficient_data" if not transactions else "insider_activity_neutral" if (all_transaction_codes_missing or fallback_mock_form4) else _insider_label(score),
+        "insufficient_data" if not transactions else "insider_activity_neutral" if (all_transaction_codes_missing or any_fallback_form4) else _insider_label(score),
         {
             "transactions": sorted(
                 transactions,
@@ -476,7 +479,7 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
             "accumulation_code": "P",
             "disposition_code": "S",
         },
-        {"insider_activity": "neutral" if fallback_mock_form4 else "accumulation_observed" if score >= 70 else "distribution_risk" if score == 20 else "neutral"},
+        {"insider_activity": "neutral" if any_fallback_form4 else "accumulation_observed" if score >= 70 else "distribution_risk" if score == 20 else "neutral"},
         limitations,
         missing,
         source=source if isinstance(source, list) else [str(source)],

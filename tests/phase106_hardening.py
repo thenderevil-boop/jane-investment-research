@@ -136,9 +136,9 @@ def test_fallback_mock_form4_does_not_boost_component_or_aggregate_score():
         }
     )
 
-    assert component.score == 50
+    assert component.score == 40
     assert component.label == "insider_activity_neutral"
-    assert aggregate.derived_metrics["components"]["insider_form4_signal"]["score"] == 50
+    assert aggregate.derived_metrics["components"]["insider_form4_signal"]["score"] == 40
     assert aggregate.score < 50
 
 

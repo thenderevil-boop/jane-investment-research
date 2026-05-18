@@ -212,6 +212,55 @@ def test_insider_selling_equivalent_disposition_is_risk_signal() -> None:
     assert_no_prohibited_language(payload)
 
 
+def test_sec_edgar_fallback_dispositions_are_neutral_not_distribution_risk() -> None:
+    result = evaluate_form4_insider_signal(
+        {
+            "form4_transactions": [
+                {
+                    "insider_name": "Mock Officer A",
+                    "role": "Officer",
+                    "transaction_code": "S",
+                    "transaction_type": "disposition",
+                    "transaction_category": "disposition",
+                    "shares": 1200,
+                    "price": 90.0,
+                    "value": 108000,
+                    "transaction_date": "2026-04-01",
+                    "filing_date": "2026-04-03",
+                },
+                {
+                    "insider_name": "Mock Officer B",
+                    "role": "Officer",
+                    "transaction_code": "S",
+                    "transaction_type": "disposition",
+                    "transaction_category": "disposition",
+                    "shares": 800,
+                    "price": 91.0,
+                    "value": 72800,
+                    "transaction_date": "2026-04-10",
+                    "filing_date": "2026-04-12",
+                },
+            ],
+            "form4_source_status": {
+                "source_type": "fallback",
+                "provider": "SEC EDGAR",
+                "source": ["SEC EDGAR"],
+                "source_date": "2026-04-12",
+                "fallback_used": True,
+                "fallback_reason": "Live SEC Form 4 fetch failed",
+            },
+        }
+    )
+    payload = result.model_dump()
+
+    assert result.score == 40
+    assert result.label == "insider_activity_neutral"
+    assert result.trend["insider_activity"] == "neutral"
+    assert payload["derived_metrics"]["disposition_count_180d"] == 2
+    assert "Live SEC Form 4 fetch failed; fallback data used. Disposition count from fallback data is not scored." in result.limitations
+    assert_no_prohibited_language(payload)
+
+
 def test_abnormal_options_activity_includes_ambiguity_limitation() -> None:
     result = evaluate_options_abnormal_activity(
         {
