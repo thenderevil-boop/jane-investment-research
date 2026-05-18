@@ -165,7 +165,8 @@ Opt-in:
 $env:USE_LIVE_SEC_13F="true"
 $env:SEC_13F_PROVIDER="sec_edgar"
 $env:SEC_EDGAR_USER_AGENT="Your Name your.email@example.com"
-$env:SEC_13F_TARGET_MANAGERS="0001067983"
+# Optional override. If omitted, defaults to Berkshire, Vanguard, BlackRock, State Street, and Geode.
+$env:SEC_13F_TARGET_MANAGERS="0001067983,0000102909,0001364742,0000093751,0001214717"
 uvicorn backend.app.main:app --reload
 ```
 
@@ -202,6 +203,7 @@ Aggregation and target matching:
 - Different CUSIPs are not merged solely because issuer names look similar.
 - Portfolio totals and top-holding rankings use normalized `value_usd`, not `reported_value_raw`, unless `value_usd` is unavailable.
 - `SEC_13F_TARGET_CUSIPS` is the preferred target configuration and produces high-confidence exact matches.
+- `SEC_13F_TARGET_MANAGERS` defaults to five local CIKs: Berkshire Hathaway (`0001067983`), Vanguard (`0000102909`), BlackRock (`0001364742`), State Street (`0000093751`), and Geode (`0001214717`). The list can be overridden; explicitly setting it to an empty string keeps fixture/mock fallback semantics.
 - `SEC_13F_TARGET_TICKERS` can match only through the bounded local ticker-to-CUSIP map. The system must not call external CUSIP APIs or scrape mappings.
 - `SEC_13F_TARGET_ISSUERS` can resolve through exact local aliases. Issuer-name-only matching without CUSIP confirmation remains low confidence and must carry a limitation.
 - Candidate-level 13F evidence uses the same local map but separates `candidate_specific_evidence` from `portfolio_context`.

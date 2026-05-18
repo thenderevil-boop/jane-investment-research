@@ -1375,7 +1375,8 @@ PowerShell:
 $env:USE_LIVE_SEC_13F="true"
 $env:SEC_13F_PROVIDER="sec_edgar"
 $env:SEC_EDGAR_USER_AGENT="Your Name your.email@example.com"
-$env:SEC_13F_TARGET_MANAGERS="0001067983"
+# Optional override. If omitted, defaults to Berkshire, Vanguard, BlackRock, State Street, and Geode.
+$env:SEC_13F_TARGET_MANAGERS="0001067983,0000102909,0001364742,0000093751,0001214717"
 uvicorn backend.app.main:app --reload
 ```
 
@@ -1452,6 +1453,8 @@ Allowed candidate 13F interpretation labels are `reported_13f_position_observed`
 `portfolio_context` is supporting context only. It may include manager identity, `manager_metadata_source`, latest report and filing dates, grouped and mapped holding counts, source status, and a capped `top_holdings_by_value` list. Candidate output must not include the full 13F holdings list; `SEC_13F_CANDIDATE_CONTEXT_TOP_HOLDINGS_LIMIT=5` caps the candidate context list by default.
 
 Phase 11.6a adds a bounded local manager map for display polish. CIK remains the stable identifier. Known CIKs such as `0001067983` may resolve to readable names such as `Berkshire Hathaway Inc.` with `manager_metadata_source="local_static_map"`. Unknown CIKs fall back to the normalized CIK. Outputs using the local map include the limitation `Manager name is resolved from a bounded local map and may not be authoritative.`
+
+Phase 31.8 expands the default `SEC_13F_TARGET_MANAGERS` universe to `0001067983,0000102909,0001364742,0000093751,0001214717` (Berkshire Hathaway, Vanguard, BlackRock, State Street, and Geode Capital). The list remains overrideable through `SEC_13F_TARGET_MANAGERS`; explicitly setting it to an empty string preserves fixture/mock fallback behavior. Candidate support remains CUSIP-match-gated and delayed-quarterly, so broader coverage must not be interpreted as real-time institutional flow.
 
 For unmatched mapped candidates, `interpretation_summary` states that no reported 13F position was observed in the configured manager portfolio and `score_contribution_allowed=false`. This is not a negative trading signal. For matched candidates, `score_contribution_allowed=true` only when the source is live/cached SEC EDGAR-derived, the match is CUSIP-confirmed with high or medium confidence, and the 13F source status is fresh under `quarterly_filing_delay`. Matched candidate evidence must also disclose that 13F reflects delayed quarterly reporting and may not represent the manager's current position.
 

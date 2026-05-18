@@ -106,13 +106,15 @@ Phase 31.6 fixes Form 4 fallback scoring. Any Form 4 `source_type=fallback` is t
 
 Phase 31.7 stabilizes macro source-quality regression coverage. The Phase 26.4 macro tests now use explicit derived-live and fallback macro fixtures instead of depending on ambient FRED/yfinance credentials or cache state. This phase is test determinism only and does not change production scoring, provider behavior, backend contracts, frontend UX, or Form 4 behavior.
 
+Phase 31.8 expands the default SEC 13F manager universe from a single fixture-driven manager to five configured CIKs: Berkshire Hathaway, Vanguard, BlackRock, State Street, and Geode Capital. This improves large-cap institutional coverage while preserving candidate-specific matching rules: a manager's portfolio is context only unless the candidate has a CUSIP-confirmed match with `score_contribution_allowed=true`.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
 
 ## Current Implementation Status
 
-`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 31.7 macro source-quality test determinism pass and Phase 31.6 Form 4 fallback scoring hotfix on top of the Phase 31.5 analyst-readability UI and Phase 31 overheat validation workflow contract.
+`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 31.8 SEC 13F manager-universe expansion, Phase 31.7 macro source-quality test determinism pass, and Phase 31.6 Form 4 fallback scoring hotfix on top of the Phase 31.5 analyst-readability UI and Phase 31 overheat validation workflow contract.
 
 Completed live integrations now documented in this README:
 
@@ -145,6 +147,7 @@ Completed live integrations now documented in this README:
 - Phase 31.5: frontend Analyst Brief and compact data coverage readability pass
 - Phase 31.6: Form 4 fallback scoring hotfix for fallback SEC EDGAR disposition rows
 - Phase 31.7: macro source-quality test determinism for derived-live versus fallback macro fixtures
+- Phase 31.8: SEC 13F default manager-universe expansion for broader institutional coverage
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 
@@ -265,7 +268,7 @@ Phase 25 export and backup features support that boundary. Validation exports ar
 | SEC_13F_PROVIDER | sec_edgar | SEC EDGAR 13F | official SEC EDGAR only |
 | SEC_13F_CACHE_TTL_DAYS | 7 | SEC EDGAR 13F cache | TTL is days, not hours |
 | SEC_13F_LOOKBACK_QUARTERS | 4 | SEC EDGAR 13F | |
-| SEC_13F_TARGET_MANAGERS | none | SEC EDGAR 13F | optional comma-separated manager names or CIKs |
+| SEC_13F_TARGET_MANAGERS | 0001067983,0000102909,0001364742,0000093751,0001214717 | SEC EDGAR 13F | optional comma-separated manager names or CIKs; default universe is Berkshire, Vanguard, BlackRock, State Street, and Geode |
 | SEC_13F_TARGET_CUSIPS | none | SEC EDGAR 13F | optional comma-separated target CUSIPs; highest confidence target matching |
 | SEC_13F_TARGET_TICKERS | none | SEC EDGAR 13F | optional comma-separated tickers for future mapping support |
 | SEC_13F_TARGET_ISSUERS | none | SEC EDGAR 13F | optional comma-separated issuer-name fallback targets; low confidence |
@@ -657,7 +660,8 @@ cd D:\jane-investment-research
 $env:USE_LIVE_SEC_13F="true"
 $env:SEC_13F_PROVIDER="sec_edgar"
 $env:SEC_EDGAR_USER_AGENT="Your Name your.email@example.com"
-$env:SEC_13F_TARGET_MANAGERS="0001067983"
+# Optional override. If omitted, the default manager universe is Berkshire, Vanguard, BlackRock, State Street, and Geode.
+$env:SEC_13F_TARGET_MANAGERS="0001067983,0000102909,0001364742,0000093751,0001214717"
 uvicorn backend.app.main:app --reload
 ```
 
@@ -694,6 +698,7 @@ SEC 13F URL strategy:
 - The local security map is bounded and not authoritative. It is used only for target matching and value-confidence enrichment.
 - Candidate-level `institutional_13f` separates `candidate_specific_evidence` from `portfolio_context`. A manager's top holdings are context only and are not support for unrelated candidates.
 - Candidate support requires an exact 13F CUSIP match through the local security map or another CUSIP-confirmed match. Unmatched mapped candidates use `no_reported_13f_position_observed`, not a negative execution signal.
+- By default, report-time 13F retrieval covers five configured CIKs: Berkshire Hathaway (`0001067983`), Vanguard (`0000102909`), BlackRock (`0001364742`), State Street (`0000093751`), and Geode (`0001214717`). `SEC_13F_TARGET_MANAGERS` can still override this list; explicitly setting it to an empty string preserves fixture/mock fallback behavior in tests or local mock runs.
 - Manager display names are resolved from a bounded local manager map when available; CIK remains the stable identifier and the local map is not authoritative.
 - Candidate evidence includes `interpretation_summary` and `score_contribution_allowed` to make clear when candidate-specific 13F evidence can affect the score.
 - A reported 13F position reflects delayed quarterly reporting and may not represent the manager's current position.

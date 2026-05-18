@@ -52,7 +52,14 @@ SEC_13F_PROVIDER = os.getenv("SEC_13F_PROVIDER", "sec_edgar").strip().lower() or
 SEC_13F_CACHE_DIR = Path(os.getenv("SEC_13F_CACHE_DIR", "backend/raw_store/cache/sec_13f"))
 SEC_13F_CACHE_TTL_DAYS = float(os.getenv("SEC_13F_CACHE_TTL_DAYS", "7") or "7")
 SEC_13F_LOOKBACK_QUARTERS = int(os.getenv("SEC_13F_LOOKBACK_QUARTERS", "4") or "4")
-SEC_13F_TARGET_MANAGERS = os.getenv("SEC_13F_TARGET_MANAGERS", "").strip()
+DEFAULT_SEC_13F_TARGET_MANAGERS = [
+    "0001067983",  # Berkshire Hathaway Inc.
+    "0000102909",  # Vanguard Group Inc.
+    "0001364742",  # BlackRock Inc.
+    "0000093751",  # State Street Corp.
+    "0001214717",  # Geode Capital Management LLC
+]
+SEC_13F_TARGET_MANAGERS = os.getenv("SEC_13F_TARGET_MANAGERS", ",".join(DEFAULT_SEC_13F_TARGET_MANAGERS)).strip()
 SEC_13F_TARGET_CUSIPS = os.getenv("SEC_13F_TARGET_CUSIPS", "").strip()
 SEC_13F_TARGET_TICKERS = os.getenv("SEC_13F_TARGET_TICKERS", "").strip()
 SEC_13F_TARGET_ISSUERS = os.getenv("SEC_13F_TARGET_ISSUERS", "").strip()

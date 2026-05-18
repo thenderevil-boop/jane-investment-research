@@ -1,5 +1,13 @@
 # Changelog
 
+## Phase 31.8 — SEC 13F Manager Universe Expansion
+
+- Expanded the default SEC 13F manager universe to five CIKs: Berkshire Hathaway, Vanguard, BlackRock, State Street, and Geode Capital.
+- Added local manager metadata and SEC EDGAR alias resolution for the expanded default universe, including BlackRock's current default CIK mapping.
+- Preserved explicit empty `SEC_13F_TARGET_MANAGERS` behavior so fixture/mock fallback remains available for deterministic tests and local mock runs.
+- Added regression coverage for default manager ordering, fixture fallback semantics, and manager metadata/alias resolution.
+- No scoring formula, schema, frontend, Form 4, or macro behavior changes.
+
 ## Phase 31.7 — Macro Source-Quality Test Determinism
 
 - Stabilized Phase 26.4 macro source-quality regression coverage so it no longer depends on local live FRED/yfinance availability, credentials, or cache state.

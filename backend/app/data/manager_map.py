@@ -26,10 +26,24 @@ LOCAL_MANAGER_MAP: dict[str, dict[str, Any]] = {
         "confidence_source": "local_static_map",
         "limitations": [MANAGER_MAP_LIMITATION],
     },
-    "0001061768": {
-        "manager_cik": "0001061768",
+    "0001364742": {
+        "manager_cik": "0001364742",
         "manager_name": "BlackRock Inc.",
         "aliases": ["BLACKROCK INC", "BlackRock"],
+        "confidence_source": "local_static_map",
+        "limitations": [MANAGER_MAP_LIMITATION],
+    },
+    "0000093751": {
+        "manager_cik": "0000093751",
+        "manager_name": "State Street Corp.",
+        "aliases": ["STATE STREET CORP", "State Street"],
+        "confidence_source": "local_static_map",
+        "limitations": [MANAGER_MAP_LIMITATION],
+    },
+    "0001214717": {
+        "manager_cik": "0001214717",
+        "manager_name": "Geode Capital Management LLC",
+        "aliases": ["GEODE CAPITAL MANAGEMENT LLC", "Geode Capital"],
         "confidence_source": "local_static_map",
         "limitations": [MANAGER_MAP_LIMITATION],
     },
