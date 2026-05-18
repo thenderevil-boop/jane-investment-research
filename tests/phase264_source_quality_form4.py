@@ -68,6 +68,30 @@ def _derived_live_macro_payload() -> dict:
         },
     }
 
+
+def _fallback_macro_payload() -> dict:
+    payload = _derived_live_macro_payload()
+    payload.update(
+        {
+            "source_type": "fallback",
+            "provider": "mock",
+            "source": "mock",
+            "fallback_used": True,
+            "limitations": ["FRED API key is missing; fallback macro data used."],
+        }
+    )
+    payload["component_source_status"] = {
+        name: {
+            **status,
+            "source_type": "fallback",
+            "provider": "mock",
+            "fallback_used": True,
+            "limitations": ["FRED API key is missing; fallback macro data used."],
+        }
+        for name, status in payload["component_source_status"].items()
+    }
+    return payload
+
 client = TestClient(app)
 
 
@@ -134,28 +158,33 @@ def test_phase264_mock_form4_limits_smart_money_and_insider_source_quality(monke
     assert '"source_type": "mixed"' not in json.dumps(payload)
 
 
-def test_phase264_macro_environment_excluded_context_does_not_become_mock_only(monkeypatch):
+def test_phase264_macro_environment_derived_live_context_is_not_mock_or_fallback(monkeypatch):
     _use_tmp_stores(monkeypatch)
     monkeypatch.setattr(stock_analysis, "read_macro_data", lambda *args, **kwargs: _derived_live_macro_payload())
     payload = _analyze()
     matrix = {item["category"]: item for item in payload["evidence_matrix"]}
     data_quality = payload["data_quality_summary"]
+    scoring = payload["macro_regime"]["macro_data_quality"]["scoring"]
     excluded = payload["macro_regime"]["macro_score_explanation"]["excluded_indicators"]
 
+    assert scoring["active_available_weight_pct"] == 100.0
+    assert scoring["confidence_basis"]["fallback_used"] is False
     assert matrix["macro_environment"]["source_quality"] == "derived_live"
     assert "macro_environment" not in data_quality["mock_evidence_categories"]
     assert "macro_environment" not in data_quality["fallback_evidence_categories"]
     assert all(item["affects_score"] is False and item["weight"] == 0 for item in excluded)
 
 
-def test_phase264_macro_environment_with_no_active_live_weight_is_limited_not_mock_only(monkeypatch):
+def test_phase264_macro_environment_fallback_context_is_limited_not_mock_only(monkeypatch):
     _use_tmp_stores(monkeypatch)
+    monkeypatch.setattr(stock_analysis, "read_macro_data", lambda *args, **kwargs: _fallback_macro_payload())
     payload = _analyze()
     matrix = {item["category"]: item for item in payload["evidence_matrix"]}
     data_quality = payload["data_quality_summary"]
     scoring = payload["macro_regime"]["macro_data_quality"]["scoring"]
 
     assert scoring["active_available_weight_pct"] <= 0
+    assert scoring["confidence_basis"]["fallback_used"] is True
     assert matrix["macro_environment"]["source_quality"] == "mixed_with_fallback"
     assert "macro_environment" not in data_quality["mock_evidence_categories"]
     assert "macro_environment" in data_quality["fallback_evidence_categories"]

@@ -1,5 +1,13 @@
 # Changelog
 
+## Phase 31.7 — Macro Source-Quality Test Determinism
+
+- Stabilized Phase 26.4 macro source-quality regression coverage so it no longer depends on local live FRED/yfinance availability, credentials, or cache state.
+- Split the macro source-quality assertions into explicit derived-live and fallback macro fixtures.
+- Verified derived-live macro context remains `derived_live` and excluded from mock/fallback evidence categories.
+- Verified fallback macro context remains `mixed_with_fallback`, does not count as reliable active live weight, and is reported in fallback evidence categories rather than mock-only categories.
+- No production scoring, provider, schema, frontend, or Form 4 behavior changes.
+
 ## Phase 31.6 — Form 4 Fallback Scoring Hotfix
 
 - Treat any Form 4 `source_type=fallback` as unreliable fallback for insider-activity scoring, even when the provider remains `SEC EDGAR` because cached/live SEC data was unavailable.
