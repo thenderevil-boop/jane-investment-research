@@ -243,6 +243,10 @@ class QualitativeEvidenceAssessmentItem(BaseModel):
     stale_reason: str | None = None
     next_review_due_at: str | None = None
     source_reliability_label: str = "unknown"
+    note_title: str | None = None
+    research_question: str | None = None
+    thesis_direction: Literal["supportive", "neutral", "challenging", "unknown"] = "unknown"
+    workflow_status: Literal["draft", "review_ready", "accepted", "needs_refresh", "rejected", "archived"] = "draft"
     comparison_context: dict[str, Any] | None = None
 
 

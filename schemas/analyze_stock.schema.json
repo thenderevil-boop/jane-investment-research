@@ -2432,6 +2432,54 @@
           "title": "Source Reliability Label",
           "type": "string"
         },
+        "note_title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note Title"
+        },
+        "research_question": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Research Question"
+        },
+        "thesis_direction": {
+          "default": "unknown",
+          "enum": [
+            "supportive",
+            "neutral",
+            "challenging",
+            "unknown"
+          ],
+          "title": "Thesis Direction",
+          "type": "string"
+        },
+        "workflow_status": {
+          "default": "draft",
+          "enum": [
+            "draft",
+            "review_ready",
+            "accepted",
+            "needs_refresh",
+            "rejected",
+            "archived"
+          ],
+          "title": "Workflow Status",
+          "type": "string"
+        },
         "comparison_context": {
           "anyOf": [
             {

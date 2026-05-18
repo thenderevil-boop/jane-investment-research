@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
+from backend.app.schemas.manual_evidence import ManualQualitativeEvidence
 from backend.app.schemas.stock_analysis import AnalyzeStockResponse, QualitativeEvidenceInput
 from backend.app.utils.forbidden_language import detect_forbidden_language
 
@@ -65,6 +66,27 @@ def test_phase28_and_phase29_response_fields_are_in_schema_docs_and_types() -> N
     ]:
         assert definition in defs
         assert definition in frontend_types
+
+
+def test_phase33_research_note_workflow_contract_is_documented() -> None:
+    schema = _load_schema()
+    evidence_item_props = schema["$defs"]["QualitativeEvidenceAssessmentItem"]["properties"]
+    manual_evidence_props = ManualQualitativeEvidence.model_json_schema()["properties"]
+    api_spec = _read("docs/API_SPEC.md")
+    readme = _read("README.md")
+    changelog = _read("docs/CHANGELOG.md")
+    frontend_types = _read("frontend/src/types.ts")
+
+    for field in ["note_title", "research_question", "thesis_direction", "workflow_status"]:
+        assert field in evidence_item_props
+        assert field in manual_evidence_props
+        assert field in api_spec
+        assert field in readme
+        assert field in changelog
+        assert field in frontend_types
+
+    assert "ManualEvidenceThesisDirection" in frontend_types
+    assert "ManualEvidenceWorkflowStatus" in frontend_types
 
 
 def test_phase_status_documents_are_at_phase30_or_newer() -> None:

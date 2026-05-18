@@ -394,6 +394,10 @@ export type QualitativeEvidenceAssessmentItem = {
   stale_reason?: string | null;
   next_review_due_at?: string | null;
   source_reliability_label?: string;
+  note_title?: string | null;
+  research_question?: string | null;
+  thesis_direction?: ManualEvidenceThesisDirection;
+  workflow_status?: ManualEvidenceWorkflowStatus;
   comparison_context?: ComparisonContext | null;
 };
 
@@ -460,6 +464,9 @@ export type ComparisonEvidenceAssessment = {
   source_status: DataSourceStatus;
 };
 
+export type ManualEvidenceThesisDirection = 'supportive' | 'neutral' | 'challenging' | 'unknown';
+export type ManualEvidenceWorkflowStatus = 'draft' | 'review_ready' | 'accepted' | 'needs_refresh' | 'rejected' | 'archived';
+
 export type ManualQualitativeEvidence = {
   evidence_id: string;
   ticker: string;
@@ -489,6 +496,10 @@ export type ManualQualitativeEvidence = {
   created_by?: string | null;
   limitations: string[];
   tags: string[];
+  note_title?: string | null;
+  research_question?: string | null;
+  thesis_direction: ManualEvidenceThesisDirection;
+  workflow_status: ManualEvidenceWorkflowStatus;
   comparison_context?: ComparisonContext | null;
 };
 
@@ -510,11 +521,15 @@ export type ManualQualitativeEvidenceCreate = Omit<
   | 'expires_at'
   | 'last_reviewed_at'
   | 'next_review_due_at'
+  | 'thesis_direction'
+  | 'workflow_status'
 > & {
   user_provided?: true;
   review_notes?: string | null;
   source_reliability_label?: ManualQualitativeEvidence['source_reliability_label'];
   expires_at?: string | null;
+  thesis_direction?: ManualQualitativeEvidence['thesis_direction'];
+  workflow_status?: ManualQualitativeEvidence['workflow_status'];
 };
 
 export type ManualEvidenceDashboardFilters = {

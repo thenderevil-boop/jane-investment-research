@@ -1460,6 +1460,15 @@ For unmatched mapped candidates, `interpretation_summary` states that no reporte
 
 Phase 32 adds frontend-only Stock Research explanation copy for the analyze-stock response. The `Research Signal Explanation` section uses existing response fields and does not add or require new JSON schema fields. It clarifies that Coverage Matrix is evidence completeness rather than score strength, Market Sentiment is entry-environment context, fallback badges lower confidence, fallback Form 4 disposition counts are neutral context rather than insider selling pressure, no reported 13F position is not a negative trading signal, and elevated valuation is risk context rather than a trading instruction.
 
+Phase 33 extends saved Manual Evidence Library records and saved-library qualitative evidence assessment items with optional research-note workflow metadata:
+
+- `note_title`: short local research-note title.
+- `research_question`: the question the note is trying to validate against Jane qualitative criteria.
+- `thesis_direction`: `supportive`, `neutral`, `challenging`, or `unknown`.
+- `workflow_status`: `draft`, `review_ready`, `accepted`, `needs_refresh`, `rejected`, or `archived`.
+
+The fields are accepted by `POST /api/manual-evidence`, returned by manual evidence list/get endpoints, patchable through `PATCH /api/manual-evidence/{evidence_id}`, and preserved in `POST /api/analyze-stock` under `qualitative_evidence_assessment.evidence_items[]` for saved-library evidence. They are workflow metadata only and do not change score formulas, source quality semantics, live provider behavior, source URL fetching, or automatic evidence ingestion. Secret/API-key markers and investment-instruction language are rejected in research-note text fields.
+
 Phase 11.5 config:
 
 - `DAILY_REPORT_READ_MODE=snapshot_first`

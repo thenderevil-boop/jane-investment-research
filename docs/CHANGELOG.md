@@ -1,5 +1,14 @@
 # Changelog
 
+## Phase 33 — Jane Evidence Library / Research Note Workflow
+
+- Extended Manual Evidence Library records with optional research-note workflow metadata: `note_title`, `research_question`, `thesis_direction`, and `workflow_status`.
+- Persisted the new metadata through create, list, get, patch, and saved-library analyze-stock flows while preserving existing ticker-scoped JSON storage.
+- Surfaced research-note metadata in Stock Research qualitative evidence assessment and in the Evidence Library create/table UI.
+- Added validation so research-note metadata rejects secret/API-key markers and investment-instruction language.
+- Added backend and frontend regression coverage for metadata persistence, patching, analyze-stock propagation, and UI rendering.
+- No scoring formula, provider behavior, live-source fetching, source URL fetching, or automatic qualitative ingestion changes.
+
 ## Phase 32 — Explanation Layer / Research Clarity
 
 - Added a Stock Research `Research Signal Explanation` section immediately after Analyst Brief.

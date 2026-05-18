@@ -23,6 +23,10 @@ const defaultEvidence: ManualQualitativeEvidenceCreate = {
   created_by: 'local_user',
   limitations: ['Requires manual verification against official filings or independent sources.'],
   tags: ['manual evidence'],
+  note_title: 'Jane qualitative research note',
+  research_question: 'Which Jane qualitative criterion does this evidence support or challenge?',
+  thesis_direction: 'unknown',
+  workflow_status: 'draft',
   comparison_context: null,
 };
 
@@ -166,6 +170,19 @@ export default function EvidenceLibrary() {
           </select>
           <label htmlFor="manualExpires">Expires at</label>
           <input id="manualExpires" value={form.expires_at ?? ''} onChange={(event) => setForm({ ...form, expires_at: event.target.value || null })} />
+          <h3>Research Note Workflow</h3>
+          <label htmlFor="manualNoteTitle">Note title</label>
+          <input id="manualNoteTitle" value={form.note_title ?? ''} onChange={(event) => setForm({ ...form, note_title: event.target.value || null })} />
+          <label htmlFor="manualResearchQuestion">Research question</label>
+          <textarea id="manualResearchQuestion" value={form.research_question ?? ''} onChange={(event) => setForm({ ...form, research_question: event.target.value || null })} rows={2} />
+          <label htmlFor="manualThesisDirection">Thesis direction</label>
+          <select id="manualThesisDirection" value={form.thesis_direction} onChange={(event) => setForm({ ...form, thesis_direction: event.target.value as ManualQualitativeEvidence['thesis_direction'] })}>
+            {['unknown', 'supportive', 'neutral', 'challenging'].map((value) => <option key={value} value={value}>{displayKey(value)}</option>)}
+          </select>
+          <label htmlFor="manualWorkflowStatus">Workflow status</label>
+          <select id="manualWorkflowStatus" value={form.workflow_status} onChange={(event) => setForm({ ...form, workflow_status: event.target.value as ManualQualitativeEvidence['workflow_status'] })}>
+            {['draft', 'review_ready', 'accepted', 'needs_refresh', 'rejected', 'archived'].map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>
           <label htmlFor="manualComparisonType">Comparison type</label>
           <select
             id="manualComparisonType"
@@ -278,7 +295,7 @@ export default function EvidenceLibrary() {
         <h2>Saved Evidence</h2>
         <div className="tableWrap">
           <table>
-            <thead><tr><th>Ticker</th><th>Criterion</th><th>Type</th><th>Badges</th><th>Quality</th><th>Summary</th><th>Review</th><th>Reliability</th><th>Notes</th><th>Action</th></tr></thead>
+            <thead><tr><th>Ticker</th><th>Criterion</th><th>Type</th><th>Badges</th><th>Quality</th><th>Research Note</th><th>Summary</th><th>Review</th><th>Reliability</th><th>Notes</th><th>Action</th></tr></thead>
             <tbody>
               {items.map((item) => (
                 <tr key={item.evidence_id}>
@@ -297,6 +314,11 @@ export default function EvidenceLibrary() {
                     <strong>{item.evidence_quality_score}</strong>
                     <div><SignalBadge label={item.evidence_quality_label} variant={item.evidence_quality_label === 'high' ? 'positive' : item.evidence_quality_label === 'incomplete' ? 'warning' : 'neutral'} /></div>
                     {item.stale_reason && <small>{item.stale_reason}</small>}
+                  </td>
+                  <td>
+                    <strong>{item.note_title || 'Untitled research note'}</strong>
+                    <div><span className="smallPill">{item.thesis_direction ?? 'unknown'}</span><span className="smallPill">{item.workflow_status ?? 'draft'}</span></div>
+                    {item.research_question && <small>{item.research_question}</small>}
                   </td>
                   <td>
                     {item.summary}

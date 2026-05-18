@@ -536,7 +536,13 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
         reason = "Accepted as preliminary user-provided qualitative evidence."
         accepted = True
 
-        text_fields = [summary, source_label, str(item.get("source_url") or "")]
+        text_fields = [
+            summary,
+            source_label,
+            str(item.get("source_url") or ""),
+            str(item.get("note_title") or ""),
+            str(item.get("research_question") or ""),
+        ]
         if not summary:
             accepted = False
             reason = "Rejected because summary is empty."
@@ -624,6 +630,10 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
                 "stale_reason": item.get("stale_reason"),
                 "next_review_due_at": item.get("next_review_due_at"),
                 "source_reliability_label": source_reliability_label,
+                "note_title": item.get("note_title"),
+                "research_question": item.get("research_question"),
+                "thesis_direction": item.get("thesis_direction", "unknown"),
+                "workflow_status": item.get("workflow_status", "draft"),
                 "comparison_context": item.get("comparison_context"),
             }
         )

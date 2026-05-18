@@ -19,6 +19,12 @@ describe('EvidenceLibrary', () => {
     expect(html).toContain('Comparison type');
     expect(html).toContain('Peer companies');
     expect(html).toContain('Claimed advantage');
+    expect(html).toContain('Research Note Workflow');
+    expect(html).toContain('Note title');
+    expect(html).toContain('Research question');
+    expect(html).toContain('Thesis direction');
+    expect(html).toContain('Workflow status');
+    expect(html).toContain('review_ready');
     expect(html).not.toContain('[object Object]');
   });
 
@@ -85,6 +91,10 @@ describe('EvidenceLibrary', () => {
               stale_reason: null,
               next_review_due_at: '2027-05-06T00:00:00+00:00',
               source_reliability_label: 'company_investor_relations',
+              note_title: 'NVDA CUDA ecosystem lock-in thesis',
+              research_question: 'Does CUDA create durable developer switching costs?',
+              thesis_direction: 'supportive',
+              workflow_status: 'accepted',
             },
             {
               evidence_id: null,
@@ -122,6 +132,8 @@ describe('EvidenceLibrary', () => {
     expect(html).toContain('Stale 1');
     expect(html).toContain('Avg quality 82');
     expect(html).toContain('company_investor_relations');
+    expect(html).toContain('NVDA CUDA ecosystem lock-in thesis');
+    expect(html).toContain('accepted');
     expect(html).not.toContain('[object Object]');
   });
 

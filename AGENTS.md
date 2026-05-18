@@ -38,7 +38,7 @@ This system is a ticker validation system for user-provided US-listed stock idea
 - Candidate Workspace is limited to local ticker validation workflow metadata for externally discovered ideas.
 - Candidate review notes are append-only audit notes only and never affect scoring.
 - Candidate status is workflow state only, never investment advice, and never a scoring input.
-- Manual Evidence Library records are local, user-provided evidence inventory and review-readiness metadata; they are not independently verified research notes unless a future safety-reviewed design explicitly changes that boundary.
+- Manual Evidence Library records are local, user-provided evidence inventory, review-readiness metadata, and bounded research-note workflow metadata; they are not independently verified research conclusions.
 - Evidence Library and Evidence Dashboard exist only to support validation evidence quality.
 - The system must not become a full research notebook, task manager, portfolio tracker, trading journal, or execution workflow.
 - Future work should prioritize analyze-stock validation quality, data quality, evidence quality, and export/backup, not workspace expansion.

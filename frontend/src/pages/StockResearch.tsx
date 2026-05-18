@@ -629,7 +629,7 @@ export function QualitativeEvidenceAssessmentSection({ assessment }: { assessmen
       {!!assessment.evidence_items.length && (
         <div className="tableWrap">
           <table>
-            <thead><tr><th>Criterion</th><th>Type</th><th>Status</th><th>Badges</th><th>Quality</th><th>Source</th><th>Reason</th><th>Summary</th></tr></thead>
+            <thead><tr><th>Criterion</th><th>Type</th><th>Status</th><th>Badges</th><th>Quality</th><th>Source</th><th>Reason</th><th>Research Note</th><th>Summary</th></tr></thead>
             <tbody>
               {assessment.evidence_items.map((item, index) => (
                 <tr key={`${item.criterion}-${item.evidence_type}-${index}`}>
@@ -649,6 +649,14 @@ export function QualitativeEvidenceAssessmentSection({ assessment }: { assessmen
                   </td>
                   <td>{item.source_label || 'N/A'} {item.source_date ? `(${item.source_date})` : ''}</td>
                   <td>{item.acceptance_reason}</td>
+                  <td>
+                    {item.note_title && <strong>{item.note_title}</strong>}
+                    <div>
+                      {item.thesis_direction && <span className="smallPill">{item.thesis_direction}</span>}
+                      {item.workflow_status && <span className="smallPill">{item.workflow_status}</span>}
+                    </div>
+                    {item.research_question && <small>{item.research_question}</small>}
+                  </td>
                   <td>{item.summary}</td>
                 </tr>
               ))}

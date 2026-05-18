@@ -71,6 +71,8 @@ ManualEvidenceSourceReliability = Literal[
     "other",
 ]
 ManualEvidenceQualityLabel = Literal["high", "medium", "low", "incomplete"]
+ManualEvidenceThesisDirection = Literal["supportive", "neutral", "challenging", "unknown"]
+ManualEvidenceWorkflowStatus = Literal["draft", "review_ready", "accepted", "needs_refresh", "rejected", "archived"]
 
 SECRET_MARKERS = ("FRED_API_KEY", "SEC_EDGAR_USER_AGENT", "api_key", "apikey", "secret", "token=")
 
@@ -315,6 +317,10 @@ def enrich_manual_evidence_quality(evidence: dict) -> dict:
     row.setdefault("last_reviewed_at", row.get("reviewed_at"))
     row.setdefault("limitations", [])
     row.setdefault("tags", [])
+    row.setdefault("note_title", None)
+    row.setdefault("research_question", None)
+    row.setdefault("thesis_direction", "unknown")
+    row.setdefault("workflow_status", "draft")
     row.setdefault("user_provided", True)
     row["comparison_context"] = normalize_comparison_context(row.get("comparison_context"), row.get("ticker"))
     row.update(score_manual_evidence_quality(row))
@@ -375,6 +381,10 @@ class ManualQualitativeEvidenceCreate(BaseModel):
     created_by: str | None = "local_user"
     limitations: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
+    note_title: str | None = None
+    research_question: str | None = None
+    thesis_direction: ManualEvidenceThesisDirection = "unknown"
+    workflow_status: ManualEvidenceWorkflowStatus = "draft"
     comparison_context: ManualEvidenceComparisonContext | None = None
     evidence_quality_score: int = Field(default=0, ge=0, le=100)
     evidence_quality_label: ManualEvidenceQualityLabel = "incomplete"
@@ -387,7 +397,7 @@ class ManualQualitativeEvidenceCreate(BaseModel):
     def normalize_ticker(cls, value: str) -> str:
         return value.strip().upper()
 
-    @field_validator("summary", "source_label", "source_url", "review_notes")
+    @field_validator("summary", "source_label", "source_url", "review_notes", "note_title", "research_question")
     @classmethod
     def reject_secret_markers(cls, value: str | None) -> str | None:
         if value is not None and contains_secret_marker(value):
@@ -416,9 +426,13 @@ class ManualQualitativeEvidencePatch(BaseModel):
     expires_at: str | None = None
     limitations: list[str] | None = None
     tags: list[str] | None = None
+    note_title: str | None = None
+    research_question: str | None = None
+    thesis_direction: ManualEvidenceThesisDirection | None = None
+    workflow_status: ManualEvidenceWorkflowStatus | None = None
     comparison_context: ManualEvidenceComparisonContext | None = None
 
-    @field_validator("summary", "source_label", "source_url", "review_notes")
+    @field_validator("summary", "source_label", "source_url", "review_notes", "note_title", "research_question")
     @classmethod
     def reject_secret_markers(cls, value: str | None) -> str | None:
         if value is not None and contains_secret_marker(value):
