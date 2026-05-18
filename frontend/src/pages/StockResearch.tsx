@@ -281,6 +281,58 @@ export function AnalystBriefSection({ result }: { result: StockAnalysis }) {
   );
 }
 
+function hasFallbackForm4Source(result: StockAnalysis): boolean {
+  const insiderStatus = resolveScoreSourceStatus(result.insider_activity);
+  if (insiderStatus?.source_type === 'fallback' || insiderStatus?.fallback_used) return true;
+  const smartMoneyBreakdown = result.smart_money?.source_quality_breakdown as Record<string, { source_type?: string } | undefined> | undefined;
+  return smartMoneyBreakdown?.form4?.source_type === 'fallback';
+}
+
+export function ResearchSignalExplanationSection({ result }: { result: StockAnalysis }) {
+  const hasForm4Fallback = hasFallbackForm4Source(result);
+  return (
+    <section className="pageSection" aria-label="Research Signal Explanation">
+      <div className="panelHeader">
+        <div>
+          <p className="eyebrow">Explanation Layer</p>
+          <h2>Research Signal Explanation</h2>
+          <p className="muted">Plain-language guide for interpreting source quality and research signals. Not investment advice.</p>
+        </div>
+        <SignalBadge label={result.ticker} variant="neutral" />
+      </div>
+      <div className="threeColumn">
+        <div>
+          <h3>Coverage Matrix is evidence completeness</h3>
+          <p className="muted">Coverage Matrix tracks whether the 20 Jane criteria have direct qualitative evidence. Jane Company Quality can still score from financial and operating metrics when qualitative evidence is missing.</p>
+        </div>
+        <div>
+          <h3>Market Sentiment measures entry environment</h3>
+          <p className="muted">A low or 0/100 market sentiment score means current timing signals are insufficient or unfavorable. It does not mean company quality, Form 4, or 13F evidence is zero.</p>
+        </div>
+        <div>
+          <h3>Fallback badges lower confidence</h3>
+          <p className="muted">Fallback means live or cached evidence was unavailable or limited. Fallback evidence is shown for transparency but should not boost score confidence.</p>
+        </div>
+        {hasForm4Fallback && (
+          <div>
+            <h3>Fallback Form 4 rows are not scored as insider selling pressure</h3>
+            <p className="muted">When Form 4 source_type is fallback, disposition counts are treated as neutral context because the source quality is not reliable enough for distribution-risk scoring.</p>
+          </div>
+        )}
+        <div>
+          <h3>No reported 13F position is not a negative trading signal</h3>
+          <p className="muted">13F evidence is delayed quarterly manager reporting. If the candidate is absent from the configured manager universe, the result means no reported position was observed, not that institutions are selling or avoiding the stock.</p>
+        </div>
+        <div>
+          <h3>Elevated valuation is a risk context</h3>
+          <p className="muted">Valuation risk highlights high multiples or stretched context. It is not a trading instruction and should be weighed with company quality, macro, and source confidence.</p>
+        </div>
+      </div>
+      <p className="sourceWarning">Research reference only. Not investment advice.</p>
+    </section>
+  );
+}
+
 export function ProfileGrid({ profile }: { profile?: Record<string, unknown> }) {
   if (!profile) return null;
   const researchContext = profile.research_context as { theme?: unknown; user_reason?: unknown } | undefined;
@@ -1274,6 +1326,7 @@ export default function StockResearch() {
       {result && (
         <>
           <AnalystBriefSection result={result} />
+          <ResearchSignalExplanationSection result={result} />
           <CandidateSummarySection result={result} />
           <ValidationOSReportSection report={result.validation_os_report} />
           <ValidationReportExportSection ticker={ticker} theme={theme} userReason={userReason} qualitativeEvidenceJson={qualitativeEvidenceJson} />

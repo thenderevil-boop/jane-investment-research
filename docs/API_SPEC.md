@@ -1458,6 +1458,8 @@ Phase 31.8 expands the default `SEC_13F_TARGET_MANAGERS` universe to `0001067983
 
 For unmatched mapped candidates, `interpretation_summary` states that no reported 13F position was observed in the configured manager portfolio and `score_contribution_allowed=false`. This is not a negative trading signal. For matched candidates, `score_contribution_allowed=true` only when the source is live/cached SEC EDGAR-derived, the match is CUSIP-confirmed with high or medium confidence, and the 13F source status is fresh under `quarterly_filing_delay`. Matched candidate evidence must also disclose that 13F reflects delayed quarterly reporting and may not represent the manager's current position.
 
+Phase 32 adds frontend-only Stock Research explanation copy for the analyze-stock response. The `Research Signal Explanation` section uses existing response fields and does not add or require new JSON schema fields. It clarifies that Coverage Matrix is evidence completeness rather than score strength, Market Sentiment is entry-environment context, fallback badges lower confidence, fallback Form 4 disposition counts are neutral context rather than insider selling pressure, no reported 13F position is not a negative trading signal, and elevated valuation is risk context rather than a trading instruction.
+
 Phase 11.5 config:
 
 - `DAILY_REPORT_READ_MODE=snapshot_first`

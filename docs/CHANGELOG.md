@@ -1,5 +1,13 @@
 # Changelog
 
+## Phase 32 — Explanation Layer / Research Clarity
+
+- Added a Stock Research `Research Signal Explanation` section immediately after Analyst Brief.
+- Clarified common non-scoring interpretation points: Coverage Matrix versus Jane Company Quality, Market Sentiment as entry environment, fallback badges as lower-confidence evidence, 13F no-position observations as non-negative signals, and elevated valuation as risk context rather than a trading instruction.
+- Added fallback Form 4 explanation copy when fallback source status is present, reinforcing that fallback disposition counts are treated as neutral context and are not scored as insider selling pressure.
+- Added frontend regression coverage for the explanation section and Form 4 fallback neutrality copy.
+- No backend scoring, provider behavior, JSON schema, 13F universe, or Form 4 scoring changes.
+
 ## Phase 31.8 — SEC 13F Manager Universe Expansion
 
 - Expanded the default SEC 13F manager universe to five CIKs: Berkshire Hathaway, Vanguard, BlackRock, State Street, and Geode Capital.

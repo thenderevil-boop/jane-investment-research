@@ -108,13 +108,15 @@ Phase 31.7 stabilizes macro source-quality regression coverage. The Phase 26.4 m
 
 Phase 31.8 expands the default SEC 13F manager universe from a single fixture-driven manager to five configured CIKs: Berkshire Hathaway, Vanguard, BlackRock, State Street, and Geode Capital. This improves large-cap institutional coverage while preserving candidate-specific matching rules: a manager's portfolio is context only unless the candidate has a CUSIP-confirmed match with `score_contribution_allowed=true`.
 
+Phase 32 adds a Stock Research explanation layer directly after Analyst Brief. The `Research Signal Explanation` section explains common non-scoring interpretation points: Coverage Matrix measures Jane 20 evidence completeness rather than score strength, Market Sentiment measures entry environment, fallback badges lower source confidence, fallback Form 4 rows are not scored as insider selling pressure, no reported 13F position is not a negative trading signal, and elevated valuation is risk context rather than a trading instruction. Phase 32 is frontend clarity only and does not change backend scoring, providers, schemas, 13F manager universe, or Form 4 rules.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
 
 ## Current Implementation Status
 
-`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 31.8 SEC 13F manager-universe expansion, Phase 31.7 macro source-quality test determinism pass, and Phase 31.6 Form 4 fallback scoring hotfix on top of the Phase 31.5 analyst-readability UI and Phase 31 overheat validation workflow contract.
+`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 32 Stock Research explanation layer on top of the Phase 31.8 SEC 13F manager-universe expansion, Phase 31.7 macro source-quality test determinism pass, Phase 31.6 Form 4 fallback scoring hotfix, Phase 31.5 analyst-readability UI, and Phase 31 overheat validation workflow contract.
 
 Completed live integrations now documented in this README:
 
@@ -148,6 +150,7 @@ Completed live integrations now documented in this README:
 - Phase 31.6: Form 4 fallback scoring hotfix for fallback SEC EDGAR disposition rows
 - Phase 31.7: macro source-quality test determinism for derived-live versus fallback macro fixtures
 - Phase 31.8: SEC 13F default manager-universe expansion for broader institutional coverage
+- Phase 32: Stock Research explanation layer for source-quality and signal-interpretation clarity
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 

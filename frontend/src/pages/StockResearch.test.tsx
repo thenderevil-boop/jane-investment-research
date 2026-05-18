@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import type { DataSourceStatus, JaneCriterion, ScoreLike, StockAnalysis } from '../types';
 import { getJaneCriteria } from '../api/client';
-import StockResearch, { AnalystBriefSection, AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ValidationOSReportSection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
+import StockResearch, { AnalystBriefSection, AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ResearchSignalExplanationSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ValidationOSReportSection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -198,6 +198,93 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Verify monopoly power evidence.');
     expect(html).toContain('Not investment advice');
     expect(html).not.toContain('Social heat score');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders research signal explanations for common confusing outputs', () => {
+    const result = {
+      ticker: 'NVDA',
+      market: 'US',
+      jane_criteria_coverage: {
+        covered_count: 0,
+        partial_count: 1,
+        insufficient_count: 19,
+        coverage_gap_count: 19,
+        user_input_required_count: 19,
+        financial_proxy_available_count: 6,
+        source_quality_summary: 'Jane 20 coverage is preliminary and needs manual qualitative evidence.',
+        not_investment_advice: true,
+        criteria: [],
+      },
+      jane_company_quality: {
+        ...score({ ...mockStatus, source_type: 'derived', provider: 'derived_from_yfinance' }),
+        label: 'preliminary',
+        source_status: { ...mockStatus, source_type: 'derived', provider: 'derived_from_yfinance' },
+        criteria: [],
+      },
+      market_timing_context: {
+        ...score({ ...mockStatus, source_type: 'derived', provider: 'derived_from_yfinance' }),
+        score: 0,
+        label: 'insufficient_data_or_unfavorable',
+      },
+      institutional_13f: {
+        ...score({ ...mockStatus, source_type: 'derived', provider: 'derived_from_SEC_EDGAR_13F' }),
+        raw_data: {
+          candidate_specific_evidence: {
+            interpretation_label: 'no_reported_13f_position_observed',
+            score_contribution_allowed: false,
+          },
+        },
+      },
+      valuation_context: {
+        ...score({ ...mockStatus, source_type: 'derived', provider: 'derived_from_yfinance' }),
+        label: 'valuation_context_elevated',
+      },
+      not_investment_advice: true,
+    } as StockAnalysis;
+
+    const html = renderToStaticMarkup(<ResearchSignalExplanationSection result={result} />);
+
+    expect(html).toContain('Research Signal Explanation');
+    expect(html).toContain('Coverage Matrix is evidence completeness');
+    expect(html).toContain('Market Sentiment measures entry environment');
+    expect(html).toContain('Fallback badges lower confidence');
+    expect(html).toContain('No reported 13F position is not a negative trading signal');
+    expect(html).toContain('Elevated valuation is a risk context');
+    expect(html).toContain('Not investment advice');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('explains Form 4 fallback neutrality when fallback source status is present', () => {
+    const fallbackStatus: DataSourceStatus = {
+      ...mockStatus,
+      source_type: 'fallback',
+      provider: 'SEC EDGAR',
+      fallback_used: true,
+      fallback_reason: 'Live SEC Form 4 fetch failed',
+    };
+    const result = {
+      ticker: 'NVDA',
+      market: 'US',
+      insider_activity: {
+        ...score(fallbackStatus),
+        label: 'insider_activity_neutral',
+        raw_data: { source_status: fallbackStatus },
+      },
+      smart_money: {
+        ...score({ ...mockStatus, source_type: 'derived', provider: 'mixed_smart_money_sources' }),
+        source_quality_breakdown: {
+          form4: { source_type: 'fallback', interpretation: 'Fallback-limited.', score_impact: 'Neutral context.' },
+        },
+      },
+      not_investment_advice: true,
+    } as StockAnalysis;
+
+    const html = renderToStaticMarkup(<ResearchSignalExplanationSection result={result} />);
+
+    expect(html).toContain('Fallback Form 4 rows are not scored as insider selling pressure');
+    expect(html).toContain('disposition counts are treated as neutral context');
+    expect(html).not.toContain('insider_distribution_risk');
     expect(html).not.toContain('[object Object]');
   });
 
