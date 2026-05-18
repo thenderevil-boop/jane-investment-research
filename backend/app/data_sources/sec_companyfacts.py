@@ -51,6 +51,7 @@ CONCEPTS: dict[str, list[str]] = {
     "gross_profit": ["GrossProfit"],
     "operating_income": ["OperatingIncomeLoss"],
     "net_income": ["NetIncomeLoss"],
+    "research_and_development_expense": ["ResearchAndDevelopmentExpense", "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost"],
     "operating_cash_flow": [
         "NetCashProvidedByUsedInOperatingActivities",
         "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
@@ -94,6 +95,7 @@ STATEMENT_METRICS = {
     "gross_profit",
     "operating_income",
     "net_income",
+    "research_and_development_expense",
     "operating_cash_flow",
     "capex",
 }
@@ -303,6 +305,43 @@ def _cagr(series: list[FactSelection]) -> float | None:
     return round(((series[0].value / series[3].value) ** (1 / 3) - 1) * 100, 4)
 
 
+def _margin_series(metric_series: list[FactSelection], revenue_series: list[FactSelection]) -> list[float]:
+    values: list[float] = []
+    for metric_fact in metric_series:
+        revenue_fact = _fact_for_period(revenue_series, metric_fact.period)
+        value = _pct(metric_fact.value, revenue_fact.value if revenue_fact else None)
+        if value is not None and value <= 100:
+            values.append(value)
+    return values
+
+
+def _trend_pct(metric_series: list[FactSelection], revenue_series: list[FactSelection]) -> float | None:
+    margins = _margin_series(metric_series, revenue_series)
+    if len(margins) < 2:
+        return None
+    return round(margins[0] - margins[-1], 4)
+
+
+def _fcf_margin_series(ocf_series: list[FactSelection], capex_series: list[FactSelection], revenue_series: list[FactSelection]) -> list[float]:
+    values: list[float] = []
+    for ocf_fact in ocf_series:
+        capex_fact = _fact_for_period(capex_series, ocf_fact.period)
+        revenue_fact = _fact_for_period(revenue_series, ocf_fact.period)
+        if capex_fact is None or revenue_fact is None:
+            continue
+        value = _pct(ocf_fact.value - capex_fact.value, revenue_fact.value)
+        if value is not None and value <= 100:
+            values.append(value)
+    return values
+
+
+def _fcf_margin_trend_pct(ocf_series: list[FactSelection], capex_series: list[FactSelection], revenue_series: list[FactSelection]) -> float | None:
+    margins = _fcf_margin_series(ocf_series, capex_series, revenue_series)
+    if len(margins) < 2:
+        return None
+    return round(margins[0] - margins[-1], 4)
+
+
 def _invalid_ratio(value: float | None) -> bool:
     return value is not None and value > 100
 
@@ -337,6 +376,7 @@ def parse_companyfacts(ticker: str, cik: str, payload: dict[str, Any], *, source
     gross_profit = selected.get("gross_profit")
     operating_income = selected.get("operating_income")
     net_income = selected.get("net_income")
+    rd_expense = selected.get("research_and_development_expense")
     ocf = selected.get("operating_cash_flow")
     capex = selected.get("capex")
     cash = selected.get("cash_and_equivalents")
@@ -366,17 +406,22 @@ def parse_companyfacts(ticker: str, cik: str, payload: dict[str, Any], *, source
         "gross_margin_pct": _pct(gross_profit.value if gross_profit and revenue and gross_profit.period == revenue.period else None, revenue.value if revenue else None),
         "operating_margin_pct": _pct(operating_income.value if operating_income and revenue and operating_income.period == revenue.period else None, revenue.value if revenue else None),
         "net_income_margin_pct": _pct(net_income.value if net_income and revenue and net_income.period == revenue.period else None, revenue.value if revenue else None),
+        "rd_to_revenue_pct": _pct(rd_expense.value if rd_expense and revenue and rd_expense.period == revenue.period else None, revenue.value if revenue else None),
+        "rd_to_revenue_trend_pct": _trend_pct(selected_series.get("research_and_development_expense", []), selected_series.get("revenue", [])),
+        "gross_margin_trend_pct": _trend_pct(selected_series.get("gross_profit", []), selected_series.get("revenue", [])),
+        "operating_margin_trend_pct": _trend_pct(selected_series.get("operating_income", []), selected_series.get("revenue", [])),
         "ocf_margin_pct": _pct(ocf.value if ocf and revenue and ocf.period == revenue.period else None, revenue.value if revenue else None),
         "capex_as_pct_of_ocf": _pct(capex.value if capex and ocf and capex.period == ocf.period else None, ocf.value if ocf else None),
         "fcf": fcf,
         "fcf_margin_pct": _pct(fcf if fcf is not None and revenue and ocf and ocf.period == revenue.period else None, revenue.value if revenue else None),
+        "fcf_margin_trend_pct": _fcf_margin_trend_pct(selected_series.get("operating_cash_flow", []), selected_series.get("capex", []), selected_series.get("revenue", [])),
         "receivables_to_revenue_pct": _pct(receivables.value if receivables and revenue_comparable_to_balance else None, revenue.value if revenue else None),
         "inventory_to_revenue_pct": _pct(inventory.value if inventory and revenue_comparable_to_balance else None, revenue.value if revenue else None),
         "debt_to_equity": _ratio(debt.value if debt else None, equity.value if equity else None),
         "net_cash_or_debt": round((cash.value if cash else 0) - (debt.value if debt else 0), 6) if cash or debt else None,
         "share_dilution_3y_pct": share_dilution,
     }
-    for metric in ["gross_margin_pct", "operating_margin_pct", "net_income_margin_pct", "fcf_margin_pct"]:
+    for metric in ["gross_margin_pct", "operating_margin_pct", "net_income_margin_pct", "rd_to_revenue_pct", "fcf_margin_pct"]:
         if _invalid_ratio(derived_metrics.get(metric)):
             derived_metrics[metric] = None
             invalid_derived_metrics[metric] = "invalid_period_alignment"
@@ -387,10 +432,12 @@ def parse_companyfacts(ticker: str, cik: str, payload: dict[str, Any], *, source
         invalid_derived_metrics.setdefault("fcf_margin_pct", "invalid_period_alignment")
         invalid_derived_metrics.setdefault("capex_as_pct_of_ocf", "invalid_period_alignment")
     if revenue is None:
-        for metric in ["revenue_yoy_growth_pct", "revenue_3y_cagr_pct", "gross_margin_pct", "operating_margin_pct", "net_income_margin_pct", "ocf_margin_pct", "fcf_margin_pct", "receivables_to_revenue_pct", "inventory_to_revenue_pct"]:
+        for metric in ["revenue_yoy_growth_pct", "revenue_3y_cagr_pct", "gross_margin_pct", "operating_margin_pct", "net_income_margin_pct", "rd_to_revenue_pct", "rd_to_revenue_trend_pct", "gross_margin_trend_pct", "operating_margin_trend_pct", "ocf_margin_pct", "fcf_margin_pct", "fcf_margin_trend_pct", "receivables_to_revenue_pct", "inventory_to_revenue_pct"]:
             derived_metrics[metric] = None
             if derived_metrics.get(metric) is None:
                 invalid_derived_metrics.setdefault(metric, "invalid_period_alignment")
+    if rd_expense is None and selected_series.get("research_and_development_expense"):
+        invalid_derived_metrics.setdefault("rd_to_revenue_pct", "invalid_period_alignment")
     latest_filing_date = max((fact.filed for fact in selected.values() if fact and fact.filed), default=None)
     latest_report_period = max((fact.period for fact in selected.values() if fact and fact.period), default=None)
     fetched_at = datetime.now(timezone.utc).isoformat()
@@ -453,7 +500,8 @@ def unavailable_companyfacts(ticker: str, reason: str) -> dict[str, Any]:
         "fact_series": {metric: [] for metric in CONCEPTS},
         "derived_metrics": {key: None for key in [
             "revenue_yoy_growth_pct", "revenue_3y_cagr_pct", "gross_margin_pct", "operating_margin_pct",
-            "net_income_margin_pct", "ocf_margin_pct", "capex_as_pct_of_ocf", "fcf", "fcf_margin_pct",
+            "net_income_margin_pct", "rd_to_revenue_pct", "rd_to_revenue_trend_pct", "gross_margin_trend_pct",
+            "operating_margin_trend_pct", "ocf_margin_pct", "capex_as_pct_of_ocf", "fcf", "fcf_margin_pct", "fcf_margin_trend_pct",
             "receivables_to_revenue_pct", "inventory_to_revenue_pct", "debt_to_equity", "net_cash_or_debt",
             "share_dilution_3y_pct",
         ]},

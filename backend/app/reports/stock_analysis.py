@@ -1236,10 +1236,16 @@ def _merge_financials_with_sec(yfinance_fundamentals: dict, sec_facts: dict, cro
         "gross_margin_pct": ("derived_metrics", "gross_margin_pct"),
         "operating_margin_pct": ("derived_metrics", "operating_margin_pct"),
         "net_income_margin_pct": ("derived_metrics", "net_income_margin_pct"),
+        "rd_expense_ttm": ("facts", "research_and_development_expense"),
+        "rd_to_revenue_pct": ("derived_metrics", "rd_to_revenue_pct"),
+        "rd_to_revenue_trend_pct": ("derived_metrics", "rd_to_revenue_trend_pct"),
+        "gross_margin_trend_pct": ("derived_metrics", "gross_margin_trend_pct"),
+        "operating_margin_trend_pct": ("derived_metrics", "operating_margin_trend_pct"),
         "operating_cash_flow_ttm": ("facts", "operating_cash_flow"),
         "capex_ttm": ("facts", "capex"),
         "free_cash_flow_ttm": ("derived_metrics", "fcf"),
         "free_cash_flow_margin_pct": ("derived_metrics", "fcf_margin_pct"),
+        "free_cash_flow_margin_trend_pct": ("derived_metrics", "fcf_margin_trend_pct"),
         "cash_and_equivalents": ("facts", "cash_and_equivalents"),
         "total_debt": ("facts", "total_debt"),
         "net_cash_or_debt": ("derived_metrics", "net_cash_or_debt"),
@@ -2139,15 +2145,56 @@ def _accepted_jane_evidence_by_criterion(qualitative_assessment: dict) -> dict[i
     return grouped
 
 
+def _sec_financial_proxy_evidence_by_criterion(response: AnalyzeStockResponse) -> dict[int, list[dict]]:
+    financials = response.financial_quality.raw_data if response.financial_quality else {}
+    filing_fields = set(financials.get("filing_backed_fields") or [])
+    if not filing_fields:
+        return {}
+
+    def item(submetric: str, fields: set[str], summary: str) -> dict | None:
+        if not fields.issubset(filing_fields):
+            return None
+        return {
+            "submetric": submetric,
+            "accepted": True,
+            "confidence": 0.72,
+            "source_quality": "filing_backed",
+            "source_label": "SEC Companyfacts financial proxy",
+            "summary": summary,
+        }
+
+    evidence: dict[int, list[dict]] = {}
+    for criterion_id, proxy_items in {
+        5: [
+            item("rd_percent_of_revenue", {"rd_to_revenue_pct"}, "SEC Companyfacts R&D expense divided by revenue supports R&D intensity coverage."),
+        ],
+        6: [
+            item("gross_margin_expansion", {"gross_margin_pct", "gross_margin_trend_pct"}, "SEC Companyfacts gross margin and multi-year trend support scalability proxy coverage."),
+            item("operating_leverage", {"operating_margin_pct", "operating_margin_trend_pct"}, "SEC Companyfacts operating margin and trend support operating leverage proxy coverage."),
+        ],
+        10: [
+            item("positive_fcf", {"free_cash_flow_ttm"}, "SEC Companyfacts OCF minus CapEx supports positive free-cash-flow coverage."),
+            item("fcf_margin", {"free_cash_flow_margin_pct"}, "SEC Companyfacts free-cash-flow margin supports cash-flow quality coverage."),
+            item("fcf_growth_trend", {"free_cash_flow_margin_trend_pct"}, "SEC Companyfacts multi-year free-cash-flow margin trend supports cash-flow trend coverage."),
+            item("cash_conversion_quality", {"operating_cash_flow_ttm", "capex_ttm", "free_cash_flow_ttm"}, "SEC Companyfacts OCF, CapEx, and FCF support cash-conversion proxy coverage."),
+        ],
+    }.items():
+        accepted = [proxy for proxy in proxy_items if proxy]
+        if accepted:
+            evidence[criterion_id] = accepted
+    return evidence
+
+
 def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
     evidence_by_id = _accepted_jane_evidence_by_criterion(response.qualitative_evidence_assessment.model_dump(mode="json"))
+    sec_proxy_by_id = _sec_financial_proxy_evidence_by_criterion(response)
     rows = []
     for criterion in JANE_CRITERIA:
         criterion_id = int(criterion["criterion_id"])
         all_submetrics = list(criterion.get("submetrics") or [])
         auto_submetrics = list(criterion.get("auto_derivable_submetrics") or [])
         required_user_submetrics = list(criterion.get("requires_user_input_submetrics") or [])
-        items = evidence_by_id.get(criterion_id, [])
+        items = [*evidence_by_id.get(criterion_id, []), *sec_proxy_by_id.get(criterion_id, [])]
         accepted_items = [item for item in items if item.get("accepted") is True]
         covered = sorted(
             {
@@ -2172,7 +2219,7 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
             "User-provided evidence still requires manual source verification.",
         ]
         if auto_submetrics:
-            limitations.append("Auto-derivable submetrics are listed but Phase 28 does not deepen financial proxy calculations.")
+            limitations.append("Auto-derivable submetrics are covered only when accepted evidence or SEC Companyfacts financial proxies are available.")
         rows.append(
             {
                 "criterion_id": criterion_id,

@@ -40,7 +40,7 @@ Phase 15 live-enables company profile and fundamentals through the existing repo
 
 Phase 16 uses the same yfinance fundamentals path to harden company-quality evidence. `jane_company_quality` is derived from explicit Jane criteria and only scores criteria that have available evidence. Qualitative moat, founder/CEO, network effect, and disruption evidence is marked insufficient when unavailable. `research_context.theme` is user context only and does not verify mega-trend fit. `financial_statement_signals` derives revenue growth, operating margin, net income, operating cash flow, cash buffer, debt, receivables, inventory, CapEx/OCF, and dilution checks from available fundamentals. Missing fields are not fabricated.
 
-Phase 17 adds official SEC EDGAR Companyfacts as a filing-backed cross-check for financial statement signals. SEC Companyfacts uses `https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json`, requires `SEC_EDGAR_USER_AGENT`, caches raw/parsed snapshots, and never exposes the User-Agent, headers, or raw provider URL in responses or fallback reasons. SEC Companyfacts complements yfinance; it does not replace yfinance as the MVP market/company provider. Concept coverage varies by issuer and reporting period, so missing concepts are listed in `missing_data` and are not guessed. SEC/yfinance discrepancies appear as review signals in `fundamentals_cross_check`.
+Phase 17 adds official SEC EDGAR Companyfacts as a filing-backed cross-check for financial statement signals. SEC Companyfacts uses `https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json`, requires `SEC_EDGAR_USER_AGENT`, caches raw/parsed snapshots, and never exposes the User-Agent, headers, or raw provider URL in responses or fallback reasons. SEC Companyfacts complements yfinance; it does not replace yfinance as the MVP market/company provider. Concept coverage varies by issuer and reporting period, so missing concepts are listed in `missing_data` and are not guessed. SEC/yfinance discrepancies appear as review signals in `fundamentals_cross_check`. Phase 34 expands this layer with R&D expense and period-aligned multi-year margin/free-cash-flow trend proxies that can support Jane coverage validation for criteria 5, 6, and 10.
 
 Legacy `leadership_score` remains mock-only for backward compatibility and is deprecated by `jane_company_quality`; it must not boost candidate confidence as live company-quality evidence.
 
@@ -48,7 +48,7 @@ Phase 15.5 stabilizes source architecture without adding providers or changing s
 
 `USE_LIVE_COMPANY_DATA=true` enables this company-data path directly. If unset, it follows `USE_LIVE_MARKET_DATA`. `COMPANY_DATA_PROVIDER` defaults to `yfinance`. No paid provider is added, and no website scraping is used.
 
-SEC Companyfacts now supplies the official filing-backed financial cross-check layer for analyze-stock. Qualitative Jane criteria still require independent qualitative evidence and are not inferred from Companyfacts.
+SEC Companyfacts now supplies the official filing-backed financial cross-check layer for analyze-stock. It may also provide financial proxy coverage for R&D intensity, scalability, and cash-flow quality where aligned filing facts exist. Qualitative Jane criteria still require independent qualitative evidence and are not inferred from Companyfacts.
 
 ## Phase 18 Manual Qualitative Evidence
 
@@ -146,6 +146,7 @@ Limitations:
 - SEC Companyfacts concept coverage varies by issuer and period
 - SEC FY values may differ from yfinance TTM/provider-normalized values
 - Phase 17a aligns income-statement and cash-flow facts by annual fiscal period before computing margins, FCF, and CapEx/OCF ratios
+- Phase 34 uses the same period-alignment rule for R&D/revenue, multi-year gross/operating margin trend, and multi-year free-cash-flow margin trend proxies
 - stale revenue, CapEx, or balance-sheet facts are not mixed into current-period derived metrics
 - invalid SEC derived ratios are marked with `invalid_period_alignment` and yfinance may remain the provider-backed fallback for financial signals
 - discrepancies are human-review signals, not automatic failures

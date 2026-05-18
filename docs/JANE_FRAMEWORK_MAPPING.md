@@ -127,6 +127,8 @@ Phase 27 stores this canonical model in `backend/app/data/jane_leadership_criter
 
 Phase 28 maps the same canonical 20-criteria model into analyze-stock `jane_criteria_coverage`, a non-scoring coverage matrix that tracks covered and missing submetrics, accepted evidence counts, and required human verification for validation completeness.
 
+Phase 34 expands financial proxy coverage within the same non-scoring Coverage Matrix. Filing-backed SEC Companyfacts values may cover `rd_percent_of_revenue` for criterion 5, `gross_margin_expansion` and `operating_leverage` for criterion 6, and free-cash-flow submetrics for criterion 10 when period-aligned facts exist. These proxy rows remain validation completeness evidence and do not replace manual qualitative research for moat, founder, network effect, disruption, or customer validation criteria.
+
 Phase 29 surfaces the same coverage and evidence gaps through analyze-stock `validation_os_report`, a non-scoring explainability layer that summarizes Jane quality context, coverage gaps, manual checks, source-quality caveats, and research-only limitations without changing the final score or verdict.
 
 Implementation module:

@@ -114,7 +114,7 @@ Phase 14 makes the response a candidate validation report rather than a loose bu
 - `qualitative_evidence_assessment`: optional manual qualitative evidence validation results when the request includes structured qualitative evidence.
 - `comparison_evidence_assessment`: manual competitor/comparison evidence summary for peer context hooks.
 - `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, qualitative evidence, comparison evidence, Jane company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
-- `jane_criteria_coverage`: non-scoring coverage matrix across the canonical Jane 20 criteria, accepted evidence items, covered and missing submetrics, and next manual checks.
+- `jane_criteria_coverage`: non-scoring coverage matrix across the canonical Jane 20 criteria, accepted evidence items, SEC Companyfacts financial proxies where available, covered and missing submetrics, and next manual checks.
 - `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, qualitative evidence counts, and excluded scoring indicators.
 - `score_driver_breakdown`: positive, limiting, and neutral score drivers.
 - `next_manual_checks`: research-oriented checks for source quality, fundamentals, filings, valuation, and risk.
@@ -187,6 +187,7 @@ Phase 28 Jane criteria coverage behavior:
 
 - Analyze-stock returns `jane_criteria_coverage` with 20 canonical rows keyed by `criterion_id`.
 - Each row reports `evidence_type`, `coverage_status`, `source_quality`, `auto_derivable_submetrics`, `requires_user_input_submetrics`, `covered_submetrics`, `missing_submetrics`, evidence counts, `requires_human_verification`, limitations, and an optional `next_manual_check`.
+- Phase 34 allows filing-backed SEC Companyfacts financial proxies to cover selected auto-derivable submetrics for criteria 5 (`rd_percent_of_revenue`), 6 (`gross_margin_expansion`, `operating_leverage`), and 10 (`positive_fcf`, `fcf_margin`, `fcf_growth_trend`, `cash_conversion_quality`). Rows expose this through existing `financial_proxy_source`, `source_quality`, `covered_submetrics`, and `limitations` fields.
 - Coverage matrix output is validation completeness only. It does not change `evidence_matrix`, `leadership_score` deprecation semantics, or final scoring logic by itself.
 - Rejected or unsupported evidence must not mark a submetric as covered.
 
@@ -268,6 +269,7 @@ Phase 17 SEC Companyfacts behavior:
 - SEC Companyfacts uses only `https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json` and requires `SEC_EDGAR_USER_AGENT` for live fetches.
 - `SEC_EDGAR_USER_AGENT`, raw provider URLs, and request headers are never exposed in API responses.
 - Missing SEC concepts appear in `missing_data`; missing facts and share dilution are not inferred from price or market cap.
+- Phase 34 adds R&D expense concepts and derives aligned R&D/revenue, margin-trend, and FCF-margin-trend proxy metrics. Invalid period-alignment ratios remain nulled and disclosed instead of being used as supportive evidence.
 - Phase 17a requires period-aligned annual facts for SEC-derived margins, OCF, CapEx, FCF, and CapEx/OCF. Invalid period alignment is reported through `invalid_derived_metrics` and affected derived metrics are null.
 - `source_type` remains one of `live`, `cached_live`, `mock`, `fallback`, `derived`, or `unknown`; mixed provider summaries use `source_type="derived"` with descriptive providers.
 - SEC/yfinance discrepancies are human-review signals, not automatic failures or investment instructions.
@@ -1468,6 +1470,8 @@ Phase 33 extends saved Manual Evidence Library records and saved-library qualita
 - `workflow_status`: `draft`, `review_ready`, `accepted`, `needs_refresh`, `rejected`, or `archived`.
 
 The fields are accepted by `POST /api/manual-evidence`, returned by manual evidence list/get endpoints, patchable through `PATCH /api/manual-evidence/{evidence_id}`, and preserved in `POST /api/analyze-stock` under `qualitative_evidence_assessment.evidence_items[]` for saved-library evidence. They are workflow metadata only and do not change score formulas, source quality semantics, live provider behavior, source URL fetching, or automatic evidence ingestion. Secret/API-key markers and investment-instruction language are rejected in research-note text fields.
+
+Phase 34 extends `POST /api/analyze-stock` without adding new top-level schema fields. `sec_financial_facts.facts` can include `research_and_development_expense`, `sec_financial_facts.derived_metrics` can include R&D/revenue and multi-year margin/free-cash-flow trend proxy metrics, and `financial_quality.raw_data.filing_backed_fields` can include the mapped proxy fields. The Coverage Matrix uses existing row fields to show SEC Companyfacts financial proxy coverage for criteria 5, 6, and 10; this remains non-scoring validation completeness evidence.
 
 Phase 11.5 config:
 

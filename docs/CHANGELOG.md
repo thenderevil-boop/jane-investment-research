@@ -1,5 +1,13 @@
 # Changelog
 
+## Phase 34 — SEC Companyfacts Jane Financial Proxy Expansion
+
+- Added SEC Companyfacts R&D concept parsing (`ResearchAndDevelopmentExpense` and `ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost`) with period alignment and invalid-ratio safeguards.
+- Expanded SEC-derived financial proxy fields that flow into analyze-stock financial quality: `rd_expense_ttm`, `rd_to_revenue_pct`, `rd_to_revenue_trend_pct`, `gross_margin_trend_pct`, `operating_margin_trend_pct`, and `free_cash_flow_margin_trend_pct`.
+- Coverage Matrix now treats filing-backed SEC Companyfacts proxies as validation evidence for Jane criteria 5 (continuous R&D), 6 (scalability), and 10 (cash-flow quality) while preserving manual qualitative evidence requirements and final scoring boundaries.
+- Frontend coverage rendering already displays `financial_proxy_source`, covered/missing submetrics, source quality, and limitations; no new UI contract field was required.
+- Added `tests/phase34_sec_companyfacts_jane_proxies.py` for parser, period-alignment, analyze-stock merge, and Coverage Matrix regression coverage.
+
 ## Phase 33 — Jane Evidence Library / Research Note Workflow
 
 - Extended Manual Evidence Library records with optional research-note workflow metadata: `note_title`, `research_question`, `thesis_direction`, and `workflow_status`.
