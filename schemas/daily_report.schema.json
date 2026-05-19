@@ -1117,6 +1117,13 @@
           "title": "Fred Backed Fields",
           "type": "array"
         },
+        "context_only_fred_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Context Only Fred Fields",
+          "type": "array"
+        },
         "mock_context_fields": {
           "items": {
             "type": "string"

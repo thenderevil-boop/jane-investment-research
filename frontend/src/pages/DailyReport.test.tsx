@@ -24,11 +24,11 @@ describe('DailyReport presentation helpers', () => {
       date: '2026-05-18',
       market: 'US',
       macro_regime: { source_status: status('derived') },
-      market_timing: { source_status: status('fallback') },
-      overheat_risk: { source_status: status('derived') },
+      market_timing: { source_status: status('live') },
+      overheat_risk: { source_status: status('cached_live') },
       crisis_risk: { source_status: status('mock') },
       smart_money: { source_status: status('fallback', '', false) },
-      future_themes: [],
+      future_themes: [{ source_status: status('derived') }],
       missing_data: ['source_date'],
       limitations: ['Some components still use mock data.'],
     } as unknown as DailyReport;
@@ -36,12 +36,14 @@ describe('DailyReport presentation helpers', () => {
     const html = renderToStaticMarkup(<DailyDataCoverageSummary report={report} />);
 
     expect(html).toContain('Data Coverage');
-    expect(html).toContain('Live / derived');
-    expect(html).toContain('2');
+    expect(html).toContain('Live');
+    expect(html).toContain('Cached live');
+    expect(html).toContain('Derived live');
     expect(html).toContain('Fallback');
     expect(html).toContain('Mock');
-    expect(html).toContain('Stale / missing date');
+    expect(html).toContain('Missing source date');
     expect(html).toContain('Some components still use mock data.');
+    expect(html).not.toContain('Live / derived');
     expect(html).not.toContain('[object Object]');
   });
 });

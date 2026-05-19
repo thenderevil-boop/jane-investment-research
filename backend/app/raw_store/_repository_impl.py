@@ -1407,6 +1407,8 @@ def read_macro_data(
     cpi_status = _fred_component_status(raw_series.get("cpi", {}), source_type=fred_source_type, fetched_at=fetched_at)
     ppi_status = _fred_component_status(raw_series.get("ppi", {}), source_type=fred_source_type, fetched_at=fetched_at)
     unemployment_status = _fred_component_status(raw_series.get("unemployment_rate", {}), source_type=fred_source_type, fetched_at=fetched_at)
+    consumer_sentiment_status = _fred_component_status(raw_series.get("consumer_sentiment", {}), source_type=fred_source_type, fetched_at=fetched_at)
+    consumer_sentiment_status["source"] = ["UMCSENT"]
     spread_status = _derived_fred_status(
         [("DGS10", ten_year_status), ("DGS2", two_year_status)],
         source=["DGS10", "DGS2"],
@@ -1461,6 +1463,7 @@ def read_macro_data(
         "ppi_yoy": ppi_yoy_status,
         "unemployment_rate": unemployment_status,
         "unemployment_trend": unemployment_trend_status,
+        "consumer_sentiment": consumer_sentiment_status,
         "dxy_trend": market_context_snapshot.get("component_source_status", {}).get("dxy_trend", {**mock_status, "freshness_window": "phase9_mock_context"}),
         "gold_trend": market_context_snapshot.get("component_source_status", {}).get("gold_trend", {**mock_status, "freshness_window": "phase9_mock_context"}),
         "oil_trend": market_context_snapshot.get("component_source_status", {}).get("oil_trend", {**mock_status, "freshness_window": "phase9_mock_context"}),

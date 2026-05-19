@@ -8,6 +8,8 @@ pytest-cache-files-*/
 .pytest_tmp/
 pytest_tmp/
 pytest-temp-root*/
+.hermes/plans/
+.venv-wsl/
 tests_tmp/
 
 frontend/node_modules/

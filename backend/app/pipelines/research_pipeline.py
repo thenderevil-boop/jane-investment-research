@@ -361,6 +361,7 @@ def build_daily_report(
             "derived_from_fred_fields": macro_regime.macro_data_quality.derived_from_fred_fields,
             "yfinance_backed_fields": macro_regime.macro_data_quality.yfinance_backed_fields,
             "derived_from_yfinance_fields": macro_regime.macro_data_quality.derived_from_yfinance_fields,
+            "context_only_fred_fields": macro_regime.macro_data_quality.context_only_fred_fields,
             "excluded_indicators": macro_regime.macro_data_quality.excluded_indicators,
             "scoring": macro_regime.macro_data_quality.scoring,
             "market_context_reused_from_daily_market_data": (macro_regime.raw_data.get("raw_market_context") or {}).get("diagnostics", {}).get("market_context_reused_from_daily_market_data"),

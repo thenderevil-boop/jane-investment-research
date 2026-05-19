@@ -119,6 +119,7 @@ DERIVED_FROM_FRED_FIELDS = [
     "fed_policy_trend",
     "unemployment_trend",
 ]
+CONTEXT_ONLY_FRED_FIELDS = ["consumer_sentiment"]
 MOCK_CONTEXT_FIELDS = [
     "vix",
     "dxy_trend",
@@ -352,6 +353,7 @@ def _scoring_quality(contributions: list[dict[str, Any]], components: list[Any],
         "active_component_count": len(ACTIVE_COMPONENT_NAMES),
         "active_weight_total": 100,
         "excluded_component_count": len(EXCLUDED_INDICATORS),
+        "context_only_components_count_as_missing": False,
         "excluded_indicators": [
             *_excluded_indicators_with_display(macro_data_quality.excluded_indicators)
         ],
@@ -500,6 +502,7 @@ def _score_weight_pct(count: int, total: int) -> float:
 
 def _build_macro_data_quality(data: dict[str, Any], components: list[Any], limitations: list[str]) -> MacroDataQuality:
     fred_backed, fred_derived, yfinance_backed, yfinance_derived, mock_context = _component_names_by_source(components)
+    context_only_fred: list[str] = []
     component_status = data.get("component_source_status", {}) if isinstance(data.get("component_source_status"), dict) else {}
     for field in FRED_BACKED_FIELDS:
         status = component_status.get(field, {}) if isinstance(component_status.get(field), dict) else {}
@@ -518,7 +521,12 @@ def _build_macro_data_quality(data: dict[str, Any], components: list[Any], limit
         value_present = field in {"equity_drawdown", "gain_from_recent_trough"} or data.get(field) is not None
         if value_present and status.get("provider") == "derived_from_yfinance":
             yfinance_derived.append(field)
+    for field in CONTEXT_ONLY_FRED_FIELDS:
+        status = component_status.get(field, {}) if isinstance(component_status.get(field), dict) else {}
+        if data.get(field) is not None and status.get("provider") == "FRED":
+            context_only_fred.append(field)
     fred_backed = sorted(set(fred_backed))
+    context_only_fred = sorted(set(context_only_fred))
     fred_derived = sorted(set(fred_derived))
     yfinance_backed = sorted(set(yfinance_backed))
     yfinance_derived = sorted(set(yfinance_derived))
@@ -529,6 +537,7 @@ def _build_macro_data_quality(data: dict[str, Any], components: list[Any], limit
     live_context_pct = _score_weight_pct(len(fred_backed) + len(fred_derived) + len(yfinance_backed) + len(yfinance_derived), total)
     return MacroDataQuality(
         fred_backed_fields=fred_backed,
+        context_only_fred_fields=context_only_fred,
         mock_context_fields=mock_context,
         derived_from_fred_fields=fred_derived,
         yfinance_backed_fields=yfinance_backed,

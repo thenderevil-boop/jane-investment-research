@@ -20,6 +20,7 @@ Phase 17 adds official SEC EDGAR Companyfacts as a filing-backed cross-check lay
 - `SEC_EDGAR_USER_AGENT` is required for live Companyfacts fetches and is never exposed in API responses, snapshots, logs, fallback reasons, or tests.
 - Phase 17a aligns SEC Companyfacts derived metrics by fiscal period. Income statement and cash-flow margins only use same-period annual facts, CapEx must align with OCF, and invalid period-alignment ratios are nulled with `invalid_period_alignment` rather than used as supportive evidence.
 - Phase 17c tightens analyze-stock data-quality categories. `fallback_evidence_categories` are based on actual fallback source status, `mixed_with_fallback` evidence quality, or score-affecting fallback subcomponents. Derived-live macro context is not fallback when active `macro_v12_5` components are live/cached/derived, mock context score weight is 0, and excluded ISM/CNN indicators have `affects_score=false` with weight 0.
+- Phase 35 expands Daily Report live/derived coverage. FRED `UMCSENT` is exposed as context-only consumer sentiment (`context_only_fred_fields`) and yfinance SPY/QQQ/^VIX market features now include derived `market_context_coverage`; neither change alters analyze-stock final scoring.
 - Phase 34 expands SEC Companyfacts financial proxies for Jane coverage. Filing-backed R&D expense now feeds `rd_expense_ttm` and `rd_to_revenue_pct`, multi-year SEC-derived margin/FCF trends feed financial proxy fields, and `jane_criteria_coverage` can mark Jane criteria 5, 6, and 10 as partially covered by SEC Companyfacts proxy evidence without changing final scoring.
 
 Enable live Companyfacts:
@@ -115,13 +116,15 @@ Phase 33 adds Jane Evidence Library research-note workflow metadata to saved man
 
 Phase 34 expands the SEC Companyfacts → Jane financial proxy bridge. Official Companyfacts R&D concepts flow into `rd_expense_ttm` / `rd_to_revenue_pct`; period-aligned multi-year SEC margins and free-cash-flow trends support financial proxy submetrics; and the Coverage Matrix labels SEC Companyfacts-derived proxy coverage for Jane criteria 5 (continuous R&D), 6 (scalability), and 10 (cash-flow quality) as validation evidence only.
 
+Phase 35 improves Daily Report live/derived source coverage. FRED `UMCSENT` consumer sentiment is included as context-only macro evidence and reported under macro data-quality metadata without becoming an active scoring component. The yfinance SPY/QQQ/^VIX path now emits derived `market_context_coverage` for index drawdown/recovery, volatility, and volume/extension context, and the Daily Report UI separates live, cached-live, derived-live, fallback, mock, and missing-source-date counts.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
 
 ## Current Implementation Status
 
-`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 34 SEC Companyfacts Jane financial proxy expansion on top of the Phase 33 Jane Evidence Library research-note workflow metadata layer, Phase 32 Stock Research explanation layer, Phase 31.8 SEC 13F manager-universe expansion, Phase 31.7 macro source-quality test determinism pass, Phase 31.6 Form 4 fallback scoring hotfix, Phase 31.5 analyst-readability UI, and Phase 31 overheat validation workflow contract.
+`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 35 Daily Report live/derived coverage upgrade on top of the Phase 34 SEC Companyfacts Jane financial proxy expansion, Phase 33 Jane Evidence Library research-note workflow metadata layer, Phase 32 Stock Research explanation layer, Phase 31.8 SEC 13F manager-universe expansion, Phase 31.7 macro source-quality test determinism pass, Phase 31.6 Form 4 fallback scoring hotfix, Phase 31.5 analyst readability pass, and the prior Phase 31 yfinance-derived overheat component work.
 
 Completed live integrations now documented in this README:
 
@@ -156,6 +159,7 @@ Completed live integrations now documented in this README:
 - Phase 31.7: macro source-quality test determinism for derived-live versus fallback macro fixtures
 - Phase 31.8: SEC 13F default manager-universe expansion for broader institutional coverage
 - Phase 32: Stock Research explanation layer for source-quality and signal-interpretation clarity
+- Phase 35: Daily Report FRED `UMCSENT` context-only sentiment, yfinance market-context coverage metadata, and split source coverage UI
 - Phase 33: Jane Evidence Library research-note workflow metadata for saved manual evidence
 - Phase 34: SEC Companyfacts Jane financial proxy expansion for R&D intensity, scalability, and cash-flow coverage
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 35 — Daily Report Live/Derived Coverage Upgrade
+
+- Added FRED `UMCSENT` consumer sentiment as Daily Report macro context with `context_only_fred_fields`; it is visible in raw macro context and source-quality metadata but remains outside `macro_v12_5` scoring and does not count as missing active score evidence.
+- Added yfinance-derived `market_context_coverage` metadata for SPY/QQQ/^VIX index, volatility, and volume/extension context so Daily Report market evidence can distinguish derived-live context from mock/fallback inputs.
+- Split the Daily Report Data Coverage UI from a combined “Live / derived” count into separate `Live`, `Cached live`, `Derived live`, `Fallback`, `Mock`, and `Missing source date` counts.
+- Updated backend/frontend tests, schemas, docs, and local ignore hygiene. Phase 35 does not change analyze-stock final scoring or convert Daily Report into the main ticker-discovery workflow.
+
 ## Phase 34 — SEC Companyfacts Jane Financial Proxy Expansion
 
 - Added SEC Companyfacts R&D concept parsing (`ResearchAndDevelopmentExpense` and `ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost`) with period alignment and invalid-ratio safeguards.

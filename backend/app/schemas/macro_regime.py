@@ -24,6 +24,7 @@ class MacroIndicatorComponent(BaseModel):
 
 class MacroDataQuality(BaseModel):
     fred_backed_fields: list[str]
+    context_only_fred_fields: list[str] = Field(default_factory=list)
     mock_context_fields: list[str]
     derived_from_fred_fields: list[str]
     yfinance_backed_fields: list[str] = Field(default_factory=list)

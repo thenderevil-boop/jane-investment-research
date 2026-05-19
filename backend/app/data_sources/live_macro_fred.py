@@ -31,6 +31,7 @@ FRED_SERIES = {
     "ppi": "PPIACO",
     "unemployment_rate": "UNRATE",
 }
+FRED_CONTEXT_SERIES = {"consumer_sentiment": "UMCSENT"}
 
 DAILY_RATE_SERIES = {"DGS10", "DGS2"}
 
@@ -329,8 +330,16 @@ def calculate_fed_policy_trend(observations: list[dict[str, Any]]) -> str:
 
 def fetch_macro_snapshot() -> dict[str, Any]:
     series = {name: fetch_fred_series(series_id) for name, series_id in FRED_SERIES.items()}
+    context_series: dict[str, dict[str, Any]] = {}
     missing_data: list[str] = []
     limitations = [LIMITATION]
+    for name, series_id in FRED_CONTEXT_SERIES.items():
+        try:
+            context_series[name] = fetch_fred_series(series_id)
+        except FredFetchError:
+            missing_data.append(name)
+            limitations.append(f"Optional FRED context series {series_id} unavailable; active macro scoring continues without it.")
+    series.update(context_series)
     limitations.append("ISM Manufacturing PMI is excluded from scoring because no valid licensed/live source is configured.")
     fetched_at = datetime.now(timezone.utc).isoformat()
     for payload in series.values():
@@ -359,6 +368,9 @@ def fetch_macro_snapshot() -> dict[str, Any]:
         "unemployment_rate": latest["unemployment_rate"]["value"],
         "unemployment_trend": calculate_trend(observations["unemployment_rate"]),
     }
+    if "consumer_sentiment" in latest:
+        indicators["consumer_sentiment"] = latest["consumer_sentiment"]["value"]
+        indicators["consumer_sentiment_trend"] = calculate_trend(observations["consumer_sentiment"])
     payload = {
         "source_type": "live",
         "provider": "FRED",

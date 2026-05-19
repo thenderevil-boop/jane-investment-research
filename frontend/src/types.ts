@@ -32,6 +32,7 @@ export type DataQualitySummary = {
     derived_from_fred_fields?: string[];
     yfinance_backed_fields?: string[];
     derived_from_yfinance_fields?: string[];
+    context_only_fred_fields?: string[];
     excluded_indicators?: Record<string, unknown>[];
     scoring?: Record<string, unknown>;
     yfinance_macro_fields_count?: number;

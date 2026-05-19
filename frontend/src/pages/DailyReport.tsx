@@ -59,10 +59,12 @@ function collectSourceStatuses(report: DailyReport) {
 
 export function DailyDataCoverageSummary({ report }: { report: DailyReport }) {
   const statuses = collectSourceStatuses(report);
-  const liveOrDerived = statuses.filter((status) => ['live', 'cached_live', 'derived'].includes(status?.source_type ?? '')).length;
+  const live = statuses.filter((status) => status?.source_type === 'live').length;
+  const cachedLive = statuses.filter((status) => status?.source_type === 'cached_live').length;
+  const derivedLive = statuses.filter((status) => status?.source_type === 'derived').length;
   const fallback = statuses.filter((status) => status?.source_type === 'fallback').length;
   const mock = statuses.filter((status) => status?.source_type === 'mock').length;
-  const staleOrMissing = statuses.filter((status) => !status?.is_fresh || !status?.source_date).length;
+  const missingSourceDate = statuses.filter((status) => !status?.source_date).length;
   const topLimitations = collectLimitations(report).slice(0, 2);
 
   return (
@@ -75,10 +77,12 @@ export function DailyDataCoverageSummary({ report }: { report: DailyReport }) {
         </div>
       </div>
       <div className="briefMetricGrid">
-        <div><span>Live / derived</span><strong>{liveOrDerived}</strong></div>
+        <div><span>Live</span><strong>{live}</strong></div>
+        <div><span>Cached live</span><strong>{cachedLive}</strong></div>
+        <div><span>Derived live</span><strong>{derivedLive}</strong></div>
         <div><span>Fallback</span><strong>{fallback}</strong></div>
         <div><span>Mock</span><strong>{mock}</strong></div>
-        <div><span>Stale / missing date</span><strong>{staleOrMissing}</strong></div>
+        <div><span>Missing source date</span><strong>{missingSourceDate}</strong></div>
       </div>
       {topLimitations.length > 0 && <ul className="noteList">{topLimitations.map((item) => <li key={item}>{item}</li>)}</ul>}
     </section>

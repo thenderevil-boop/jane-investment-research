@@ -34,6 +34,8 @@ Phase 11.5a adds `daily_report_metadata` to `/api/daily-report/latest` responses
 
 Phase 15.5 keeps daily reports snapshot-first while stabilizing architecture. Daily batch refresh uses a per-job context instead of mutating global config for report live-fetch or price-reference warmup flags. Daily report candidates are config-driven through `DEFAULT_DAILY_REPORT_CANDIDATES`, with safe defaults matching the existing NVDA and TSLA background candidates. `smart_money` is canonical; `smart_money_summary` is deprecated and retained as an equal backward-compatible alias.
 
+Phase 35 expands Daily Report source coverage without changing analyze-stock scoring. Live FRED macro snapshots include `UMCSENT` as context-only `consumer_sentiment`; macro data-quality metadata may include `context_only_fred_fields`, and macro scoring marks context-only inputs as not counted missing. Live yfinance SPY/QQQ/^VIX market snapshots may include `market_context_coverage` with provider `derived_from_yfinance`. The Daily Report frontend displays separate live, cached-live, derived-live, fallback, mock, and missing-source-date counts.
+
 Phase 19.5 hardens API behavior without changing scoring, data providers, SEC parsers, macro scoring, or manual evidence scoring. Normal JSON endpoint responses pass through the safety filter before returning. `/api/themes/latest` and `/api/macro-regime/latest` use the snapshot-first daily report path instead of directly rebuilding the daily report from their route handlers. Supplemental cache-warmup requests use a typed request model, and API error payloads remain sanitized.
 
 Phase 23 adds Candidate Research Workspace endpoints around user-provided ticker ideas. The workspace is local workflow metadata only: it does not discover tickers, does not call live providers from list/dashboard endpoints, does not fetch source URLs, and does not affect analyze-stock scoring.
@@ -46,6 +48,7 @@ Environment-controlled live macro behavior:
 
 - `USE_LIVE_MACRO_DATA=false` by default keeps macro data on deterministic mock fixtures.
 - `USE_LIVE_MACRO_DATA=true` with `FRED_API_KEY` attempts repository-backed FRED fetches for selected macro fields.
+- FRED `UMCSENT` is used as Daily Report consumer-sentiment context only; it is not an active macro scoring component.
 - FRED transient 5xx/timeout failures are retried with a bounded adapter budget.
 - If a FRED live refresh fails and fresh cached-live FRED data exists, the macro report uses cached-live data before mock fallback.
 - Missing `FRED_API_KEY`, unsupported provider, or FRED fetch failure without usable cached-live data falls back to mock macro data with `source_type="fallback"`.

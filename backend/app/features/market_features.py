@@ -155,6 +155,22 @@ def build_market_snapshot_features(
             index_features["source_status"] = build_source_status(index_features).model_dump(mode="json")
     missing = sorted({*spy.get("missing_data", []), *qqq.get("missing_data", []), *vix_snapshot.get("missing_data", [])})
     limitations = sorted({*spy.get("limitations", []), *qqq.get("limitations", []), *vix_snapshot.get("limitations", [])})
+    market_context_coverage = {
+        "source_type": "derived",
+        "provider": "derived_from_yfinance",
+        "source": ["SPY", "QQQ", "^VIX"],
+        "symbols": ["SPY", "QQQ", "^VIX"],
+        "source_date": aggregate_source_date,
+        "derived_context_fields": [
+            "index_drawdown_context",
+            "index_recovery_context",
+            "volatility_context",
+            "volume_and_extension_context",
+        ],
+        "limitations": limitations,
+        "missing_data": missing,
+    }
+    market_context_coverage["source_status"] = build_source_status(market_context_coverage).model_dump(mode="json")
     return {
         "source_type": source_type,
         "source": sorted({*spy.get("source", []), *qqq.get("source", []), vix_snapshot.get("source", "unknown")}),
@@ -185,6 +201,7 @@ def build_market_snapshot_features(
         "vix_falling_from_spike": vix_falling,
         "index_market_data": {"SPY": spy, "QQQ": qqq},
         "vix_market_data": build_price_features(vix_snapshot),
+        "market_context_coverage": market_context_coverage,
         "limitations": limitations,
         "missing_data": missing,
     }
