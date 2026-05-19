@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 37 — External Provider Adapter Foundation
+
+- Added a shared external provider configuration/status foundation for future FMP, OpenBB sidecar, Alpha Vantage, and USASpending adapters.
+- Added safe provider registry snapshots that expose enablement, cache TTL, sidecar base URL, and API-key presence without exposing secrets.
+- Added conversion from external provider status into the existing `DataSourceStatus` contract, including cache-hit, rate-limit, fallback, limitations, and missing-data metadata.
+- Phase 37 does not fetch from external providers, change scoring, add frontend UI, or expose API keys.
+
 ## Phase 36 — Market Timing Condition Explanation v2
 
 - Added a non-scoring `market_timing_condition_explanation_v2` checklist to `market_timing_context.derived_metrics` for Fed consecutive cuts, market drawdown/stabilization, VIX spike/recovery, and overheat/normal/fear state.

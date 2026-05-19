@@ -2,7 +2,7 @@
 
 ## MVP Rule
 
-Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions, Phase 11 adds opt-in official SEC EDGAR 13F institutional holdings, and Phase 17 adds opt-in official SEC EDGAR Companyfacts financial cross-checks. Phase 35 adds FRED `UMCSENT` as Daily Report context-only consumer sentiment and explicit yfinance-derived market-context coverage metadata. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
+Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions, Phase 11 adds opt-in official SEC EDGAR 13F institutional holdings, and Phase 17 adds opt-in official SEC EDGAR Companyfacts financial cross-checks. Phase 35 adds FRED `UMCSENT` as Daily Report context-only consumer sentiment and explicit yfinance-derived market-context coverage metadata. Phase 37 adds an external provider adapter foundation for future FMP, OpenBB sidecar, Alpha Vantage, and USASpending integrations but does not fetch from those providers yet. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
 
 ## Phase 13 Endpoint Roles
 
@@ -15,6 +15,12 @@ Phase 35 Daily Report source coverage notes:
 - FRED `UMCSENT` is fetched with the other FRED macro series when live macro data is enabled. It appears as `consumer_sentiment` / `consumer_sentiment_trend` and under `context_only_fred_fields`; it is not part of `macro_v12_5` active scoring weights.
 - yfinance SPY/QQQ/^VIX market data emits `market_context_coverage` with `source_type="derived"` and provider `derived_from_yfinance` for index drawdown/recovery, volatility, and volume/extension context.
 - Daily Report UI coverage separates live, cached-live, derived-live, fallback, mock, and missing-source-date components. This is source-health visibility only and does not make Daily Report the primary user workflow.
+
+Phase 37 external provider adapter notes:
+
+- Future FMP transcript/ratio, OpenBB sidecar, Alpha Vantage, and USASpending adapters must use the shared `ExternalProviderConfig` / `ExternalProviderStatus` foundation before exposing source evidence.
+- Safe provider registry snapshots may disclose `enabled`, `requires_api_key`, `has_api_key`, `base_url`, and `cache_ttl_days`, but must never disclose API-key values.
+- Phase 37 config toggles are inert until future phases add concrete fetch adapters.
 
 Future Industry Radar is optional/future/reference only. Analyze-stock must not depend on automatic theme discovery and must remain usable when theme radar data is missing or stale.
 

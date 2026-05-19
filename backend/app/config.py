@@ -93,3 +93,21 @@ SEC_FORM4_MAX_FILINGS_PER_TICKER = int(os.getenv("SEC_FORM4_MAX_FILINGS_PER_TICK
 SEC_FORM4_MAX_XML_DISCOVERY_PER_REPORT = int(os.getenv("SEC_FORM4_MAX_XML_DISCOVERY_PER_REPORT", "20") or "20")
 SEC_FORM4_NETWORK_TIMEOUT_SECONDS = float(os.getenv("SEC_FORM4_NETWORK_TIMEOUT_SECONDS", "10") or "10")
 SEC_FORM4_TOTAL_BUDGET_SECONDS = float(os.getenv("SEC_FORM4_TOTAL_BUDGET_SECONDS", "20") or "20")
+
+# Phase 37 external provider adapter foundation. These toggles only configure
+# future adapters; Phase 37 does not fetch from FMP, OpenBB, Alpha Vantage, or
+# USASpending by itself.
+USE_LIVE_FMP_DATA = _env_bool("USE_LIVE_FMP_DATA", False)
+FMP_API_KEY = os.getenv("FMP_API_KEY", "").strip()
+FMP_CACHE_TTL_DAYS = int(os.getenv("FMP_CACHE_TTL_DAYS", "7") or "7")
+
+USE_OPENBB_SIDECAR = _env_bool("USE_OPENBB_SIDECAR", False)
+OPENBB_BASE_URL = os.getenv("OPENBB_BASE_URL", "http://127.0.0.1:6900").strip().rstrip("/") or "http://127.0.0.1:6900"
+OPENBB_CACHE_TTL_DAYS = int(os.getenv("OPENBB_CACHE_TTL_DAYS", "3") or "3")
+
+USE_LIVE_ALPHA_VANTAGE = _env_bool("USE_LIVE_ALPHA_VANTAGE", False)
+ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "").strip()
+ALPHA_VANTAGE_CACHE_TTL_DAYS = int(os.getenv("ALPHA_VANTAGE_CACHE_TTL_DAYS", "7") or "7")
+
+USE_LIVE_USASPENDING_DATA = _env_bool("USE_LIVE_USASPENDING_DATA", False)
+USASPENDING_CACHE_TTL_DAYS = int(os.getenv("USASPENDING_CACHE_TTL_DAYS", "30") or "30")

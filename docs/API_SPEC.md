@@ -224,6 +224,13 @@ Phase 36 market-timing explanation behavior:
 - `market_timing_context.derived_metrics.score_zero_interpretation` explains that score 0 means Jane entry timing conditions are not met and that this is expected near market highs.
 - Phase 36 does not change market-timing weights, labels, final scoring, providers, or investment-advice boundaries.
 
+Phase 37 external provider adapter foundation:
+
+- `backend.app.data_sources.external_provider_base.ExternalProviderConfig` standardizes provider enablement, API-key presence, sidecar base URL, and cache TTL metadata for future external adapters.
+- `ExternalProviderStatus.to_data_source_status()` converts cache-hit, rate-limit, fallback, limitations, and missing-data metadata into the existing `DataSourceStatus` response contract.
+- `backend.app.data_sources.provider_registry.provider_registry_snapshot()` exposes safe public metadata for future FMP, OpenBB sidecar, Alpha Vantage, and USASpending adapters without exposing API keys.
+- Phase 37 adds config toggles only. It does not add endpoint fields, fetch external data, change scoring, or add frontend UI.
+
 Phase 19 manual evidence library behavior:
 
 - `/api/manual-evidence` provides local CRUD for reusable user-provided qualitative evidence by ticker.
