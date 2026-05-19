@@ -157,6 +157,22 @@ describe('StockResearch presentation helpers', () => {
         not_investment_advice: true,
       },
       macro_regime: { score: 62, label: 'neutral_to_constructive', confidence: 0.95 },
+      market_timing_context: {
+        score: 0,
+        label: 'insufficient_data_or_unfavorable',
+        confidence: 0.92,
+        derived_metrics: {
+          phase36_explanation_version: 'market_timing_condition_explanation_v2',
+          score_zero_interpretation: 'Score 0 means Jane entry timing conditions are not met; this is expected near market highs.',
+          entry_timing_summary: 'Jane entry timing conditions are not met yet; this is expected near market highs or calm markets.',
+          condition_checklist: [
+            { id: 'fed_consecutive_cuts', label: 'Fed consecutive cuts', status: 'not_met', observed_value: '0 consecutive cut(s)', explanation: 'Jane timing framework looks for at least two consecutive cuts.', affects_score: false },
+            { id: 'market_drawdown_stabilization', label: 'Market drawdown and stabilization', status: 'not_met', observed_value: 'SPY -4.0%, QQQ -7.0% drawdown', explanation: 'Jane timing framework looks for a deep drawdown plus stabilization.', affects_score: false },
+            { id: 'vix_spike_recovery', label: 'VIX spike and recovery', status: 'not_met', observed_value: 'VIX 17.0; spike no; falling no', explanation: 'Jane timing framework looks for volatility spike confirmation and recovery.', affects_score: false },
+            { id: 'overheat_state', label: 'Overheat / normal / fear state', status: 'normal', observed_value: 'VIX 17.0; drawdown -7.0%', explanation: 'Normal market context often means entry timing score remains low.', affects_score: false },
+          ],
+        },
+      },
       overheat_risk: {
         score: 63,
         label: 'overheated',
@@ -191,6 +207,15 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('watchlist candidate');
     expect(html).toContain('Data quality: B');
     expect(html).toContain('Macro: neutral to constructive');
+    expect(html).toContain('Entry timing conditions');
+    expect(html).toContain('Score 0 means Jane entry timing conditions are not met; this is expected near market highs.');
+    expect(html).toContain('Fed consecutive cuts');
+    expect(html).toContain('0 consecutive cut(s)');
+    expect(html).toContain('Market drawdown and stabilization');
+    expect(html).toContain('SPY -4.0%, QQQ -7.0% drawdown');
+    expect(html).toContain('VIX spike and recovery');
+    expect(html).toContain('Overheat / normal / fear state');
+    expect(html).toContain('Non-scoring explanation');
     expect(html).toContain('Overheat: overheated');
     expect(html).toContain('Volume ratio: 2.5x');
     expect(html).toContain('Price vs 200d MA: 30%');

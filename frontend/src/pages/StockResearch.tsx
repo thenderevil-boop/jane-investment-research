@@ -218,6 +218,24 @@ export function resolveScoreSourceStatus(score?: ScoreLike): DataSourceStatus | 
 }
 
 type VolumeExtensionComponent = ScoreLike & { derived_metrics?: Record<string, unknown> };
+type MarketTimingCondition = {
+  id?: string;
+  label?: string;
+  status?: string;
+  observed_value?: string;
+  explanation?: string;
+  affects_score?: boolean;
+};
+
+function getMarketTimingConditions(result: StockAnalysis): MarketTimingCondition[] {
+  const checklist = result.market_timing_context?.derived_metrics?.condition_checklist;
+  return Array.isArray(checklist) ? checklist as MarketTimingCondition[] : [];
+}
+
+function getMarketTimingText(result: StockAnalysis, key: string): string | undefined {
+  const value = result.market_timing_context?.derived_metrics?.[key];
+  return typeof value === 'string' ? value : undefined;
+}
 
 function getVolumeExtensionComponent(result: StockAnalysis): VolumeExtensionComponent | undefined {
   const components = result.overheat_risk?.derived_metrics?.components;
@@ -239,6 +257,9 @@ export function AnalystBriefSection({ result }: { result: StockAnalysis }) {
   const report = result.validation_os_report;
   const summary = result.candidate_validation_summary;
   const volumeContext = getVolumeExtensionComponent(result);
+  const marketTimingConditions = getMarketTimingConditions(result);
+  const marketTimingSummary = getMarketTimingText(result, 'entry_timing_summary');
+  const scoreZeroInterpretation = getMarketTimingText(result, 'score_zero_interpretation');
   const volumeRatio = volumeContext?.derived_metrics?.volume_ratio;
   const priceVs200d = volumeContext?.derived_metrics?.price_vs_200d_pct;
   const socialHeatCheck = hasSocialHeatHumanCheck(result);
@@ -264,6 +285,17 @@ export function AnalystBriefSection({ result }: { result: StockAnalysis }) {
         <div><span>Overheat</span><strong>Overheat: {displayOptionalKey(result.overheat_risk?.label)}</strong></div>
         <div><span>Financial quality</span><strong>{displayOptionalKey(result.financial_quality?.label)}</strong></div>
         <div><span>Smart money</span><strong>{displayOptionalKey(result.smart_money?.label)}</strong></div>
+      </div>
+      <div className="briefOverheatContext">
+        <strong>Entry timing conditions</strong>
+        {marketTimingSummary && <span>{marketTimingSummary}</span>}
+        {result.market_timing_context?.score === 0 && scoreZeroInterpretation && <span>{scoreZeroInterpretation}</span>}
+        {marketTimingConditions.map((condition) => (
+          <span key={condition.id ?? condition.label}>
+            {condition.label}: {displayOptionalKey(condition.status)} — {condition.observed_value ?? 'N/A'}
+            {condition.affects_score === false ? ' (Non-scoring explanation)' : ''}
+          </span>
+        ))}
       </div>
       <div className="briefOverheatContext">
         <strong>Phase 31 overheat context</strong>

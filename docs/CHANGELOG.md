@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 36 — Market Timing Condition Explanation v2
+
+- Added a non-scoring `market_timing_condition_explanation_v2` checklist to `market_timing_context.derived_metrics` for Fed consecutive cuts, market drawdown/stabilization, VIX spike/recovery, and overheat/normal/fear state.
+- Added explicit score-0 interpretation text: “Score 0 means Jane entry timing conditions are not met; this is expected near market highs.”
+- Surfaced the checklist in the Stock Research Analyst Brief as entry-timing explanation context.
+- Preserved existing market-timing scoring weights, labels, provider behavior, and research-only / not-investment-advice boundaries.
+
 ## Phase 35 — Daily Report Live/Derived Coverage Upgrade
 
 - Added FRED `UMCSENT` consumer sentiment as Daily Report macro context with `context_only_fred_fields`; it is visible in raw macro context and source-quality metadata but remains outside `macro_v12_5` scoring and does not count as missing active score evidence.

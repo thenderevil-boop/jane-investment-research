@@ -315,6 +315,90 @@ def market_timing_label(score: float) -> str:
     return "insufficient_data_or_unfavorable"
 
 
+def _format_pct(value: Any) -> str:
+    if value is None:
+        return "N/A"
+    return f"{float(value):.1f}%"
+
+
+def _phase36_market_timing_condition_checklist(data: dict[str, Any]) -> list[dict[str, Any]]:
+    cuts = data.get("consecutive_rate_cut_count") or 0
+    sp500_drawdown = data.get("sp500_drawdown_pct")
+    nasdaq_drawdown = data.get("nasdaq_drawdown_pct")
+    drawdowns = [value for value in [sp500_drawdown, nasdaq_drawdown] if value is not None]
+    deepest_drawdown = min(drawdowns) if drawdowns else None
+    range_20d = data.get("index_range_20d_pct")
+    vol_20d = data.get("realized_vol_20d")
+    previous_vol_20d = data.get("previous_realized_vol_20d")
+    deep_drawdown = deepest_drawdown is not None and deepest_drawdown <= -20
+    stabilizing = bool(
+        range_20d is not None
+        and range_20d <= 8
+        and vol_20d is not None
+        and previous_vol_20d is not None
+        and vol_20d < previous_vol_20d
+    )
+    vix = data.get("vix")
+    vix_recent_spike = bool(data.get("vix_recent_spike", False))
+    vix_falling = bool(data.get("vix_falling_from_spike", data.get("vix_trend") == "falling"))
+    vix_full_confirmation = bool(vix is not None and vix > 30 and vix_recent_spike and vix_falling and stabilizing)
+    vix_partial_confirmation = bool(vix is not None and vix > 25 and vix_recent_spike and (vix_falling or stabilizing))
+    if deep_drawdown and stabilizing and (vix_falling or vix_full_confirmation):
+        market_state = "fear_recovery"
+        state_explanation = "Deep drawdown is present and volatility is recovering."
+    elif vix is not None and vix >= 30 and not vix_falling:
+        market_state = "overheat"
+        state_explanation = "Volatility is elevated without recovery confirmation."
+    elif deep_drawdown:
+        market_state = "fear"
+        state_explanation = "Deep drawdown is present but recovery confirmation is incomplete."
+    else:
+        market_state = "normal"
+        state_explanation = "Normal market context often means entry timing score remains low."
+    return [
+        {
+            "id": "fed_consecutive_cuts",
+            "label": "Fed consecutive cuts",
+            "status": "met" if cuts >= 2 else "partial" if cuts == 1 else "not_met",
+            "observed_value": f"{cuts} consecutive cut(s)",
+            "explanation": "Jane timing framework looks for at least two consecutive cuts.",
+            "affects_score": False,
+        },
+        {
+            "id": "market_drawdown_stabilization",
+            "label": "Market drawdown and stabilization",
+            "status": "met" if deep_drawdown and stabilizing else "partial" if deep_drawdown else "not_met",
+            "observed_value": f"SPY {_format_pct(sp500_drawdown)}, QQQ {_format_pct(nasdaq_drawdown)} drawdown",
+            "explanation": "Jane timing framework looks for a deep drawdown plus stabilization.",
+            "affects_score": False,
+        },
+        {
+            "id": "vix_spike_recovery",
+            "label": "VIX spike and recovery",
+            "status": "met" if vix_full_confirmation else "partial" if vix_partial_confirmation else "not_met",
+            "observed_value": f"VIX {vix if vix is not None else 'N/A'}; spike {'yes' if vix_recent_spike else 'no'}; falling {'yes' if vix_falling else 'no'}",
+            "explanation": "Jane timing framework looks for volatility spike confirmation and recovery.",
+            "affects_score": False,
+        },
+        {
+            "id": "overheat_state",
+            "label": "Overheat / normal / fear state",
+            "status": market_state,
+            "observed_value": f"VIX {vix if vix is not None else 'N/A'}; drawdown {_format_pct(deepest_drawdown)}",
+            "explanation": state_explanation,
+            "affects_score": False,
+        },
+    ]
+
+
+def _phase36_entry_timing_summary(score: float) -> str:
+    if score >= 80:
+        return "Jane timing conditions are broadly met for research context."
+    if score >= 60:
+        return "Some Jane timing conditions are present but still need confirmation."
+    return "Jane entry timing conditions are not met yet; this is expected near market highs or calm markets."
+
+
 def evaluate_market_timing(data: dict[str, Any]) -> ScoreObject:
     components = [
         fed_easing_component(data),
@@ -343,7 +427,15 @@ def evaluate_market_timing(data: dict[str, Any]) -> ScoreObject:
         score=round(total, 2),
         label=market_timing_label(total),
         raw_data={key: data.get(key) for key in sorted(data.keys()) if key != "fear_greed"},
-        derived_metrics={"components": component_payload, "weights": weights},
+        derived_metrics={
+            "components": component_payload,
+            "weights": weights,
+            "phase36_explanation_version": "market_timing_condition_explanation_v2",
+            "scoring_unchanged": True,
+            "score_zero_interpretation": "Score 0 means Jane entry timing conditions are not met; this is expected near market highs.",
+            "entry_timing_summary": _phase36_entry_timing_summary(total),
+            "condition_checklist": _phase36_market_timing_condition_checklist(data),
+        },
         benchmark={
             "favorable_research_environment_minimum": 80,
             "watch_for_confirmation_minimum": 60,

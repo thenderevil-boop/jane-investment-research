@@ -217,6 +217,13 @@ Phase 31 overheat and human-verification behavior:
 - `GET /api/daily-report/latest` and `POST /api/analyze-stock` may include a structured `jane_social_heat_check` in `human_verification_queue` when `overheat_score >= 60`. This preserves Jane's social heat signal as human judgment only; it is not a scoring input.
 - `human_verification_queue` remains backward-compatible with string entries and may also contain objects with `item`, `question`, `jane_reference`, `action`, and `needs_human_verification`.
 
+Phase 36 market-timing explanation behavior:
+
+- `market_timing_context.derived_metrics.phase36_explanation_version` is `market_timing_condition_explanation_v2` when the additive explanation is present.
+- `market_timing_context.derived_metrics.condition_checklist` is a non-scoring checklist for Fed consecutive cuts, market drawdown/stabilization, VIX spike/recovery, and overheat/normal/fear state. Each item includes `id`, `label`, `status`, `observed_value`, `explanation`, and `affects_score=false`.
+- `market_timing_context.derived_metrics.score_zero_interpretation` explains that score 0 means Jane entry timing conditions are not met and that this is expected near market highs.
+- Phase 36 does not change market-timing weights, labels, final scoring, providers, or investment-advice boundaries.
+
 Phase 19 manual evidence library behavior:
 
 - `/api/manual-evidence` provides local CRUD for reusable user-provided qualitative evidence by ticker.
