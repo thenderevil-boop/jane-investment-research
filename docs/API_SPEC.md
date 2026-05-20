@@ -238,6 +238,13 @@ Phase 38 FMP earnings transcript evidence:
 - When FMP is disabled or unavailable, the field is still present with `quarters_analyzed=0`, insufficient-data labels, and explicit limitations/missing-data metadata.
 - The extraction is deterministic and LLM-free. It uses short transcript snippets as research context only and does not change scores, research verdicts, labels, or investment-advice boundaries.
 
+Phase 39 transcript criteria evidence mapping:
+
+- `POST /api/analyze-stock` returns `jane_criteria_external_evidence` as a top-level, non-scoring evidence section derived from `earnings_transcript_analysis`.
+- The section includes `ticker`, `provider="fmp"`, `source="fmp_earnings_transcript"`, `source_status`, `criteria`, `criteria_count`, `manual_checks`, `limitations`, `affects_score=false`, and `not_investment_advice=true`.
+- `criteria` currently contains Jane C2 (`criterion_id=2`, `Visionary Founder / CEO`) and C17 (`criterion_id=17`, `Mission and Narrative Power`) items with `support_level`, `source_quality`, `confidence`, `covered_submetrics`, `evidence_snippets`, `manual_checks`, `limitations`, `missing_data`, `requires_manual_review=true`, and `affects_score=false`.
+- Coverage Matrix may treat supportive/partial C2/C17 transcript evidence as `provider_backed` completeness context, but this does not change Jane Company Quality scoring, final research verdicts, labels, or investment-advice boundaries.
+
 Phase 19 manual evidence library behavior:
 
 - `/api/manual-evidence` provides local CRUD for reusable user-provided qualitative evidence by ticker.

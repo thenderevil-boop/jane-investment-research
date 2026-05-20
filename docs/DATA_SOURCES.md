@@ -2,7 +2,7 @@
 
 ## MVP Rule
 
-Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions, Phase 11 adds opt-in official SEC EDGAR 13F institutional holdings, and Phase 17 adds opt-in official SEC EDGAR Companyfacts financial cross-checks. Phase 35 adds FRED `UMCSENT` as Daily Report context-only consumer sentiment and explicit yfinance-derived market-context coverage metadata. Phase 37 adds an external provider adapter foundation for future FMP, OpenBB sidecar, Alpha Vantage, and USASpending integrations. Phase 38 adds the first concrete Phase 37 adapter: opt-in FMP earnings-call transcript evidence for analyze-stock. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
+Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions, Phase 11 adds opt-in official SEC EDGAR 13F institutional holdings, and Phase 17 adds opt-in official SEC EDGAR Companyfacts financial cross-checks. Phase 35 adds FRED `UMCSENT` as Daily Report context-only consumer sentiment and explicit yfinance-derived market-context coverage metadata. Phase 37 adds an external provider adapter foundation for future FMP, OpenBB sidecar, Alpha Vantage, and USASpending integrations. Phase 38 adds the first concrete Phase 37 adapter: opt-in FMP earnings-call transcript evidence for analyze-stock. Phase 39 maps FMP transcript analysis into non-scoring Jane C2/C17 external evidence context. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
 
 ## Phase 13 Endpoint Roles
 
@@ -28,6 +28,13 @@ Phase 38 FMP transcript source notes:
 - Raw FMP transcript payloads are cached under the raw-store boundary using `FMP_CACHE_TTL_DAYS`; cached-after-failure responses are labeled `cached_live` with fallback metadata.
 - FMP API keys are used only for outbound provider calls and are never returned in provider registry snapshots, `source_status`, transcript analysis payloads, docs examples, or frontend UI.
 - Transcript analysis is deterministic, LLM-free, non-scoring, and research context only. Management statements are not treated as independently verified facts and must be checked against filings and financial results.
+
+Phase 39 transcript criteria mapping notes:
+
+- `jane_criteria_external_evidence` is derived from the existing FMP transcript analysis; it does not add a new provider call and does not require additional secrets.
+- The current mapping covers Jane C2 (Visionary Founder / CEO) and C17 (Mission and Narrative Power), labeling management-language evidence as `provider_backed` or `cached_live` when transcript data is available.
+- C2/C17 transcript evidence can improve Coverage Matrix completeness but remains manual-review, non-scoring, and not independently verified.
+- Disabled, missing-key, empty, or failed transcript states map to explicit C2/C17 `insufficient_data` items rather than failing analyze-stock.
 
 Future Industry Radar is optional/future/reference only. Analyze-stock must not depend on automatic theme discovery and must remain usable when theme radar data is missing or stale.
 

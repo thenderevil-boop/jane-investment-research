@@ -280,6 +280,35 @@ export type EarningsTranscriptAnalysis = {
   not_investment_advice: boolean;
 };
 
+export type JaneCriteriaExternalEvidenceItem = {
+  criterion_id: number;
+  criterion_name: string;
+  source: string;
+  source_quality: 'provider_backed' | 'cached_live' | 'insufficient';
+  support_level: 'supportive' | 'partial' | 'insufficient_data';
+  confidence: number;
+  covered_submetrics: string[];
+  evidence_snippets: string[];
+  manual_checks: string[];
+  limitations: string[];
+  missing_data: string[];
+  requires_manual_review: boolean;
+  affects_score: boolean;
+};
+
+export type JaneCriteriaExternalEvidence = {
+  ticker: string;
+  provider: string;
+  source: string;
+  source_status: DataSourceStatus;
+  criteria: JaneCriteriaExternalEvidenceItem[];
+  criteria_count: number;
+  manual_checks: string[];
+  limitations: string[];
+  affects_score: boolean;
+  not_investment_advice: boolean;
+};
+
 export type QualitativeEvidenceInput = {
   evidence_id?: string | null;
   criterion: string;
@@ -1106,6 +1135,7 @@ export type StockAnalysis = {
   next_manual_checks?: NextManualCheck[];
   qualitative_evidence_assessment?: QualitativeEvidenceAssessment;
   earnings_transcript_analysis?: EarningsTranscriptAnalysis;
+  jane_criteria_external_evidence?: JaneCriteriaExternalEvidence;
   company_profile?: Record<string, unknown>;
   macro_regime?: ScoreLike;
   leadership_score?: ScoreLike;

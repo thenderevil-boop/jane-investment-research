@@ -264,7 +264,9 @@ export function AnalystBriefSection({ result }: { result: StockAnalysis }) {
   const priceVs200d = volumeContext?.derived_metrics?.price_vs_200d_pct;
   const socialHeatCheck = hasSocialHeatHumanCheck(result);
   const transcript = result.earnings_transcript_analysis;
-  const transcriptChecks = listFirst(transcript?.manual_checks, 2);
+  const transcriptCriteria = result.jane_criteria_external_evidence;
+  const transcriptCriteriaItems = (transcriptCriteria?.criteria ?? []).slice(0, 2);
+  const transcriptChecks = listFirst(transcriptCriteria?.manual_checks ?? transcript?.manual_checks, 2);
   const strengths = listFirst(report?.top_strengths ?? summary?.primary_strengths, 3);
   const limitations = listFirst(report?.top_limitations ?? summary?.primary_risks, 3);
   const manualChecks = listFirst(report?.top_manual_checks ?? summary?.next_manual_checks, 3);
@@ -314,6 +316,12 @@ export function AnalystBriefSection({ result }: { result: StockAnalysis }) {
           <span>Strategy clarity: {displayOptionalKey(transcript.strategy_clarity?.label)}</span>
           <span>Risk acknowledgement: {displayOptionalKey(transcript.risk_acknowledgement?.label)}</span>
           <span>Non-scoring evidence only</span>
+          {transcriptCriteriaItems.map((item) => (
+            <span key={item.criterion_id}>C{item.criterion_id} {item.criterion_name}: {displayOptionalKey(item.support_level)} ({item.source_quality})</span>
+          ))}
+          {transcriptCriteriaItems.flatMap((item) => listFirst(item.covered_submetrics, 2).map((submetric) => (
+            <span key={`${item.criterion_id}-${submetric}`}>Covered: {displayKey(submetric)}</span>
+          )))}
           {transcriptChecks.map((item) => <span key={item}>{item}</span>)}
         </div>
       )}

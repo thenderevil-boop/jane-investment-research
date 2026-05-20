@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 39 — Transcript Criteria Evidence Mapping for C2/C17
+
+- Added `jane_criteria_external_evidence` to `POST /api/analyze-stock`, derived from FMP earnings transcript analysis.
+- Mapped transcript language patterns into non-scoring Jane C2 (Visionary Founder / CEO) and C17 (Mission and Narrative Power) evidence items with support level, snippets, covered submetrics, manual checks, and limitations.
+- Allowed C2/C17 Coverage Matrix rows to treat transcript evidence as provider-backed completeness context while preserving Jane Company Quality scoring and final verdict boundaries.
+- Surfaced C2/C17 transcript criteria context in the Stock Research Analyst Brief and kept disabled/missing-key transcript states as graceful insufficient-data evidence.
+
 ## Phase 38 — FMP Earnings Transcript Evidence
 
 - Added opt-in FMP earnings-call transcript evidence for `POST /api/analyze-stock`, using the Phase 37 provider foundation and `FMP_CACHE_TTL_DAYS` cache behavior.

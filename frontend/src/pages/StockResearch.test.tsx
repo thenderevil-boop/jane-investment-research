@@ -191,6 +191,49 @@ describe('StockResearch presentation helpers', () => {
         affects_score: false,
         not_investment_advice: true,
       },
+      jane_criteria_external_evidence: {
+        ticker: 'NVDA',
+        provider: 'fmp',
+        source: 'fmp_earnings_transcript',
+        source_status: { ...mockStatus, source_type: 'live', provider: 'fmp', source_date: '2026-04-24' },
+        criteria_count: 2,
+        criteria: [
+          {
+            criterion_id: 2,
+            criterion_name: 'Visionary Founder / CEO',
+            source: 'fmp_earnings_transcript',
+            source_quality: 'provider_backed',
+            support_level: 'partial',
+            confidence: 0.7,
+            covered_submetrics: ['long_term_vision_consistency'],
+            evidence_snippets: ['Management repeatedly described cloud and AI strategy.'],
+            manual_checks: ['Confirm transcript themes against filings.'],
+            limitations: ['Transcript context only.'],
+            missing_data: [],
+            requires_manual_review: true,
+            affects_score: false,
+          },
+          {
+            criterion_id: 17,
+            criterion_name: 'Mission and Narrative Power',
+            source: 'fmp_earnings_transcript',
+            source_quality: 'provider_backed',
+            support_level: 'supportive',
+            confidence: 0.72,
+            covered_submetrics: ['clear_long_term_mission', 'founder_narrative_consistency'],
+            evidence_snippets: ['Management described platform priorities.'],
+            manual_checks: ['Confirm transcript themes against filings.'],
+            limitations: ['Transcript context only.'],
+            missing_data: [],
+            requires_manual_review: true,
+            affects_score: false,
+          },
+        ],
+        manual_checks: ['Confirm transcript themes against filings.'],
+        limitations: ['Transcript context only.'],
+        affects_score: false,
+        not_investment_advice: true,
+      },
       overheat_risk: {
         score: 63,
         label: 'overheated',
@@ -240,7 +283,10 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Strategy clarity: clear');
     expect(html).toContain('Risk acknowledgement: partial');
     expect(html).toContain('Non-scoring evidence only');
-    expect(html).toContain('Review full transcript context before interpreting management claims.');
+    expect(html).toContain('C2 Visionary Founder / CEO: partial (provider_backed)');
+    expect(html).toContain('C17 Mission and Narrative Power: supportive (provider_backed)');
+    expect(html).toContain('Covered: long term vision consistency');
+    expect(html).toContain('Confirm transcript themes against filings.');
     expect(html).toContain('Overheat: overheated');
     expect(html).toContain('Volume ratio: 2.5x');
     expect(html).toContain('Price vs 200d MA: 30%');

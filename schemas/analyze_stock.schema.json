@@ -1241,6 +1241,165 @@
       "title": "JaneCriteriaCoverageMatrix",
       "type": "object"
     },
+    "JaneCriteriaExternalEvidence": {
+      "properties": {
+        "ticker": {
+          "title": "Ticker",
+          "type": "string"
+        },
+        "provider": {
+          "default": "fmp",
+          "title": "Provider",
+          "type": "string"
+        },
+        "source": {
+          "default": "fmp_earnings_transcript",
+          "title": "Source",
+          "type": "string"
+        },
+        "source_status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "criteria": {
+          "items": {
+            "$ref": "#/$defs/JaneCriteriaExternalEvidenceItem"
+          },
+          "title": "Criteria",
+          "type": "array"
+        },
+        "criteria_count": {
+          "default": 0,
+          "title": "Criteria Count",
+          "type": "integer"
+        },
+        "manual_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manual Checks",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ticker"
+      ],
+      "title": "JaneCriteriaExternalEvidence",
+      "type": "object"
+    },
+    "JaneCriteriaExternalEvidenceItem": {
+      "properties": {
+        "criterion_id": {
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Criterion Id",
+          "type": "integer"
+        },
+        "criterion_name": {
+          "title": "Criterion Name",
+          "type": "string"
+        },
+        "source": {
+          "default": "fmp_earnings_transcript",
+          "title": "Source",
+          "type": "string"
+        },
+        "source_quality": {
+          "default": "insufficient",
+          "enum": [
+            "provider_backed",
+            "cached_live",
+            "insufficient"
+          ],
+          "title": "Source Quality",
+          "type": "string"
+        },
+        "support_level": {
+          "default": "insufficient_data",
+          "enum": [
+            "supportive",
+            "partial",
+            "insufficient_data"
+          ],
+          "title": "Support Level",
+          "type": "string"
+        },
+        "confidence": {
+          "default": 0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "covered_submetrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Covered Submetrics",
+          "type": "array"
+        },
+        "evidence_snippets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Snippets",
+          "type": "array"
+        },
+        "manual_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manual Checks",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        },
+        "requires_manual_review": {
+          "default": true,
+          "title": "Requires Manual Review",
+          "type": "boolean"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "criterion_id",
+        "criterion_name"
+      ],
+      "title": "JaneCriteriaExternalEvidenceItem",
+      "type": "object"
+    },
     "JaneCriterionCoverageItem": {
       "properties": {
         "criterion_id": {
@@ -3275,6 +3434,9 @@
     "earnings_transcript_analysis": {
       "$ref": "#/$defs/EarningsTranscriptAnalysis"
     },
+    "jane_criteria_external_evidence": {
+      "$ref": "#/$defs/JaneCriteriaExternalEvidence"
+    },
     "company_profile": {
       "additionalProperties": true,
       "title": "Company Profile",
@@ -3417,6 +3579,7 @@
     "qualitative_evidence_assessment",
     "comparison_evidence_assessment",
     "earnings_transcript_analysis",
+    "jane_criteria_external_evidence",
     "company_profile",
     "macro_regime",
     "leadership_score",

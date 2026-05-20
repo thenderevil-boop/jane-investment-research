@@ -124,13 +124,15 @@ Phase 37 adds the external provider adapter foundation for future FMP, OpenBB si
 
 Phase 38 adds opt-in FMP earnings transcript evidence to Stock Research. When `USE_LIVE_FMP_DATA=true` and `FMP_API_KEY` is present, `POST /api/analyze-stock` attempts to fetch/cache recent FMP earnings-call transcripts, normalizes them into internal records, and returns `earnings_transcript_analysis` with deterministic management narrative context for consistency, strategy clarity, risk acknowledgement, customer demand, margin pressure, and capital allocation. This evidence is non-scoring, LLM-free, research context only, and Stock Research displays it as Management narrative context.
 
+Phase 39 maps that FMP transcript context into `jane_criteria_external_evidence` for Jane C2 (Visionary Founder / CEO) and C17 (Mission and Narrative Power). The mapping is deterministic, non-scoring, and requires manual review; it can mark C2/C17 Coverage Matrix submetrics as provider-backed transcript context but does not change Jane company-quality scoring, research verdicts, or investment-advice boundaries.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
 
 ## Current Implementation Status
 
-`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 38 FMP Earnings Transcript Evidence layer on top of the Phase 37 External Provider Adapter Foundation, Phase 36 Market Timing Condition Explanation v2, Phase 35 Daily Report live/derived coverage upgrade, Phase 34 SEC Companyfacts Jane financial proxy expansion, Phase 33 Jane Evidence Library research-note workflow metadata layer, Phase 32 Stock Research explanation layer, Phase 31.8 SEC 13F manager-universe expansion, Phase 31.7 macro source-quality test determinism pass, Phase 31.6 Form 4 fallback scoring hotfix, Phase 31.5 analyst readability pass, and the prior Phase 31 yfinance-derived overheat component work.
+`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 39 Transcript Criteria Evidence Mapping layer on top of the Phase 38 FMP Earnings Transcript Evidence layer, Phase 37 External Provider Adapter Foundation, Phase 36 Market Timing Condition Explanation v2, Phase 35 Daily Report live/derived coverage upgrade, Phase 34 SEC Companyfacts Jane financial proxy expansion, Phase 33 Jane Evidence Library research-note workflow metadata layer, Phase 32 Stock Research explanation layer, Phase 31.8 SEC 13F manager-universe expansion, Phase 31.7 macro source-quality test determinism pass, Phase 31.6 Form 4 fallback scoring hotfix, Phase 31.5 analyst readability pass, and the prior Phase 31 yfinance-derived overheat component work.
 
 Completed live integrations now documented in this README:
 
@@ -171,6 +173,7 @@ Completed live integrations now documented in this README:
 - Phase 36: Market Timing Condition Explanation v2 checklist and score-0 interpretation in Stock Research
 - Phase 37: External Provider Adapter Foundation for future FMP, OpenBB sidecar, Alpha Vantage, and USASpending integrations
 - Phase 38: FMP Earnings Transcript Evidence with non-scoring management narrative context in Stock Research
+- Phase 39: FMP Transcript Criteria Evidence Mapping for Jane C2/C17 non-scoring Coverage Matrix context
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 
