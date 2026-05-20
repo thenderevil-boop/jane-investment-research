@@ -244,6 +244,42 @@ export type NextManualCheck = {
   reason_short?: string;
 };
 
+export type EarningsTranscriptDimension = {
+  label: string;
+  confidence: number;
+  evidence_snippets: string[];
+  limitations: string[];
+  affects_score: boolean;
+};
+
+export type TranscriptTheme = {
+  theme: string;
+  label: string;
+  evidence_snippets: string[];
+  confidence: number;
+  limitations: string[];
+  affects_score: boolean;
+};
+
+export type EarningsTranscriptAnalysis = {
+  ticker: string;
+  provider: string;
+  source_status: DataSourceStatus;
+  quarters_analyzed: number;
+  management_consistency: EarningsTranscriptDimension;
+  strategy_clarity: EarningsTranscriptDimension;
+  risk_acknowledgement: EarningsTranscriptDimension;
+  customer_demand_signal: EarningsTranscriptDimension;
+  margin_pressure_signal: EarningsTranscriptDimension;
+  capital_allocation_focus: EarningsTranscriptDimension;
+  positive_themes: TranscriptTheme[];
+  risk_themes: TranscriptTheme[];
+  manual_checks: string[];
+  limitations: string[];
+  affects_score: boolean;
+  not_investment_advice: boolean;
+};
+
 export type QualitativeEvidenceInput = {
   evidence_id?: string | null;
   criterion: string;
@@ -1069,6 +1105,7 @@ export type StockAnalysis = {
   score_driver_breakdown?: ScoreDriverBreakdown;
   next_manual_checks?: NextManualCheck[];
   qualitative_evidence_assessment?: QualitativeEvidenceAssessment;
+  earnings_transcript_analysis?: EarningsTranscriptAnalysis;
   company_profile?: Record<string, unknown>;
   macro_regime?: ScoreLike;
   leadership_score?: ScoreLike;

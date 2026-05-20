@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 38 — FMP Earnings Transcript Evidence
+
+- Added opt-in FMP earnings-call transcript evidence for `POST /api/analyze-stock`, using the Phase 37 provider foundation and `FMP_CACHE_TTL_DAYS` cache behavior.
+- Added deterministic management narrative extraction for management consistency, strategy clarity, risk acknowledgement, customer demand, margin pressure, and capital allocation context.
+- Surfaced `earnings_transcript_analysis` as a non-scoring analyze-stock section and displayed Management Narrative Context in the Stock Research Analyst Brief.
+- Preserved final scoring, research verdicts, provider secrets, LLM-free deterministic behavior, and not-investment-advice boundaries.
+
 ## Phase 37 — External Provider Adapter Foundation
 
 - Added a shared external provider configuration/status foundation for future FMP, OpenBB sidecar, Alpha Vantage, and USASpending adapters.

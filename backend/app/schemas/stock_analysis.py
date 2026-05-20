@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from backend.app.schemas.common import DataQualitySummary, DataSourceStatus, HumanVerificationQueueItem, ScoreObject
 from backend.app.schemas.daily_report import JaneReferenceConditions
+from backend.app.schemas.earnings_transcript import EarningsTranscriptAnalysis
 from backend.app.schemas.leadership import LeadershipScore
 from backend.app.schemas.macro_regime import MacroRegimeOutput
 
@@ -409,6 +410,7 @@ class AnalyzeStockResponse(BaseModel):
     next_manual_checks: list[NextManualCheck]
     qualitative_evidence_assessment: QualitativeEvidenceAssessment
     comparison_evidence_assessment: ComparisonEvidenceAssessment
+    earnings_transcript_analysis: EarningsTranscriptAnalysis
     company_profile: dict[str, Any]
     macro_regime: MacroRegimeOutput
     leadership_score: LeadershipScore

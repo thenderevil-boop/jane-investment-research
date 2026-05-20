@@ -5,6 +5,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
+from backend.app.data_sources.fmp_transcripts import get_earnings_transcript_analysis
 from backend.app.data_sources.mock_data import DEFAULT_STOCK, MOCK_SOURCE_DATE, STOCK_FIXTURES
 from backend.app.engines.jane_criteria_canonical import JANE_CRITERIA
 from backend.app.engines.leadership_engine import evaluate_leadership
@@ -1874,6 +1875,7 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "smart_money": _status_dict(response.smart_money.source_status),
         "insider_activity": _status_dict(response.insider_activity.get("source_status")),
         "institutional_13f": _status_dict(response.institutional_13f.get("source_status")),
+        "earnings_transcript_analysis": _status_dict(response.earnings_transcript_analysis.source_status),
     }
     quality_criteria = response.jane_company_quality.criteria
     insufficient_evidence_categories = sorted(
@@ -1986,7 +1988,7 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "mock_evidence_categories": mock_categories,
         "fallback_evidence_categories": fallback_categories,
         "missing_source_date_categories": missing_source_date_categories,
-        "excluded_from_scoring": _excluded_indicator_names(response.macro_regime),
+        "excluded_from_scoring": sorted(set(_excluded_indicator_names(response.macro_regime) + ["earnings_transcript_analysis"])),
         "insufficient_evidence_categories": insufficient_evidence_categories,
         "company_quality": company_quality_breakdown,
         "qualitative_evidence": qualitative_summary,
@@ -3586,6 +3588,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     saved_manual_evidence = load_manual_evidence_for_ticker(request.ticker)
     qualitative_evidence_assessment = _build_qualitative_evidence_assessment(request.ticker, request.qualitative_evidence, saved_manual_evidence)
     comparison_evidence_assessment = _build_comparison_evidence_assessment(request.ticker, qualitative_evidence_assessment)
+    earnings_transcript_analysis = get_earnings_transcript_analysis(request.ticker)
     jane_company_quality = _build_jane_company_quality(financial_quality, research_context, qualitative_evidence_assessment)
     financial_statement_signals = _build_financial_statement_signals(financial_quality)
     quality_insufficient = [criterion.name for criterion in jane_company_quality.criteria if criterion.status == "insufficient"]
@@ -3702,6 +3705,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         next_manual_checks=[],
         qualitative_evidence_assessment=qualitative_evidence_assessment,
         comparison_evidence_assessment=comparison_evidence_assessment,
+        earnings_transcript_analysis=earnings_transcript_analysis,
         company_profile={
             **company_profile,
             "themes": company_profile.get("themes", fixture["themes"]),

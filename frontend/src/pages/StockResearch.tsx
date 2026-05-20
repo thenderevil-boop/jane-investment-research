@@ -263,6 +263,8 @@ export function AnalystBriefSection({ result }: { result: StockAnalysis }) {
   const volumeRatio = volumeContext?.derived_metrics?.volume_ratio;
   const priceVs200d = volumeContext?.derived_metrics?.price_vs_200d_pct;
   const socialHeatCheck = hasSocialHeatHumanCheck(result);
+  const transcript = result.earnings_transcript_analysis;
+  const transcriptChecks = listFirst(transcript?.manual_checks, 2);
   const strengths = listFirst(report?.top_strengths ?? summary?.primary_strengths, 3);
   const limitations = listFirst(report?.top_limitations ?? summary?.primary_risks, 3);
   const manualChecks = listFirst(report?.top_manual_checks ?? summary?.next_manual_checks, 3);
@@ -303,6 +305,18 @@ export function AnalystBriefSection({ result }: { result: StockAnalysis }) {
         <span>Price vs 200d MA: {formatPercentValue(priceVs200d)}</span>
         <span>Social heat: {socialHeatCheck ? 'human verification only' : 'not scoring input'}</span>
       </div>
+      {transcript && (
+        <div className="briefOverheatContext">
+          <strong>Management narrative context</strong>
+          <span>Provider: {transcript.provider.toUpperCase()}</span>
+          <span>Quarters analyzed: {transcript.quarters_analyzed}</span>
+          <span>Management consistency: {displayOptionalKey(transcript.management_consistency?.label)}</span>
+          <span>Strategy clarity: {displayOptionalKey(transcript.strategy_clarity?.label)}</span>
+          <span>Risk acknowledgement: {displayOptionalKey(transcript.risk_acknowledgement?.label)}</span>
+          <span>Non-scoring evidence only</span>
+          {transcriptChecks.map((item) => <span key={item}>{item}</span>)}
+        </div>
+      )}
       <div className="threeColumn">
         <div><h3>Top strengths</h3><ul>{strengths.map((item) => <li key={item}>{item}</li>)}</ul></div>
         <div><h3>Top limitations</h3><ul>{limitations.map((item) => <li key={item}>{item}</li>)}</ul></div>

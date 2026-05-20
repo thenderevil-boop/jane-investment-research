@@ -173,6 +173,24 @@ describe('StockResearch presentation helpers', () => {
           ],
         },
       },
+      earnings_transcript_analysis: {
+        ticker: 'NVDA',
+        provider: 'fmp',
+        source_status: { ...mockStatus, source_type: 'live', provider: 'fmp', source_date: '2026-04-24' },
+        quarters_analyzed: 2,
+        management_consistency: { label: 'consistent', confidence: 0.78, evidence_snippets: ['Management repeatedly described cloud and AI strategy.'], limitations: [], affects_score: false },
+        strategy_clarity: { label: 'clear', confidence: 0.72, evidence_snippets: ['Management described platform priorities.'], limitations: [], affects_score: false },
+        risk_acknowledgement: { label: 'partial', confidence: 0.65, evidence_snippets: ['Management acknowledged compute cost pressure.'], limitations: [], affects_score: false },
+        customer_demand_signal: { label: 'strong_positive', confidence: 0.7, evidence_snippets: [], limitations: [], affects_score: false },
+        margin_pressure_signal: { label: 'manageable_pressure', confidence: 0.66, evidence_snippets: [], limitations: [], affects_score: false },
+        capital_allocation_focus: { label: 'reinvestment_focused', confidence: 0.67, evidence_snippets: [], limitations: [], affects_score: false },
+        positive_themes: [{ theme: 'customer_demand', label: 'supportive_context', evidence_snippets: ['Customer demand is strong.'], confidence: 0.6, limitations: [], affects_score: false }],
+        risk_themes: [{ theme: 'margin_pressure', label: 'review_context', evidence_snippets: ['Compute costs remain a margin pressure.'], confidence: 0.6, limitations: [], affects_score: false }],
+        manual_checks: ['Review full transcript context before interpreting management claims.'],
+        limitations: ['Earnings transcript analysis is research context only.'],
+        affects_score: false,
+        not_investment_advice: true,
+      },
       overheat_risk: {
         score: 63,
         label: 'overheated',
@@ -216,6 +234,13 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('VIX spike and recovery');
     expect(html).toContain('Overheat / normal / fear state');
     expect(html).toContain('Non-scoring explanation');
+    expect(html).toContain('Management narrative context');
+    expect(html).toContain('Provider: FMP');
+    expect(html).toContain('Quarters analyzed: 2');
+    expect(html).toContain('Strategy clarity: clear');
+    expect(html).toContain('Risk acknowledgement: partial');
+    expect(html).toContain('Non-scoring evidence only');
+    expect(html).toContain('Review full transcript context before interpreting management claims.');
     expect(html).toContain('Overheat: overheated');
     expect(html).toContain('Volume ratio: 2.5x');
     expect(html).toContain('Price vs 200d MA: 30%');

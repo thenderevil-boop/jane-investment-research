@@ -581,6 +581,125 @@
       "title": "DataSourceStatus",
       "type": "object"
     },
+    "EarningsTranscriptAnalysis": {
+      "properties": {
+        "ticker": {
+          "title": "Ticker",
+          "type": "string"
+        },
+        "provider": {
+          "default": "fmp",
+          "title": "Provider",
+          "type": "string"
+        },
+        "source_status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "quarters_analyzed": {
+          "default": 0,
+          "title": "Quarters Analyzed",
+          "type": "integer"
+        },
+        "management_consistency": {
+          "$ref": "#/$defs/EarningsTranscriptDimension"
+        },
+        "strategy_clarity": {
+          "$ref": "#/$defs/EarningsTranscriptDimension"
+        },
+        "risk_acknowledgement": {
+          "$ref": "#/$defs/EarningsTranscriptDimension"
+        },
+        "customer_demand_signal": {
+          "$ref": "#/$defs/EarningsTranscriptDimension"
+        },
+        "margin_pressure_signal": {
+          "$ref": "#/$defs/EarningsTranscriptDimension"
+        },
+        "capital_allocation_focus": {
+          "$ref": "#/$defs/EarningsTranscriptDimension"
+        },
+        "positive_themes": {
+          "items": {
+            "$ref": "#/$defs/TranscriptTheme"
+          },
+          "title": "Positive Themes",
+          "type": "array"
+        },
+        "risk_themes": {
+          "items": {
+            "$ref": "#/$defs/TranscriptTheme"
+          },
+          "title": "Risk Themes",
+          "type": "array"
+        },
+        "manual_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manual Checks",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ticker"
+      ],
+      "title": "EarningsTranscriptAnalysis",
+      "type": "object"
+    },
+    "EarningsTranscriptDimension": {
+      "properties": {
+        "label": {
+          "default": "insufficient_data",
+          "title": "Label",
+          "type": "string"
+        },
+        "confidence": {
+          "default": 0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence_snippets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Snippets",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        }
+      },
+      "title": "EarningsTranscriptDimension",
+      "type": "object"
+    },
     "EvidenceMatrixItem": {
       "properties": {
         "category": {
@@ -2775,6 +2894,50 @@
       "title": "ScoreObject",
       "type": "object"
     },
+    "TranscriptTheme": {
+      "properties": {
+        "theme": {
+          "title": "Theme",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "evidence_snippets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Snippets",
+          "type": "array"
+        },
+        "confidence": {
+          "default": 0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "theme",
+        "label"
+      ],
+      "title": "TranscriptTheme",
+      "type": "object"
+    },
     "ValidationOSEvidenceGap": {
       "properties": {
         "criterion_id": {
@@ -3109,6 +3272,9 @@
     "comparison_evidence_assessment": {
       "$ref": "#/$defs/ComparisonEvidenceAssessment"
     },
+    "earnings_transcript_analysis": {
+      "$ref": "#/$defs/EarningsTranscriptAnalysis"
+    },
     "company_profile": {
       "additionalProperties": true,
       "title": "Company Profile",
@@ -3250,6 +3416,7 @@
     "next_manual_checks",
     "qualitative_evidence_assessment",
     "comparison_evidence_assessment",
+    "earnings_transcript_analysis",
     "company_profile",
     "macro_regime",
     "leadership_score",
