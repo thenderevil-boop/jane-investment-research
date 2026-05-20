@@ -245,6 +245,14 @@ Phase 39 transcript criteria evidence mapping:
 - `criteria` currently contains Jane C2 (`criterion_id=2`, `Visionary Founder / CEO`) and C17 (`criterion_id=17`, `Mission and Narrative Power`) items with `support_level`, `source_quality`, `confidence`, `covered_submetrics`, `evidence_snippets`, `manual_checks`, `limitations`, `missing_data`, `requires_manual_review=true`, and `affects_score=false`.
 - Coverage Matrix may treat supportive/partial C2/C17 transcript evidence as `provider_backed` completeness context, but this does not change Jane Company Quality scoring, final research verdicts, labels, or investment-advice boundaries.
 
+Phase 40 USASpending government relationship evidence:
+
+- `POST /api/analyze-stock` returns `government_relationship_evidence` as a top-level, non-scoring evidence section for Jane C15 (Regulatory / Government Relationship).
+- The section includes `ticker`, `provider="usaspending"`, `source="usaspending_contract_awards"`, `source_status`, `query_name`, `recipient_candidates`, `award_records`, `total_obligated_amount`, `award_count`, `top_awarding_agencies`, `criteria`, `criteria_count`, `relationship_signal`, `manual_checks`, `limitations`, `affects_score=false`, and `not_investment_advice=true`.
+- `criteria` currently contains C15 with `source_quality`, `support_level`, `confidence`, `covered_submetrics` such as `government_contracts` and optionally `defense_or_infrastructure_status`, `evidence_snippets`, `manual_checks`, `limitations`, `missing_data`, `requires_manual_review=true`, and `affects_score=false`.
+- USASpending evidence is opt-in via `USE_LIVE_USASPENDING_DATA=true`, requires no API key, caches raw snapshots under the raw-store boundary, and falls back to explicit insufficient-data rows or `cached_live` snapshots on provider failure.
+- Recipient and subsidiary matching is ambiguous and must be manually verified; C15 evidence can improve Coverage Matrix completeness but does not change Jane Company Quality scoring, final research verdicts, labels, or investment-advice boundaries.
+
 Phase 19 manual evidence library behavior:
 
 - `/api/manual-evidence` provides local CRUD for reusable user-provided qualitative evidence by ticker.

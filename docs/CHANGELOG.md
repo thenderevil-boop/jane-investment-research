@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 40 — USASpending Government Relationship Evidence for C15
+
+- Added opt-in USASpending.gov federal award evidence for `POST /api/analyze-stock` via `USE_LIVE_USASPENDING_DATA=true`; no API key is required.
+- Added `government_relationship_evidence` with recipient candidates, award records, obligated amount, award count, top agencies, and non-scoring C15 criteria evidence.
+- Integrated C15 government-contract evidence into the Coverage Matrix as provider-backed completeness context while preserving Jane Company Quality scoring and final verdict boundaries.
+- Surfaced Government Relationship Context in the Stock Research Analyst Brief and preserved disabled/failure/cache states as explicit manual-review evidence.
+
 ## Phase 39 — Transcript Criteria Evidence Mapping for C2/C17
 
 - Added `jane_criteria_external_evidence` to `POST /api/analyze-stock`, derived from FMP earnings transcript analysis.

@@ -185,6 +185,11 @@ function formatRatioValue(value: unknown): string {
   return `${value.toFixed(1)}x`;
 }
 
+function formatCurrencyValue(value: unknown): string {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 'N/A';
+  return `$${Math.round(value).toLocaleString('en-US')}`;
+}
+
 function listFirst(items: string[] | undefined, count = 3): string[] {
   return (items ?? []).filter(Boolean).slice(0, count);
 }
@@ -267,6 +272,10 @@ export function AnalystBriefSection({ result }: { result: StockAnalysis }) {
   const transcriptCriteria = result.jane_criteria_external_evidence;
   const transcriptCriteriaItems = (transcriptCriteria?.criteria ?? []).slice(0, 2);
   const transcriptChecks = listFirst(transcriptCriteria?.manual_checks ?? transcript?.manual_checks, 2);
+  const government = result.government_relationship_evidence;
+  const governmentCriteria = (government?.criteria ?? []).slice(0, 1);
+  const governmentAgencies = (government?.top_awarding_agencies ?? []).slice(0, 3);
+  const governmentChecks = listFirst(government?.manual_checks, 2);
   const strengths = listFirst(report?.top_strengths ?? summary?.primary_strengths, 3);
   const limitations = listFirst(report?.top_limitations ?? summary?.primary_risks, 3);
   const manualChecks = listFirst(report?.top_manual_checks ?? summary?.next_manual_checks, 3);
@@ -323,6 +332,25 @@ export function AnalystBriefSection({ result }: { result: StockAnalysis }) {
             <span key={`${item.criterion_id}-${submetric}`}>Covered: {displayKey(submetric)}</span>
           )))}
           {transcriptChecks.map((item) => <span key={item}>{item}</span>)}
+        </div>
+      )}
+      {government && (
+        <div className="briefOverheatContext">
+          <strong>Government relationship context</strong>
+          <span>Provider: {government.provider.toUpperCase()}</span>
+          <span>Total obligated amount: {formatCurrencyValue(government.total_obligated_amount)}</span>
+          <span>Award count: {government.award_count}</span>
+          <span>Non-scoring evidence only</span>
+          {governmentCriteria.map((item) => (
+            <span key={item.criterion_id}>C{item.criterion_id} {item.criterion_name}: {displayOptionalKey(item.support_level)} ({item.source_quality})</span>
+          ))}
+          {governmentCriteria.flatMap((item) => listFirst(item.covered_submetrics, 2).map((submetric) => (
+            <span key={`${item.criterion_id}-${submetric}`}>Covered: {displayKey(submetric)}</span>
+          )))}
+          {governmentAgencies.map((agency) => (
+            <span key={agency.agency}>{agency.agency}: {formatCurrencyValue(agency.obligated_amount)} across {agency.award_count} award(s)</span>
+          ))}
+          {governmentChecks.map((item) => <span key={item}>{item}</span>)}
         </div>
       )}
       <div className="threeColumn">

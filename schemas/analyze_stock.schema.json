@@ -974,6 +974,234 @@
       "title": "FinancialStatementSignals",
       "type": "object"
     },
+    "GovernmentAwardRecord": {
+      "properties": {
+        "award_id": {
+          "title": "Award Id",
+          "type": "string"
+        },
+        "recipient_name": {
+          "title": "Recipient Name",
+          "type": "string"
+        },
+        "awarding_agency": {
+          "title": "Awarding Agency",
+          "type": "string"
+        },
+        "obligated_amount": {
+          "default": 0,
+          "title": "Obligated Amount",
+          "type": "number"
+        },
+        "award_date": {
+          "default": "",
+          "title": "Award Date",
+          "type": "string"
+        },
+        "award_type": {
+          "default": "",
+          "title": "Award Type",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "award_id",
+        "recipient_name",
+        "awarding_agency"
+      ],
+      "title": "GovernmentAwardRecord",
+      "type": "object"
+    },
+    "GovernmentAwardingAgencySummary": {
+      "properties": {
+        "agency": {
+          "title": "Agency",
+          "type": "string"
+        },
+        "obligated_amount": {
+          "default": 0,
+          "title": "Obligated Amount",
+          "type": "number"
+        },
+        "award_count": {
+          "default": 0,
+          "title": "Award Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "agency"
+      ],
+      "title": "GovernmentAwardingAgencySummary",
+      "type": "object"
+    },
+    "GovernmentRecipientCandidate": {
+      "properties": {
+        "recipient_name": {
+          "title": "Recipient Name",
+          "type": "string"
+        },
+        "recipient_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recipient Hash"
+        },
+        "uei": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uei"
+        },
+        "duns": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duns"
+        },
+        "source": {
+          "default": "usaspending_recipient_autocomplete",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "recipient_name"
+      ],
+      "title": "GovernmentRecipientCandidate",
+      "type": "object"
+    },
+    "GovernmentRelationshipEvidence": {
+      "properties": {
+        "ticker": {
+          "title": "Ticker",
+          "type": "string"
+        },
+        "provider": {
+          "default": "usaspending",
+          "title": "Provider",
+          "type": "string"
+        },
+        "source": {
+          "default": "usaspending_contract_awards",
+          "title": "Source",
+          "type": "string"
+        },
+        "source_status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "query_name": {
+          "default": "",
+          "title": "Query Name",
+          "type": "string"
+        },
+        "recipient_candidates": {
+          "items": {
+            "$ref": "#/$defs/GovernmentRecipientCandidate"
+          },
+          "title": "Recipient Candidates",
+          "type": "array"
+        },
+        "award_records": {
+          "items": {
+            "$ref": "#/$defs/GovernmentAwardRecord"
+          },
+          "title": "Award Records",
+          "type": "array"
+        },
+        "total_obligated_amount": {
+          "default": 0,
+          "title": "Total Obligated Amount",
+          "type": "number"
+        },
+        "award_count": {
+          "default": 0,
+          "title": "Award Count",
+          "type": "integer"
+        },
+        "top_awarding_agencies": {
+          "items": {
+            "$ref": "#/$defs/GovernmentAwardingAgencySummary"
+          },
+          "title": "Top Awarding Agencies",
+          "type": "array"
+        },
+        "criteria": {
+          "items": {
+            "$ref": "#/$defs/JaneCriteriaExternalEvidenceItem"
+          },
+          "title": "Criteria",
+          "type": "array"
+        },
+        "criteria_count": {
+          "default": 0,
+          "title": "Criteria Count",
+          "type": "integer"
+        },
+        "relationship_signal": {
+          "default": "insufficient_data",
+          "enum": [
+            "supportive",
+            "limited",
+            "insufficient_data"
+          ],
+          "title": "Relationship Signal",
+          "type": "string"
+        },
+        "manual_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manual Checks",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ticker"
+      ],
+      "title": "GovernmentRelationshipEvidence",
+      "type": "object"
+    },
     "HumanVerificationQueueItem": {
       "properties": {
         "item": {
@@ -3437,6 +3665,9 @@
     "jane_criteria_external_evidence": {
       "$ref": "#/$defs/JaneCriteriaExternalEvidence"
     },
+    "government_relationship_evidence": {
+      "$ref": "#/$defs/GovernmentRelationshipEvidence"
+    },
     "company_profile": {
       "additionalProperties": true,
       "title": "Company Profile",
@@ -3580,6 +3811,7 @@
     "comparison_evidence_assessment",
     "earnings_transcript_analysis",
     "jane_criteria_external_evidence",
+    "government_relationship_evidence",
     "company_profile",
     "macro_regime",
     "leadership_score",

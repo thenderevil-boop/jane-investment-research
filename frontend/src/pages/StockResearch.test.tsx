@@ -234,6 +234,39 @@ describe('StockResearch presentation helpers', () => {
         affects_score: false,
         not_investment_advice: true,
       },
+      government_relationship_evidence: {
+        ticker: 'NVDA',
+        provider: 'usaspending',
+        source: 'usaspending_contract_awards',
+        source_status: { ...mockStatus, source_type: 'live', provider: 'usaspending', source_date: '2025-02-14' },
+        query_name: 'NVIDIA Corporation',
+        recipient_candidates: [{ recipient_name: 'NVIDIA CORPORATION', recipient_hash: 'recipient-nvda-parent', uei: 'NVDAUEI123', duns: null, source: 'usaspending_recipient_autocomplete' }],
+        award_records: [],
+        total_obligated_amount: 15000000,
+        award_count: 2,
+        top_awarding_agencies: [{ agency: 'Department of Defense', obligated_amount: 12500000, award_count: 1 }],
+        criteria_count: 1,
+        criteria: [{
+          criterion_id: 15,
+          criterion_name: 'Regulatory / Government Relationship',
+          source: 'usaspending_contract_awards',
+          source_quality: 'provider_backed',
+          support_level: 'supportive',
+          confidence: 0.74,
+          covered_submetrics: ['government_contracts', 'defense_or_infrastructure_status'],
+          evidence_snippets: ['Department of Defense: $12,500,000 across 1 award(s).'],
+          manual_checks: ['Confirm recipient candidates, subsidiaries, award descriptions, and agency context before relying on C15 government relationship evidence.'],
+          limitations: ['Government contract context only.'],
+          missing_data: [],
+          requires_manual_review: true,
+          affects_score: false,
+        }],
+        relationship_signal: 'supportive',
+        manual_checks: ['Confirm recipient candidates, subsidiaries, award descriptions, and agency context before relying on C15 government relationship evidence.'],
+        limitations: ['Government contract context only.'],
+        affects_score: false,
+        not_investment_advice: true,
+      },
       overheat_risk: {
         score: 63,
         label: 'overheated',
@@ -287,6 +320,14 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('C17 Mission and Narrative Power: supportive (provider_backed)');
     expect(html).toContain('Covered: long term vision consistency');
     expect(html).toContain('Confirm transcript themes against filings.');
+    expect(html).toContain('Government relationship context');
+    expect(html).toContain('Provider: USASPENDING');
+    expect(html).toContain('Total obligated amount: $15,000,000');
+    expect(html).toContain('Award count: 2');
+    expect(html).toContain('C15 Regulatory / Government Relationship: supportive (provider_backed)');
+    expect(html).toContain('Covered: government contracts');
+    expect(html).toContain('Department of Defense: $12,500,000 across 1 award(s)');
+    expect(html).toContain('Confirm recipient candidates, subsidiaries, award descriptions, and agency context before relying on C15 government relationship evidence.');
     expect(html).toContain('Overheat: overheated');
     expect(html).toContain('Volume ratio: 2.5x');
     expect(html).toContain('Price vs 200d MA: 30%');

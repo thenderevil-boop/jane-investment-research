@@ -2,7 +2,7 @@
 
 ## MVP Rule
 
-Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions, Phase 11 adds opt-in official SEC EDGAR 13F institutional holdings, and Phase 17 adds opt-in official SEC EDGAR Companyfacts financial cross-checks. Phase 35 adds FRED `UMCSENT` as Daily Report context-only consumer sentiment and explicit yfinance-derived market-context coverage metadata. Phase 37 adds an external provider adapter foundation for future FMP, OpenBB sidecar, Alpha Vantage, and USASpending integrations. Phase 38 adds the first concrete Phase 37 adapter: opt-in FMP earnings-call transcript evidence for analyze-stock. Phase 39 maps FMP transcript analysis into non-scoring Jane C2/C17 external evidence context. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
+Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions, Phase 11 adds opt-in official SEC EDGAR 13F institutional holdings, and Phase 17 adds opt-in official SEC EDGAR Companyfacts financial cross-checks. Phase 35 adds FRED `UMCSENT` as Daily Report context-only consumer sentiment and explicit yfinance-derived market-context coverage metadata. Phase 37 adds an external provider adapter foundation for future FMP, OpenBB sidecar, Alpha Vantage, and USASpending integrations. Phase 38 adds the first concrete Phase 37 adapter: opt-in FMP earnings-call transcript evidence for analyze-stock. Phase 39 maps FMP transcript analysis into non-scoring Jane C2/C17 external evidence context. Phase 40 adds opt-in USASpending.gov federal award evidence for C15 Government Relationship context. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
 
 ## Phase 13 Endpoint Roles
 
@@ -35,6 +35,14 @@ Phase 39 transcript criteria mapping notes:
 - The current mapping covers Jane C2 (Visionary Founder / CEO) and C17 (Mission and Narrative Power), labeling management-language evidence as `provider_backed` or `cached_live` when transcript data is available.
 - C2/C17 transcript evidence can improve Coverage Matrix completeness but remains manual-review, non-scoring, and not independently verified.
 - Disabled, missing-key, empty, or failed transcript states map to explicit C2/C17 `insufficient_data` items rather than failing analyze-stock.
+
+Phase 40 USASpending source notes:
+
+- `USE_LIVE_USASPENDING_DATA=true` enables the USASpending.gov contract-awards adapter for `POST /api/analyze-stock`; no API key is required.
+- The adapter searches recipient candidates, fetches award records, caches raw snapshots under `USASPENDING_CACHE_TTL_DAYS`, and labels cache-after-failure responses as `cached_live`.
+- `government_relationship_evidence` aggregates federal award count, obligated amount, and top awarding agencies, then maps evidence to Jane C15 submetrics such as `government_contracts` and `defense_or_infrastructure_status`.
+- Recipient/entity matching can include subsidiaries or similarly named entities. The evidence remains non-scoring, manual-review context only and is not treated as independently verified moat evidence.
+- Disabled, empty, or failed USASpending states return explicit C15 `insufficient_data` evidence instead of failing analyze-stock.
 
 Future Industry Radar is optional/future/reference only. Analyze-stock must not depend on automatic theme discovery and must remain usable when theme radar data is missing or stale.
 

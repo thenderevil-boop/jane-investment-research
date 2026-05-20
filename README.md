@@ -126,13 +126,15 @@ Phase 38 adds opt-in FMP earnings transcript evidence to Stock Research. When `U
 
 Phase 39 maps that FMP transcript context into `jane_criteria_external_evidence` for Jane C2 (Visionary Founder / CEO) and C17 (Mission and Narrative Power). The mapping is deterministic, non-scoring, and requires manual review; it can mark C2/C17 Coverage Matrix submetrics as provider-backed transcript context but does not change Jane company-quality scoring, research verdicts, or investment-advice boundaries.
 
+Phase 40 adds opt-in USASpending.gov government contract evidence for Jane C15 (Regulatory / Government Relationship). When `USE_LIVE_USASPENDING_DATA=true`, `POST /api/analyze-stock` searches recipient candidates, fetches federal award records, caches raw snapshots, aggregates award count/obligated amount/top agencies, and returns `government_relationship_evidence`. This evidence is non-scoring, no-API-key, manual-review context only; entity/subsidiary matching must be verified by the user.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
 
 ## Current Implementation Status
 
-`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 39 Transcript Criteria Evidence Mapping layer on top of the Phase 38 FMP Earnings Transcript Evidence layer, Phase 37 External Provider Adapter Foundation, Phase 36 Market Timing Condition Explanation v2, Phase 35 Daily Report live/derived coverage upgrade, Phase 34 SEC Companyfacts Jane financial proxy expansion, Phase 33 Jane Evidence Library research-note workflow metadata layer, Phase 32 Stock Research explanation layer, Phase 31.8 SEC 13F manager-universe expansion, Phase 31.7 macro source-quality test determinism pass, Phase 31.6 Form 4 fallback scoring hotfix, Phase 31.5 analyst readability pass, and the prior Phase 31 yfinance-derived overheat component work.
+`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 40 USASpending Government Relationship Evidence layer on top of the Phase 39 Transcript Criteria Evidence Mapping layer, Phase 38 FMP Earnings Transcript Evidence layer, Phase 37 External Provider Adapter Foundation, Phase 36 Market Timing Condition Explanation v2, Phase 35 Daily Report live/derived coverage upgrade, Phase 34 SEC Companyfacts Jane financial proxy expansion, Phase 33 Jane Evidence Library research-note workflow metadata layer, Phase 32 Stock Research explanation layer, Phase 31.8 SEC 13F manager-universe expansion, Phase 31.7 macro source-quality test determinism pass, Phase 31.6 Form 4 fallback scoring hotfix, Phase 31.5 analyst readability pass, and the prior Phase 31 yfinance-derived overheat component work.
 
 Completed live integrations now documented in this README:
 
@@ -174,6 +176,7 @@ Completed live integrations now documented in this README:
 - Phase 37: External Provider Adapter Foundation for future FMP, OpenBB sidecar, Alpha Vantage, and USASpending integrations
 - Phase 38: FMP Earnings Transcript Evidence with non-scoring management narrative context in Stock Research
 - Phase 39: FMP Transcript Criteria Evidence Mapping for Jane C2/C17 non-scoring Coverage Matrix context
+- Phase 40: USASpending Government Relationship Evidence for Jane C15 non-scoring Coverage Matrix context
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 

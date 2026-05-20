@@ -309,6 +309,50 @@ export type JaneCriteriaExternalEvidence = {
   not_investment_advice: boolean;
 };
 
+export type GovernmentRecipientCandidate = {
+  recipient_name: string;
+  recipient_hash?: string | null;
+  uei?: string | null;
+  duns?: string | null;
+  source: string;
+};
+
+export type GovernmentAwardRecord = {
+  award_id: string;
+  recipient_name: string;
+  awarding_agency: string;
+  obligated_amount: number;
+  award_date: string;
+  award_type: string;
+  description: string;
+};
+
+export type GovernmentAwardingAgencySummary = {
+  agency: string;
+  obligated_amount: number;
+  award_count: number;
+};
+
+export type GovernmentRelationshipEvidence = {
+  ticker: string;
+  provider: string;
+  source: string;
+  source_status: DataSourceStatus;
+  query_name: string;
+  recipient_candidates: GovernmentRecipientCandidate[];
+  award_records: GovernmentAwardRecord[];
+  total_obligated_amount: number;
+  award_count: number;
+  top_awarding_agencies: GovernmentAwardingAgencySummary[];
+  criteria: JaneCriteriaExternalEvidenceItem[];
+  criteria_count: number;
+  relationship_signal: 'supportive' | 'limited' | 'insufficient_data';
+  manual_checks: string[];
+  limitations: string[];
+  affects_score: boolean;
+  not_investment_advice: boolean;
+};
+
 export type QualitativeEvidenceInput = {
   evidence_id?: string | null;
   criterion: string;
@@ -1136,6 +1180,7 @@ export type StockAnalysis = {
   qualitative_evidence_assessment?: QualitativeEvidenceAssessment;
   earnings_transcript_analysis?: EarningsTranscriptAnalysis;
   jane_criteria_external_evidence?: JaneCriteriaExternalEvidence;
+  government_relationship_evidence?: GovernmentRelationshipEvidence;
   company_profile?: Record<string, unknown>;
   macro_regime?: ScoreLike;
   leadership_score?: ScoreLike;
