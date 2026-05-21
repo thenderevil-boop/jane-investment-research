@@ -5,6 +5,7 @@ import json
 import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -139,12 +140,59 @@ def test_transcript_adapter_uses_phase37_provider_status_and_redacts_key(monkeyp
     dumped = result.model_dump(mode="json")
 
     assert requested_urls and "dummy_fmp_key_for_test" in requested_urls[0]
+    parsed_url = urlparse(requested_urls[0])
+    parsed_query = parse_qs(parsed_url.query)
+    assert parsed_url.path == "/api/v4/batch_earning_call_transcript/MSFT"
+    assert parsed_query["apikey"] == ["dummy_fmp_key_for_test"]
+    assert "year" in parsed_query
+    assert "quarter" not in parsed_query
     assert dumped["ticker"] == "MSFT"
     assert dumped["source_status"]["provider"] == "fmp"
     assert dumped["source_status"]["source_type"] == "live"
     assert dumped["quarters_analyzed"] == 2
     assert "dummy_fmp_key_for_test" not in json.dumps(dumped)
     assert_no_forbidden_language(dumped)
+
+
+def test_transcript_adapter_queries_previous_year_when_current_year_has_no_records(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("USE_LIVE_FMP_DATA", "true")
+    monkeypatch.setenv("FMP_API_KEY", "dummy_fmp_key_for_test")
+    import backend.app.config as config
+    import backend.app.data_sources.provider_registry as registry
+    import backend.app.data_sources.fmp_transcripts as fmp_transcripts
+
+    importlib.reload(config)
+    importlib.reload(registry)
+    importlib.reload(fmp_transcripts)
+
+    requested_urls: list[str] = []
+
+    class DummyResponse:
+        status_code = 200
+
+        def __init__(self, payload: list[dict]) -> None:
+            self._payload = payload
+
+        def json(self) -> list[dict]:
+            return self._payload
+
+        def raise_for_status(self) -> None:
+            return None
+
+    def fake_get(url: str, timeout: int = 15):
+        requested_urls.append(url)
+        return DummyResponse([] if len(requested_urls) == 1 else sample_transcripts())
+
+    result = fmp_transcripts.fetch_fmp_earnings_transcripts("msft", limit=2, http_get=fake_get)
+    dumped = result.model_dump(mode="json")
+
+    assert len(requested_urls) == 2
+    years = [int(parse_qs(urlparse(url).query)["year"][0]) for url in requested_urls]
+    assert years == [datetime.now(timezone.utc).year, datetime.now(timezone.utc).year - 1]
+    assert all(urlparse(url).path == "/api/v4/batch_earning_call_transcript/MSFT" for url in requested_urls)
+    assert dumped["source_status"]["source_type"] == "live"
+    assert dumped["quarters_analyzed"] == 2
+    assert "dummy_fmp_key_for_test" not in json.dumps(dumped)
 
 
 def test_fmp_transcript_cache_ttl_and_cached_after_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

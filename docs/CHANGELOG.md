@@ -1,5 +1,11 @@
 # Changelog
 
+## Phase 44 — FMP Transcript API Compliance
+
+- Updated the FMP earnings transcript adapter to use the documented legacy v4 batch endpoint: `/api/v4/batch_earning_call_transcript/{symbol}?year={year}&apikey=...`.
+- Added URL-compliance regression coverage for the required `year` and `apikey` query parameters while preserving API-key redaction in analyze-stock payloads.
+- Added fallback-year behavior so the adapter queries the current year and then the prior year when current-year batch transcripts are empty, keeping recent-quarter transcript context available without changing scoring.
+
 ## Phase 43 — Source Quality Semantics: Form 4 fallback, Optional FMP, ADR coverage
 
 - Fixed Form 4 fallback detection so cached-live snapshots with `fallback_used=true` are treated as fallback-limited evidence, not clean live accumulation signals.

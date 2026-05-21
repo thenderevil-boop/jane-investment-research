@@ -25,7 +25,7 @@ Phase 37 external provider adapter notes:
 Phase 38 FMP transcript source notes:
 
 - `USE_LIVE_FMP_DATA=true` and `FMP_API_KEY` enable the FMP transcript adapter for `POST /api/analyze-stock`; disabled or missing-key states return explicit insufficient-data context instead of failing the analysis.
-- Raw FMP transcript payloads are cached under the raw-store boundary using `FMP_CACHE_TTL_DAYS`; cached-after-failure responses are labeled `cached_live` with fallback metadata.
+- Raw FMP transcript payloads are fetched from the documented legacy v4 batch endpoint (`/api/v4/batch_earning_call_transcript/{symbol}?year={year}&apikey=...`) for the current year and, when needed, the prior year; snapshots are cached under the raw-store boundary using `FMP_CACHE_TTL_DAYS`; cached-after-failure responses are labeled `cached_live` with fallback metadata.
 - FMP API keys are used only for outbound provider calls and are never returned in provider registry snapshots, `source_status`, transcript analysis payloads, docs examples, or frontend UI.
 - Transcript analysis is deterministic, LLM-free, non-scoring, and research context only. Management statements are not treated as independently verified facts and must be checked against filings and financial results.
 

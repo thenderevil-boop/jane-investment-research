@@ -12,7 +12,7 @@ from backend.app.features.earnings_transcript_analysis import analyze_earnings_t
 from backend.app.raw_store.fmp_transcripts_cache import load_cached_fmp_transcripts, save_fmp_transcripts_snapshot
 from backend.app.schemas.earnings_transcript import EarningsTranscriptAnalysis, disabled_earnings_transcript_analysis
 
-FMP_BASE_URL = "https://financialmodelingprep.com/api/v3"
+FMP_TRANSCRIPT_BASE_URL = "https://financialmodelingprep.com/api/v4"
 
 
 def _normalize_record(ticker: str, item: dict[str, Any]) -> dict[str, Any]:
@@ -66,21 +66,30 @@ def fetch_fmp_earnings_transcripts(ticker: str, limit: int = 4, http_get: Callab
         return disabled_earnings_transcript_analysis(normalized_ticker, str(exc))
 
     getter = http_get or requests.get
-    query = urlencode({"apikey": provider_config.api_key})
-    # Keep endpoint isolated in the adapter so FMP raw shape can change without leaking into app contracts.
-    url = f"{FMP_BASE_URL}/earning_call_transcript/{normalized_ticker}?{query}"
+    current_year = datetime.now(timezone.utc).year
+    years = [current_year, current_year - 1]
+    payload: list[dict[str, Any]] = []
     try:
-        response = getter(url, timeout=15)
-        status_code = int(getattr(response, "status_code", 200) or 200)
-        if status_code == 429:
-            cached = _fallback_from_cache(normalized_ticker, limit, "FMP transcript provider was rate limited.", provider_config.cache_ttl_days)
-            if cached:
-                return cached
-            status = ExternalProviderStatus(provider="fmp", source_type="fallback", rate_limited=True, fallback_used=True, fallback_reason="FMP transcript provider was rate limited.", missing_data=["fmp_earnings_transcripts"]).to_data_source_status()
-            return analyze_earnings_transcripts(normalized_ticker, [], source_status=status)
-        if hasattr(response, "raise_for_status"):
-            response.raise_for_status()
-        payload = response.json()
+        for year in years:
+            query = urlencode({"year": year, "apikey": provider_config.api_key})
+            # FMP legacy docs expose batch transcripts by symbol/year under api/v4.
+            # Keep endpoint isolated in the adapter so FMP raw shape can change without leaking into app contracts.
+            url = f"{FMP_TRANSCRIPT_BASE_URL}/batch_earning_call_transcript/{normalized_ticker}?{query}"
+            response = getter(url, timeout=15)
+            status_code = int(getattr(response, "status_code", 200) or 200)
+            if status_code == 429:
+                cached = _fallback_from_cache(normalized_ticker, limit, "FMP transcript provider was rate limited.", provider_config.cache_ttl_days)
+                if cached:
+                    return cached
+                status = ExternalProviderStatus(provider="fmp", source_type="fallback", rate_limited=True, fallback_used=True, fallback_reason="FMP transcript provider was rate limited.", missing_data=["fmp_earnings_transcripts"]).to_data_source_status()
+                return analyze_earnings_transcripts(normalized_ticker, [], source_status=status)
+            if hasattr(response, "raise_for_status"):
+                response.raise_for_status()
+            year_payload = response.json()
+            year_records = _records_from_payload(normalized_ticker, year_payload, limit)
+            payload.extend(year_records)
+            if len(payload) >= limit:
+                break
     except Exception as exc:  # noqa: BLE001 - provider boundary must degrade safely.
         safe_reason = str(exc).replace(provider_config.api_key, "[REDACTED]")[:180]
         cached = _fallback_from_cache(normalized_ticker, limit, safe_reason, provider_config.cache_ttl_days)

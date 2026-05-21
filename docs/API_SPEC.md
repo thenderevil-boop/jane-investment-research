@@ -258,6 +258,7 @@ Phase 38 FMP earnings transcript evidence:
 - `POST /api/analyze-stock` returns `earnings_transcript_analysis` as a top-level, non-scoring evidence section.
 - The section includes `ticker`, `provider="fmp"`, `source_status`, `quarters_analyzed`, six narrative dimensions (`management_consistency`, `strategy_clarity`, `risk_acknowledgement`, `customer_demand_signal`, `margin_pressure_signal`, `capital_allocation_focus`), `positive_themes`, `risk_themes`, `manual_checks`, `limitations`, `affects_score=false`, and `not_investment_advice=true`.
 - When FMP is disabled or unavailable, the field is still present with `quarters_analyzed=0`, insufficient-data labels, and explicit limitations/missing-data metadata.
+- The adapter calls the documented legacy v4 batch transcript endpoint, `/api/v4/batch_earning_call_transcript/{symbol}?year={year}&apikey=...`, querying the current year and then the prior year when needed before applying the local `limit`.
 - The extraction is deterministic and LLM-free. It uses short transcript snippets as research context only and does not change scores, research verdicts, labels, or investment-advice boundaries.
 
 Phase 39 transcript criteria evidence mapping:
