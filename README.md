@@ -128,13 +128,19 @@ Phase 39 maps that FMP transcript context into `jane_criteria_external_evidence`
 
 Phase 40 adds opt-in USASpending.gov government contract evidence for Jane C15 (Regulatory / Government Relationship). When `USE_LIVE_USASPENDING_DATA=true`, `POST /api/analyze-stock` searches recipient candidates, fetches federal award records, caches raw snapshots, aggregates award count/obligated amount/top agencies, and returns `government_relationship_evidence`. This evidence is non-scoring, no-API-key, manual-review context only; entity/subsidiary matching must be verified by the user.
 
+Phase 41 adds opt-in OpenBB sidecar Stockgrid options evidence for Smart Money. When `USE_OPENBB_SIDECAR=true`, `POST /api/analyze-stock` calls the OpenBB sidecar over HTTP at `OPENBB_BASE_URL`, normalizes large option blocks into the existing `options_abnormal_activity_score`, caches raw snapshots, and displays provider, block count, and total premium in Stock Research. OpenBB remains a sidecar service only: this repo does not import OpenBB code, bundle OpenBB, expose provider URLs with secrets, or treat options flow as investment advice.
+
+Phase 42 adds FMP financial statement and TTM-ratio proxy evidence for ADR / SEC Companyfacts gap cases. When `USE_LIVE_FMP_DATA=true` and `FMP_API_KEY` is present, `POST /api/analyze-stock` may return `fmp_financial_proxy` and `data_quality_summary.fmp_financials`; valid SEC Companyfacts remains preferred when available.
+
+Phase 43 refines source-quality semantics for edge cases. Form 4 cached-live data with `fallback_used=true` is treated as fallback-limited, optional FMP fallback states are separated from core live-data fallback penalties, and ADR / foreign-filer cases expose a coverage note explaining normal SEC Companyfacts / 13F limits.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
 
 ## Current Implementation Status
 
-`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 40 USASpending Government Relationship Evidence layer on top of the Phase 39 Transcript Criteria Evidence Mapping layer, Phase 38 FMP Earnings Transcript Evidence layer, Phase 37 External Provider Adapter Foundation, Phase 36 Market Timing Condition Explanation v2, Phase 35 Daily Report live/derived coverage upgrade, Phase 34 SEC Companyfacts Jane financial proxy expansion, Phase 33 Jane Evidence Library research-note workflow metadata layer, Phase 32 Stock Research explanation layer, Phase 31.8 SEC 13F manager-universe expansion, Phase 31.7 macro source-quality test determinism pass, Phase 31.6 Form 4 fallback scoring hotfix, Phase 31.5 analyst readability pass, and the prior Phase 31 yfinance-derived overheat component work.
+`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 43 Source Quality Semantics layer, the Phase 41 OpenBB Sidecar Stockgrid Options Evidence layer, Phase 42 FMP Financial Statements + TTM Ratios proxy layer, Phase 40 USASpending Government Relationship Evidence layer, Phase 39 Transcript Criteria Evidence Mapping layer, Phase 38 FMP Earnings Transcript Evidence layer, Phase 37 External Provider Adapter Foundation, Phase 36 Market Timing Condition Explanation v2, Phase 35 Daily Report live/derived coverage upgrade, Phase 34 SEC Companyfacts Jane financial proxy expansion, Phase 33 Jane Evidence Library research-note workflow metadata layer, Phase 32 Stock Research explanation layer, Phase 31.8 SEC 13F manager-universe expansion, Phase 31.7 macro source-quality test determinism pass, Phase 31.6 Form 4 fallback scoring hotfix, Phase 31.5 analyst readability pass, and the prior Phase 31 yfinance-derived overheat component work.
 
 Completed live integrations now documented in this README:
 
@@ -177,6 +183,9 @@ Completed live integrations now documented in this README:
 - Phase 38: FMP Earnings Transcript Evidence with non-scoring management narrative context in Stock Research
 - Phase 39: FMP Transcript Criteria Evidence Mapping for Jane C2/C17 non-scoring Coverage Matrix context
 - Phase 40: USASpending Government Relationship Evidence for Jane C15 non-scoring Coverage Matrix context
+- Phase 41: OpenBB Sidecar Stockgrid Options Evidence for provider-backed Smart Money options context
+- Phase 42: FMP Financial Statements + TTM Ratios proxy for ADR / SEC Companyfacts gaps
+- Phase 43: Source Quality Semantics for Form 4 cached fallback, optional FMP fallback, and ADR / foreign-filer coverage notes
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 
@@ -305,6 +314,14 @@ Phase 25 export and backup features support that boundary. Validation exports ar
 | SEC_13F_PRICE_REFERENCE_MAX_TICKERS | 20 | SEC EDGAR 13F price reference | performance guardrail |
 | SEC_13F_PRICE_REFERENCE_TOTAL_BUDGET_SECONDS | 10 | SEC EDGAR 13F price reference | performance guardrail |
 | SEC_13F_CANDIDATE_CONTEXT_TOP_HOLDINGS_LIMIT | 5 | candidate 13F evidence | caps portfolio context shown per candidate |
+| USE_LIVE_FMP_DATA | false | FMP transcript and financial proxy evidence | requires `FMP_API_KEY`; transcript and financial endpoints are independent capabilities |
+| FMP_API_KEY | none | FMP transcript and financial proxy evidence | secret; never expose |
+| FMP_CACHE_TTL_DAYS | 7 | FMP raw-store cache | TTL for transcript and financial proxy snapshots |
+| USE_OPENBB_SIDECAR | false | OpenBB Stockgrid options evidence | calls sidecar over HTTP only; do not import OpenBB code into this repo |
+| OPENBB_BASE_URL | http://127.0.0.1:6900 | OpenBB sidecar | local FastAPI sidecar base URL |
+| OPENBB_CACHE_TTL_DAYS | 3 | OpenBB options raw-store cache | cache TTL for large option block snapshots |
+| USE_LIVE_USASPENDING_DATA | false | USASpending C15 evidence | no API key required |
+| USASPENDING_CACHE_TTL_DAYS | 30 | USASpending raw-store cache | cache TTL for award snapshots |
 | INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT | false | daily report output | include full 13F row list only under `raw_data_full` when explicitly enabled |
 | DAILY_REPORT_FAST_MODE | true | daily report output | cache-first report generation |
 | ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST | false | daily report output | use cached market data for 13F price references by default |

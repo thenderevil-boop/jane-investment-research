@@ -118,6 +118,18 @@
           "additionalProperties": true,
           "title": "Fmp Financials",
           "type": "object"
+        },
+        "optional_provider_fallback_categories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Optional Provider Fallback Categories",
+          "type": "array"
+        },
+        "foreign_filer_context": {
+          "additionalProperties": true,
+          "title": "Foreign Filer Context",
+          "type": "object"
         }
       },
       "required": [

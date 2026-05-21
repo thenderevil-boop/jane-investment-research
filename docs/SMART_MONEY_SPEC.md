@@ -256,6 +256,17 @@ Raw data:
 - call / put split
 - implied volatility
 - expiration date
+- provider and source status
+- large block count
+- total premium
+- Stockgrid/OpenBB normalized order type and sentiment score when available
+
+Phase 41 live source behavior:
+
+- By default, options context remains mock/preliminary.
+- When `USE_OPENBB_SIDECAR=true`, analyze-stock calls the OpenBB sidecar over HTTP at `OPENBB_BASE_URL` and may replace the mock options component with provider-backed Stockgrid large option block evidence.
+- OpenBB must remain a sidecar. Product code must not import OpenBB modules or vendor OpenBB code.
+- Sidecar failures, disabled state, or empty provider responses return explicit source-status disclosure and should not fail analyze-stock.
 
 Derived:
 

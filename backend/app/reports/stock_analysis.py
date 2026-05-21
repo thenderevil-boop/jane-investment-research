@@ -6,6 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from backend.app.data_sources.fmp_financials import get_fmp_financial_proxy
+from backend.app.data_sources.openbb_options import get_openbb_options_activity
 from backend.app.data_sources.fmp_transcripts import get_earnings_transcript_analysis
 from backend.app.data_sources.mock_data import DEFAULT_STOCK, MOCK_SOURCE_DATE, STOCK_FIXTURES
 from backend.app.data_sources.usaspending_contracts import get_government_relationship_evidence
@@ -1907,6 +1908,44 @@ def _status_is_fallback_evidence(status: dict) -> bool:
     return bool(status.get("fallback_used") or status.get("source_type") == "fallback")
 
 
+OPTIONAL_PROVIDER_CATEGORIES = {"earnings_transcript_analysis", "fmp_financials"}
+KNOWN_ADR_OR_FOREIGN_LISTINGS = {"NOK"}
+
+
+def _is_optional_provider_fallback(category: str, status: dict, response: AnalyzeStockResponse) -> bool:
+    if category not in OPTIONAL_PROVIDER_CATEGORIES:
+        return False
+    if category == "fmp_financials" and bool(response.financial_quality.raw_data.get("fmp_financial_proxy_used")):
+        return False
+    return _status_is_fallback_evidence(status)
+
+
+def _foreign_filer_context(response: AnalyzeStockResponse) -> dict:
+    ticker = response.ticker.strip().upper()
+    profile = response.company_profile or {}
+    country = str(profile.get("country") or profile.get("countryFullName") or "").strip()
+    exchange = str(profile.get("exchange") or profile.get("fullExchangeName") or profile.get("market") or "").strip()
+    sec_missing = len(response.sec_financial_facts.get("missing_data", []) or [])
+    profile_text = " ".join(str(value) for value in [country, exchange, profile.get("quoteType"), profile.get("longName"), profile.get("shortName")] if value)
+    is_foreign = ticker in KNOWN_ADR_OR_FOREIGN_LISTINGS or (country and country.lower() not in {"us", "usa", "united states", "united states of america"}) or "adr" in profile_text.lower()
+    structural = bool(is_foreign and sec_missing)
+    explanation = ""
+    limitations: list[str] = []
+    if is_foreign:
+        explanation = "此公司為非美國本土公司／ADR，部分 SEC Companyfacts 與 13F candidate-specific coverage 受限屬正常情況；請搭配本國交易所 filing、annual report、FMP/yfinance 或公司 IR 資料交叉驗證。"
+        limitations.append("ADR/foreign-filer SEC Companyfacts and 13F coverage can be structurally limited and should not be read as company-specific weakness by itself.")
+    return {
+        "ticker": ticker,
+        "is_foreign_filer_or_adr": bool(is_foreign),
+        "country": country or None,
+        "exchange": exchange or None,
+        "sec_missing_concept_count": sec_missing,
+        "structural_coverage_limitation": structural,
+        "user_explanation": explanation,
+        "limitations": limitations,
+    }
+
+
 def _macro_active_scoring_uses_fallback(macro_regime) -> bool:
     quality = getattr(macro_regime, "macro_data_quality", None)
     scoring = getattr(quality, "scoring", {}) if quality else {}
@@ -2038,15 +2077,23 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "criteria_supported": comparison.criteria_supported,
         "claimed_advantage_breakdown": comparison.claimed_advantage_breakdown,
     }
+    optional_provider_fallback_categories = sorted(
+        name for name, status in component_statuses.items() if _is_optional_provider_fallback(name, status, response)
+    )
+    optional_provider_fallback_set = set(optional_provider_fallback_categories)
     fallback_categories = sorted(
-        name for name, status in component_statuses.items() if _category_is_fallback_evidence(name, status, response)
+        name
+        for name, status in component_statuses.items()
+        if name not in optional_provider_fallback_set and _category_is_fallback_evidence(name, status, response)
     )
     fallback_category_set = set(fallback_categories)
     mock_categories = sorted(
         name for name, status in component_statuses.items() if status.get("source_type") == "mock" and name not in fallback_category_set
     )
     missing_source_date_categories = sorted(
-        name for name, status in component_statuses.items() if not status.get("source_date") and status.get("source_type") != "unknown"
+        name
+        for name, status in component_statuses.items()
+        if name not in optional_provider_fallback_set and not status.get("source_date") and status.get("source_type") != "unknown"
     )
     live_components = sum(1 for status in component_statuses.values() if status.get("source_type") in {"live", "cached_live", "derived"})
     mock_components = len(mock_categories)
@@ -2058,7 +2105,10 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
     )
     legacy_only_mock = set(mock_categories) <= {"legacy_leadership_score"}
     critical_mock = {"company_profile", "financial_quality"} & set(mock_categories)
-    if mock_components >= 4 or missing_source_date_categories:
+    foreign_filer_context = _foreign_filer_context(response)
+    if foreign_filer_context.get("structural_coverage_limitation") and not missing_source_date_categories:
+        grade = "B" if (fallback_components or mock_components) else "A"
+    elif mock_components >= 4 or missing_source_date_categories:
         grade = "D"
     elif {"company_profile", "financial_quality"} & set(mock_categories):
         grade = "C"
@@ -2122,7 +2172,10 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
             "proxy_metric_count": len(response.fmp_financial_proxy.get("facts", {})) + len(response.fmp_financial_proxy.get("derived_metrics", {})),
             "ttm_ratio_count": len(response.fmp_financial_proxy.get("ttm_ratios", {})),
             "used_for_financial_quality": bool(response.financial_quality.raw_data.get("fmp_financial_proxy_used")),
+            "optional_enhancement": not bool(response.financial_quality.raw_data.get("fmp_financial_proxy_used")),
         },
+        "optional_provider_fallback_categories": optional_provider_fallback_categories,
+        "foreign_filer_context": foreign_filer_context,
     }
 
 
@@ -2223,6 +2276,9 @@ def _smart_money_source_quality_breakdown(smart_money: ScoreObject, insider_acti
         },
         "options": {
             "source_type": options_source_type,
+            "provider": _status_dict(options_component.get("source_status")).get("provider") or options_raw.get("provider", "phase1_mock_dataset"),
+            "large_block_count": options_raw.get("large_block_count"),
+            "total_premium": options_raw.get("total_premium"),
             "interpretation": (
                 "Options component remains mock context and should not dominate smart-money interpretation."
                 if mock_options
@@ -3714,11 +3770,15 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     yfinance_fundamentals = get_company_fundamentals(request.ticker)
     sec_financial_facts = get_sec_companyfacts(request.ticker)
     fmp_financial_proxy = get_fmp_financial_proxy(request.ticker)
+    openbb_options_activity = get_openbb_options_activity(request.ticker)
     fundamentals_cross_check = _build_fundamentals_cross_check(sec_financial_facts, yfinance_fundamentals)
     if _fmp_available(fmp_financial_proxy):
         fundamentals_cross_check = _augment_fundamentals_cross_check_with_fmp(fundamentals_cross_check, fmp_financial_proxy, sec_financial_facts)
     company_fundamentals = _merge_financials_with_sec_and_fmp(yfinance_fundamentals, sec_financial_facts, fundamentals_cross_check, fmp_financial_proxy)
     smart_money_data = {**fixture["smart_money"], **sec_filings}
+    if openbb_options_activity.get("options_activity"):
+        smart_money_data["options_activity"] = openbb_options_activity["options_activity"]
+        smart_money_data["options_activity_source_status"] = openbb_options_activity.get("source_status")
     engine_context = {
         **fixture,
         **market_context,
@@ -3971,6 +4031,9 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     response.evidence_matrix = [EvidenceMatrixItem.model_validate(item) for item in _build_evidence_matrix(response)]
     response.jane_criteria_coverage = JaneCriteriaCoverageMatrix.model_validate(_build_jane_criteria_coverage(response))
     response.data_quality_summary = AnalyzeStockDataQualitySummary.model_validate(_build_data_quality_summary(response))
+    foreign_context = response.data_quality_summary.foreign_filer_context
+    if foreign_context.get("is_foreign_filer_or_adr") and foreign_context.get("user_explanation"):
+        response.human_verification_queue.append(foreign_context["user_explanation"])
     response.next_manual_checks = [NextManualCheck.model_validate(item) for item in _build_manual_checks(response)]
     response.score_driver_breakdown = ScoreDriverBreakdown.model_validate(_build_score_driver_breakdown(response))
     response.candidate_validation_summary = CandidateValidationSummary.model_validate(_build_candidate_summary(response))

@@ -221,7 +221,8 @@ def summarize_data_quality(statuses: list[DataSourceStatus]) -> DataQualitySumma
     live = sum(1 for item in statuses if item.source_type in {"live", "cached_live"})
     mock = sum(1 for item in statuses if item.source_type == "mock")
     fallback = sum(1 for item in statuses if item.source_type == "fallback" or item.fallback_used)
-    missing_source_date = sum(1 for item in statuses if not parse_source_date(item.source_date))
+    date_required_types = {"live", "cached_live", "mock", "fallback", "derived"}
+    missing_source_date = sum(1 for item in statuses if item.source_type in date_required_types and not parse_source_date(item.source_date))
     stale = sum(1 for item in statuses if item.source_type in {"live", "cached_live", "fallback", "derived"} and parse_source_date(item.source_date) and not item.is_fresh)
     total = max(1, len(statuses))
     if fallback:

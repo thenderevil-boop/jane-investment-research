@@ -94,9 +94,9 @@ SEC_FORM4_MAX_XML_DISCOVERY_PER_REPORT = int(os.getenv("SEC_FORM4_MAX_XML_DISCOV
 SEC_FORM4_NETWORK_TIMEOUT_SECONDS = float(os.getenv("SEC_FORM4_NETWORK_TIMEOUT_SECONDS", "10") or "10")
 SEC_FORM4_TOTAL_BUDGET_SECONDS = float(os.getenv("SEC_FORM4_TOTAL_BUDGET_SECONDS", "20") or "20")
 
-# Phase 37 external provider adapter foundation. These toggles only configure
-# future adapters; Phase 37 does not fetch from FMP, OpenBB, Alpha Vantage, or
-# USASpending by itself.
+# Phase 37 external provider adapter foundation. Later phases opt concrete
+# adapters into these toggles while keeping provider calls isolated behind
+# HTTP/cache boundaries and never exposing secrets.
 USE_LIVE_FMP_DATA = _env_bool("USE_LIVE_FMP_DATA", False)
 FMP_API_KEY = os.getenv("FMP_API_KEY", "").strip()
 FMP_CACHE_TTL_DAYS = int(os.getenv("FMP_CACHE_TTL_DAYS", "7") or "7")

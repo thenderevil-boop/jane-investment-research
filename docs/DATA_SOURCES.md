@@ -2,7 +2,7 @@
 
 ## MVP Rule
 
-Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions, Phase 11 adds opt-in official SEC EDGAR 13F institutional holdings, and Phase 17 adds opt-in official SEC EDGAR Companyfacts financial cross-checks. Phase 35 adds FRED `UMCSENT` as Daily Report context-only consumer sentiment and explicit yfinance-derived market-context coverage metadata. Phase 37 adds an external provider adapter foundation for future FMP, OpenBB sidecar, Alpha Vantage, and USASpending integrations. Phase 38 adds the first concrete Phase 37 adapter: opt-in FMP earnings-call transcript evidence for analyze-stock. Phase 39 maps FMP transcript analysis into non-scoring Jane C2/C17 external evidence context. Phase 40 adds opt-in USASpending.gov federal award evidence for C15 Government Relationship context. Phase 42 adds opt-in FMP financial statements and TTM ratios as an ADR / SEC-gap financial proxy for analyze-stock. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
+Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions, Phase 11 adds opt-in official SEC EDGAR 13F institutional holdings, and Phase 17 adds opt-in official SEC EDGAR Companyfacts financial cross-checks. Phase 35 adds FRED `UMCSENT` as Daily Report context-only consumer sentiment and explicit yfinance-derived market-context coverage metadata. Phase 37 adds an external provider adapter foundation for future FMP, OpenBB sidecar, Alpha Vantage, and USASpending integrations. Phase 38 adds the first concrete Phase 37 adapter: opt-in FMP earnings-call transcript evidence for analyze-stock. Phase 39 maps FMP transcript analysis into non-scoring Jane C2/C17 external evidence context. Phase 40 adds opt-in USASpending.gov federal award evidence for C15 Government Relationship context. Phase 41 adds opt-in OpenBB sidecar / Stockgrid large options block evidence for the Smart Money options component. Phase 42 adds opt-in FMP financial statements and TTM ratios as an ADR / SEC-gap financial proxy for analyze-stock. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
 
 ## Phase 13 Endpoint Roles
 
@@ -44,6 +44,15 @@ Phase 40 USASpending source notes:
 - Recipient/entity matching can include subsidiaries or similarly named entities. The evidence remains non-scoring, manual-review context only and is not treated as independently verified moat evidence.
 - Disabled, empty, or failed USASpending states return explicit C15 `insufficient_data` evidence instead of failing analyze-stock.
 
+Phase 41 OpenBB sidecar options notes:
+
+- `USE_OPENBB_SIDECAR=true` enables the OpenBB sidecar / Stockgrid options adapter for `POST /api/analyze-stock`; `OPENBB_BASE_URL` defaults to `http://127.0.0.1:6900`.
+- This repo uses HTTP calls to the sidecar only. Do not import OpenBB modules, vendor OpenBB code, or couple product code to OpenBB internals; this preserves the intended AGPL sidecar boundary.
+- Raw sidecar snapshots are cached under the raw-store boundary using `OPENBB_CACHE_TTL_DAYS`; cache-after-failure responses are labeled `cached_live` with fallback metadata.
+- When provider-backed Stockgrid blocks are available, the existing `options_abnormal_activity_score` uses normalized option volume, open interest, abnormal volume ratio, call/put ratio, large block count, total premium, order type, and sentiment score.
+- Disabled, empty, failed, or unreachable sidecar states return explicit source status and preserve mock/fallback disclosure instead of failing analyze-stock.
+- Options flow is supplemental smart-money context only. It is not a trading signal, recommendation, or instruction.
+
 Phase 42 FMP financial proxy notes:
 
 - `USE_LIVE_FMP_DATA=true` and `FMP_API_KEY` enable the FMP financial statements / TTM-ratios adapter for `POST /api/analyze-stock`; the same toggle/key may also enable transcript evidence, but transcript availability and financial proxy availability are independent capabilities.
@@ -55,6 +64,8 @@ Phase 42 FMP financial proxy notes:
 Future Industry Radar is optional/future/reference only. Analyze-stock must not depend on automatic theme discovery and must remain usable when theme radar data is missing or stale.
 
 Phase 14 adds user-facing source-quality composition for analyze-stock without adding providers. The endpoint keeps raw evidence available for audit while leading with `candidate_validation_summary`, `evidence_matrix`, `data_quality_summary`, `score_driver_breakdown`, and `next_manual_checks`. Fallback or cached-after-failure SEC evidence lowers confidence and appears in fallback evidence categories. CNN Fear & Greed and ISM Manufacturing PMI remain excluded from scoring.
+
+Phase 43 refines source-quality semantics without adding providers. Cached-live Form 4 evidence with `fallback_used=true` is treated as fallback-limited; optional FMP transcript/financial fallback states are disclosed under `optional_provider_fallback_categories` instead of core fallback penalties; ADR / foreign-filer cases expose `foreign_filer_context` so structural SEC Companyfacts and 13F coverage limits are explained to the user.
 
 Phase 17c cleans up analyze-stock data-quality categories. `fallback_evidence_categories` are based on actual fallback source status, `mixed_with_fallback` evidence quality, or score-affecting fallback subcomponents. Derived-live macro context is not fallback when active `macro_v12_5` components are live/cached/derived, mock context score weight is 0, and excluded ISM/CNN indicators have `affects_score=false` with weight 0. `source_type: "derived"` is not fallback by itself, and `fundamentals_cross_check.agreement_level: "low"` is a discrepancy/review signal rather than fallback evidence.
 

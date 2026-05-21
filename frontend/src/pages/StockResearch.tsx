@@ -577,8 +577,20 @@ export function AnalyzeDataQualitySection({ dataQuality }: { dataQuality?: Analy
         <div>
           <h3>Fallback evidence</h3>
           <ul>{dataQuality.fallback_evidence_categories.map((item) => <li key={item}>{item}</li>)}</ul>
+          {!!dataQuality.optional_provider_fallback_categories?.length && (
+            <>
+              <h3>Optional provider fallback</h3>
+              <p className="muted">Optional enhancement providers such as FMP are disclosed separately from core live-data fallback penalties.</p>
+              <ul>{dataQuality.optional_provider_fallback_categories.map((item) => <li key={item}>{item}</li>)}</ul>
+            </>
+          )}
         </div>
       </div>
+      {dataQuality.foreign_filer_context?.is_foreign_filer_or_adr && (
+        <div className="sourceWarning">
+          <strong>ADR / foreign filer coverage note:</strong> {dataQuality.foreign_filer_context.user_explanation}
+        </div>
+      )}
       {dataQuality.company_quality && (
         <dl className="qualityMetrics">
           <div><dt>Quality backed</dt><dd>{dataQuality.company_quality.evidence_backed_criteria_count}</dd></div>
@@ -620,6 +632,7 @@ export function AnalyzeDataQualitySection({ dataQuality }: { dataQuality?: Analy
           <div><dt>FMP currency</dt><dd>{dataQuality.fmp_financials.reported_currency ?? 'N/A'}</dd></div>
           <div><dt>FMP fiscal year</dt><dd>{dataQuality.fmp_financials.latest_fiscal_year ?? 'N/A'}</dd></div>
           <div><dt>Used for quality</dt><dd>{dataQuality.fmp_financials.used_for_financial_quality ? 'Yes' : 'No'}</dd></div>
+          <div><dt>Optional enhancement</dt><dd>{dataQuality.fmp_financials.optional_enhancement ? 'Yes' : 'No'}</dd></div>
         </dl>
       )}
       {!!dataQuality.insufficient_evidence_categories?.length && (
@@ -912,12 +925,14 @@ export function SmartMoneySourceQualitySection({ smartMoney }: { smartMoney?: Sc
       <h2>Smart Money Source Quality Breakdown</h2>
       <div className="tableWrap">
         <table>
-          <thead><tr><th>Component</th><th>Source type</th><th>Interpretation</th><th>Score impact</th></tr></thead>
+          <thead><tr><th>Component</th><th>Source type</th><th>Provider</th><th>Evidence</th><th>Interpretation</th><th>Score impact</th></tr></thead>
           <tbody>
             {rows.map(({ key, value }) => (
               <tr key={key}>
                 <td>{displayKey(key)}</td>
                 <td>{displayValue(value.source_type)}</td>
+                <td>{displayValue(value.provider)}</td>
+                <td>{displayValue(value.large_block_count)} blocks / premium {displayValue(value.total_premium)}</td>
                 <td>{displayValue(value.interpretation)}</td>
                 <td>{displayValue(value.score_impact)}</td>
               </tr>

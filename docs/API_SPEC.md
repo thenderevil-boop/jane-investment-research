@@ -118,7 +118,7 @@ Phase 14 makes the response a candidate validation report rather than a loose bu
 - `comparison_evidence_assessment`: manual competitor/comparison evidence summary for peer context hooks.
 - `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, qualitative evidence, comparison evidence, Jane company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
 - `jane_criteria_coverage`: non-scoring coverage matrix across the canonical Jane 20 criteria, accepted evidence items, SEC Companyfacts financial proxies where available, covered and missing submetrics, and next manual checks.
-- `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, qualitative evidence counts, SEC Companyfacts status, FMP financial proxy status for ADR / SEC gaps, and excluded scoring indicators.
+- `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, optional-provider fallback categories, qualitative evidence counts, SEC Companyfacts status, FMP financial proxy status for ADR / SEC gaps, ADR/foreign-filer coverage context, and excluded scoring indicators.
 - `score_driver_breakdown`: positive, limiting, and neutral score drivers.
 - `next_manual_checks`: research-oriented checks for source quality, fundamentals, filings, valuation, and risk.
 
@@ -133,12 +133,27 @@ Phase 26 adds explanation-only validation-quality hardening:
 - `next_manual_checks` include `priority_rank`, `blocking`, normalized `category`, `related_evidence_category`, and `reason_short`.
 - Evidence matrix rows may include `why_it_matters`, `review_priority`, `affects_final_score`, `is_deprecated`, and `replaced_by`.
 
+Phase 43 refines source-quality semantics for fallback and ADR / foreign-filer cases:
+
+- Form 4 `source_type="cached_live"` with `fallback_used=true` is treated as fallback-limited evidence for smart-money and insider-activity source quality.
+- Optional FMP transcript / financial fallbacks are reported in `data_quality_summary.optional_provider_fallback_categories`; they remain visible but do not count as core `fallback_evidence_categories` or missing-source-date penalties unless the FMP proxy is actually used for financial-quality scoring.
+- `data_quality_summary.foreign_filer_context` explains structural ADR / foreign-filer coverage limitations, including SEC Companyfacts and 13F candidate-specific gaps, so normal non-US coverage limits are not presented as company-specific weakness.
+
 Phase 42 adds FMP financial statement / TTM-ratio proxy behavior for ADR and SEC-gap cases:
 
 - `fmp_financial_proxy` is a top-level analyze-stock field with normalized FMP income statement, balance sheet, cash-flow statement, derived metrics, TTM ratios, source status, and limitations.
 - The proxy is used for financial-quality normalization only when SEC Companyfacts has insufficient usable filing facts; it does not override valid SEC Companyfacts or automatically raise candidate confidence.
 - `data_quality_summary.fmp_financials` reports whether FMP financials were available and whether they were used for financial quality.
 - FMP transcript evidence remains a separate capability. Transcript disabled/fallback states must not mark financial statements unavailable, and financial statement failures must not erase transcript context.
+
+Phase 41 adds OpenBB sidecar / Stockgrid options evidence for the Smart Money options component:
+
+- `USE_OPENBB_SIDECAR=true` and `OPENBB_BASE_URL` enable HTTP-only sidecar calls for large option block evidence; OpenBB code is not imported or bundled into this repo.
+- The existing `smart_money.derived_metrics.components.options_abnormal_activity` score object may be provider-backed with `source_status.provider="openbb_stockgrid"` and `source_type="live"` or `"cached_live"`.
+- `smart_money.raw_data.options` may include provider-backed fields such as `large_block_count`, `total_premium`, `sentiment_score`, `option_volume`, `open_interest`, `call_put_ratio`, `abnormal_volume_ratio`, and source status.
+- `smart_money.source_quality_breakdown.options` exposes the provider, large block count, total premium, source type, interpretation, and score-impact note for frontend auditability.
+- Disabled, empty, failed, or unreachable sidecar states must not fail `POST /api/analyze-stock`; they fall back to explicit source-status disclosure and existing mock/fallback limitations.
+- Options activity remains supplemental research context only and must not be framed as a buy/sell signal.
 
 Raw evidence remains available in the legacy score objects, `raw_data`, and debug/expandable frontend panels for audit. Mock and fallback data reduce confidence. The endpoint must keep `not_investment_advice=true` and must not emit trading instructions.
 

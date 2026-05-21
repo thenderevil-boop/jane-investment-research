@@ -1,5 +1,20 @@
 # Changelog
 
+## Phase 43 — Source Quality Semantics: Form 4 fallback, Optional FMP, ADR coverage
+
+- Fixed Form 4 fallback detection so cached-live snapshots with `fallback_used=true` are treated as fallback-limited evidence, not clean live accumulation signals.
+- Split optional FMP provider fallbacks into `data_quality_summary.optional_provider_fallback_categories` so missing-key, disabled, or uncovered FMP transcript/financial endpoints are disclosed without being counted as core live-data fallback penalties.
+- Added `data_quality_summary.foreign_filer_context` for ADR / foreign-filer cases such as NOK, explaining structural SEC Companyfacts and 13F coverage limits instead of presenting them as company-specific weakness.
+- Updated Stock Research to show optional provider fallback categories, FMP optional-enhancement status, and ADR / foreign-filer coverage notes.
+
+## Phase 41 — OpenBB Sidecar Stockgrid Options Evidence
+
+- Added opt-in OpenBB sidecar options evidence for `POST /api/analyze-stock` via `USE_OPENBB_SIDECAR=true` and `OPENBB_BASE_URL`.
+- Added an HTTP-only OpenBB Stockgrid adapter and raw-store cache for large option block data, keeping OpenBB as a sidecar service and avoiding direct OpenBB imports.
+- Replaced the smart-money options component with provider-backed OpenBB/Stockgrid context when available, including large block count, total premium, option volume, open interest, call/put ratio, abnormal volume ratio, order type, and sentiment score.
+- Surfaced OpenBB provider, large block count, and premium in the Stock Research Smart Money Source Quality Breakdown while preserving mock/fallback disclosure when the sidecar is disabled or unavailable.
+- Preserved final smart-money weights, not-investment-advice boundaries, cache/fallback source status, and AGPL isolation by using only HTTP calls to the local sidecar.
+
 ## Phase 42 — FMP Financial Statements + TTM Ratios for ADR / SEC Gaps
 
 - Added opt-in FMP financial statement and TTM-ratio proxy evidence for `POST /api/analyze-stock` via existing `USE_LIVE_FMP_DATA=true` and `FMP_API_KEY` settings.

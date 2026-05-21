@@ -87,6 +87,17 @@ export type ValidationQualitySummary = {
   not_investment_advice: boolean;
 };
 
+export type ForeignFilerContext = {
+  ticker: string;
+  is_foreign_filer_or_adr: boolean;
+  country?: string | null;
+  exchange?: string | null;
+  sec_missing_concept_count: number;
+  structural_coverage_limitation: boolean;
+  user_explanation: string;
+  limitations: string[];
+};
+
 export type AnalyzeStockDataQualitySummary = {
   mode: 'live_with_fallback' | 'mixed_preliminary' | 'mostly_mock' | 'insufficient';
   confidence_cap_applied: boolean;
@@ -100,6 +111,7 @@ export type AnalyzeStockDataQualitySummary = {
   source_quality_summary: string;
   mock_evidence_categories: string[];
   fallback_evidence_categories: string[];
+  optional_provider_fallback_categories: string[];
   missing_source_date_categories: string[];
   excluded_from_scoring: string[];
   insufficient_evidence_categories?: string[];
@@ -163,7 +175,9 @@ export type AnalyzeStockDataQualitySummary = {
     proxy_metric_count: number;
     ttm_ratio_count: number;
     used_for_financial_quality: boolean;
+    optional_enhancement?: boolean;
   };
+  foreign_filer_context?: ForeignFilerContext;
 };
 
 export type JaneCompanyQualityCriterion = {
@@ -1003,6 +1017,22 @@ export type DailyReportMetadata = {
   batch_duration_ms?: number | null;
 };
 
+export type SmartMoneySourceQualityComponent = {
+  source_type?: SourceType | string;
+  provider?: string | null;
+  large_block_count?: number | null;
+  total_premium?: number | null;
+  interpretation?: string | null;
+  score_impact?: string | null;
+};
+
+export type SmartMoneySourceQualityBreakdown = {
+  form4?: SmartMoneySourceQualityComponent;
+  institutional_13f?: SmartMoneySourceQualityComponent;
+  options?: SmartMoneySourceQualityComponent;
+  aggregate_interpretation?: string | null;
+};
+
 export type ScoreLike = {
   name?: string;
   title?: string;
@@ -1020,7 +1050,7 @@ export type ScoreLike = {
   limitations?: string[];
   missing_data?: string[];
   source_status?: DataSourceStatus | null;
-  source_quality_breakdown?: Record<string, unknown> | null;
+  source_quality_breakdown?: SmartMoneySourceQualityBreakdown | Record<string, unknown> | null;
   explanation?: Record<string, unknown> | null;
   macro_data_quality?: Record<string, unknown> | null;
   macro_score_explanation?: MacroScoreExplanation | null;

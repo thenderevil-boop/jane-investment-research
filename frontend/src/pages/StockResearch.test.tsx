@@ -619,6 +619,7 @@ describe('StockResearch presentation helpers', () => {
           source_quality_summary: 'Some evidence is preliminary.',
           mock_evidence_categories: ['leadership_score'],
           fallback_evidence_categories: ['smart_money'],
+          optional_provider_fallback_categories: ['earnings_transcript_analysis', 'fmp_financials'],
           missing_source_date_categories: [],
           excluded_from_scoring: ['ISM Manufacturing PMI', 'CNN Fear & Greed'],
           insufficient_evidence_categories: ['monopoly_power', 'network_effect'],
@@ -648,6 +649,17 @@ describe('StockResearch presentation helpers', () => {
             proxy_metric_count: 17,
             ttm_ratio_count: 4,
             used_for_financial_quality: true,
+            optional_enhancement: false,
+          },
+          foreign_filer_context: {
+            ticker: 'NOK',
+            is_foreign_filer_or_adr: true,
+            country: null,
+            exchange: 'NYSE',
+            sec_missing_concept_count: 14,
+            structural_coverage_limitation: true,
+            user_explanation: '此公司為非美國本土公司／ADR，部分 SEC Companyfacts 與 13F candidate-specific coverage 受限屬正常情況。',
+            limitations: ['ADR/foreign-filer SEC coverage can be structurally limited.'],
           },
         }}
       />,
@@ -659,6 +671,10 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('SEC facts');
     expect(html).toContain('FMP financial proxy');
     expect(html).toContain('FMP TTM ratios');
+    expect(html).toContain('Optional provider fallback');
+    expect(html).toContain('earnings_transcript_analysis');
+    expect(html).toContain('ADR / foreign filer coverage note');
+    expect(html).toContain('非美國本土公司');
     expect(html).toContain('EUR');
     expect(html).toContain('2025');
     expect(html).toContain('monopoly_power');
@@ -681,6 +697,7 @@ describe('StockResearch presentation helpers', () => {
           source_quality_summary: 'Macro is derived from live or cached scored components; fallback categories reflect actual fallback source status.',
           mock_evidence_categories: ['legacy_leadership_score'],
           fallback_evidence_categories: ['insider_activity', 'smart_money'],
+          optional_provider_fallback_categories: [],
           missing_source_date_categories: [],
           excluded_from_scoring: ['ISM Manufacturing PMI', 'CNN Fear & Greed'],
           insufficient_evidence_categories: [],
@@ -726,6 +743,7 @@ describe('StockResearch presentation helpers', () => {
           source_quality_summary: 'Some evidence is preliminary.',
           mock_evidence_categories: ['legacy_leadership_score'],
           fallback_evidence_categories: ['insider_activity', 'smart_money'],
+          optional_provider_fallback_categories: [],
           missing_source_date_categories: [],
           excluded_from_scoring: [],
           insufficient_evidence_categories: ['monopoly_power'],
@@ -1256,14 +1274,23 @@ describe('StockResearch presentation helpers', () => {
           source_quality_breakdown: {
             form4: { source_type: 'fallback', interpretation: 'Fallback-limited.', score_impact: 'Limited impact.' },
             institutional_13f: { source_type: 'mock', interpretation: 'Delayed quarterly evidence.', score_impact: 'Context only.' },
-            options: { source_type: 'mock', interpretation: 'Mock context.', score_impact: 'Preliminary.' },
-            aggregate_interpretation: 'mixed_with_fallback_or_mock_components',
+            options: {
+              source_type: 'live',
+              provider: 'openbb_stockgrid',
+              large_block_count: 2,
+              total_premium: 1750000,
+              interpretation: 'OpenBB Stockgrid options blocks are provider-backed supplemental context.',
+              score_impact: 'Provider-backed options context.',
+            },
+            aggregate_interpretation: 'source_quality_constraints_disclosed',
           },
         }}
       />,
     );
     expect(html).toContain('Smart Money Source Quality Breakdown');
     expect(html).toContain('Delayed quarterly evidence');
+    expect(html).toContain('openbb_stockgrid');
+    expect(html).toContain('1,750,000');
     expect(html).not.toContain('[object Object]');
   });
 

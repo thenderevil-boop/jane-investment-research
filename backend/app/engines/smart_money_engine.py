@@ -378,7 +378,7 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
     source_status = data.get("form4_source_status") or data.get("source_status") or {}
     source = source_status.get("source") or (["SEC EDGAR"] if source_status.get("provider") == "SEC EDGAR" else MOCK_SOURCE)
     source_date = source_status.get("source_date") or max((item.get("filing_date", "") for item in transactions), default=MOCK_SOURCE_DATE)
-    any_fallback_form4 = source_status.get("source_type") == "fallback"
+    any_fallback_form4 = source_status.get("source_type") == "fallback" or source_status.get("fallback_used") is True
     fallback_mock_form4 = any_fallback_form4 and source_status.get("provider") == "mock"
 
     def category(item: dict[str, Any]) -> str:
@@ -491,6 +491,9 @@ def evaluate_form4_insider_signal(data: dict[str, Any]) -> ScoreObject:
 
 def evaluate_options_abnormal_activity(data: dict[str, Any]) -> ScoreObject:
     raw = data.get("options_activity", {})
+    source_status = raw.get("source_status") or data.get("options_activity_source_status") or {}
+    source_type = source_status.get("source_type") or "mock"
+    provider = source_status.get("provider") or raw.get("provider") or "phase1_mock_dataset"
     option_volume = raw.get("option_volume")
     open_interest = raw.get("open_interest")
     missing = [field for field in ["option_volume", "open_interest"] if raw.get(field) is None]
@@ -499,35 +502,56 @@ def evaluate_options_abnormal_activity(data: dict[str, Any]) -> ScoreObject:
         if isinstance(option_volume, (int, float)) and isinstance(open_interest, (int, float)) and open_interest
         else None
     )
-    abnormal_ratio = raw.get("abnormal_volume_ratio", 0)
+    abnormal_ratio = raw.get("abnormal_volume_ratio", 0) or 0
     direction_consistent = bool(raw.get("direction_consistent_with_price_action", False))
-    if abnormal_ratio >= 3 and direction_consistent:
+    if source_type in {"unknown", "fallback"} and provider == "openbb_stockgrid" and missing:
+        score = 40
+    elif abnormal_ratio >= 3 and direction_consistent:
         score = 80
     elif abnormal_ratio >= 2:
         score = 60
     else:
         score = 40
+    limitations = [OPTIONS_LIMITATION]
+    if source_type in {"mock", "fallback", "unknown"} and provider != "openbb_stockgrid":
+        limitations.insert(0, BASE_LIMITATION)
+    for limitation in source_status.get("limitations", []) or []:
+        if limitation not in limitations:
+            limitations.append(limitation)
     return _score_object(
         "options_abnormal_activity_score",
         score,
-        _options_label(score),
+        "insufficient_data" if provider == "openbb_stockgrid" and source_type in {"unknown", "fallback"} and missing else _options_label(score),
         {
             "option_volume": option_volume,
             "open_interest": open_interest,
             "call_put_ratio": raw.get("call_put_ratio"),
             "implied_volatility": raw.get("implied_volatility"),
             "expiration_date": raw.get("expiration_date"),
+            "provider": provider,
+            "source_status": source_status,
+            "large_block_count": raw.get("large_block_count"),
+            "total_premium": raw.get("total_premium"),
+            "sentiment_score": raw.get("sentiment_score"),
         },
         {
             "volume_to_open_interest": volume_to_open_interest,
             "call_put_ratio": raw.get("call_put_ratio"),
             "abnormal_volume_ratio": abnormal_ratio,
             "direction_consistent_with_price_action": direction_consistent,
+            "large_block_count": raw.get("large_block_count"),
+            "total_premium": raw.get("total_premium"),
+            "sentiment_score": raw.get("sentiment_score"),
+            "is_provider_backed": provider == "openbb_stockgrid" and source_type in {"live", "cached_live"},
         },
         {"abnormal_volume_ratio_high": 3, "abnormal_volume_ratio_watch": 2},
         {"options_attention": "up" if score >= 60 else "stable"},
-        [BASE_LIMITATION, OPTIONS_LIMITATION],
+        limitations,
         missing,
+        source=["OpenBB Stockgrid"] if provider == "openbb_stockgrid" else MOCK_SOURCE,
+        source_date=source_status.get("source_date") or MOCK_SOURCE_DATE,
+        source_status=source_status if source_status else None,
+        source_type=source_type,
     )
 
 
@@ -546,7 +570,7 @@ def evaluate_smart_money(data: dict[str, Any]) -> ScoreObject:
         + options.score * weights["options_abnormal_activity_score"]
     )
     missing = sorted(set(institutional.missing_data + insider.missing_data + options.missing_data))
-    source_status = data.get("form4_source_status") or insider.raw_data.get("source_status") or data.get("institutional_13f_source_status")
+    source_status = data.get("form4_source_status") or insider.raw_data.get("source_status") or data.get("institutional_13f_source_status") or options.raw_data.get("source_status")
     result = ScoreObject(
         name="smart_money_score",
         score=round(final_score, 2),
@@ -580,19 +604,20 @@ def evaluate_smart_money(data: dict[str, Any]) -> ScoreObject:
     if source_status:
         institutional_status = data.get("institutional_13f_source_status") or institutional.raw_data.get("source_status") or {}
         form4_status = data.get("form4_source_status") or insider.raw_data.get("source_status") or {}
+        options_status = options.raw_data.get("source_status") or data.get("options_activity_source_status") or {}
         source_dates = [
             item.get("source_date")
-            for item in [institutional_status, form4_status]
+            for item in [institutional_status, form4_status, options_status]
             if item.get("source_date") and item.get("source_type") in {"live", "cached_live"}
         ]
         fallback_used = any(
             item.get("fallback_used") or item.get("source_type") == "fallback"
-            for item in [institutional_status, form4_status]
+            for item in [institutional_status, form4_status, options_status]
             if item
         )
         fallback_reasons = [
             str(item.get("fallback_reason"))
-            for item in [institutional_status, form4_status]
+            for item in [institutional_status, form4_status, options_status]
             if item.get("fallback_reason")
         ]
         result.source_status = build_source_status(
@@ -601,7 +626,7 @@ def evaluate_smart_money(data: dict[str, Any]) -> ScoreObject:
                 "provider": "mixed_smart_money_sources",
                 "source_date": max(source_dates, default=result.source_date),
                 "fetched_at": source_status.get("fetched_at"),
-                "is_fresh": all(item.get("is_fresh", True) for item in [institutional_status, form4_status] if item),
+                "is_fresh": all(item.get("is_fresh", True) for item in [institutional_status, form4_status, options_status] if item),
                 "fallback_used": fallback_used,
                 "fallback_reason": "; ".join(fallback_reasons) if fallback_reasons else None,
                 "limitations": result.limitations,

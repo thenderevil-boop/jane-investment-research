@@ -220,6 +220,8 @@ class AnalyzeStockDataQualitySummary(BaseModel):
     qualitative_evidence: dict[str, Any] = Field(default_factory=dict)
     sec_companyfacts: dict[str, Any] = Field(default_factory=dict)
     fmp_financials: dict[str, Any] = Field(default_factory=dict)
+    optional_provider_fallback_categories: list[str] = Field(default_factory=list)
+    foreign_filer_context: dict[str, Any] = Field(default_factory=dict)
 
 
 class QualitativeEvidenceAssessmentItem(BaseModel):
