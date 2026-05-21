@@ -5,6 +5,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
+from backend.app.data_sources.fmp_financials import get_fmp_financial_proxy
 from backend.app.data_sources.fmp_transcripts import get_earnings_transcript_analysis
 from backend.app.data_sources.mock_data import DEFAULT_STOCK, MOCK_SOURCE_DATE, STOCK_FIXTURES
 from backend.app.data_sources.usaspending_contracts import get_government_relationship_evidence
@@ -960,6 +961,40 @@ def _build_fundamentals_cross_check(sec_facts: dict, yfinance_fundamentals: dict
     }
 
 
+def _augment_fundamentals_cross_check_with_fmp(cross_check: dict, fmp_proxy: dict, sec_facts: dict) -> dict:
+    augmented = dict(cross_check)
+    fmp_status = _status_dict(fmp_proxy.get("source_status"))
+    sec_status = _status_dict(sec_facts.get("source_status"))
+    fmp_context = {
+        "available": _fmp_available(fmp_proxy),
+        "source_type": fmp_status.get("source_type") or "unknown",
+        "latest_fiscal_year": fmp_proxy.get("latest_fiscal_year"),
+        "reported_currency": fmp_proxy.get("reported_currency"),
+        "filing_date": fmp_proxy.get("filing_date"),
+        "ratios": fmp_proxy.get("ttm_ratios") or {},
+    }
+    augmented["fmp_ttm_ratio_context"] = fmp_context
+    if fmp_context["available"] and not _sec_available(sec_facts):
+        augmented["provider"] = "mixed_SEC_companyfacts_yfinance_and_FMP_financials"
+        augmented["summary"] = "SEC Companyfacts has insufficient facts; FMP financial statements/TTM ratios provide provider-backed ADR or SEC-gap financial proxy context."
+        augmented["agreement_level"] = augmented.get("agreement_level") if augmented.get("agreement_level") != "insufficient" else "provider_proxy_available"
+        augmented["limitations"] = sorted(set([*augmented.get("limitations", []), *fmp_proxy.get("limitations", [])]))
+        source_status = build_source_status(
+            {
+                "source_type": "derived",
+                "provider": "mixed_SEC_companyfacts_yfinance_and_FMP_financials",
+                "source_date": max([item for item in [sec_status.get("source_date"), fmp_status.get("source_date")] if item], default=""),
+                "limitations": augmented["limitations"],
+                "missing_data": sorted(set([*augmented.get("missing_data", []), *fmp_proxy.get("missing_data", [])])),
+                "fallback_used": bool(sec_status.get("fallback_used") or fmp_status.get("fallback_used")),
+                "fallback_reason": sec_status.get("fallback_reason") or fmp_status.get("fallback_reason"),
+            }
+        ).model_dump(mode="json")
+        augmented["source_status"] = source_status
+        augmented["missing_data"] = source_status["missing_data"]
+    return augmented
+
+
 def _score_status(score: float | None) -> str:
     if score is None:
         return "insufficient"
@@ -1228,6 +1263,10 @@ def _quality_source(financial_status: dict) -> str:
     return "insufficient"
 
 
+def _fmp_available(fmp_proxy: dict) -> bool:
+    return bool(fmp_proxy.get("available")) and _status_dict(fmp_proxy.get("source_status")).get("source_type") in {"live", "cached_live"}
+
+
 def _merge_financials_with_sec(yfinance_fundamentals: dict, sec_facts: dict, cross_check: dict) -> dict:
     merged = dict(yfinance_fundamentals)
     if not _sec_available(sec_facts):
@@ -1297,6 +1336,76 @@ def _merge_financials_with_sec(yfinance_fundamentals: dict, sec_facts: dict, cro
             "sec_source_basis": "derived_from_mixed_sources",
             "filing_backed_fields": filing_backed_fields,
             "fundamentals_cross_check_agreement": cross_check.get("agreement_level"),
+            "limitations": limitations,
+            "missing_data": missing,
+        }
+    )
+    return merged
+
+
+def _merge_financials_with_sec_and_fmp(yfinance_fundamentals: dict, sec_facts: dict, cross_check: dict, fmp_proxy: dict) -> dict:
+    sec_merged = _merge_financials_with_sec(yfinance_fundamentals, sec_facts, cross_check)
+    if _sec_available(sec_facts) or not _fmp_available(fmp_proxy):
+        return sec_merged
+
+    merged = dict(yfinance_fundamentals)
+    facts = fmp_proxy.get("facts") or {}
+    derived = fmp_proxy.get("derived_metrics") or {}
+    mapping = {
+        "revenue_ttm": ("facts", "revenue"),
+        "revenue_yoy_growth_pct": ("derived", "revenue_yoy_growth_pct"),
+        "gross_margin_pct": ("derived", "gross_margin_pct"),
+        "operating_margin_pct": ("derived", "operating_margin_pct"),
+        "net_income_margin_pct": ("derived", "net_income_margin_pct"),
+        "rd_expense_ttm": ("facts", "research_and_development_expense"),
+        "rd_to_revenue_pct": ("derived", "rd_to_revenue_pct"),
+        "operating_cash_flow_ttm": ("facts", "operating_cash_flow"),
+        "capex_ttm": ("facts", "capex"),
+        "free_cash_flow_ttm": ("derived", "free_cash_flow_ttm"),
+        "free_cash_flow_margin_pct": ("derived", "free_cash_flow_margin_pct"),
+        "cash_and_equivalents": ("facts", "cash_and_equivalents"),
+        "total_debt": ("facts", "total_debt"),
+        "net_cash_or_debt": ("derived", "net_cash_or_debt"),
+        "debt_to_equity": ("derived", "debt_to_equity"),
+    }
+    fmp_backed_fields = []
+    for target, (section, key) in mapping.items():
+        value = (facts if section == "facts" else derived).get(key)
+        if _metric_available(value):
+            merged[target] = value
+            fmp_backed_fields.append(target)
+    yf_status = _status_dict(yfinance_fundamentals.get("source_status"))
+    fmp_status = _status_dict(fmp_proxy.get("source_status"))
+    limitations = sorted(set([
+        *yfinance_fundamentals.get("limitations", []),
+        *fmp_proxy.get("limitations", []),
+        "FMP financial statements are used only when SEC Companyfacts has insufficient facts for ADR / SEC gaps.",
+    ]))
+    missing = sorted(set([*yfinance_fundamentals.get("missing_data", []), *fmp_proxy.get("missing_data", [])]))
+    source_status = build_source_status(
+        {
+            "source_type": "derived",
+            "provider": "derived_from_yfinance_and_FMP_financials",
+            "source_date": max([item for item in [yf_status.get("source_date"), fmp_status.get("source_date")] if item], default=""),
+            "limitations": limitations,
+            "missing_data": missing,
+            "fallback_used": bool(yf_status.get("fallback_used") or fmp_status.get("fallback_used")),
+            "fallback_reason": yf_status.get("fallback_reason") or fmp_status.get("fallback_reason"),
+        }
+    ).model_dump(mode="json")
+    merged.update(
+        {
+            "source_type": "derived",
+            "provider": "derived_from_yfinance_and_FMP_financials",
+            "source": ["yfinance", "FMP financial statements"],
+            "source_date": source_status.get("source_date", ""),
+            "source_status": source_status,
+            "sec_source_basis": "insufficient",
+            "fmp_financial_proxy_used": True,
+            "fmp_backed_fields": fmp_backed_fields,
+            "reported_currency": fmp_proxy.get("reported_currency"),
+            "fmp_latest_fiscal_year": fmp_proxy.get("latest_fiscal_year"),
+            "fmp_filing_date": fmp_proxy.get("filing_date"),
             "limitations": limitations,
             "missing_data": missing,
         }
@@ -1870,6 +1979,7 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "financial_quality": _status_dict(response.financial_quality.source_status),
         "valuation_context": _status_dict(response.valuation_context.source_status),
         "sec_financial_facts": _status_dict(response.sec_financial_facts.get("source_status")),
+        "fmp_financials": _status_dict(response.fmp_financial_proxy.get("source_status")),
         "fundamentals_cross_check": _status_dict(response.fundamentals_cross_check.get("source_status")),
         "jane_company_quality": _status_dict(response.jane_company_quality.source_status),
         "financial_statement_signals": _status_dict(response.financial_statement_signals.source_status),
@@ -1995,13 +2105,23 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "company_quality": company_quality_breakdown,
         "qualitative_evidence": qualitative_summary,
         "sec_companyfacts": {
-            "available": _status_dict(response.sec_financial_facts.get("source_status")).get("source_type") in {"live", "cached_live"},
+            "available": _sec_available(response.sec_financial_facts),
             "source_type": _status_dict(response.sec_financial_facts.get("source_status")).get("source_type") or "insufficient",
             "filing_backed_metric_count": sum(1 for item in (response.sec_financial_facts.get("facts") or {}).values() if item),
             "missing_concept_count": len(response.sec_financial_facts.get("missing_data", [])),
             "latest_filing_date": response.sec_financial_facts.get("latest_filing_date"),
             "latest_report_period": response.sec_financial_facts.get("latest_report_period"),
             "agreement_level_with_yfinance": response.fundamentals_cross_check.get("agreement_level", "insufficient"),
+        },
+        "fmp_financials": {
+            "available": _fmp_available(response.fmp_financial_proxy),
+            "source_type": _status_dict(response.fmp_financial_proxy.get("source_status")).get("source_type") or "insufficient",
+            "reported_currency": response.fmp_financial_proxy.get("reported_currency"),
+            "latest_fiscal_year": response.fmp_financial_proxy.get("latest_fiscal_year"),
+            "filing_date": response.fmp_financial_proxy.get("filing_date"),
+            "proxy_metric_count": len(response.fmp_financial_proxy.get("facts", {})) + len(response.fmp_financial_proxy.get("derived_metrics", {})),
+            "ttm_ratio_count": len(response.fmp_financial_proxy.get("ttm_ratios", {})),
+            "used_for_financial_quality": bool(response.financial_quality.raw_data.get("fmp_financial_proxy_used")),
         },
     }
 
@@ -3309,6 +3429,8 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
     company_live = not company_mock and "company_profile" not in dq.fallback_evidence_categories
     fundamentals_live = not fundamentals_mock and "financial_quality" not in dq.fallback_evidence_categories
     sec_available = bool(dq.sec_companyfacts.get("available"))
+    fmp_financial_available = bool(dq.fmp_financials.get("available"))
+    fmp_financial_used = bool(dq.fmp_financials.get("used_for_financial_quality"))
     sec_agreement = dq.sec_companyfacts.get("agreement_level_with_yfinance", "insufficient")
     sec_invalid = bool(response.sec_financial_facts.get("invalid_derived_metrics"))
     smart_limited = "smart_money" in dq.fallback_evidence_categories or "insider_activity" in dq.fallback_evidence_categories
@@ -3325,6 +3447,8 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
         strengths.append("Financial quality includes live or cached fundamentals context.")
     if sec_available:
         strengths.append("SEC Companyfacts filing-backed financial facts are available for cross-checking.")
+    if fmp_financial_available:
+        strengths.append("FMP financial statements/TTM ratios are available as provider-backed ADR or SEC-gap financial proxy context.")
     if sec_agreement in {"high", "moderate"}:
         strengths.append("SEC Companyfacts and yfinance are directionally consistent for comparable metrics.")
     supportive_quality = [criterion for criterion in response.jane_company_quality.criteria if criterion.status == "supportive"]
@@ -3379,7 +3503,12 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
     )
     env = f"Macro environment is {response.macro_regime.label} with {response.macro_regime.confidence:.2f} confidence."
     if company_live and fundamentals_live:
-        company = "Live company profile and fundamentals are available; SEC filing-backed financial facts are available." if sec_available else "Live company profile and fundamentals are available; Jane company quality is partially evidence-backed by financial metrics, while qualitative moat/founder/network/disruption evidence remains insufficient."
+        if sec_available:
+            company = "Live company profile and fundamentals are available; SEC filing-backed financial facts are available."
+        elif fmp_financial_used:
+            company = "Live company profile and fundamentals are available; SEC Companyfacts is insufficient, so FMP financial statements provide provider-backed ADR or SEC-gap financial proxy context."
+        else:
+            company = "Live company profile and fundamentals are available; Jane company quality is partially evidence-backed by financial metrics, while qualitative moat/founder/network/disruption evidence remains insufficient."
         if sec_invalid:
             company = f"{company} SEC Companyfacts is available, but some derived metrics require period-alignment review."
         if qualitative.accepted_evidence_count:
@@ -3584,8 +3713,11 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     company_profile = get_company_profile(request.ticker)
     yfinance_fundamentals = get_company_fundamentals(request.ticker)
     sec_financial_facts = get_sec_companyfacts(request.ticker)
+    fmp_financial_proxy = get_fmp_financial_proxy(request.ticker)
     fundamentals_cross_check = _build_fundamentals_cross_check(sec_financial_facts, yfinance_fundamentals)
-    company_fundamentals = _merge_financials_with_sec(yfinance_fundamentals, sec_financial_facts, fundamentals_cross_check)
+    if _fmp_available(fmp_financial_proxy):
+        fundamentals_cross_check = _augment_fundamentals_cross_check_with_fmp(fundamentals_cross_check, fmp_financial_proxy, sec_financial_facts)
+    company_fundamentals = _merge_financials_with_sec_and_fmp(yfinance_fundamentals, sec_financial_facts, fundamentals_cross_check, fmp_financial_proxy)
     smart_money_data = {**fixture["smart_money"], **sec_filings}
     engine_context = {
         **fixture,
@@ -3770,6 +3902,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         jane_company_quality=jane_company_quality,
         financial_statement_signals=financial_statement_signals,
         sec_financial_facts=sec_financial_facts,
+        fmp_financial_proxy=fmp_financial_proxy,
         fundamentals_cross_check=fundamentals_cross_check,
         market_timing_context=market_timing_context,
         overheat_risk=overheat_risk,

@@ -113,6 +113,11 @@
           "additionalProperties": true,
           "title": "Sec Companyfacts",
           "type": "object"
+        },
+        "fmp_financials": {
+          "additionalProperties": true,
+          "title": "Fmp Financials",
+          "type": "object"
         }
       },
       "required": [
@@ -3688,6 +3693,11 @@
     "sec_financial_facts": {
       "additionalProperties": true,
       "title": "Sec Financial Facts",
+      "type": "object"
+    },
+    "fmp_financial_proxy": {
+      "additionalProperties": true,
+      "title": "Fmp Financial Proxy",
       "type": "object"
     },
     "fundamentals_cross_check": {

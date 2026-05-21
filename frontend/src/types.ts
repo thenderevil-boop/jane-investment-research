@@ -152,7 +152,17 @@ export type AnalyzeStockDataQualitySummary = {
     missing_concept_count: number;
     latest_filing_date?: string | null;
     latest_report_period?: string | null;
-    agreement_level_with_yfinance: 'high' | 'moderate' | 'low' | 'insufficient';
+    agreement_level_with_yfinance: 'high' | 'moderate' | 'low' | 'insufficient' | 'provider_proxy_available';
+  };
+  fmp_financials?: {
+    available: boolean;
+    source_type: SourceType | 'insufficient';
+    reported_currency?: string | null;
+    latest_fiscal_year?: string | null;
+    filing_date?: string | null;
+    proxy_metric_count: number;
+    ttm_ratio_count: number;
+    used_for_financial_quality: boolean;
   };
 };
 

@@ -219,6 +219,7 @@ class AnalyzeStockDataQualitySummary(BaseModel):
     company_quality: dict[str, int] = Field(default_factory=dict)
     qualitative_evidence: dict[str, Any] = Field(default_factory=dict)
     sec_companyfacts: dict[str, Any] = Field(default_factory=dict)
+    fmp_financials: dict[str, Any] = Field(default_factory=dict)
 
 
 class QualitativeEvidenceAssessmentItem(BaseModel):
@@ -421,6 +422,7 @@ class AnalyzeStockResponse(BaseModel):
     jane_company_quality: JaneCompanyQuality
     financial_statement_signals: FinancialStatementSignals
     sec_financial_facts: dict[str, Any] = Field(default_factory=dict)
+    fmp_financial_proxy: dict[str, Any] = Field(default_factory=dict)
     fundamentals_cross_check: dict[str, Any] = Field(default_factory=dict)
     market_timing_context: ScoreObject
     overheat_risk: ScoreObject

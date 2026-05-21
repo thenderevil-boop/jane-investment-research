@@ -612,6 +612,16 @@ export function AnalyzeDataQualitySection({ dataQuality }: { dataQuality?: Analy
           <div><dt>Agreement</dt><dd>{dataQuality.sec_companyfacts.agreement_level_with_yfinance}</dd></div>
         </dl>
       )}
+      {dataQuality.fmp_financials && (
+        <dl className="qualityMetrics">
+          <div><dt>FMP financial proxy</dt><dd>{dataQuality.fmp_financials.available ? 'Available' : 'Unavailable'}</dd></div>
+          <div><dt>FMP metrics</dt><dd>{dataQuality.fmp_financials.proxy_metric_count}</dd></div>
+          <div><dt>FMP TTM ratios</dt><dd>{dataQuality.fmp_financials.ttm_ratio_count}</dd></div>
+          <div><dt>FMP currency</dt><dd>{dataQuality.fmp_financials.reported_currency ?? 'N/A'}</dd></div>
+          <div><dt>FMP fiscal year</dt><dd>{dataQuality.fmp_financials.latest_fiscal_year ?? 'N/A'}</dd></div>
+          <div><dt>Used for quality</dt><dd>{dataQuality.fmp_financials.used_for_financial_quality ? 'Yes' : 'No'}</dd></div>
+        </dl>
+      )}
       {!!dataQuality.insufficient_evidence_categories?.length && (
         <p className="sourceWarning">Insufficient company quality evidence: {dataQuality.insufficient_evidence_categories.join(', ')}</p>
       )}

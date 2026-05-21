@@ -1,5 +1,13 @@
 # Changelog
 
+## Phase 42 — FMP Financial Statements + TTM Ratios for ADR / SEC Gaps
+
+- Added opt-in FMP financial statement and TTM-ratio proxy evidence for `POST /api/analyze-stock` via existing `USE_LIVE_FMP_DATA=true` and `FMP_API_KEY` settings.
+- Added `fmp_financial_proxy` to analyze-stock responses with normalized income statement, balance sheet, cash-flow, derived metrics, TTM ratios, reported currency, fiscal year, filing date, cache/fallback status, and sanitized limitations.
+- Analyze-stock uses FMP financial proxies only when SEC Companyfacts has insufficient usable facts (common ADR / SEC-gap case); valid SEC Companyfacts continues to take precedence.
+- Added `data_quality_summary.fmp_financials` and Stock Research UI rendering for FMP proxy availability, metric counts, TTM ratios, currency, fiscal year, and whether it was used for financial quality.
+- Preserved final scoring boundaries, transcript capability separation, provider secret redaction, and not-investment-advice behavior.
+
 ## Phase 40 — USASpending Government Relationship Evidence for C15
 
 - Added opt-in USASpending.gov federal award evidence for `POST /api/analyze-stock` via `USE_LIVE_USASPENDING_DATA=true`; no API key is required.

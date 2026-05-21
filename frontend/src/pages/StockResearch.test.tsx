@@ -639,6 +639,16 @@ describe('StockResearch presentation helpers', () => {
             latest_report_period: '2026-01-31',
             agreement_level_with_yfinance: 'high',
           },
+          fmp_financials: {
+            available: true,
+            source_type: 'live',
+            reported_currency: 'EUR',
+            latest_fiscal_year: '2025',
+            filing_date: '2026-03-05',
+            proxy_metric_count: 17,
+            ttm_ratio_count: 4,
+            used_for_financial_quality: true,
+          },
         }}
       />,
     );
@@ -647,6 +657,10 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('leadership_score');
     expect(html).toContain('Quality backed');
     expect(html).toContain('SEC facts');
+    expect(html).toContain('FMP financial proxy');
+    expect(html).toContain('FMP TTM ratios');
+    expect(html).toContain('EUR');
+    expect(html).toContain('2025');
     expect(html).toContain('monopoly_power');
     expect(html).not.toContain('[object Object]');
   });

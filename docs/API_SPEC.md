@@ -118,7 +118,7 @@ Phase 14 makes the response a candidate validation report rather than a loose bu
 - `comparison_evidence_assessment`: manual competitor/comparison evidence summary for peer context hooks.
 - `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, qualitative evidence, comparison evidence, Jane company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
 - `jane_criteria_coverage`: non-scoring coverage matrix across the canonical Jane 20 criteria, accepted evidence items, SEC Companyfacts financial proxies where available, covered and missing submetrics, and next manual checks.
-- `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, qualitative evidence counts, and excluded scoring indicators.
+- `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, qualitative evidence counts, SEC Companyfacts status, FMP financial proxy status for ADR / SEC gaps, and excluded scoring indicators.
 - `score_driver_breakdown`: positive, limiting, and neutral score drivers.
 - `next_manual_checks`: research-oriented checks for source quality, fundamentals, filings, valuation, and risk.
 
@@ -132,6 +132,13 @@ Phase 26 adds explanation-only validation-quality hardening:
 - `valuation_context.explanation` frames valuation proxy risk as research context only.
 - `next_manual_checks` include `priority_rank`, `blocking`, normalized `category`, `related_evidence_category`, and `reason_short`.
 - Evidence matrix rows may include `why_it_matters`, `review_priority`, `affects_final_score`, `is_deprecated`, and `replaced_by`.
+
+Phase 42 adds FMP financial statement / TTM-ratio proxy behavior for ADR and SEC-gap cases:
+
+- `fmp_financial_proxy` is a top-level analyze-stock field with normalized FMP income statement, balance sheet, cash-flow statement, derived metrics, TTM ratios, source status, and limitations.
+- The proxy is used for financial-quality normalization only when SEC Companyfacts has insufficient usable filing facts; it does not override valid SEC Companyfacts or automatically raise candidate confidence.
+- `data_quality_summary.fmp_financials` reports whether FMP financials were available and whether they were used for financial quality.
+- FMP transcript evidence remains a separate capability. Transcript disabled/fallback states must not mark financial statements unavailable, and financial statement failures must not erase transcript context.
 
 Raw evidence remains available in the legacy score objects, `raw_data`, and debug/expandable frontend panels for audit. Mock and fallback data reduce confidence. The endpoint must keep `not_investment_advice=true` and must not emit trading instructions.
 
