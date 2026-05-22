@@ -31,6 +31,7 @@ from backend.app.schemas.stock_analysis import (
     CandidateValidationSummary,
     EvidenceMatrixItem,
     FinancialStatementSignals,
+    ForeignFilerCoverageDiagnostics,
     JaneCriteriaCoverageMatrix,
     JaneCompanyQuality,
     NextManualCheck,
@@ -1949,6 +1950,103 @@ def _foreign_filer_context(response: AnalyzeStockResponse) -> dict:
     }
 
 
+def _build_foreign_filer_coverage_diagnostics(response: AnalyzeStockResponse) -> dict:
+    context = _foreign_filer_context(response)
+    if not context.get("is_foreign_filer_or_adr"):
+        return {
+            "is_foreign_filer_or_adr": False,
+            "detected_signals": [],
+            "coverage_limitations": [],
+            "recommended_manual_checks": [],
+            "affects_score": False,
+            "not_investment_advice": True,
+        }
+
+    signals: list[str] = []
+    ticker = response.ticker.strip().upper()
+    if ticker in KNOWN_ADR_OR_FOREIGN_LISTINGS:
+        signals.append("known_adr_or_foreign_listing")
+    if context.get("country"):
+        signals.append("non_us_company_profile")
+    if context.get("sec_missing_concept_count", 0):
+        signals.append("sec_companyfacts_sparse")
+    financial_currency = response.financial_quality.raw_data.get("reported_currency") or response.fmp_financial_proxy.get("reported_currency")
+    if financial_currency and str(financial_currency).upper() != "USD":
+        signals.append("reported_currency_non_usd")
+
+    transcript_status = _status_dict(response.earnings_transcript_analysis.source_status)
+    if transcript_status.get("source_type") == "fallback" or transcript_status.get("fallback_used"):
+        signals.append("fmp_transcript_unavailable")
+
+    limitations = [
+        {
+            "area": "sec_companyfacts",
+            "status": "structural_gap",
+            "reason": "SEC Companyfacts concepts are often sparse for ADR / foreign-filer issuers; use local filings and annual reports for missing financial concepts.",
+            "affected_criteria": [5, 6, 10],
+        },
+        {
+            "area": "sec_form4",
+            "status": "not_expected",
+            "reason": "Foreign issuers may not report insider transactions through SEC Form 4; use local regulator disclosures, annual reports, and governance pages for insider alignment.",
+            "affected_criteria": [2, 12],
+        },
+        {
+            "area": "sec_13f",
+            "status": "structural_gap",
+            "reason": "13F candidate-specific evidence can be limited for ADR wrappers or foreign ordinary share lines and should be treated as coverage context, not company weakness.",
+            "affected_criteria": [19],
+        },
+    ]
+    if "fmp_transcript_unavailable" in signals:
+        limitations.append(
+            {
+                "area": "fmp_transcript",
+                "status": "provider_gap",
+                "reason": "FMP transcript lookup may not map ADR tickers to the local issuer transcript or webcast materials.",
+                "affected_criteria": [2, 17],
+            }
+        )
+    limitations.append(
+        {
+            "area": "local_filings",
+            "status": "manual_verification_required",
+            "reason": "ADR / foreign-filer research should be cross-checked with local exchange filings, annual reports, investor presentations, and company IR materials.",
+            "affected_criteria": [2, 5, 6, 10, 12, 17, 19],
+        }
+    )
+    checks = [
+        {
+            "priority": "high",
+            "criterion_id": 2,
+            "check": "Verify founder / CEO status and insider alignment from annual report, company governance page, and local filings; SEC Form 4 may not apply to ADR / foreign-filer issuers.",
+        },
+        {
+            "priority": "high",
+            "criterion_id": 17,
+            "check": "Review annual report CEO letter, investor day materials, and earnings webcast transcripts when FMP transcript mapping is unavailable for ADR tickers.",
+        },
+        {
+            "priority": "medium",
+            "criterion_id": 5,
+            "check": "Verify R&D intensity from annual report notes when SEC Companyfacts concepts are sparse for foreign filers.",
+        },
+        {
+            "priority": "medium",
+            "criterion_id": 10,
+            "check": "Cross-check free cash flow and cash conversion using the annual report cash-flow statement when SEC Companyfacts concepts are unavailable.",
+        },
+    ]
+    return {
+        "is_foreign_filer_or_adr": True,
+        "detected_signals": sorted(set(signals)),
+        "coverage_limitations": limitations,
+        "recommended_manual_checks": checks,
+        "affects_score": False,
+        "not_investment_advice": True,
+    }
+
+
 def _macro_active_scoring_uses_fallback(macro_regime) -> bool:
     quality = getattr(macro_regime, "macro_data_quality", None)
     scoring = getattr(quality, "scoring", {}) if quality else {}
@@ -2289,7 +2387,7 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "mock_evidence_categories": mock_categories,
         "fallback_evidence_categories": fallback_categories,
         "missing_source_date_categories": missing_source_date_categories,
-        "excluded_from_scoring": sorted(set(_excluded_indicator_names(response.macro_regime) + ["earnings_transcript_analysis", "jane_criteria_external_evidence", "government_relationship_evidence", "patent_ip_evidence", "evidence_freshness_policy", "stale_review_queue"])),
+        "excluded_from_scoring": sorted(set(_excluded_indicator_names(response.macro_regime) + ["earnings_transcript_analysis", "jane_criteria_external_evidence", "government_relationship_evidence", "patent_ip_evidence", "evidence_freshness_policy", "stale_review_queue", "foreign_filer_coverage_diagnostics"])),
         "insufficient_evidence_categories": insufficient_evidence_categories,
         "company_quality": company_quality_breakdown,
         "qualitative_evidence": qualitative_summary,
@@ -2759,6 +2857,17 @@ def _patent_ip_evidence_by_criterion(response: AnalyzeStockResponse) -> dict[int
     return evidence
 
 
+ADR_CRITERION_MANUAL_CHECKS = {
+    2: "Verify founder / CEO status and insider alignment from annual report, company governance page, and local filings; SEC Form 4 may not apply to ADR / foreign-filer issuers.",
+    5: "Verify R&D intensity from annual report notes when SEC Companyfacts concepts are sparse for ADR / foreign-filer issuers.",
+    6: "Cross-check revenue growth, margins, and operating leverage using annual report financial statements when SEC Companyfacts concepts are sparse.",
+    10: "Cross-check free cash flow and cash conversion using the annual report cash-flow statement when SEC Companyfacts concepts are unavailable.",
+    12: "Verify insider ownership and local insider-transaction disclosures through local filings or governance materials because SEC Form 4 may not apply.",
+    17: "Review annual report CEO letter, investor day materials, and earnings webcast transcripts when FMP transcript mapping is unavailable for ADR tickers.",
+    19: "Treat 13F visibility as ADR wrapper coverage context and cross-check large-holder disclosures from annual reports or local filings.",
+}
+
+
 def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
     evidence_by_id = _accepted_jane_evidence_by_criterion(response.qualitative_evidence_assessment.model_dump(mode="json"))
     sec_proxy_by_id = _sec_financial_proxy_evidence_by_criterion(response)
@@ -2797,7 +2906,11 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
             status = "insufficient"
         source_quality = _coverage_source_quality(items)
         next_manual_check = None
-        if missing:
+        foreign_diag = getattr(response, "foreign_filer_coverage_diagnostics", None)
+        is_foreign_filer = bool(foreign_diag and foreign_diag.is_foreign_filer_or_adr)
+        if is_foreign_filer and criterion_id in ADR_CRITERION_MANUAL_CHECKS:
+            next_manual_check = ADR_CRITERION_MANUAL_CHECKS[criterion_id]
+        elif missing:
             next_manual_check = f"Verify Jane criterion {criterion_id} missing submetrics: {', '.join(missing[:4])}."
         limitations = [
             "Coverage matrix measures evidence completeness only and does not change scoring logic.",
@@ -4316,6 +4429,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
             "missing_source_date_categories": [],
             "excluded_from_scoring": [],
         },
+        foreign_filer_coverage_diagnostics={},
         evidence_freshness_policy=_build_evidence_freshness_policy(),
         stale_review_queue={},
         score_driver_breakdown={
@@ -4410,8 +4524,9 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     if response.data_quality.missing_source_date_components:
         response.human_verification_queue.append("Review components with missing source dates before interpreting scores.")
     response.evidence_matrix = [EvidenceMatrixItem.model_validate(item) for item in _build_evidence_matrix(response)]
-    response.jane_criteria_coverage = JaneCriteriaCoverageMatrix.model_validate(_build_jane_criteria_coverage(response))
     response.data_quality_summary = AnalyzeStockDataQualitySummary.model_validate(_build_data_quality_summary(response))
+    response.foreign_filer_coverage_diagnostics = ForeignFilerCoverageDiagnostics.model_validate(_build_foreign_filer_coverage_diagnostics(response))
+    response.jane_criteria_coverage = JaneCriteriaCoverageMatrix.model_validate(_build_jane_criteria_coverage(response))
     response.stale_review_queue = StaleReviewQueue.model_validate(_build_stale_review_queue(response))
     if response.stale_review_queue.items:
         response.human_verification_queue.append("Review stale evidence queue before increasing validation confidence.")

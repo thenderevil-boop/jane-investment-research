@@ -135,6 +135,8 @@ Phase 50 expands the same non-scoring auto-evidence layer to C2 and refines C3. 
 
 Phase 47 adds USPTO PatentsView as an opt-in no-key external provider for criterion 18. Positive PatentsView `total_hits` can partially cover C18 `patent_count` in the Coverage Matrix through `patent_ip_evidence`, but patent relevance, assignee/subsidiary matching, licensing value, and defensibility remain manual qualitative checks.
 
+Phase 51 adds ADR / foreign-filer diagnostics above the same non-scoring coverage workflow. `foreign_filer_coverage_diagnostics` explains structural SEC Companyfacts, SEC Form 4, 13F, and FMP transcript limitations, and affected Coverage Matrix rows receive ADR-aware `next_manual_check` guidance. These diagnostics do not cover submetrics, change scores, or imply company weakness; they turn structural data gaps into a manual local-filing / annual-report research path.
+
 Phase 29 surfaces the same coverage and evidence gaps through analyze-stock `validation_os_report`, a non-scoring explainability layer that summarizes Jane quality context, coverage gaps, manual checks, source-quality caveats, and research-only limitations without changing the final score or verdict.
 
 Implementation module:

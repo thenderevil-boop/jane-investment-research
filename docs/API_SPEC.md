@@ -119,6 +119,7 @@ Phase 14 makes the response a candidate validation report rather than a loose bu
 - `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, qualitative evidence, comparison evidence, Jane company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
 - `jane_criteria_coverage`: non-scoring coverage matrix across the canonical Jane 20 criteria, accepted evidence items, SEC Companyfacts financial proxies where available, C2/C3/C5 auto-derived yfinance/financial proxies, C18 PatentsView patent-count proxy, covered and missing submetrics, and next manual checks.
 - `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, optional-provider fallback categories, qualitative evidence counts, SEC Companyfacts status, FMP financial proxy status for ADR / SEC gaps, ADR/foreign-filer coverage context, and excluded scoring indicators.
+- `foreign_filer_coverage_diagnostics`: non-scoring Phase 51 ADR / foreign-filer diagnostics that separate structural SEC Companyfacts, SEC Form 4, 13F, and FMP transcript coverage gaps from company-specific weakness and provide manual research checks.
 - `evidence_freshness_policy`: non-scoring Phase 49 freshness-window contract for manual evidence, provider caches, market data, filings, Form 4, 13F, macro sources, and stale-review triggers.
 - `stale_review_queue`: non-scoring Phase 49 queue of stale manual evidence, review-due evidence, missing-source-date evidence, and stale live/cached/derived source-status items that require refresh, review, archive, or source-date remediation before increasing validation confidence.
 - `score_driver_breakdown`: positive, limiting, and neutral score drivers.
@@ -143,6 +144,7 @@ Phase 43 refines source-quality semantics for fallback and ADR / foreign-filer c
 - Phase 49 freshness fields are review workflow metadata only. They are included in `data_quality_summary.excluded_from_scoring`, can add `next_manual_checks`, and do not change final score, label, verdict, or investment-advice boundaries.
 - Optional FMP transcript / financial fallbacks are reported in `data_quality_summary.optional_provider_fallback_categories`; they remain visible but do not count as core `fallback_evidence_categories` or missing-source-date penalties unless the FMP proxy is actually used for financial-quality scoring.
 - `data_quality_summary.foreign_filer_context` explains structural ADR / foreign-filer coverage limitations, including SEC Companyfacts and 13F candidate-specific gaps, so normal non-US coverage limits are not presented as company-specific weakness.
+- Phase 51 promotes ADR / foreign-filer handling into `foreign_filer_coverage_diagnostics` with `is_foreign_filer_or_adr`, `detected_signals`, `coverage_limitations`, `recommended_manual_checks`, `affects_score=false`, and `not_investment_advice=true`. Limitation `area` values include `sec_companyfacts`, `sec_form4`, `sec_13f`, `fmp_transcript`, `local_filings`, and `other`; statuses include `structural_gap`, `provider_gap`, `not_expected`, and `manual_verification_required`. It adds ADR-aware Coverage Matrix manual checks for affected criteria such as C2, C5, C10, C12, C17, and C19 without changing score, verdict, or coverage thresholds.
 
 Phase 42 adds FMP financial statement / TTM-ratio proxy behavior for ADR and SEC-gap cases:
 
@@ -221,6 +223,7 @@ Phase 28 Jane criteria coverage behavior:
 - Phase 46 adds non-scoring auto-derived numeric proxies for criterion 3 (`short_interest_proxy`) from yfinance short-interest fields and criterion 5 (`rd_percent_of_revenue`) from yfinance, SEC Companyfacts, or FMP ADR financial proxy R&D intensity. Auto-derived items include explicit limitations and do not replace manual qualitative research.
 - Phase 50 adds non-scoring C2 (`founder_ownership`) coverage from yfinance `heldPercentInsiders` / normalized insider ownership, while keeping `founder_is_ceo`, vision consistency, milestone execution, and crisis execution manual. It also refines C3 thresholds so very low short interest does not fill `short_interest_proxy`; high/moderate/low labels come from `shortRatio` and `shortPercentOfFloat`.
 - Phase 47 adds non-scoring provider-backed C18 (`patent_count`) coverage from USPTO PatentsView `patent_ip_evidence`. It remains an auto-derived patent-count proxy and does not prove patent relevance, licensing value, or defensibility.
+- Phase 51 adds ADR-aware `next_manual_check` text for affected criteria when `foreign_filer_coverage_diagnostics.is_foreign_filer_or_adr=true`; these checks explain local-filing, annual-report, SEC Form 4, 13F, and transcript limitations without changing row status or score.
 - Coverage matrix output is validation completeness only. It does not change `evidence_matrix`, `leadership_score` deprecation semantics, or final scoring logic by itself.
 - Rejected or unsupported evidence must not mark a submetric as covered.
 
@@ -412,6 +415,7 @@ Response:
   },
   "evidence_matrix": [],
   "data_quality_summary": {},
+  "foreign_filer_coverage_diagnostics": {"is_foreign_filer_or_adr": false, "coverage_limitations": [], "recommended_manual_checks": []},
   "evidence_freshness_policy": {},
   "stale_review_queue": {"items": []},
   "score_driver_breakdown": {},

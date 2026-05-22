@@ -7,7 +7,7 @@ import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
-import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ValidationOSReport, ValidationQualitySummary } from '../types';
+import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, ForeignFilerCoverageDiagnostics, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ValidationOSReport, ValidationQualitySummary } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
 export const janeLeadershipCriteria = [
@@ -639,6 +639,53 @@ export function AnalyzeDataQualitySection({ dataQuality }: { dataQuality?: Analy
         <p className="sourceWarning">Insufficient company quality evidence: {dataQuality.insufficient_evidence_categories.join(', ')}</p>
       )}
       {!!dataQuality.excluded_from_scoring.length && <p className="muted">Excluded from scoring: {dataQuality.excluded_from_scoring.join(', ')}</p>}
+    </section>
+  );
+}
+
+export function ForeignFilerCoverageDiagnosticsSection({ diagnostics }: { diagnostics?: ForeignFilerCoverageDiagnostics }) {
+  if (!diagnostics?.is_foreign_filer_or_adr) return null;
+  return (
+    <section className="pageSection" aria-label="Foreign Filer / ADR Coverage Note">
+      <h2>Foreign Filer / ADR Coverage Note</h2>
+      <p className="muted">
+        This ticker appears to be an ADR or foreign filer. Some SEC-native datasets may be structurally unavailable. These gaps are excluded from scoring and should be resolved through local filings, annual reports, or investor materials.
+      </p>
+      <div className="summaryMain">
+        <span className="smallPill">Affects score: {diagnostics.affects_score ? 'yes' : 'no'}</span>
+        <span className="smallPill">Manual research path</span>
+      </div>
+      {!!diagnostics.detected_signals.length && (
+        <div>
+          <h3>Detected signals</h3>
+          <ul>{diagnostics.detected_signals.map((signal) => <li key={signal}>{signal}</li>)}</ul>
+        </div>
+      )}
+      {!!diagnostics.coverage_limitations.length && (
+        <div>
+          <h3>Coverage limitations</h3>
+          <ul>
+            {diagnostics.coverage_limitations.map((item) => (
+              <li key={`${item.area}-${item.status}`}>
+                <strong>{item.area}</strong> — {item.status}: {item.reason}
+                {!!item.affected_criteria.length && <span className="muted"> Affected criteria: {item.affected_criteria.join(', ')}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {!!diagnostics.recommended_manual_checks.length && (
+        <div>
+          <h3>Recommended manual checks</h3>
+          <ul>
+            {diagnostics.recommended_manual_checks.map((item, index) => (
+              <li key={`${item.criterion_id ?? 'general'}-${index}`}>
+                <strong>{item.priority}</strong>{item.criterion_id ? ` C${item.criterion_id}` : ''}: {item.check}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }
@@ -1447,6 +1494,7 @@ export default function StockResearch() {
           <ValidationReportExportSection ticker={ticker} theme={theme} userReason={userReason} qualitativeEvidenceJson={qualitativeEvidenceJson} />
           <ValidationQualitySummarySection summary={result.validation_quality_summary} />
           <AnalyzeDataQualitySection dataQuality={result.data_quality_summary} />
+          <ForeignFilerCoverageDiagnosticsSection diagnostics={result.foreign_filer_coverage_diagnostics} />
           <JaneCompanyQualitySection quality={result.jane_company_quality} profile={result.company_profile} />
           <QualitativeEvidenceAssessmentSection assessment={result.qualitative_evidence_assessment} />
           <ComparisonEvidenceAssessmentSection assessment={result.comparison_evidence_assessment} />

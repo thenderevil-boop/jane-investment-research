@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import type { DataSourceStatus, JaneCriterion, ScoreLike, StockAnalysis } from '../types';
 import { getJaneCriteria } from '../api/client';
-import StockResearch, { AnalystBriefSection, AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ResearchSignalExplanationSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ValidationOSReportSection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
+import StockResearch, { AnalystBriefSection, AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, ForeignFilerCoverageDiagnosticsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ResearchSignalExplanationSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ValidationOSReportSection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -105,6 +105,62 @@ describe('StockResearch presentation helpers', () => {
       user_provided: true,
     });
     expect(evidence.limitations.join(' ')).toContain('local validation context only');
+  });
+
+  it('renders structured foreign filer diagnostics as neutral manual research context', () => {
+    const html = renderToStaticMarkup(
+      <ForeignFilerCoverageDiagnosticsSection
+        diagnostics={{
+          is_foreign_filer_or_adr: true,
+          detected_signals: ['known_adr_or_foreign_listing', 'sec_companyfacts_sparse'],
+          coverage_limitations: [
+            {
+              area: 'sec_companyfacts',
+              status: 'structural_gap',
+              reason: 'SEC Companyfacts concepts are sparse for ADR issuers.',
+              affected_criteria: [5, 6, 10],
+            },
+            {
+              area: 'sec_form4',
+              status: 'not_expected',
+              reason: 'SEC Form 4 may not apply to foreign issuers.',
+              affected_criteria: [2, 12],
+            },
+          ],
+          recommended_manual_checks: [
+            {
+              priority: 'high',
+              criterion_id: 2,
+              check: 'Verify founder / CEO status from annual report and local filings.',
+            },
+          ],
+          affects_score: false,
+          not_investment_advice: true,
+        }}
+      />,
+    );
+    expect(html).toContain('Foreign Filer / ADR Coverage Note');
+    expect(html).toContain('excluded from scoring');
+    expect(html).toContain('Affects score: no');
+    expect(html).toContain('sec_companyfacts');
+    expect(html).toContain('SEC Form 4 may not apply');
+    expect(html).toContain('Recommended manual checks');
+  });
+
+  it('does not render foreign filer diagnostics for domestic tickers', () => {
+    const html = renderToStaticMarkup(
+      <ForeignFilerCoverageDiagnosticsSection
+        diagnostics={{
+          is_foreign_filer_or_adr: false,
+          detected_signals: [],
+          coverage_limitations: [],
+          recommended_manual_checks: [],
+          affects_score: false,
+          not_investment_advice: true,
+        }}
+      />,
+    );
+    expect(html).not.toContain('Foreign Filer / ADR Coverage Note');
   });
 
   it('renders analyst brief with triage fields and Phase 31 overheat context', () => {

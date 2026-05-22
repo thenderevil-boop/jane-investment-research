@@ -225,6 +225,28 @@ class AnalyzeStockDataQualitySummary(BaseModel):
     foreign_filer_context: dict[str, Any] = Field(default_factory=dict)
 
 
+class ForeignFilerCoverageLimitation(BaseModel):
+    area: Literal["sec_companyfacts", "sec_form4", "sec_13f", "fmp_transcript", "local_filings", "other"]
+    status: Literal["structural_gap", "provider_gap", "not_expected", "manual_verification_required"]
+    reason: str
+    affected_criteria: list[int] = Field(default_factory=list)
+
+
+class ForeignFilerManualCheck(BaseModel):
+    priority: Literal["high", "medium", "low"]
+    criterion_id: int | None = None
+    check: str
+
+
+class ForeignFilerCoverageDiagnostics(BaseModel):
+    is_foreign_filer_or_adr: bool = False
+    detected_signals: list[str] = Field(default_factory=list)
+    coverage_limitations: list[ForeignFilerCoverageLimitation] = Field(default_factory=list)
+    recommended_manual_checks: list[ForeignFilerManualCheck] = Field(default_factory=list)
+    affects_score: bool = False
+    not_investment_advice: bool = True
+
+
 class EvidenceFreshnessPolicy(BaseModel):
     policy_version: str = "phase49_evidence_freshness_v1"
     manual_evidence_max_age_days: int = 365
@@ -449,6 +471,7 @@ class AnalyzeStockResponse(BaseModel):
     jane_criteria_coverage: JaneCriteriaCoverageMatrix = Field(default_factory=JaneCriteriaCoverageMatrix)
     validation_os_report: ValidationOSReport = Field(default_factory=ValidationOSReport)
     data_quality_summary: AnalyzeStockDataQualitySummary
+    foreign_filer_coverage_diagnostics: ForeignFilerCoverageDiagnostics = Field(default_factory=ForeignFilerCoverageDiagnostics)
     evidence_freshness_policy: EvidenceFreshnessPolicy = Field(default_factory=EvidenceFreshnessPolicy)
     stale_review_queue: StaleReviewQueue = Field(default_factory=StaleReviewQueue)
     score_driver_breakdown: ScoreDriverBreakdown

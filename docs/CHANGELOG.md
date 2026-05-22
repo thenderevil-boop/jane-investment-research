@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 51 — ADR Foreign Filer Coverage Diagnostics
+
+- Added top-level `foreign_filer_coverage_diagnostics` to `POST /api/analyze-stock` with detected ADR/foreign-filer signals, structural/provider coverage limitations, recommended manual checks, `affects_score=false`, and `not_investment_advice=true`.
+- Separated SEC Companyfacts, SEC Form 4, 13F, FMP transcript, and local-filing coverage gaps from company-specific weakness so ADR/foreign-filer limitations remain workflow context rather than scoring penalties.
+- Added ADR-aware `next_manual_check` guidance to affected Jane Coverage Matrix rows such as C2, C5, C10, C12, C17, and C19 while preserving coverage status, score, verdict, provider set, and threshold rules.
+- Added frontend types and a neutral Foreign Filer / ADR Coverage Note section for Stock Research.
+
 ## Phase 50 — Yfinance C2 Insider Ownership and C3 Skepticism Refinement
 
 - Added yfinance `heldPercentInsiders` / normalized insider-ownership pass-through and non-scoring C2 `founder_ownership` auto evidence.

@@ -114,6 +114,28 @@ def test_phase49_evidence_freshness_contract_is_documented() -> None:
         assert token in frontend_types
 
 
+def test_phase51_foreign_filer_diagnostics_contract_is_documented() -> None:
+    schema = _load_schema()
+    top_level_props = schema["properties"]
+    defs = schema["$defs"]
+    api_spec = _read("docs/API_SPEC.md")
+    readme = _read("README.md")
+    changelog = _read("docs/CHANGELOG.md")
+    frontend_types = _read("frontend/src/types.ts")
+
+    assert "foreign_filer_coverage_diagnostics" in top_level_props
+    assert "ForeignFilerCoverageDiagnostics" in defs
+    assert "ForeignFilerCoverageLimitation" in defs
+    assert "ForeignFilerManualCheck" in defs
+
+    for text in [api_spec, readme, changelog, frontend_types]:
+        assert "foreign_filer_coverage_diagnostics" in text
+
+    for token in ["sec_companyfacts", "sec_form4", "fmp_transcript", "local_filings", "manual_verification_required"]:
+        assert token in api_spec
+        assert token in frontend_types
+
+
 def test_phase_status_documents_are_at_phase30_or_newer() -> None:
     for path in ["README.md", "AGENTS.md", "docs/API_SPEC.md", "docs/CHANGELOG.md"]:
         text = _read(path)

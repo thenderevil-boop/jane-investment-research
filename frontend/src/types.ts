@@ -180,6 +180,28 @@ export type AnalyzeStockDataQualitySummary = {
   foreign_filer_context?: ForeignFilerContext;
 };
 
+export type ForeignFilerCoverageLimitation = {
+  area: 'sec_companyfacts' | 'sec_form4' | 'sec_13f' | 'fmp_transcript' | 'local_filings' | 'other';
+  status: 'structural_gap' | 'provider_gap' | 'not_expected' | 'manual_verification_required';
+  reason: string;
+  affected_criteria: number[];
+};
+
+export type ForeignFilerManualCheck = {
+  priority: 'high' | 'medium' | 'low';
+  criterion_id?: number | null;
+  check: string;
+};
+
+export type ForeignFilerCoverageDiagnostics = {
+  is_foreign_filer_or_adr: boolean;
+  detected_signals: string[];
+  coverage_limitations: ForeignFilerCoverageLimitation[];
+  recommended_manual_checks: ForeignFilerManualCheck[];
+  affects_score: boolean;
+  not_investment_advice: boolean;
+};
+
 export type EvidenceFreshnessPolicy = {
   policy_version: 'phase49_evidence_freshness_v1';
   manual_evidence_max_age_days: number;
@@ -1276,6 +1298,7 @@ export type StockAnalysis = {
   jane_criteria_coverage?: JaneCriteriaCoverageMatrix;
   validation_os_report?: ValidationOSReport;
   data_quality_summary?: AnalyzeStockDataQualitySummary;
+  foreign_filer_coverage_diagnostics?: ForeignFilerCoverageDiagnostics;
   evidence_freshness_policy?: EvidenceFreshnessPolicy;
   stale_review_queue?: StaleReviewQueue;
   score_driver_breakdown?: ScoreDriverBreakdown;

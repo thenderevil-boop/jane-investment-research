@@ -1041,6 +1041,127 @@
       "title": "FinancialStatementSignals",
       "type": "object"
     },
+    "ForeignFilerCoverageDiagnostics": {
+      "properties": {
+        "is_foreign_filer_or_adr": {
+          "default": false,
+          "title": "Is Foreign Filer Or Adr",
+          "type": "boolean"
+        },
+        "detected_signals": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Detected Signals",
+          "type": "array"
+        },
+        "coverage_limitations": {
+          "items": {
+            "$ref": "#/$defs/ForeignFilerCoverageLimitation"
+          },
+          "title": "Coverage Limitations",
+          "type": "array"
+        },
+        "recommended_manual_checks": {
+          "items": {
+            "$ref": "#/$defs/ForeignFilerManualCheck"
+          },
+          "title": "Recommended Manual Checks",
+          "type": "array"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "title": "ForeignFilerCoverageDiagnostics",
+      "type": "object"
+    },
+    "ForeignFilerCoverageLimitation": {
+      "properties": {
+        "area": {
+          "enum": [
+            "sec_companyfacts",
+            "sec_form4",
+            "sec_13f",
+            "fmp_transcript",
+            "local_filings",
+            "other"
+          ],
+          "title": "Area",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "structural_gap",
+            "provider_gap",
+            "not_expected",
+            "manual_verification_required"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "affected_criteria": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Affected Criteria",
+          "type": "array"
+        }
+      },
+      "required": [
+        "area",
+        "status",
+        "reason"
+      ],
+      "title": "ForeignFilerCoverageLimitation",
+      "type": "object"
+    },
+    "ForeignFilerManualCheck": {
+      "properties": {
+        "priority": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "title": "Priority",
+          "type": "string"
+        },
+        "criterion_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Criterion Id"
+        },
+        "check": {
+          "title": "Check",
+          "type": "string"
+        }
+      },
+      "required": [
+        "priority",
+        "check"
+      ],
+      "title": "ForeignFilerManualCheck",
+      "type": "object"
+    },
     "GovernmentAwardRecord": {
       "properties": {
         "award_id": {
@@ -3978,6 +4099,9 @@
     },
     "data_quality_summary": {
       "$ref": "#/$defs/AnalyzeStockDataQualitySummary"
+    },
+    "foreign_filer_coverage_diagnostics": {
+      "$ref": "#/$defs/ForeignFilerCoverageDiagnostics"
     },
     "evidence_freshness_policy": {
       "$ref": "#/$defs/EvidenceFreshnessPolicy"
