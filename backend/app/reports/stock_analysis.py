@@ -2008,7 +2008,7 @@ def _foreign_filer_context(response: AnalyzeStockResponse) -> dict:
     limitations: list[str] = []
     if is_foreign:
         explanation = "此公司為非美國本土公司／ADR，部分 SEC Companyfacts 與 13F candidate-specific coverage 受限屬正常情況；請搭配本國交易所 filing、annual report、FMP/yfinance 或公司 IR 資料交叉驗證。"
-        limitations.append("ADR/foreign-filer SEC Companyfacts and 13F coverage can be structurally limited and should not be read as company-specific weakness by itself.")
+        limitations.append("ADR/foreign-filer data-source coverage and data-structure limitations can affect SEC Companyfacts, 13F, Form 4, transcripts, and market-data fields; these gaps should not be read as company-specific weakness by themselves.")
     return {
         "ticker": ticker,
         "is_foreign_filer_or_adr": bool(is_foreign),
@@ -2068,6 +2068,12 @@ def _build_foreign_filer_coverage_diagnostics(response: AnalyzeStockResponse) ->
             "reason": "13F candidate-specific evidence can be limited for ADR wrappers or foreign ordinary share lines and should be treated as coverage context, not company weakness.",
             "affected_criteria": [19],
         },
+        {
+            "area": "other",
+            "status": "provider_gap",
+            "reason": "Yfinance short-interest fields such as shortRatio and shortPercentOfFloat may be unavailable for ADR / foreign-filer tickers; missing C3 short-interest proxy coverage is a source coverage limitation, not a company-quality weakness.",
+            "affected_criteria": [3],
+        },
     ]
     if "fmp_transcript_unavailable" in signals:
         limitations.append(
@@ -2101,6 +2107,11 @@ def _build_foreign_filer_coverage_diagnostics(response: AnalyzeStockResponse) ->
             "priority": "medium",
             "criterion_id": 5,
             "check": "Verify R&D intensity from annual report notes when SEC Companyfacts concepts are sparse for foreign filers.",
+        },
+        {
+            "priority": "medium",
+            "criterion_id": 3,
+            "check": "Verify market skepticism manually because yfinance shortRatio and shortPercentOfFloat can be unavailable for ADR / foreign-filer tickers; treat missing C3 short-interest proxy as a source coverage gap, not company weakness.",
         },
         {
             "priority": "medium",
@@ -2440,6 +2451,8 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
     else:
         mode = "mostly_mock" if mock_components else "insufficient"
         summary = "Source quality is too limited for more than preliminary research triage."
+    if grade == "D" and foreign_filer_context.get("is_foreign_filer_or_adr"):
+        summary = f"{summary} For ADR / foreign-filer tickers, Grade D can reflect data-source coverage and data-structure limitations rather than company-quality weakness."
     confidence_cap_applied = response.research_verdict.confidence <= MOCK_LEADERSHIP_CONFIDENCE_CAP and bool(critical_mock or fallback_components or insufficient_evidence_categories)
     cap_reason = None
     if confidence_cap_applied:
@@ -2930,6 +2943,7 @@ def _patent_ip_evidence_by_criterion(response: AnalyzeStockResponse) -> dict[int
 
 ADR_CRITERION_MANUAL_CHECKS = {
     2: "Verify founder / CEO status and insider alignment from annual report, company governance page, and local filings; SEC Form 4 may not apply to ADR / foreign-filer issuers.",
+    3: "Verify market skepticism manually because yfinance shortRatio and shortPercentOfFloat can be unavailable for ADR / foreign-filer tickers; missing C3 short-interest proxy coverage is a source coverage limitation, not company-quality weakness.",
     5: "Verify R&D intensity from annual report notes when SEC Companyfacts concepts are sparse for ADR / foreign-filer issuers.",
     6: "Cross-check revenue growth, margins, and operating leverage using annual report financial statements when SEC Companyfacts concepts are sparse.",
     10: "Cross-check free cash flow and cash conversion using the annual report cash-flow statement when SEC Companyfacts concepts are unavailable.",
@@ -2989,6 +3003,11 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
         ]
         if auto_submetrics:
             limitations.append("Auto-derivable submetrics are covered only when accepted evidence or SEC Companyfacts financial proxies are available.")
+        if criterion_id == 18 and response.patent_ip_evidence.source_status.fallback_used and response.patent_ip_evidence.limitations:
+            for limitation in response.patent_ip_evidence.limitations[:2]:
+                if limitation not in limitations:
+                    limitations.append(limitation)
+            next_manual_check = next_manual_check or "Enable USE_LIVE_USPTO_PATENTS_DATA=true to fetch the non-scoring USPTO PatentsView C18 patent_count proxy; then manually verify patent relevance and defensibility."
         if any(item.get("auto_derived") for item in accepted_items):
             limitations.append(AUTO_DERIVED_PROXY_LIMITATION)
         item_limitations = [limitation for item in accepted_items for limitation in (item.get("limitations") or []) if limitation]

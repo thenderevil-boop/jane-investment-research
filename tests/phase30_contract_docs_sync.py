@@ -136,6 +136,24 @@ def test_phase51_foreign_filer_diagnostics_contract_is_documented() -> None:
         assert token in frontend_types
 
 
+def test_phase53_uspto_activation_and_adr_grade_explanation_contract_is_documented() -> None:
+    api_spec = _read("docs/API_SPEC.md")
+    readme = _read("README.md")
+    changelog = _read("docs/CHANGELOG.md")
+    data_sources = _read("docs/DATA_SOURCES.md")
+    framework = _read("docs/JANE_FRAMEWORK_MAPPING.md")
+
+    for text in [api_spec, readme, changelog, data_sources, framework]:
+        assert "Phase 53" in text
+        assert "USE_LIVE_USPTO_PATENTS_DATA" in text
+        assert "shortRatio" in text
+        assert "source coverage" in text or "source-quality" in text
+
+    assert "Grade D" in api_spec
+    assert "company-quality weakness" in api_spec
+    assert "yfinance short-interest" in api_spec
+
+
 def test_phase52_adr_manual_evidence_contract_is_documented() -> None:
     schema = _load_schema()
     input_props = QualitativeEvidenceInput.model_json_schema()["properties"]

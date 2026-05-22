@@ -15,14 +15,16 @@ from backend.app.schemas.patent_ip import PatentIPEvidence, PatentRecord
 PATENTSVIEW_BASE_URL = "https://search.patentsview.org/api/v1/patent/"
 PATENT_LIMITATION = "Patent count is an auto-derived proxy and does not prove patent quality, relevance, or defensibility."
 PATENT_MANUAL_CHECK = "Confirm assignee/entity matching, subsidiaries, acquired entities, and patent relevance before relying on C18 IP evidence."
+PATENTSVIEW_DISABLED_GUIDANCE = "USPTO PatentsView provider disabled; enable USE_LIVE_USPTO_PATENTS_DATA=true to fetch the non-scoring C18 patent_count proxy."
 
 
 def _disabled_patent_ip(ticker: str, reason: str) -> PatentIPEvidence:
+    guidance = PATENTSVIEW_DISABLED_GUIDANCE if "disabled" in reason.lower() else reason
     status = ExternalProviderStatus(
         provider="uspto_patentsview",
         source_type="fallback",
         fallback_used=True,
-        fallback_reason=reason,
+        fallback_reason=guidance,
         missing_data=["uspto_patentsview_patent_count"],
     ).to_data_source_status()
     item = JaneCriteriaExternalEvidenceItem(
@@ -35,7 +37,7 @@ def _disabled_patent_ip(ticker: str, reason: str) -> PatentIPEvidence:
         covered_submetrics=[],
         evidence_snippets=[],
         manual_checks=[PATENT_MANUAL_CHECK],
-        limitations=[PATENT_LIMITATION, reason],
+        limitations=[PATENT_LIMITATION, guidance],
         missing_data=["uspto_patentsview_patent_count"],
     )
     return PatentIPEvidence(
@@ -44,7 +46,7 @@ def _disabled_patent_ip(ticker: str, reason: str) -> PatentIPEvidence:
         criteria=[item],
         criteria_count=1,
         manual_checks=[PATENT_MANUAL_CHECK],
-        limitations=[PATENT_LIMITATION, reason],
+        limitations=[PATENT_LIMITATION, guidance],
     )
 
 

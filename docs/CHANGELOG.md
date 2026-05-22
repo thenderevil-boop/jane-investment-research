@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 53 — C18 USPTO Activation and ADR Grade Explanation Refinement
+
+- Surfaced USPTO PatentsView disabled-provider guidance in C18 Coverage Matrix limitations / `next_manual_check`, so `USE_LIVE_USPTO_PATENTS_DATA=false` is explained as an activation state rather than silently appearing as generic insufficient C18 evidence.
+- Added ADR / foreign-filer C3 guidance for yfinance short-interest gaps: unavailable `shortRatio` / `shortPercentOfFloat` is treated as source coverage limitation, not company-quality weakness.
+- Refined ADR source-quality Grade D copy so users understand the grade describes data-source coverage / data-structure limits, not the investment quality of the underlying company.
+- Preserved scoring, verdict labels, provider set, frontend fields, schema shape, and not-investment-advice boundaries.
+
 ## Phase 52 — ADR Manual Evidence Intake and Filing Reference Workflow
 
 - Added ADR manual filing-reference metadata to request-scoped qualitative evidence and saved Manual Evidence Library records: `adr_evidence_type`, `document_title`, `document_date`, `filing_period`, `quoted_text`, `local_market`, `local_ticker`, and `translation_note`; supported `adr_evidence_type` values include `annual_report`, `local_regulatory_filing`, `governance_page`, `investor_presentation`, `earnings_webcast`, `company_ir_page`, and `other`.
