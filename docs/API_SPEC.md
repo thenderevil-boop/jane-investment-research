@@ -141,7 +141,7 @@ Phase 43 refines source-quality semantics for fallback and ADR / foreign-filer c
 
 Phase 42 adds FMP financial statement / TTM-ratio proxy behavior for ADR and SEC-gap cases:
 
-- `fmp_financial_proxy` is a top-level analyze-stock field with normalized FMP income statement, balance sheet, cash-flow statement, derived metrics, TTM ratios, source status, and limitations.
+- `fmp_financial_proxy` is a top-level analyze-stock field with normalized FMP stable income statement, balance sheet, cash-flow statement, derived metrics, TTM ratios, source status, and limitations.
 - The proxy is used for financial-quality normalization only when SEC Companyfacts has insufficient usable filing facts; it does not override valid SEC Companyfacts or automatically raise candidate confidence.
 - `data_quality_summary.fmp_financials` reports whether FMP financials were available and whether they were used for financial quality.
 - FMP transcript evidence remains a separate capability. Transcript disabled/fallback states must not mark financial statements unavailable, and financial statement failures must not erase transcript context.

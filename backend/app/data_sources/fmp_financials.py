@@ -10,7 +10,7 @@ from backend.app.data_sources.external_provider_base import ExternalProviderStat
 from backend.app.data_sources.provider_registry import require_provider_enabled
 from backend.app.raw_store.fmp_financials_cache import load_cached_fmp_financials, save_fmp_financials_snapshot
 
-FMP_BASE_URL = "https://financialmodelingprep.com/api/v3"
+FMP_FINANCIAL_STABLE_BASE_URL = "https://financialmodelingprep.com/stable"
 
 
 def _safe_float(value: Any) -> float | None:
@@ -62,9 +62,10 @@ def _records(payload: Any) -> list[dict[str, Any]]:
     if isinstance(payload, list):
         return [item for item in payload if isinstance(item, dict)]
     if isinstance(payload, dict):
-        data = payload.get("data") or payload.get("records") or payload.get("financials") or []
+        data = payload.get("data") or payload.get("records") or payload.get("financials")
         if isinstance(data, list):
             return [item for item in data if isinstance(item, dict)]
+        return [payload]
     return []
 
 
@@ -232,12 +233,13 @@ def fetch_fmp_financial_proxy(ticker: str, http_get: Callable[..., Any] | None =
         return disabled_fmp_financial_proxy(normalized_ticker, str(exc))
 
     getter = http_get or requests.get
-    query = urlencode({"limit": 4, "apikey": provider_config.api_key})
+    statement_query = urlencode({"symbol": normalized_ticker, "limit": 4, "apikey": provider_config.api_key})
+    ratio_query = urlencode({"symbol": normalized_ticker, "apikey": provider_config.api_key})
     endpoints = {
-        "income_statement": f"{FMP_BASE_URL}/income-statement/{normalized_ticker}?{query}",
-        "balance_sheet": f"{FMP_BASE_URL}/balance-sheet-statement/{normalized_ticker}?{query}",
-        "cash_flow": f"{FMP_BASE_URL}/cash-flow-statement/{normalized_ticker}?{query}",
-        "ratios_ttm": f"{FMP_BASE_URL}/ratios-ttm/{normalized_ticker}?{urlencode({'apikey': provider_config.api_key})}",
+        "income_statement": f"{FMP_FINANCIAL_STABLE_BASE_URL}/income-statement?{statement_query}",
+        "balance_sheet": f"{FMP_FINANCIAL_STABLE_BASE_URL}/balance-sheet-statement?{statement_query}",
+        "cash_flow": f"{FMP_FINANCIAL_STABLE_BASE_URL}/cash-flow-statement?{statement_query}",
+        "ratios_ttm": f"{FMP_FINANCIAL_STABLE_BASE_URL}/ratios-ttm?{ratio_query}",
     }
     raw_payload: dict[str, Any] = {}
     try:

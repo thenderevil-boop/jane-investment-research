@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import json
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
 import pytest
@@ -182,6 +183,56 @@ def _fundamentals(ticker: str = "NOK") -> dict:
 
 def _empty_sec_companyfacts() -> dict:
     return sec_companyfacts.parse_companyfacts("NOK", "0000924613", {"facts": {"us-gaap": {}}}, source_type="live")
+
+
+def test_fmp_financial_adapter_uses_stable_symbol_query_and_normalizes_object_payload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("USE_LIVE_FMP_DATA", "true")
+    monkeypatch.setenv("FMP_API_KEY", "dummy_fmp_key_for_test")
+    monkeypatch.setattr(config, "MARKET_DATA_CACHE_DIR", tmp_path)
+
+    import backend.app.config as config_module
+    import backend.app.data_sources.provider_registry as registry
+    import backend.app.data_sources.fmp_financials as fmp_financials
+
+    importlib.reload(config_module)
+    importlib.reload(registry)
+    importlib.reload(fmp_financials)
+    monkeypatch.setattr(config_module, "MARKET_DATA_CACHE_DIR", tmp_path)
+
+    requested_urls: list[str] = []
+
+    def stable_get(url: str, timeout: int = 15):
+        requested_urls.append(url)
+        if "income-statement" in url:
+            return DummyResponse(_nok_income_statement()[0])
+        if "balance-sheet-statement" in url:
+            return DummyResponse(_nok_balance_sheet()[0])
+        if "cash-flow-statement" in url:
+            return DummyResponse(_nok_cash_flow()[0])
+        if "ratios-ttm" in url:
+            return DummyResponse(_nok_ratios_ttm()[0])
+        raise AssertionError(f"Unexpected FMP URL: {url}")
+
+    proxy = fmp_financials.fetch_fmp_financial_proxy("nok", http_get=stable_get)
+
+    paths = [urlparse(url).path for url in requested_urls]
+    assert paths == [
+        "/stable/income-statement",
+        "/stable/balance-sheet-statement",
+        "/stable/cash-flow-statement",
+        "/stable/ratios-ttm",
+    ]
+    for url in requested_urls:
+        query = parse_qs(urlparse(url).query)
+        assert query["symbol"] == ["NOK"]
+        assert query["apikey"] == ["dummy_fmp_key_for_test"]
+    assert proxy["available"] is True
+    assert proxy["latest_fiscal_year"] == "2025"
+    assert proxy["reported_currency"] == "EUR"
+    assert proxy["facts"]["revenue"] == 19_889_000_000
+    assert proxy["derived_metrics"]["rd_to_revenue_pct"] == 24.4105
+    assert proxy["ttm_ratios"]["price_to_free_cash_flow_ttm"] == 48.04
+    assert "dummy_fmp_key_for_test" not in json.dumps(proxy)
 
 
 def test_fmp_financial_adapter_normalizes_nok_statements_and_ttm_ratios(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

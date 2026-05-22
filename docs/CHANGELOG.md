@@ -1,5 +1,11 @@
 # Changelog
 
+## Phase 45 — FMP Stable Financial Statements for ADR Proxies
+
+- Updated the FMP financial proxy adapter from legacy `/api/v3/{statement}/{symbol}` URLs to the FMP stable statement endpoints using `symbol={ticker}` query parameters.
+- Added normalization for stable endpoint responses that return a single JSON object instead of a list, fixing NOK-style ADR financial proxy availability.
+- Preserved FMP key redaction, raw-store caching, SEC Companyfacts precedence, and optional-provider source-quality semantics.
+
 ## Phase 44 — FMP Transcript API Compliance
 
 - Updated the FMP earnings transcript adapter to use the documented legacy v4 batch endpoint: `/api/v4/batch_earning_call_transcript/{symbol}?year={year}&apikey=...`.

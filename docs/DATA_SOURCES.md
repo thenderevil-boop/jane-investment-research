@@ -56,7 +56,7 @@ Phase 41 OpenBB sidecar options notes:
 Phase 42 FMP financial proxy notes:
 
 - `USE_LIVE_FMP_DATA=true` and `FMP_API_KEY` enable the FMP financial statements / TTM-ratios adapter for `POST /api/analyze-stock`; the same toggle/key may also enable transcript evidence, but transcript availability and financial proxy availability are independent capabilities.
-- The adapter fetches income statement, balance sheet, cash-flow statement, and ratios-TTM endpoints, then emits `fmp_financial_proxy` with normalized statements, derived metrics, ratio counts, currency/fiscal-period metadata, sanitized source status, and raw-store cache metadata.
+- The adapter fetches FMP stable income-statement, balance-sheet-statement, cash-flow-statement, and ratios-ttm endpoints with `symbol={ticker}` query parameters, then emits `fmp_financial_proxy` with normalized statements, derived metrics, ratio counts, currency/fiscal-period metadata, sanitized source status, and raw-store cache metadata.
 - Analyze-stock uses the FMP proxy only when SEC Companyfacts lacks usable filing facts, such as ADR or foreign-issuer SEC gaps. Filing-backed SEC Companyfacts remains the preferred financial source when available.
 - `data_quality_summary.fmp_financials` exposes availability, metric counts, TTM ratio counts, currency, fiscal year, and whether the proxy filled the financial-quality gap. This is data-quality/context visibility, not an automatic confidence upgrade.
 - FMP financial statements never inherit FMP transcript disabled/fallback states; disabled, missing-key, empty, or failed financial endpoints return explicit insufficient-data source status instead of failing analyze-stock.
