@@ -1,5 +1,13 @@
 # Changelog
 
+## Phase 47 — USPTO PatentsView C18 IP Proxy
+
+- Added opt-in USPTO PatentsView patent-count evidence for Jane C18 Patents and IP via `USE_LIVE_USPTO_PATENTS_DATA=true`; no API key is required.
+- Added `patent_ip_evidence` with normalized patent count, sample patent records, source status, cache/fallback semantics, manual checks, limitations, and non-scoring C18 criteria evidence.
+- Integrated C18 `patent_count` into the Coverage Matrix as provider-backed completeness context while preserving Jane Company Quality scoring and final verdict boundaries.
+- Added 30-day raw-store caching under `USPTO_PATENTS_CACHE_TTL_DAYS`; cache-after-failure responses are labeled `cached_live` with fallback metadata.
+- Preserved manual entity-matching review: PatentsView organization matching may miss subsidiaries, acquired entities, or patent relevance and does not prove defensibility.
+
 ## Phase 46 — Jane Auto Evidence Numeric Proxies: C3 + C5
 
 - Added auto-derived financial proxy evidence for Jane C3 Early Market Skepticism from yfinance short-interest fields (`shortPercentOfFloat` preferred, `shortRatio` fallback) so `short_interest_proxy` can be partially covered without user input.

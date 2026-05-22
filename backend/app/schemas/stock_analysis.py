@@ -11,6 +11,7 @@ from backend.app.schemas.government_relationship import GovernmentRelationshipEv
 from backend.app.schemas.jane_external_evidence import JaneCriteriaExternalEvidence
 from backend.app.schemas.leadership import LeadershipScore
 from backend.app.schemas.macro_regime import MacroRegimeOutput
+from backend.app.schemas.patent_ip import PatentIPEvidence
 
 
 class StockUserContext(BaseModel):
@@ -418,6 +419,7 @@ class AnalyzeStockResponse(BaseModel):
     earnings_transcript_analysis: EarningsTranscriptAnalysis
     jane_criteria_external_evidence: JaneCriteriaExternalEvidence
     government_relationship_evidence: GovernmentRelationshipEvidence
+    patent_ip_evidence: PatentIPEvidence
     company_profile: dict[str, Any]
     macro_regime: MacroRegimeOutput
     leadership_score: LeadershipScore

@@ -377,6 +377,30 @@ export type GovernmentRelationshipEvidence = {
   not_investment_advice: boolean;
 };
 
+export type PatentRecord = {
+  patent_id: string;
+  patent_date: string;
+  patent_title: string;
+  assignee_organization: string;
+};
+
+export type PatentIPEvidence = {
+  ticker: string;
+  provider: string;
+  source: string;
+  source_status: DataSourceStatus;
+  query_name: string;
+  patent_count: number;
+  patent_records: PatentRecord[];
+  criteria: JaneCriteriaExternalEvidenceItem[];
+  criteria_count: number;
+  ip_signal: 'supportive' | 'limited' | 'insufficient_data';
+  manual_checks: string[];
+  limitations: string[];
+  affects_score: boolean;
+  not_investment_advice: boolean;
+};
+
 export type QualitativeEvidenceInput = {
   evidence_id?: string | null;
   criterion: string;
@@ -1221,6 +1245,7 @@ export type StockAnalysis = {
   earnings_transcript_analysis?: EarningsTranscriptAnalysis;
   jane_criteria_external_evidence?: JaneCriteriaExternalEvidence;
   government_relationship_evidence?: GovernmentRelationshipEvidence;
+  patent_ip_evidence?: PatentIPEvidence;
   company_profile?: Record<string, unknown>;
   macro_regime?: ScoreLike;
   leadership_score?: ScoreLike;

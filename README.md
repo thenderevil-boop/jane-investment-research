@@ -136,13 +136,15 @@ Phase 43 refines source-quality semantics for edge cases. Form 4 cached-live dat
 
 Phase 46 adds Jane auto evidence numeric proxies for C3 and C5. Analyze-stock can now partially cover C3 `short_interest_proxy` from yfinance short-interest data and C5 `rd_percent_of_revenue` from yfinance, SEC Companyfacts, or FMP ADR financial proxy R&D intensity. These Coverage Matrix items are non-scoring auto-derived financial proxies with explicit verification limitations.
 
+Phase 47 adds opt-in USPTO PatentsView patent-count evidence for Jane C18 (Patents and IP). When `USE_LIVE_USPTO_PATENTS_DATA=true`, `POST /api/analyze-stock` queries PatentsView for the company name over the last three years, caches raw snapshots for `USPTO_PATENTS_CACHE_TTL_DAYS`, returns `patent_ip_evidence`, and can partially cover C18 `patent_count` in the Coverage Matrix. This is non-scoring, no-API-key, manual-review context only; assignee/subsidiary matching and patent relevance must be verified by the user.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
 
 ## Current Implementation Status
 
-`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 46 Jane Auto Evidence Numeric Proxies layer, the Phase 45 FMP Stable Financial Statements fix, the Phase 44 FMP Transcript API Compliance layer, the Phase 43 Source Quality Semantics layer, the Phase 41 OpenBB Sidecar Stockgrid Options Evidence layer, Phase 42 FMP Financial Statements + TTM Ratios proxy layer, Phase 40 USASpending Government Relationship Evidence layer, Phase 39 Transcript Criteria Evidence Mapping layer, Phase 38 FMP Earnings Transcript Evidence layer, Phase 37 External Provider Adapter Foundation, Phase 36 Market Timing Condition Explanation v2, Phase 35 Daily Report live/derived coverage upgrade, Phase 34 SEC Companyfacts Jane financial proxy expansion, Phase 33 Jane Evidence Library research-note workflow metadata layer, Phase 32 Stock Research explanation layer, Phase 31.8 SEC 13F manager-universe expansion, Phase 31.7 macro source-quality test determinism pass, Phase 31.6 Form 4 fallback scoring hotfix, Phase 31.5 analyst readability pass, and the prior Phase 31 yfinance-derived overheat component work.
+`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 47 USPTO PatentsView C18 IP Proxy layer, the Phase 46 Jane Auto Evidence Numeric Proxies layer, the Phase 45 FMP Stable Financial Statements fix, the Phase 44 FMP Transcript API Compliance layer, the Phase 43 Source Quality Semantics layer, the Phase 41 OpenBB Sidecar Stockgrid Options Evidence layer, Phase 42 FMP Financial Statements + TTM Ratios proxy layer, Phase 40 USASpending Government Relationship Evidence layer, Phase 39 Transcript Criteria Evidence Mapping layer, Phase 38 FMP Earnings Transcript Evidence layer, Phase 37 External Provider Adapter Foundation, Phase 36 Market Timing Condition Explanation v2, Phase 35 Daily Report live/derived coverage upgrade, Phase 34 SEC Companyfacts Jane financial proxy expansion, Phase 33 Jane Evidence Library research-note workflow metadata layer, Phase 32 Stock Research explanation layer, Phase 31.8 SEC 13F manager-universe expansion, Phase 31.7 macro source-quality test determinism pass, Phase 31.6 Form 4 fallback scoring hotfix, Phase 31.5 analyst readability pass, and the prior Phase 31 yfinance-derived overheat component work.
 
 Completed live integrations now documented in this README:
 
@@ -191,6 +193,7 @@ Completed live integrations now documented in this README:
 - Phase 44: FMP Transcript API Compliance using the documented v4 batch transcript endpoint
 - Phase 45: FMP Stable Financial Statements fix for NOK-style ADR proxy availability
 - Phase 46: Jane Auto Evidence Numeric Proxies for C3 short interest and C5 R&D intensity coverage
+- Phase 47: USPTO PatentsView C18 IP proxy for patent-count Coverage Matrix context
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 
@@ -327,6 +330,8 @@ Phase 25 export and backup features support that boundary. Validation exports ar
 | OPENBB_CACHE_TTL_DAYS | 3 | OpenBB options raw-store cache | cache TTL for large option block snapshots |
 | USE_LIVE_USASPENDING_DATA | false | USASpending C15 evidence | no API key required |
 | USASPENDING_CACHE_TTL_DAYS | 30 | USASpending raw-store cache | cache TTL for award snapshots |
+| USE_LIVE_USPTO_PATENTS_DATA | false | USPTO PatentsView C18 evidence | no API key required |
+| USPTO_PATENTS_CACHE_TTL_DAYS | 30 | USPTO PatentsView raw-store cache | cache TTL for patent-count snapshots |
 | INCLUDE_FULL_13F_HOLDINGS_IN_DAILY_REPORT | false | daily report output | include full 13F row list only under `raw_data_full` when explicitly enabled |
 | DAILY_REPORT_FAST_MODE | true | daily report output | cache-first report generation |
 | ALLOW_PRICE_REFERENCE_LIVE_FETCH_ON_REPORT_REQUEST | false | daily report output | use cached market data for 13F price references by default |

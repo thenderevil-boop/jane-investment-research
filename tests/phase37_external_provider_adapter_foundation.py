@@ -19,6 +19,8 @@ def reload_provider_modules(monkeypatch: pytest.MonkeyPatch, **env: str):
         "ALPHA_VANTAGE_CACHE_TTL_DAYS",
         "USE_LIVE_USASPENDING_DATA",
         "USASPENDING_CACHE_TTL_DAYS",
+        "USE_LIVE_USPTO_PATENTS_DATA",
+        "USPTO_PATENTS_CACHE_TTL_DAYS",
     ]
     for key in keys:
         monkeypatch.delenv(key, raising=False)
@@ -41,7 +43,7 @@ def test_phase37_provider_registry_defaults_keep_external_providers_disabled(mon
     snapshot = registry.provider_registry_snapshot()
     provider_names = [provider["provider"] for provider in snapshot["providers"]]
 
-    assert provider_names == ["fmp", "openbb", "alpha_vantage", "usaspending"]
+    assert provider_names == ["fmp", "openbb", "alpha_vantage", "usaspending", "uspto_patentsview"]
     assert snapshot["enabled_provider_count"] == 0
     assert all(provider["enabled"] is False for provider in snapshot["providers"])
     assert all("api_key" not in provider for provider in snapshot["providers"])
@@ -61,11 +63,14 @@ def test_phase37_env_driven_provider_config_and_status_conversion(monkeypatch: p
         OPENBB_CACHE_TTL_DAYS="2",
         USE_LIVE_USASPENDING_DATA="true",
         USASPENDING_CACHE_TTL_DAYS="14",
+        USE_LIVE_USPTO_PATENTS_DATA="true",
+        USPTO_PATENTS_CACHE_TTL_DAYS="30",
     )
 
     fmp = registry.require_provider_enabled("fmp")
     openbb = registry.require_provider_enabled("openbb")
     usaspending = registry.require_provider_enabled("usaspending")
+    uspto = registry.require_provider_enabled("uspto_patentsview")
 
     assert fmp.provider == "fmp"
     assert fmp.enabled is True
@@ -82,6 +87,8 @@ def test_phase37_env_driven_provider_config_and_status_conversion(monkeypatch: p
     assert openbb.base_url == "http://127.0.0.1:6900"
     assert openbb.has_api_key is False
     assert usaspending.requires_api_key is False
+    assert uspto.requires_api_key is False
+    assert uspto.cache_ttl_days == 30
 
     fetched_at = datetime(2026, 5, 19, 9, 0, tzinfo=timezone.utc)
     status = base.ExternalProviderStatus(

@@ -2606,6 +2606,121 @@
       "title": "NextManualCheck",
       "type": "object"
     },
+    "PatentIPEvidence": {
+      "properties": {
+        "ticker": {
+          "title": "Ticker",
+          "type": "string"
+        },
+        "provider": {
+          "default": "uspto_patentsview",
+          "title": "Provider",
+          "type": "string"
+        },
+        "source": {
+          "default": "uspto_patentsview",
+          "title": "Source",
+          "type": "string"
+        },
+        "source_status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "query_name": {
+          "default": "",
+          "title": "Query Name",
+          "type": "string"
+        },
+        "patent_count": {
+          "default": 0,
+          "title": "Patent Count",
+          "type": "integer"
+        },
+        "patent_records": {
+          "items": {
+            "$ref": "#/$defs/PatentRecord"
+          },
+          "title": "Patent Records",
+          "type": "array"
+        },
+        "criteria": {
+          "items": {
+            "$ref": "#/$defs/JaneCriteriaExternalEvidenceItem"
+          },
+          "title": "Criteria",
+          "type": "array"
+        },
+        "criteria_count": {
+          "default": 0,
+          "title": "Criteria Count",
+          "type": "integer"
+        },
+        "ip_signal": {
+          "default": "insufficient_data",
+          "enum": [
+            "supportive",
+            "limited",
+            "insufficient_data"
+          ],
+          "title": "Ip Signal",
+          "type": "string"
+        },
+        "manual_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manual Checks",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ticker"
+      ],
+      "title": "PatentIPEvidence",
+      "type": "object"
+    },
+    "PatentRecord": {
+      "properties": {
+        "patent_id": {
+          "default": "",
+          "title": "Patent Id",
+          "type": "string"
+        },
+        "patent_date": {
+          "default": "",
+          "title": "Patent Date",
+          "type": "string"
+        },
+        "patent_title": {
+          "default": "",
+          "title": "Patent Title",
+          "type": "string"
+        },
+        "assignee_organization": {
+          "default": "",
+          "title": "Assignee Organization",
+          "type": "string"
+        }
+      },
+      "title": "PatentRecord",
+      "type": "object"
+    },
     "QualitativeEvidenceAssessment": {
       "properties": {
         "ticker": {
@@ -3685,6 +3800,9 @@
     "government_relationship_evidence": {
       "$ref": "#/$defs/GovernmentRelationshipEvidence"
     },
+    "patent_ip_evidence": {
+      "$ref": "#/$defs/PatentIPEvidence"
+    },
     "company_profile": {
       "additionalProperties": true,
       "title": "Company Profile",
@@ -3834,6 +3952,7 @@
     "earnings_transcript_analysis",
     "jane_criteria_external_evidence",
     "government_relationship_evidence",
+    "patent_ip_evidence",
     "company_profile",
     "macro_regime",
     "leadership_score",

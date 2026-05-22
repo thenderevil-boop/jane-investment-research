@@ -18,7 +18,7 @@ Phase 35 Daily Report source coverage notes:
 
 Phase 37 external provider adapter notes:
 
-- Future FMP transcript/ratio, OpenBB sidecar, Alpha Vantage, and USASpending adapters must use the shared `ExternalProviderConfig` / `ExternalProviderStatus` foundation before exposing source evidence.
+- Future FMP transcript/ratio, OpenBB sidecar, Alpha Vantage, USASpending, and USPTO PatentsView adapters must use the shared `ExternalProviderConfig` / `ExternalProviderStatus` foundation before exposing source evidence.
 - Safe provider registry snapshots may disclose `enabled`, `requires_api_key`, `has_api_key`, `base_url`, and `cache_ttl_days`, but must never disclose API-key values.
 - Phase 37 config toggles are inert until future phases add concrete fetch adapters.
 
@@ -43,6 +43,14 @@ Phase 40 USASpending source notes:
 - `government_relationship_evidence` aggregates federal award count, obligated amount, and top awarding agencies, then maps evidence to Jane C15 submetrics such as `government_contracts` and `defense_or_infrastructure_status`.
 - Recipient/entity matching can include subsidiaries or similarly named entities. The evidence remains non-scoring, manual-review context only and is not treated as independently verified moat evidence.
 - Disabled, empty, or failed USASpending states return explicit C15 `insufficient_data` evidence instead of failing analyze-stock.
+
+Phase 47 USPTO PatentsView source notes:
+
+- `USE_LIVE_USPTO_PATENTS_DATA=true` enables the USPTO PatentsView patent-count adapter for `POST /api/analyze-stock`; no API key is required.
+- The adapter queries `https://search.patentsview.org/api/v1/patent/` for assignee organization names matching the company name and patent dates in the last three years, then caches raw snapshots under `USPTO_PATENTS_CACHE_TTL_DAYS`.
+- `patent_ip_evidence` normalizes `total_hits` into `patent_count`, keeps up to 10 sample patent records, and maps positive counts to Jane C18 `patent_count` Coverage Matrix context.
+- Assignee/entity matching can miss subsidiaries or include similarly named/acquired entities. Patent count remains non-scoring, manual-review context only and is not treated as independently verified defensibility.
+- Disabled, empty, or failed PatentsView states return explicit C18 `insufficient_data` evidence instead of failing analyze-stock; cache-after-failure responses are labeled `cached_live`.
 
 Phase 41 OpenBB sidecar options notes:
 

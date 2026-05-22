@@ -10,6 +10,7 @@ from backend.app.data_sources.openbb_options import get_openbb_options_activity
 from backend.app.data_sources.fmp_transcripts import get_earnings_transcript_analysis
 from backend.app.data_sources.mock_data import DEFAULT_STOCK, MOCK_SOURCE_DATE, STOCK_FIXTURES
 from backend.app.data_sources.usaspending_contracts import get_government_relationship_evidence
+from backend.app.data_sources.uspto_patents import get_patent_ip_evidence
 from backend.app.engines.jane_criteria_canonical import JANE_CRITERIA
 from backend.app.features.transcript_criteria_evidence import map_transcript_to_jane_criteria_evidence
 from backend.app.engines.leadership_engine import evaluate_leadership
@@ -2150,7 +2151,7 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "mock_evidence_categories": mock_categories,
         "fallback_evidence_categories": fallback_categories,
         "missing_source_date_categories": missing_source_date_categories,
-        "excluded_from_scoring": sorted(set(_excluded_indicator_names(response.macro_regime) + ["earnings_transcript_analysis", "jane_criteria_external_evidence", "government_relationship_evidence"])),
+        "excluded_from_scoring": sorted(set(_excluded_indicator_names(response.macro_regime) + ["earnings_transcript_analysis", "jane_criteria_external_evidence", "government_relationship_evidence", "patent_ip_evidence"])),
         "insufficient_evidence_categories": insufficient_evidence_categories,
         "company_quality": company_quality_breakdown,
         "qualitative_evidence": qualitative_summary,
@@ -2560,6 +2561,27 @@ def _government_relationship_evidence_by_criterion(response: AnalyzeStockRespons
     return evidence
 
 
+def _patent_ip_evidence_by_criterion(response: AnalyzeStockResponse) -> dict[int, list[dict]]:
+    external = response.patent_ip_evidence
+    evidence: dict[int, list[dict]] = {}
+    for item in external.criteria:
+        if item.support_level == "insufficient_data":
+            continue
+        for submetric in item.covered_submetrics:
+            evidence.setdefault(item.criterion_id, []).append(
+                {
+                    "submetric": submetric,
+                    "accepted": True,
+                    "confidence": item.confidence,
+                    "source_quality": item.source_quality,
+                    "source_label": "USPTO PatentsView patent count evidence",
+                    "summary": item.evidence_snippets[0] if item.evidence_snippets else "PatentsView patent count supports preliminary C18 IP review.",
+                    "auto_derived": True,
+                    "limitations": item.limitations,
+                }
+            )
+    return evidence
+
 
 def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
     evidence_by_id = _accepted_jane_evidence_by_criterion(response.qualitative_evidence_assessment.model_dump(mode="json"))
@@ -2567,6 +2589,7 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
     auto_proxy_by_id = _auto_financial_proxy_evidence_by_criterion(response)
     transcript_by_id = _external_transcript_evidence_by_criterion(response)
     government_by_id = _government_relationship_evidence_by_criterion(response)
+    patent_by_id = _patent_ip_evidence_by_criterion(response)
     rows = []
     for criterion in JANE_CRITERIA:
         criterion_id = int(criterion["criterion_id"])
@@ -2579,6 +2602,7 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
             *auto_proxy_by_id.get(criterion_id, []),
             *transcript_by_id.get(criterion_id, []),
             *government_by_id.get(criterion_id, []),
+            *patent_by_id.get(criterion_id, []),
         ]
         accepted_items = [item for item in items if item.get("accepted") is True]
         covered = sorted(
@@ -2607,6 +2631,10 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
             limitations.append("Auto-derivable submetrics are covered only when accepted evidence or SEC Companyfacts financial proxies are available.")
         if any(item.get("auto_derived") for item in accepted_items):
             limitations.append(AUTO_DERIVED_PROXY_LIMITATION)
+        item_limitations = [limitation for item in accepted_items for limitation in (item.get("limitations") or []) if limitation]
+        for limitation in item_limitations[:3]:
+            if limitation not in limitations:
+                limitations.append(limitation)
         rows.append(
             {
                 "criterion_id": criterion_id,
@@ -3992,6 +4020,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     earnings_transcript_analysis = get_earnings_transcript_analysis(request.ticker)
     jane_criteria_external_evidence = map_transcript_to_jane_criteria_evidence(earnings_transcript_analysis)
     government_relationship_evidence = get_government_relationship_evidence(request.ticker, company_name=str(fixture.get("company_name") or request.ticker))
+    patent_ip_evidence = get_patent_ip_evidence(request.ticker, company_name=str(fixture.get("company_name") or request.ticker))
     jane_company_quality = _build_jane_company_quality(financial_quality, research_context, qualitative_evidence_assessment)
     financial_statement_signals = _build_financial_statement_signals(financial_quality)
     quality_insufficient = [criterion.name for criterion in jane_company_quality.criteria if criterion.status == "insufficient"]
@@ -4111,6 +4140,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         earnings_transcript_analysis=earnings_transcript_analysis,
         jane_criteria_external_evidence=jane_criteria_external_evidence,
         government_relationship_evidence=government_relationship_evidence,
+        patent_ip_evidence=patent_ip_evidence,
         company_profile={
             **company_profile,
             "themes": company_profile.get("themes", fixture["themes"]),

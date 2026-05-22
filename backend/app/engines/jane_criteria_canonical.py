@@ -47,7 +47,7 @@ JANE_CRITERIA: list[dict[str, Any]] = [
     _criterion(15, "Regulatory / Government Relationship", ["government_contracts", "regulatory_licenses", "policy_alignment", "defense_or_infrastructure_status"], "semi_structured", ["government_contracts"], "sec_companyfacts"),
     _criterion(16, "Network Effects", ["user_growth_increases_value", "marketplace_liquidity", "developer_ecosystem", "data_network_effect"], "qualitative"),
     _criterion(17, "Mission and Narrative Power", ["clear_long_term_mission", "founder_narrative_consistency", "brand_story_adoption", "investor_narrative_durability"], "qualitative"),
-    _criterion(18, "Patents and IP", ["patent_count", "patent_relevance", "defensibility", "licensing_evidence"], "semi_structured", ["patent_count"], "sec_companyfacts"),
+    _criterion(18, "Patents and IP", ["patent_count", "patent_relevance", "defensibility", "licensing_evidence"], "semi_structured", ["patent_count"], "uspto_patentsview"),
     _criterion(19, "VC / Institutional Support", ["institutional_support", "fund_support", "strategic_investors", "ownership_quality"], "financial_proxy", ["institutional_support", "fund_support"], "sec_13f"),
     _criterion(20, "Retention / Repurchase Rate", ["net_revenue_retention", "churn", "repeat_purchase", "cohort_retention", "subscription_renewal"], "semi_structured", [], None, ["net_revenue_retention", "churn", "cohort_retention"]),
 ]

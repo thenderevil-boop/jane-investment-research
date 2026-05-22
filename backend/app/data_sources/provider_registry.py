@@ -37,6 +37,12 @@ def _provider_configs() -> dict[str, ExternalProviderConfig]:
             requires_api_key=False,
             cache_ttl_days=config.USASPENDING_CACHE_TTL_DAYS,
         ),
+        "uspto_patentsview": ExternalProviderConfig(
+            provider="uspto_patentsview",
+            enabled=config.USE_LIVE_USPTO_PATENTS_DATA,
+            requires_api_key=False,
+            cache_ttl_days=config.USPTO_PATENTS_CACHE_TTL_DAYS,
+        ),
     }
 
 
