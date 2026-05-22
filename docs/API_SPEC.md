@@ -114,7 +114,7 @@ Phase 14 makes the response a candidate validation report rather than a loose bu
 
 - `candidate_validation_summary`: concise research-priority summary, strengths, risks, mock/fallback disclosure, and next checks.
 - `validation_quality_summary`: explanation-only validation quality level, supporting evidence, limiting factors, review need, data-quality grade, and confidence-cap status. This field does not alter scoring by itself.
-- `qualitative_evidence_assessment`: optional manual qualitative evidence validation results when the request includes structured qualitative evidence.
+- `qualitative_evidence_assessment`: optional manual qualitative evidence validation results when the request includes structured qualitative evidence. Phase 52 preserves ADR manual filing metadata (`adr_evidence_type`, `document_title`, `document_date`, `filing_period`, `quoted_text`, `local_market`, `local_ticker`, `translation_note`) and exposes `verification_level`, `affects_score=false`, and `not_investment_advice=true` per evidence item.
 - `comparison_evidence_assessment`: manual competitor/comparison evidence summary for peer context hooks.
 - `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, qualitative evidence, comparison evidence, Jane company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
 - `jane_criteria_coverage`: non-scoring coverage matrix across the canonical Jane 20 criteria, accepted evidence items, SEC Companyfacts financial proxies where available, C2/C3/C5 auto-derived yfinance/financial proxies, C18 PatentsView patent-count proxy, covered and missing submetrics, and next manual checks.
@@ -144,6 +144,7 @@ Phase 43 refines source-quality semantics for fallback and ADR / foreign-filer c
 - Phase 49 freshness fields are review workflow metadata only. They are included in `data_quality_summary.excluded_from_scoring`, can add `next_manual_checks`, and do not change final score, label, verdict, or investment-advice boundaries.
 - Optional FMP transcript / financial fallbacks are reported in `data_quality_summary.optional_provider_fallback_categories`; they remain visible but do not count as core `fallback_evidence_categories` or missing-source-date penalties unless the FMP proxy is actually used for financial-quality scoring.
 - `data_quality_summary.foreign_filer_context` explains structural ADR / foreign-filer coverage limitations, including SEC Companyfacts and 13F candidate-specific gaps, so normal non-US coverage limits are not presented as company-specific weakness.
+- Phase 52 adds ADR Manual Evidence Intake metadata to request-scoped and saved manual evidence: `adr_evidence_type` enum values are `annual_report`, `local_regulatory_filing`, `governance_page`, `investor_presentation`, `earnings_webcast`, `company_ir_page`, and `other`; filing references can include `source_url`, `document_title`, `document_date`, `filing_period`, `quoted_text`, `local_market`, `local_ticker`, and `translation_note`. Evidence with `adr_evidence_type` plus `source_url`, valid `document_date`, and reviewable `quoted_text` is labeled `source_quality="filing_backed"` / `verification_level="filing_backed"` for coverage completeness only; it remains `affects_score=false`, `not_investment_advice=true`, and manually supplied.
 - Phase 51 promotes ADR / foreign-filer handling into `foreign_filer_coverage_diagnostics` with `is_foreign_filer_or_adr`, `detected_signals`, `coverage_limitations`, `recommended_manual_checks`, `affects_score=false`, and `not_investment_advice=true`. Limitation `area` values include `sec_companyfacts`, `sec_form4`, `sec_13f`, `fmp_transcript`, `local_filings`, and `other`; statuses include `structural_gap`, `provider_gap`, `not_expected`, and `manual_verification_required`. It adds ADR-aware Coverage Matrix manual checks for affected criteria such as C2, C5, C10, C12, C17, and C19 without changing score, verdict, or coverage thresholds.
 
 Phase 42 adds FMP financial statement / TTM-ratio proxy behavior for ADR and SEC-gap cases:
@@ -203,9 +204,10 @@ Phase 17c data-quality category behavior:
 - Excluded scoring indicators such as ISM Manufacturing PMI and CNN Fear & Greed remain under `excluded_from_scoring`; they are not fallback evidence categories.
 - A `fundamentals_cross_check.agreement_level="low"` is a discrepancy/review signal, not fallback evidence.
 
-Phase 18 qualitative evidence behavior:
+- Phase 18 qualitative evidence behavior:
 
 - Request body may include optional `qualitative_evidence` items with `criterion`, `evidence_type`, `summary`, `source_label`, optional `source_url`, optional `source_date`, `confidence`, `user_provided`, and `limitations`.
+- Phase 52 additionally accepts ADR / foreign-filer filing metadata on qualitative evidence items: `adr_evidence_type`, `document_title`, `document_date`, `filing_period`, `quoted_text`, `local_market`, `local_ticker`, and `translation_note`. `document_date` is used as `source_date` when an ADR evidence item omits `source_date`; if both are missing, the item can still be accepted as lower-confidence `user_provided` context and enters `stale_review_queue` with `trigger="missing_source_date"`.
 - Phase 27 canonical criteria are loaded from `backend/app/data/jane_leadership_criteria.json`: `monopoly_power`, `visionary_founder_ceo`, `early_skepticism`, `disruptive_innovation`, `superior_technology_r_and_d`, `scalable_business_model`, `brand_power_fandom`, `data_advantage`, `capital_allocation`, `cash_flow_creation`, `mega_trend_fit`, `talent_attraction_retention`, `global_expansion`, `life_changing_necessary_product`, `regulatory_government_relationship`, `network_effect`, `mission_narrative_power`, `patents_ip`, `vc_institutional_support`, and `retention_repurchase_rate`.
 - Phase 27 request compatibility also allows optional `criterion_id`, `criterion_name`, and `submetric` metadata for canonical evidence capture. `criterion_id` must be between 1 and 20 when provided.
 - Legacy request compatibility remains for `continuous_r_and_d`; it maps to the prior structured qualitative evidence flow and is not part of the canonical Jane 20 file.
@@ -224,6 +226,7 @@ Phase 28 Jane criteria coverage behavior:
 - Phase 50 adds non-scoring C2 (`founder_ownership`) coverage from yfinance `heldPercentInsiders` / normalized insider ownership, while keeping `founder_is_ceo`, vision consistency, milestone execution, and crisis execution manual. It also refines C3 thresholds so very low short interest does not fill `short_interest_proxy`; high/moderate/low labels come from `shortRatio` and `shortPercentOfFloat`.
 - Phase 47 adds non-scoring provider-backed C18 (`patent_count`) coverage from USPTO PatentsView `patent_ip_evidence`. It remains an auto-derived patent-count proxy and does not prove patent relevance, licensing value, or defensibility.
 - Phase 51 adds ADR-aware `next_manual_check` text for affected criteria when `foreign_filer_coverage_diagnostics.is_foreign_filer_or_adr=true`; these checks explain local-filing, annual-report, SEC Form 4, 13F, and transcript limitations without changing row status or score.
+- Phase 52 lets accepted ADR manual filing evidence cover only the explicitly supplied `criterion_id` / `submetric`. Filing-backed manual evidence can mark a submetric such as C2 `founder_ownership` or C10 `positive_fcf` as covered/partial in `jane_criteria_coverage`, but it remains manual validation context and does not alter scoring weights or verdict labels.
 - Coverage matrix output is validation completeness only. It does not change `evidence_matrix`, `leadership_score` deprecation semantics, or final scoring logic by itself.
 - Rejected or unsupported evidence must not mark a submetric as covered.
 
@@ -307,6 +310,7 @@ Phase 19 manual evidence library behavior:
 Phase 20 manual evidence review behavior:
 
 - Manual evidence includes local review workflow fields: `reviewed_at`, `reviewed_by`, `review_notes`, `last_reviewed_at`, and `next_review_due_at`.
+- Phase 52 manual evidence can include ADR filing-reference fields `adr_evidence_type`, `document_title`, `document_date`, `filing_period`, `quoted_text`, `local_market`, `local_ticker`, and `translation_note`; these fields are stored, returned, exported through analyze-stock assessment items, and never fetched or independently verified by the system.
 - `evidence_quality_score` is a deterministic completeness and review-readiness score, not a truth score and not independent verification.
 - `evidence_quality_label` is derived from the score as `high`, `medium`, `low`, or `incomplete`.
 - `source_reliability_label` describes the manually entered source category, but the system does not fetch or validate `source_url`.

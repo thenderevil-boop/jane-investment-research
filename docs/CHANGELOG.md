@@ -1,5 +1,13 @@
 # Changelog
 
+## Phase 52 — ADR Manual Evidence Intake and Filing Reference Workflow
+
+- Added ADR manual filing-reference metadata to request-scoped qualitative evidence and saved Manual Evidence Library records: `adr_evidence_type`, `document_title`, `document_date`, `filing_period`, `quoted_text`, `local_market`, `local_ticker`, and `translation_note`; supported `adr_evidence_type` values include `annual_report`, `local_regulatory_filing`, `governance_page`, `investor_presentation`, `earnings_webcast`, `company_ir_page`, and `other`.
+- Preserved ADR metadata in `qualitative_evidence_assessment.evidence_items[]`, labels complete filing references as `source_quality="filing_backed"` / `verification_level="filing_backed"`, and keeps every manual evidence item `affects_score=false` and `not_investment_advice=true`.
+- Uses `document_date` as a `source_date` fallback for ADR evidence, while missing-date ADR evidence enters the existing Phase 49 `stale_review_queue` via `missing_source_date`.
+- Allows explicitly supplied `criterion_id` / `submetric` ADR evidence to map into Jane Coverage Matrix completeness without changing score weights, final verdicts, provider integrations, or automatic filing fetch behavior.
+- Added frontend ADR evidence intake helper text, ADR metadata validation, docs, schemas, and contract tests.
+
 ## Phase 51 — ADR Foreign Filer Coverage Diagnostics
 
 - Added top-level `foreign_filer_coverage_diagnostics` to `POST /api/analyze-stock` with detected ADR/foreign-filer signals, structural/provider coverage limitations, recommended manual checks, `affects_score=false`, and `not_investment_advice=true`.

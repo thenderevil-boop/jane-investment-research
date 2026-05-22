@@ -62,6 +62,7 @@ const qualitativeEvidenceTypes = new Set([
 ]);
 const comparisonTypes = new Set(['competitor', 'market_share', 'product_capability', 'platform_ecosystem', 'customer_adoption', 'pricing_power', 'switching_cost', 'r_and_d_intensity', 'other']);
 const claimedAdvantages = new Set(['stronger', 'similar', 'weaker', 'unclear']);
+const adrEvidenceTypes = new Set(['annual_report', 'local_regulatory_filing', 'governance_page', 'investor_presentation', 'earnings_webcast', 'company_ir_page', 'other']);
 
 export function buildJaneCriteriaEvidenceInput({
   criterion,
@@ -118,6 +119,9 @@ export function parseQualitativeEvidenceJson(value: string): QualitativeEvidence
     }
     if (evidence.user_provided !== true) {
       throw new Error(`Qualitative evidence item ${index + 1} must set user_provided to true.`);
+    }
+    if (evidence.adr_evidence_type && !adrEvidenceTypes.has(String(evidence.adr_evidence_type))) {
+      throw new Error(`Qualitative evidence item ${index + 1} has an unsupported adr_evidence_type.`);
     }
     const comparisonContext = evidence.comparison_context;
     if (comparisonContext) {
@@ -686,6 +690,16 @@ export function ForeignFilerCoverageDiagnosticsSection({ diagnostics }: { diagno
           </ul>
         </div>
       )}
+      <div className="calloutBox">
+        <h3>ADR Manual Evidence Intake Helper</h3>
+        <p className="muted">Paste filing-backed evidence into Qualitative Evidence JSON using these metadata fields. This preserves the source reference and can map the selected submetric into the Jane Coverage Matrix without changing score weights.</p>
+        <ul>
+          <li><strong>adr_evidence_type</strong>: annual_report, local_regulatory_filing, governance_page, investor_presentation, earnings_webcast, company_ir_page, or other</li>
+          <li><strong>source_url / document_title / document_date / filing_period</strong>: filing reference and freshness metadata</li>
+          <li><strong>quoted_text</strong>: exact snippet to review; <strong>local_market / local_ticker</strong>: non-US listing context</li>
+          <li><strong>criterion_id / submetric</strong>: target Jane Coverage Matrix row, e.g. C2 founder_ownership or C10 positive_fcf</li>
+        </ul>
+      </div>
     </section>
   );
 }
@@ -799,7 +813,16 @@ export function QualitativeEvidenceAssessmentSection({ assessment }: { assessmen
                     <div><SignalBadge label={item.evidence_quality_label ?? 'incomplete'} variant={item.evidence_quality_label === 'high' ? 'positive' : item.evidence_quality_label === 'incomplete' ? 'warning' : 'neutral'} /></div>
                     <small>{item.source_reliability_label ?? 'unknown'}</small>
                   </td>
-                  <td>{item.source_label || 'N/A'} {item.source_date ? `(${item.source_date})` : ''}</td>
+                  <td>{item.source_label || 'N/A'} {item.source_date ? `(${item.source_date})` : ''}
+                    {item.adr_evidence_type && (
+                      <div className="muted">
+                        ADR: {item.adr_evidence_type}; {item.document_title ?? 'untitled'} {item.document_date ? `dated ${item.document_date}` : 'missing document date'}
+                        {item.filing_period ? `; period ${item.filing_period}` : ''}
+                        {item.local_ticker ? `; local ticker ${item.local_ticker}` : ''}
+                      </div>
+                    )}
+                    {item.verification_level && <div><span className="smallPill">{item.verification_level}</span></div>}
+                  </td>
                   <td>{item.acceptance_reason}</td>
                   <td>
                     {item.note_title && <strong>{item.note_title}</strong>}

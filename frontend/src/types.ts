@@ -460,6 +460,15 @@ export type PatentIPEvidence = {
   not_investment_advice: boolean;
 };
 
+export type AdrEvidenceType =
+  | 'annual_report'
+  | 'local_regulatory_filing'
+  | 'governance_page'
+  | 'investor_presentation'
+  | 'earnings_webcast'
+  | 'company_ir_page'
+  | 'other';
+
 export type QualitativeEvidenceInput = {
   evidence_id?: string | null;
   criterion: string;
@@ -471,6 +480,14 @@ export type QualitativeEvidenceInput = {
   source_label: string;
   source_url?: string | null;
   source_date?: string | null;
+  adr_evidence_type?: AdrEvidenceType | null;
+  document_title?: string | null;
+  document_date?: string | null;
+  filing_period?: string | null;
+  quoted_text?: string | null;
+  local_market?: string | null;
+  local_ticker?: string | null;
+  translation_note?: string | null;
   confidence: number;
   user_provided: boolean;
   limitations: string[];
@@ -594,11 +611,26 @@ export type QualitativeEvidenceAssessmentItem = {
   origin?: 'saved_library' | 'request_scoped';
   review_status?: string | null;
   criterion: string;
+  criterion_id?: number | null;
+  criterion_name?: string | null;
+  submetric?: string | null;
   evidence_type: string;
   summary: string;
   source_label: string;
+  source_url?: string | null;
   source_date?: string | null;
+  adr_evidence_type?: AdrEvidenceType | null;
+  document_title?: string | null;
+  document_date?: string | null;
+  filing_period?: string | null;
+  quoted_text?: string | null;
+  local_market?: string | null;
+  local_ticker?: string | null;
+  translation_note?: string | null;
   source_quality: 'user_provided' | 'filing_backed' | 'derived_live' | 'insufficient' | 'rejected';
+  verification_level?: 'user_provided' | 'filing_backed' | 'insufficient' | 'rejected';
+  affects_score?: boolean;
+  not_investment_advice?: boolean;
   accepted: boolean;
   acceptance_reason: string;
   confidence: number;
@@ -693,6 +725,14 @@ export type ManualQualitativeEvidence = {
   source_label: string;
   source_url?: string | null;
   source_date?: string | null;
+  adr_evidence_type?: AdrEvidenceType | null;
+  document_title?: string | null;
+  document_date?: string | null;
+  filing_period?: string | null;
+  quoted_text?: string | null;
+  local_market?: string | null;
+  local_ticker?: string | null;
+  translation_note?: string | null;
   confidence: number;
   review_status: 'unreviewed' | 'reviewed' | 'rejected' | 'archived';
   reviewed_at?: string | null;

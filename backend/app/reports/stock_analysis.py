@@ -179,6 +179,55 @@ def _qualitative_allowed_types_by_criterion() -> dict[str, set[str]]:
 
 QUALITATIVE_ALLOWED_TYPES_BY_CRITERION = _qualitative_allowed_types_by_criterion()
 SUPPORTED_QUALITATIVE_CRITERIA = set(QUALITATIVE_ALLOWED_TYPES_BY_CRITERION)
+ADR_FILING_BACKED_EVIDENCE_TYPES = {
+    "annual_report",
+    "local_regulatory_filing",
+    "governance_page",
+    "investor_presentation",
+    "earnings_webcast",
+    "company_ir_page",
+}
+
+
+def _clean_optional_text(value) -> str | None:
+    text = str(value or "").strip()
+    return text or None
+
+
+def _normalize_adr_manual_evidence_fields(item: dict) -> dict:
+    row = dict(item)
+    adr_type = _clean_optional_text(row.get("adr_evidence_type"))
+    row["adr_evidence_type"] = adr_type
+    for field in ["source_url", "document_title", "document_date", "filing_period", "quoted_text", "local_market", "local_ticker", "translation_note"]:
+        row[field] = _clean_optional_text(row.get(field))
+    if adr_type and not row.get("source_date") and row.get("document_date"):
+        row["source_date"] = row["document_date"]
+    return row
+
+
+def _is_filing_backed_adr_manual_evidence(item: dict, accepted: bool) -> bool:
+    if not accepted:
+        return False
+    adr_type = item.get("adr_evidence_type")
+    if adr_type not in ADR_FILING_BACKED_EVIDENCE_TYPES:
+        return False
+    if not item.get("source_url") or not item.get("document_date"):
+        return False
+    if parse_source_date(str(item.get("document_date"))) is None:
+        return False
+    return len(str(item.get("quoted_text") or "").strip()) >= 40
+
+
+def _adr_manual_evidence_missing_data(item: dict) -> list[str]:
+    if not item.get("adr_evidence_type"):
+        return []
+    missing = []
+    for field in ["source_url", "document_date", "quoted_text"]:
+        if not item.get(field):
+            missing.append(field)
+    if item.get("document_date") and parse_source_date(str(item.get("document_date"))) is None:
+        missing.append("valid_document_date")
+    return missing
 
 
 def _research_verdict(
@@ -529,6 +578,7 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
         merged_inputs.append((request_item, "request_scoped"))
 
     for item, origin in merged_inputs:
+        item = _normalize_adr_manual_evidence_fields(item)
         item = enrich_manual_evidence_quality(item)
         criterion = str(item.get("criterion") or "").strip()
         evidence_type = str(item.get("evidence_type") or "").strip()
@@ -549,6 +599,9 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
             summary,
             source_label,
             str(item.get("source_url") or ""),
+            str(item.get("quoted_text") or ""),
+            str(item.get("document_title") or ""),
+            str(item.get("translation_note") or ""),
             str(item.get("note_title") or ""),
             str(item.get("research_question") or ""),
         ]
@@ -587,6 +640,7 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
             missing_item.append("source_label")
         if not source_date:
             missing_item.append("source_date")
+        missing_item.extend(_adr_manual_evidence_missing_data(item))
         missing_item.extend(_comparison_context_missing_data(item.get("comparison_context")))
         if source_date and (latest_source_date is None or str(source_date) > latest_source_date):
             latest_source_date = str(source_date)
@@ -608,7 +662,12 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
                 limitations.append("Comparison evidence is user-provided and requires peer claim validation.")
                 if item.get("comparison_context", {}).get("claimed_advantage") == "stronger":
                     limitations.append("Claimed advantage requires measurable, current comparison support.")
-        else:
+        filing_backed_adr_evidence = _is_filing_backed_adr_manual_evidence(item, accepted)
+        source_quality = "filing_backed" if filing_backed_adr_evidence else "user_provided" if accepted else "rejected"
+        verification_level = source_quality
+        if accepted and item.get("adr_evidence_type"):
+            limitations.append("ADR / foreign-filer filing evidence is manually supplied and must be checked against the original document.")
+        if not accepted:
             summary = "Rejected qualitative evidence omitted from response for safety."
             source_label = source_label if source_label and not _contains_secret_marker(source_label) else "redacted"
             limitations = sorted(set([*limitations, "Rejected qualitative evidence does not affect scoring."]))
@@ -625,8 +684,20 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
                 "evidence_type": evidence_type or "unsupported",
                 "summary": summary,
                 "source_label": source_label,
+                "source_url": item.get("source_url"),
                 "source_date": source_date,
-                "source_quality": "user_provided" if accepted else "rejected",
+                "adr_evidence_type": item.get("adr_evidence_type"),
+                "document_title": item.get("document_title"),
+                "document_date": item.get("document_date"),
+                "filing_period": item.get("filing_period"),
+                "quoted_text": item.get("quoted_text"),
+                "local_market": item.get("local_market"),
+                "local_ticker": item.get("local_ticker"),
+                "translation_note": item.get("translation_note"),
+                "source_quality": source_quality,
+                "verification_level": verification_level,
+                "affects_score": False,
+                "not_investment_advice": True,
                 "accepted": accepted,
                 "acceptance_reason": reason,
                 "confidence": round(max(0.0, min(1.0, effective_confidence)), 2),

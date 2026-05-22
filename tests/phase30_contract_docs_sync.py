@@ -136,6 +136,41 @@ def test_phase51_foreign_filer_diagnostics_contract_is_documented() -> None:
         assert token in frontend_types
 
 
+def test_phase52_adr_manual_evidence_contract_is_documented() -> None:
+    schema = _load_schema()
+    input_props = QualitativeEvidenceInput.model_json_schema()["properties"]
+    assessment_props = schema["$defs"]["QualitativeEvidenceAssessmentItem"]["properties"]
+    manual_evidence_props = ManualQualitativeEvidence.model_json_schema()["properties"]
+    api_spec = _read("docs/API_SPEC.md")
+    readme = _read("README.md")
+    changelog = _read("docs/CHANGELOG.md")
+    framework = _read("docs/JANE_FRAMEWORK_MAPPING.md")
+    frontend_types = _read("frontend/src/types.ts")
+
+    fields = [
+        "adr_evidence_type",
+        "document_title",
+        "document_date",
+        "filing_period",
+        "quoted_text",
+        "local_market",
+        "local_ticker",
+        "translation_note",
+    ]
+    for field in fields:
+        assert field in input_props
+        assert field in assessment_props
+        assert field in manual_evidence_props
+        for text in [api_spec, readme, changelog, framework, frontend_types]:
+            assert field in text
+
+    for token in ["annual_report", "local_regulatory_filing", "filing_backed", "missing_source_date", "ADR Manual Evidence Intake"]:
+        assert token in api_spec
+        assert token in changelog
+        if token not in {"missing_source_date", "ADR Manual Evidence Intake"}:
+            assert token in frontend_types
+
+
 def test_phase_status_documents_are_at_phase30_or_newer() -> None:
     for path in ["README.md", "AGENTS.md", "docs/API_SPEC.md", "docs/CHANGELOG.md"]:
         text = _read(path)

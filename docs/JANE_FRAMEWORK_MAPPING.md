@@ -137,6 +137,8 @@ Phase 47 adds USPTO PatentsView as an opt-in no-key external provider for criter
 
 Phase 51 adds ADR / foreign-filer diagnostics above the same non-scoring coverage workflow. `foreign_filer_coverage_diagnostics` explains structural SEC Companyfacts, SEC Form 4, 13F, and FMP transcript limitations, and affected Coverage Matrix rows receive ADR-aware `next_manual_check` guidance. These diagnostics do not cover submetrics, change scores, or imply company weakness; they turn structural data gaps into a manual local-filing / annual-report research path.
 
+Phase 52 adds the intake side of that ADR path. Manual evidence can carry filing-reference metadata (`adr_evidence_type`, `document_title`, `document_date`, `filing_period`, `quoted_text`, `local_market`, `local_ticker`, `translation_note`) and, when complete, is labeled filing-backed for validation completeness. It can cover only explicitly selected Jane submetrics through `criterion_id` / `submetric`, remains user-provided and manually reviewed, and does not modify score weights, final verdicts, or automatic provider behavior.
+
 Phase 29 surfaces the same coverage and evidence gaps through analyze-stock `validation_os_report`, a non-scoring explainability layer that summarizes Jane quality context, coverage gaps, manual checks, source-quality caveats, and research-only limitations without changing the final score or verdict.
 
 Implementation module:

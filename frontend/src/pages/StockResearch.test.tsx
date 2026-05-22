@@ -140,6 +140,9 @@ describe('StockResearch presentation helpers', () => {
       />,
     );
     expect(html).toContain('Foreign Filer / ADR Coverage Note');
+    expect(html).toContain('ADR Manual Evidence Intake Helper');
+    expect(html).toContain('adr_evidence_type');
+    expect(html).toContain('document_date');
     expect(html).toContain('excluded from scoring');
     expect(html).toContain('Affects score: no');
     expect(html).toContain('sec_companyfacts');
@@ -530,6 +533,32 @@ describe('StockResearch presentation helpers', () => {
     expect(canonical?.[0].criterion_id).toBe(1);
     expect(canonical?.[0].criterion_name).toBe('Market Monopoly / Entry Barrier');
     expect(canonical?.[0].submetric).toBe('switching_cost');
+    const adr = parseQualitativeEvidenceJson(JSON.stringify([
+      {
+        criterion: 'visionary_founder_ceo',
+        criterion_id: 2,
+        criterion_name: 'Visionary Founder / CEO',
+        submetric: 'founder_ownership',
+        evidence_type: 'filing_reference',
+        summary: 'Annual report governance disclosure describes leadership ownership alignment requiring human review.',
+        source_label: 'Nokia Annual Report FY2025',
+        source_url: 'https://example.com/nokia-annual-report.pdf',
+        document_title: 'Nokia Annual Report 2025',
+        document_date: '2026-03-05',
+        filing_period: 'FY2025',
+        quoted_text: 'Governance section quote for local filing review.',
+        adr_evidence_type: 'annual_report',
+        local_market: 'NASDAQ Helsinki',
+        local_ticker: 'NOKIA',
+        confidence: 0.72,
+        user_provided: true,
+        limitations: ['Manual ADR filing verification required.'],
+      },
+    ]));
+    expect(adr?.[0].adr_evidence_type).toBe('annual_report');
+    expect(adr?.[0].document_date).toBe('2026-03-05');
+    expect(adr?.[0].local_ticker).toBe('NOKIA');
+    expect(() => parseQualitativeEvidenceJson('[{"criterion":"visionary_founder_ceo","evidence_type":"filing_reference","summary":"x","source_label":"note","confidence":0.5,"user_provided":true,"adr_evidence_type":"bad_type"}]')).toThrow('unsupported adr_evidence_type');
     expect(() => parseQualitativeEvidenceJson('[{"criterion":"unsupported","evidence_type":"platform_ecosystem","summary":"x","source_label":"note","confidence":0.5,"user_provided":true}]')).toThrow('unsupported criterion');
     expect(() => parseQualitativeEvidenceJson('[{"criterion":"network_effect","evidence_type":"platform_ecosystem","summary":"","source_label":"note","confidence":0.5,"user_provided":true}]')).toThrow('needs a summary');
     expect(() => parseQualitativeEvidenceJson('[{"criterion":"network_effect","evidence_type":"platform_ecosystem","summary":"x","source_label":"note","confidence":2,"user_provided":true}]')).toThrow('between 0 and 1');

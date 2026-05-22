@@ -14,6 +14,17 @@ from backend.app.schemas.macro_regime import MacroRegimeOutput
 from backend.app.schemas.patent_ip import PatentIPEvidence
 
 
+AdrEvidenceType = Literal[
+    "annual_report",
+    "local_regulatory_filing",
+    "governance_page",
+    "investor_presentation",
+    "earnings_webcast",
+    "company_ir_page",
+    "other",
+]
+
+
 class StockUserContext(BaseModel):
     friends_asking_about_stock: bool = False
     social_discussion_level: Literal["low", "medium", "high"] = "low"
@@ -35,6 +46,14 @@ class QualitativeEvidenceInput(BaseModel):
     source_label: str = ""
     source_url: str | None = None
     source_date: str | None = None
+    adr_evidence_type: AdrEvidenceType | None = None
+    document_title: str | None = None
+    document_date: str | None = None
+    filing_period: str | None = None
+    quoted_text: str | None = None
+    local_market: str | None = None
+    local_ticker: str | None = None
+    translation_note: str | None = None
     confidence: float = 0.5
     user_provided: bool = True
     limitations: list[str] = Field(default_factory=list)
@@ -295,8 +314,20 @@ class QualitativeEvidenceAssessmentItem(BaseModel):
     evidence_type: str
     summary: str
     source_label: str
+    source_url: str | None = None
     source_date: str | None = None
+    adr_evidence_type: AdrEvidenceType | None = None
+    document_title: str | None = None
+    document_date: str | None = None
+    filing_period: str | None = None
+    quoted_text: str | None = None
+    local_market: str | None = None
+    local_ticker: str | None = None
+    translation_note: str | None = None
     source_quality: Literal["user_provided", "filing_backed", "derived_live", "insufficient", "rejected"]
+    verification_level: Literal["user_provided", "filing_backed", "insufficient", "rejected"] = "user_provided"
+    affects_score: bool = False
+    not_investment_advice: bool = True
     accepted: bool
     acceptance_reason: str
     confidence: float = Field(ge=0, le=1)

@@ -73,6 +73,15 @@ ManualEvidenceSourceReliability = Literal[
 ManualEvidenceQualityLabel = Literal["high", "medium", "low", "incomplete"]
 ManualEvidenceThesisDirection = Literal["supportive", "neutral", "challenging", "unknown"]
 ManualEvidenceWorkflowStatus = Literal["draft", "review_ready", "accepted", "needs_refresh", "rejected", "archived"]
+AdrEvidenceType = Literal[
+    "annual_report",
+    "local_regulatory_filing",
+    "governance_page",
+    "investor_presentation",
+    "earnings_webcast",
+    "company_ir_page",
+    "other",
+]
 
 SECRET_MARKERS = ("FRED_API_KEY", "SEC_EDGAR_USER_AGENT", "api_key", "apikey", "secret", "token=")
 
@@ -153,6 +162,30 @@ def score_manual_evidence_quality(evidence: dict) -> dict:
     if review_status in {"rejected", "archived"}:
         reasons.append("Rejected or archived evidence is stored for audit but excluded from active scoring.")
     else:
+        adr_evidence_type = str(evidence.get("adr_evidence_type") or "").strip()
+        document_date = _parse_date(evidence.get("document_date"))
+        quoted_text = str(evidence.get("quoted_text") or "").strip()
+        if adr_evidence_type:
+            reasons.append(f"ADR / foreign-filer evidence type is {adr_evidence_type}.")
+            if document_date:
+                score += 8
+                reasons.append("ADR document date is present.")
+            else:
+                reasons.append("ADR document date is missing; filing freshness cannot be fully assessed.")
+            if str(evidence.get("source_url") or "").strip():
+                score += 6
+                reasons.append("ADR filing source URL is present.")
+            else:
+                reasons.append("ADR filing source URL is missing.")
+            if len(quoted_text) >= 40:
+                score += 6
+                reasons.append("ADR filing quoted text is present and reviewable.")
+            elif quoted_text:
+                score += 2
+                reasons.append("ADR filing quoted text is present but short.")
+            else:
+                reasons.append("ADR filing quoted text is missing.")
+
         summary = str(evidence.get("summary") or "").strip()
         if len(summary) >= 30:
             score += 20
@@ -368,6 +401,14 @@ class ManualQualitativeEvidenceCreate(BaseModel):
     source_label: str = Field(min_length=1)
     source_url: str | None = None
     source_date: str | None = None
+    adr_evidence_type: AdrEvidenceType | None = None
+    document_title: str | None = None
+    document_date: str | None = None
+    filing_period: str | None = None
+    quoted_text: str | None = None
+    local_market: str | None = None
+    local_ticker: str | None = None
+    translation_note: str | None = None
     confidence: float = Field(ge=0, le=1)
     review_status: ManualEvidenceReviewStatus = "unreviewed"
     reviewed_at: str | None = None

@@ -3138,6 +3138,18 @@
           "title": "Source Label",
           "type": "string"
         },
+        "source_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Url"
+        },
         "source_date": {
           "anyOf": [
             {
@@ -3150,6 +3162,111 @@
           "default": null,
           "title": "Source Date"
         },
+        "adr_evidence_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "annual_report",
+                "local_regulatory_filing",
+                "governance_page",
+                "investor_presentation",
+                "earnings_webcast",
+                "company_ir_page",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adr Evidence Type"
+        },
+        "document_title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Document Title"
+        },
+        "document_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Document Date"
+        },
+        "filing_period": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filing Period"
+        },
+        "quoted_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quoted Text"
+        },
+        "local_market": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Local Market"
+        },
+        "local_ticker": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Local Ticker"
+        },
+        "translation_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Translation Note"
+        },
         "source_quality": {
           "enum": [
             "user_provided",
@@ -3160,6 +3277,27 @@
           ],
           "title": "Source Quality",
           "type": "string"
+        },
+        "verification_level": {
+          "default": "user_provided",
+          "enum": [
+            "user_provided",
+            "filing_backed",
+            "insufficient",
+            "rejected"
+          ],
+          "title": "Verification Level",
+          "type": "string"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
         },
         "accepted": {
           "title": "Accepted",
