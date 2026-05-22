@@ -2298,6 +2298,8 @@ def _coverage_source_quality(items: list[dict]) -> str:
     qualities = {str(item.get("source_quality") or "user_provided") for item in accepted}
     if "filing_backed" in qualities:
         return "filing_backed"
+    if "derived_from_mixed_sources" in qualities:
+        return "derived_from_mixed_sources"
     if "derived_live" in qualities:
         return "derived_live"
     if "provider_backed" in qualities:
@@ -2327,6 +2329,155 @@ def _accepted_jane_evidence_by_criterion(qualitative_assessment: dict) -> dict[i
             continue
         grouped.setdefault(canonical_id, []).append(item)
     return grouped
+
+
+AUTO_DERIVED_PROXY_LIMITATION = "Auto-derived proxy. Verify against latest company filings before treating as confirmed evidence."
+
+
+def _auto_proxy_value(value) -> float | None:
+    if value is None:
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed
+
+
+def _normalise_short_percent(value) -> float | None:
+    parsed = _auto_proxy_value(value)
+    if parsed is None:
+        return None
+    if abs(parsed) <= 1:
+        return round(parsed * 100, 4)
+    return round(parsed, 4)
+
+
+def _financial_proxy_quality_for_fields(financials: dict, fields: set[str]) -> str:
+    filing_fields = set(financials.get("filing_backed_fields") or [])
+    fmp_fields = set(financials.get("fmp_backed_fields") or [])
+    status = _status_dict(financials.get("source_status"))
+    if fields & filing_fields:
+        return "filing_backed"
+    if fields & fmp_fields or financials.get("fmp_financial_proxy_used"):
+        return "derived_from_mixed_sources"
+    if status.get("source_type") == "cached_live":
+        return "cached_live"
+    if status.get("source_type") in {"live", "derived"}:
+        return "derived_live"
+    return "insufficient"
+
+
+def _c3_auto_evidence(financials: dict) -> dict | None:
+    short_percent = _normalise_short_percent(financials.get("short_percent_of_float") or financials.get("shortPercentOfFloat"))
+    short_ratio = _auto_proxy_value(financials.get("short_ratio") or financials.get("shortRatio"))
+    if short_percent is not None:
+        metric = "short_percent_of_float"
+        value = short_percent
+        unit = "% of float"
+        if short_percent >= 10:
+            label = "high_skepticism"
+            confidence = 0.72
+        elif short_percent >= 5:
+            label = "moderate_skepticism"
+            confidence = 0.62
+        else:
+            label = "low_skepticism"
+            confidence = 0.45
+        summary = f"Short interest {short_percent:.1f}% of float provides an auto-derived market skepticism proxy for Jane C3."
+    elif short_ratio is not None:
+        metric = "short_ratio"
+        value = short_ratio
+        unit = "days-to-cover ratio"
+        if short_ratio >= 10:
+            label = "high_days_to_cover_skepticism"
+            confidence = 0.68
+        elif short_ratio >= 5:
+            label = "moderate_days_to_cover_skepticism"
+            confidence = 0.58
+        else:
+            label = "low_days_to_cover_skepticism"
+            confidence = 0.42
+        summary = f"Short ratio {short_ratio:.1f}x provides an auto-derived days-to-cover skepticism proxy for Jane C3."
+    else:
+        return None
+    source_quality = _financial_proxy_quality_for_fields(financials, {metric})
+    if source_quality == "insufficient":
+        return None
+    return {
+        "submetric": "short_interest_proxy",
+        "accepted": True,
+        "confidence": confidence,
+        "source_quality": source_quality,
+        "source_label": "Yfinance short interest proxy",
+        "summary": summary,
+        "auto_derived": True,
+        "requires_human_verification": False,
+        "requires_review": False,
+        "not_investment_advice": True,
+        "metric": metric,
+        "value": value,
+        "unit": unit,
+        "label": label,
+        "limitations": [AUTO_DERIVED_PROXY_LIMITATION],
+    }
+
+
+def _c5_auto_evidence(financials: dict) -> dict | None:
+    rd_pct = _auto_proxy_value(financials.get("rd_to_revenue_pct"))
+    rd_expense = _auto_proxy_value(financials.get("rd_expense_ttm"))
+    revenue = _auto_proxy_value(financials.get("revenue_ttm"))
+    if rd_pct is None and rd_expense is not None and revenue not in (None, 0):
+        rd_pct = round(rd_expense / revenue * 100, 4)
+    if rd_pct is None:
+        return None
+    if rd_pct > 100:
+        label = "r_and_d_exceeds_revenue_early_stage"
+        confidence = 0.70
+    elif rd_pct >= 15:
+        label = "high_r_and_d_intensity"
+        confidence = 0.72
+    elif rd_pct >= 8:
+        label = "moderate_r_and_d_intensity"
+        confidence = 0.62
+    elif rd_pct >= 3:
+        label = "low_but_material_r_and_d_intensity"
+        confidence = 0.50
+    else:
+        label = "low_r_and_d_intensity"
+        confidence = 0.42
+    source_quality = _financial_proxy_quality_for_fields(financials, {"rd_to_revenue_pct", "rd_expense_ttm", "revenue_ttm"})
+    if source_quality == "insufficient":
+        return None
+    return {
+        "submetric": "rd_percent_of_revenue",
+        "accepted": True,
+        "confidence": confidence,
+        "source_quality": source_quality,
+        "source_label": "Financial statements R&D/revenue proxy",
+        "summary": f"R&D expense equals {rd_pct:.1f}% of revenue, providing an auto-derived Jane C5 technology commitment proxy.",
+        "auto_derived": True,
+        "requires_human_verification": False,
+        "requires_review": False,
+        "not_investment_advice": True,
+        "metric": "rd_to_revenue_pct",
+        "value": rd_pct,
+        "unit": "% of revenue",
+        "label": label,
+        "limitations": [AUTO_DERIVED_PROXY_LIMITATION],
+    }
+
+
+def _auto_financial_proxy_evidence_by_criterion(response: AnalyzeStockResponse) -> dict[int, list[dict]]:
+    financials = response.financial_quality.raw_data if response.financial_quality else {}
+    evidence: dict[int, list[dict]] = {}
+    c3 = _c3_auto_evidence(financials)
+    if c3:
+        evidence.setdefault(3, []).append(c3)
+    c5 = _c5_auto_evidence(financials)
+    if c5:
+        evidence.setdefault(5, []).append(c5)
+    return evidence
 
 
 def _sec_financial_proxy_evidence_by_criterion(response: AnalyzeStockResponse) -> dict[int, list[dict]]:
@@ -2413,6 +2564,7 @@ def _government_relationship_evidence_by_criterion(response: AnalyzeStockRespons
 def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
     evidence_by_id = _accepted_jane_evidence_by_criterion(response.qualitative_evidence_assessment.model_dump(mode="json"))
     sec_proxy_by_id = _sec_financial_proxy_evidence_by_criterion(response)
+    auto_proxy_by_id = _auto_financial_proxy_evidence_by_criterion(response)
     transcript_by_id = _external_transcript_evidence_by_criterion(response)
     government_by_id = _government_relationship_evidence_by_criterion(response)
     rows = []
@@ -2421,7 +2573,13 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
         all_submetrics = list(criterion.get("submetrics") or [])
         auto_submetrics = list(criterion.get("auto_derivable_submetrics") or [])
         required_user_submetrics = list(criterion.get("requires_user_input_submetrics") or [])
-        items = [*evidence_by_id.get(criterion_id, []), *sec_proxy_by_id.get(criterion_id, []), *transcript_by_id.get(criterion_id, []), *government_by_id.get(criterion_id, [])]
+        items = [
+            *evidence_by_id.get(criterion_id, []),
+            *sec_proxy_by_id.get(criterion_id, []),
+            *auto_proxy_by_id.get(criterion_id, []),
+            *transcript_by_id.get(criterion_id, []),
+            *government_by_id.get(criterion_id, []),
+        ]
         accepted_items = [item for item in items if item.get("accepted") is True]
         covered = sorted(
             {
@@ -2447,6 +2605,8 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
         ]
         if auto_submetrics:
             limitations.append("Auto-derivable submetrics are covered only when accepted evidence or SEC Companyfacts financial proxies are available.")
+        if any(item.get("auto_derived") for item in accepted_items):
+            limitations.append(AUTO_DERIVED_PROXY_LIMITATION)
         rows.append(
             {
                 "criterion_id": criterion_id,

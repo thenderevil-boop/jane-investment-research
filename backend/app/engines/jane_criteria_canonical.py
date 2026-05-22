@@ -32,7 +32,7 @@ def _criterion(
 JANE_CRITERIA: list[dict[str, Any]] = [
     _criterion(1, "Market Monopoly / Entry Barrier", ["switching_cost", "network_effect", "economies_of_scale", "intangible_assets", "regulatory_moat", "ip_moat", "customer_lock_in", "infrastructure_necessity"], "qualitative"),
     _criterion(2, "Visionary Founder / CEO", ["founder_is_ceo", "long_term_vision_consistency", "milestone_execution_record", "founder_ownership", "crisis_execution_history"], "qualitative"),
-    _criterion(3, "Early Market Skepticism", ["negative_analyst_consensus", "media_skepticism", "short_interest_proxy", "product_category_disbelief"], "qualitative"),
+    _criterion(3, "Early Market Skepticism", ["negative_analyst_consensus", "media_skepticism", "short_interest_proxy", "product_category_disbelief"], "financial_proxy", ["short_interest_proxy"], "yfinance"),
     _criterion(4, "Disruptive Innovation", ["new_category_creation", "cost_curve_disruption", "business_model_disruption", "user_workflow_replacement"], "qualitative"),
     _criterion(5, "Technology and R&D Commitment", ["rd_percent_of_revenue", "patent_quality", "product_release_cadence", "technical_benchmark_advantage"], "semi_structured", ["rd_percent_of_revenue"], "yfinance"),
     _criterion(6, "Scalable Business Model", ["gross_margin_expansion", "operating_leverage", "low_marginal_cost", "platform_economics"], "financial_proxy", ["gross_margin_expansion", "operating_leverage"], "yfinance"),

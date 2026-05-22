@@ -117,7 +117,7 @@ Phase 14 makes the response a candidate validation report rather than a loose bu
 - `qualitative_evidence_assessment`: optional manual qualitative evidence validation results when the request includes structured qualitative evidence.
 - `comparison_evidence_assessment`: manual competitor/comparison evidence summary for peer context hooks.
 - `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, qualitative evidence, comparison evidence, Jane company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
-- `jane_criteria_coverage`: non-scoring coverage matrix across the canonical Jane 20 criteria, accepted evidence items, SEC Companyfacts financial proxies where available, covered and missing submetrics, and next manual checks.
+- `jane_criteria_coverage`: non-scoring coverage matrix across the canonical Jane 20 criteria, accepted evidence items, SEC Companyfacts financial proxies where available, C3/C5 auto-derived numeric proxies, covered and missing submetrics, and next manual checks.
 - `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, optional-provider fallback categories, qualitative evidence counts, SEC Companyfacts status, FMP financial proxy status for ADR / SEC gaps, ADR/foreign-filer coverage context, and excluded scoring indicators.
 - `score_driver_breakdown`: positive, limiting, and neutral score drivers.
 - `next_manual_checks`: research-oriented checks for source quality, fundamentals, filings, valuation, and risk.
@@ -213,6 +213,7 @@ Phase 28 Jane criteria coverage behavior:
 - Analyze-stock returns `jane_criteria_coverage` with 20 canonical rows keyed by `criterion_id`.
 - Each row reports `evidence_type`, `coverage_status`, `source_quality`, `auto_derivable_submetrics`, `requires_user_input_submetrics`, `covered_submetrics`, `missing_submetrics`, evidence counts, `requires_human_verification`, limitations, and an optional `next_manual_check`.
 - Phase 34 allows filing-backed SEC Companyfacts financial proxies to cover selected auto-derivable submetrics for criteria 5 (`rd_percent_of_revenue`), 6 (`gross_margin_expansion`, `operating_leverage`), and 10 (`positive_fcf`, `fcf_margin`, `fcf_growth_trend`, `cash_conversion_quality`). Rows expose this through existing `financial_proxy_source`, `source_quality`, `covered_submetrics`, and `limitations` fields.
+- Phase 46 adds non-scoring auto-derived numeric proxies for criterion 3 (`short_interest_proxy`) from yfinance short-interest fields and criterion 5 (`rd_percent_of_revenue`) from yfinance, SEC Companyfacts, or FMP ADR financial proxy R&D intensity. Auto-derived items include explicit limitations and do not replace manual qualitative research.
 - Coverage matrix output is validation completeness only. It does not change `evidence_matrix`, `leadership_score` deprecation semantics, or final scoring logic by itself.
 - Rejected or unsupported evidence must not mark a submetric as covered.
 

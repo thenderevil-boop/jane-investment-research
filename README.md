@@ -134,13 +134,15 @@ Phase 42 adds FMP stable financial statement and TTM-ratio proxy evidence for AD
 
 Phase 43 refines source-quality semantics for edge cases. Form 4 cached-live data with `fallback_used=true` is treated as fallback-limited, optional FMP fallback states are separated from core live-data fallback penalties, and ADR / foreign-filer cases expose a coverage note explaining normal SEC Companyfacts / 13F limits.
 
+Phase 46 adds Jane auto evidence numeric proxies for C3 and C5. Analyze-stock can now partially cover C3 `short_interest_proxy` from yfinance short-interest data and C5 `rd_percent_of_revenue` from yfinance, SEC Companyfacts, or FMP ADR financial proxy R&D intensity. These Coverage Matrix items are non-scoring auto-derived financial proxies with explicit verification limitations.
+
 Phase 15 live-enables company profile and company fundamentals through the repository-backed yfinance adapter when `USE_LIVE_COMPANY_DATA=true` or when live market data is enabled. Company profile, financial quality, valuation context, Jane company quality financial criteria, and financial statement signals use live or cached yfinance data when available and fall back to clearly labeled mock/insufficient evidence when unavailable. Valuation context is risk context only, not an investment instruction. Legacy leadership remains mock-disclosed and deprecated. Future Industry Radar is not required for analyze-stock.
 
 Daily reports remain available as snapshot-first background context, source health, cache warmup, and market-environment snapshots. They are not the main user workflow. Future Industry Radar may remain as optional/future/reference context, but automatic theme discovery is not a core requirement.
 
 ## Current Implementation Status
 
-`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 45 FMP Stable Financial Statements fix, the Phase 44 FMP Transcript API Compliance layer, the Phase 43 Source Quality Semantics layer, the Phase 41 OpenBB Sidecar Stockgrid Options Evidence layer, Phase 42 FMP Financial Statements + TTM Ratios proxy layer, Phase 40 USASpending Government Relationship Evidence layer, Phase 39 Transcript Criteria Evidence Mapping layer, Phase 38 FMP Earnings Transcript Evidence layer, Phase 37 External Provider Adapter Foundation, Phase 36 Market Timing Condition Explanation v2, Phase 35 Daily Report live/derived coverage upgrade, Phase 34 SEC Companyfacts Jane financial proxy expansion, Phase 33 Jane Evidence Library research-note workflow metadata layer, Phase 32 Stock Research explanation layer, Phase 31.8 SEC 13F manager-universe expansion, Phase 31.7 macro source-quality test determinism pass, Phase 31.6 Form 4 fallback scoring hotfix, Phase 31.5 analyst readability pass, and the prior Phase 31 yfinance-derived overheat component work.
+`AGENTS.md` originally defined early planning phases for the MVP. The actual implementation has advanced beyond that early plan and currently reflects the Phase 46 Jane Auto Evidence Numeric Proxies layer, the Phase 45 FMP Stable Financial Statements fix, the Phase 44 FMP Transcript API Compliance layer, the Phase 43 Source Quality Semantics layer, the Phase 41 OpenBB Sidecar Stockgrid Options Evidence layer, Phase 42 FMP Financial Statements + TTM Ratios proxy layer, Phase 40 USASpending Government Relationship Evidence layer, Phase 39 Transcript Criteria Evidence Mapping layer, Phase 38 FMP Earnings Transcript Evidence layer, Phase 37 External Provider Adapter Foundation, Phase 36 Market Timing Condition Explanation v2, Phase 35 Daily Report live/derived coverage upgrade, Phase 34 SEC Companyfacts Jane financial proxy expansion, Phase 33 Jane Evidence Library research-note workflow metadata layer, Phase 32 Stock Research explanation layer, Phase 31.8 SEC 13F manager-universe expansion, Phase 31.7 macro source-quality test determinism pass, Phase 31.6 Form 4 fallback scoring hotfix, Phase 31.5 analyst readability pass, and the prior Phase 31 yfinance-derived overheat component work.
 
 Completed live integrations now documented in this README:
 
@@ -188,6 +190,7 @@ Completed live integrations now documented in this README:
 - Phase 43: Source Quality Semantics for Form 4 cached fallback, optional FMP fallback, and ADR / foreign-filer coverage notes
 - Phase 44: FMP Transcript API Compliance using the documented v4 batch transcript endpoint
 - Phase 45: FMP Stable Financial Statements fix for NOK-style ADR proxy availability
+- Phase 46: Jane Auto Evidence Numeric Proxies for C3 short interest and C5 R&D intensity coverage
 
 Future phases should use README current status, JSON schemas, and tests as the implementation reference, while keeping AGENTS.md safety rules in force.
 

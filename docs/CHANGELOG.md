@@ -1,5 +1,11 @@
 # Changelog
 
+## Phase 46 — Jane Auto Evidence Numeric Proxies: C3 + C5
+
+- Added auto-derived financial proxy evidence for Jane C3 Early Market Skepticism from yfinance short-interest fields (`shortPercentOfFloat` preferred, `shortRatio` fallback) so `short_interest_proxy` can be partially covered without user input.
+- Added auto-derived C5 R&D intensity coverage from `rd_to_revenue_pct` or R&D expense divided by revenue, including yfinance, SEC Companyfacts, and FMP ADR financial proxy sources.
+- Marked C3 as a financial-proxy-capable canonical coverage row and preserved non-scoring Coverage Matrix semantics with explicit auto-derived limitations and no investment-advice language.
+
 ## Phase 45 — FMP Stable Financial Statements for ADR Proxies
 
 - Updated the FMP financial proxy adapter from legacy `/api/v3/{statement}/{symbol}` URLs to the FMP stable statement endpoints using `symbol={ticker}` query parameters.
