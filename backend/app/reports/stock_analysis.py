@@ -2471,6 +2471,14 @@ def _accepted_jane_evidence_by_criterion(qualitative_assessment: dict) -> dict[i
 
 
 AUTO_DERIVED_PROXY_LIMITATION = "Auto-derived proxy. Verify against latest company filings before treating as confirmed evidence."
+SHORT_INTEREST_PROXY_LIMITATION = (
+    "Short interest is an auto-derived proxy for skepticism. High short interest may reflect hedging, "
+    "index effects, pair trades, or ADR wrapper-level positioning rather than fundamental skepticism."
+)
+INSIDER_OWNERSHIP_PROXY_LIMITATION = (
+    "Insider ownership includes all insiders, not only founder/CEO. It does not confirm founder-operator "
+    "status and must be manually verified."
+)
 
 
 def _auto_proxy_value(value) -> float | None:
@@ -2483,13 +2491,17 @@ def _auto_proxy_value(value) -> float | None:
     return parsed
 
 
-def _normalise_short_percent(value) -> float | None:
+def _normalise_fraction_or_percent(value) -> float | None:
     parsed = _auto_proxy_value(value)
     if parsed is None:
         return None
     if abs(parsed) <= 1:
         return round(parsed * 100, 4)
     return round(parsed, 4)
+
+
+def _normalise_short_percent(value) -> float | None:
+    return _normalise_fraction_or_percent(value)
 
 
 def _financial_proxy_quality_for_fields(financials: dict, fields: set[str]) -> str:
@@ -2507,40 +2519,63 @@ def _financial_proxy_quality_for_fields(financials: dict, fields: set[str]) -> s
     return "insufficient"
 
 
+def _c2_auto_evidence(financials: dict) -> dict | None:
+    insider_pct = _auto_proxy_value(financials.get("held_percent_insiders"))
+    if insider_pct is None:
+        insider_pct = _normalise_fraction_or_percent(financials.get("heldPercentInsiders"))
+    if insider_pct is None or insider_pct < 3:
+        return None
+    if insider_pct >= 10:
+        label = "significant_insider_alignment"
+        confidence = 0.50
+    else:
+        label = "moderate_insider_alignment"
+        confidence = 0.25
+    source_quality = _financial_proxy_quality_for_fields(financials, {"held_percent_insiders", "heldPercentInsiders"})
+    if source_quality == "insufficient":
+        return None
+    return {
+        "submetric": "founder_ownership",
+        "accepted": True,
+        "confidence": confidence,
+        "source_quality": source_quality,
+        "source_label": "Yfinance insider ownership proxy",
+        "summary": f"Insider ownership {insider_pct:.1f}% provides a preliminary ownership-alignment proxy for Jane C2 ({label}).",
+        "auto_derived": True,
+        "requires_human_verification": True,
+        "requires_review": True,
+        "not_investment_advice": True,
+        "metric": "held_percent_insiders",
+        "value": insider_pct,
+        "unit": "% of shares",
+        "label": label,
+        "limitations": [AUTO_DERIVED_PROXY_LIMITATION, INSIDER_OWNERSHIP_PROXY_LIMITATION],
+    }
+
+
 def _c3_auto_evidence(financials: dict) -> dict | None:
     short_percent = _normalise_short_percent(financials.get("short_percent_of_float") or financials.get("shortPercentOfFloat"))
     short_ratio = _auto_proxy_value(financials.get("short_ratio") or financials.get("shortRatio"))
-    if short_percent is not None:
-        metric = "short_percent_of_float"
-        value = short_percent
-        unit = "% of float"
-        if short_percent >= 10:
-            label = "high_skepticism"
-            confidence = 0.72
-        elif short_percent >= 5:
-            label = "moderate_skepticism"
-            confidence = 0.62
-        else:
-            label = "low_skepticism"
-            confidence = 0.45
-        summary = f"Short interest {short_percent:.1f}% of float provides an auto-derived market skepticism proxy for Jane C3."
-    elif short_ratio is not None:
-        metric = "short_ratio"
-        value = short_ratio
-        unit = "days-to-cover ratio"
-        if short_ratio >= 10:
-            label = "high_days_to_cover_skepticism"
-            confidence = 0.68
-        elif short_ratio >= 5:
-            label = "moderate_days_to_cover_skepticism"
-            confidence = 0.58
-        else:
-            label = "low_days_to_cover_skepticism"
-            confidence = 0.42
-        summary = f"Short ratio {short_ratio:.1f}x provides an auto-derived days-to-cover skepticism proxy for Jane C3."
+    if (short_ratio is not None and short_ratio >= 10) or (short_percent is not None and short_percent >= 15):
+        label = "high_skepticism"
+        confidence = 1.0
+    elif (short_ratio is not None and short_ratio >= 5) or (short_percent is not None and short_percent >= 8):
+        label = "moderate_skepticism"
+        confidence = 0.5
+    elif short_ratio is not None and short_ratio >= 1:
+        label = "low_skepticism"
+        confidence = 0.25
     else:
         return None
-    source_quality = _financial_proxy_quality_for_fields(financials, {metric})
+    metric_fields = set()
+    parts = []
+    if short_ratio is not None:
+        metric_fields.add("short_ratio")
+        parts.append(f"Short ratio {short_ratio:.1f}x")
+    if short_percent is not None:
+        metric_fields.add("short_percent_of_float")
+        parts.append(f"{short_percent:.1f}% of float short")
+    source_quality = _financial_proxy_quality_for_fields(financials, metric_fields)
     if source_quality == "insufficient":
         return None
     return {
@@ -2549,16 +2584,16 @@ def _c3_auto_evidence(financials: dict) -> dict | None:
         "confidence": confidence,
         "source_quality": source_quality,
         "source_label": "Yfinance short interest proxy",
-        "summary": summary,
+        "summary": f"{', '.join(parts)}. {label} market skepticism proxy for Jane C3.",
         "auto_derived": True,
         "requires_human_verification": False,
         "requires_review": False,
         "not_investment_advice": True,
-        "metric": metric,
-        "value": value,
-        "unit": unit,
+        "metric": "short_interest_proxy",
+        "value": short_percent if short_percent is not None else short_ratio,
+        "unit": "short interest proxy",
         "label": label,
-        "limitations": [AUTO_DERIVED_PROXY_LIMITATION],
+        "limitations": [AUTO_DERIVED_PROXY_LIMITATION, SHORT_INTEREST_PROXY_LIMITATION],
     }
 
 
@@ -2610,6 +2645,9 @@ def _c5_auto_evidence(financials: dict) -> dict | None:
 def _auto_financial_proxy_evidence_by_criterion(response: AnalyzeStockResponse) -> dict[int, list[dict]]:
     financials = response.financial_quality.raw_data if response.financial_quality else {}
     evidence: dict[int, list[dict]] = {}
+    c2 = _c2_auto_evidence(financials)
+    if c2:
+        evidence.setdefault(2, []).append(c2)
     c3 = _c3_auto_evidence(financials)
     if c3:
         evidence.setdefault(3, []).append(c3)
@@ -2773,6 +2811,10 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
         for limitation in item_limitations[:3]:
             if limitation not in limitations:
                 limitations.append(limitation)
+        evidence_summaries = [str(item.get("summary")) for item in accepted_items if item.get("summary")]
+        summary = f"Jane criterion {criterion_id} coverage is {status} based on accepted canonical evidence."
+        if evidence_summaries:
+            summary = f"{summary} {evidence_summaries[0]}"
         rows.append(
             {
                 "criterion_id": criterion_id,
@@ -2789,7 +2831,7 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
                 "accepted_evidence_item_count": len(accepted_items),
                 "financial_proxy_source": criterion.get("financial_proxy_source"),
                 "requires_human_verification": bool(missing or required_user_submetrics),
-                "summary": f"Jane criterion {criterion_id} coverage is {status} based on accepted canonical evidence.",
+                "summary": summary,
                 "limitations": limitations,
                 "next_manual_check": next_manual_check,
             }

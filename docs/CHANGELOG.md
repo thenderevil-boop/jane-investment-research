@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 50 — Yfinance C2 Insider Ownership and C3 Skepticism Refinement
+
+- Added yfinance `heldPercentInsiders` / normalized insider-ownership pass-through and non-scoring C2 `founder_ownership` auto evidence.
+- C2 insider ownership is capped as a preliminary financial proxy, requires human verification, and does not auto-cover `founder_is_ceo`, founder vision, milestone execution, or crisis execution.
+- Refined C3 short-interest thresholds so `shortRatio` and `shortPercentOfFloat` produce high/moderate/low skepticism labels only when meaningful thresholds are met; very low short interest no longer fills C3 coverage by itself.
+- Preserved scoring weights, forbidden-language boundaries, provider set, and investment-advice safeguards.
+
 ## Phase 49 — Evidence Freshness Policy and Stale Review Queue
 
 - Added top-level `evidence_freshness_policy` to `POST /api/analyze-stock` documenting non-scoring freshness windows for manual evidence, provider caches, market data, filings, Form 4, 13F, and macro sources.

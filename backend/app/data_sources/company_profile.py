@@ -219,6 +219,8 @@ def _normalize_fundamentals(ticker: str, info: dict[str, Any], ticker_obj: Any) 
         "rd_to_revenue_pct": _pct(rd_expense_ttm, revenue_ttm),
         "short_ratio": _as_float(info.get("shortRatio")),
         "short_percent_of_float": _fraction_to_pct(info.get("shortPercentOfFloat")),
+        "held_percent_insiders": _fraction_to_pct(info.get("heldPercentInsiders")),
+        "heldPercentInsiders": _as_float(info.get("heldPercentInsiders")),
         "shares_short": _as_float(info.get("sharesShort")),
         "shares_short_prior_month": _as_float(info.get("sharesShortPriorMonth")),
         "cash_and_equivalents": cash,
