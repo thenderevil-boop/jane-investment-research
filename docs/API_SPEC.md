@@ -119,6 +119,8 @@ Phase 14 makes the response a candidate validation report rather than a loose bu
 - `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, qualitative evidence, comparison evidence, Jane company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
 - `jane_criteria_coverage`: non-scoring coverage matrix across the canonical Jane 20 criteria, accepted evidence items, SEC Companyfacts financial proxies where available, C3/C5 auto-derived numeric proxies, C18 PatentsView patent-count proxy, covered and missing submetrics, and next manual checks.
 - `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, optional-provider fallback categories, qualitative evidence counts, SEC Companyfacts status, FMP financial proxy status for ADR / SEC gaps, ADR/foreign-filer coverage context, and excluded scoring indicators.
+- `evidence_freshness_policy`: non-scoring Phase 49 freshness-window contract for manual evidence, provider caches, market data, filings, Form 4, 13F, macro sources, and stale-review triggers.
+- `stale_review_queue`: non-scoring Phase 49 queue of stale manual evidence, review-due evidence, missing-source-date evidence, and stale live/cached/derived source-status items that require refresh, review, archive, or source-date remediation before increasing validation confidence.
 - `score_driver_breakdown`: positive, limiting, and neutral score drivers.
 - `next_manual_checks`: research-oriented checks for source quality, fundamentals, filings, valuation, and risk.
 
@@ -136,6 +138,9 @@ Phase 26 adds explanation-only validation-quality hardening:
 Phase 43 refines source-quality semantics for fallback and ADR / foreign-filer cases:
 
 - Form 4 `source_type="cached_live"` with `fallback_used=true` is treated as fallback-limited evidence for smart-money and insider-activity source quality.
+- Phase 49 exposes `evidence_freshness_policy` and `stale_review_queue` at top level. Policy fields include `policy_version="phase49_evidence_freshness_v1"`, `manual_evidence_max_age_days=365`, `reviewed_evidence_review_days=365`, `provider_cache_review_days=30`, `data_source_windows`, `manual_review_triggers`, `affects_score=false`, and `not_investment_advice=true`.
+- `stale_review_queue.items[]` contains `priority`, `category`, `trigger`, `item_label`, `reason`, `recommended_action`, optional `source_date`, optional `review_due_at`, optional `evidence_id`, `blocks_confidence_upgrade`, and `affects_score=false`. Queue triggers are `stale_manual_evidence`, `review_due`, `missing_source_date`, and `stale_source_status`; recommended actions are `refresh_or_archive`, `review_evidence`, `verify_or_refresh_source`, and `add_source_date`.
+- Phase 49 freshness fields are review workflow metadata only. They are included in `data_quality_summary.excluded_from_scoring`, can add `next_manual_checks`, and do not change final score, label, verdict, or investment-advice boundaries.
 - Optional FMP transcript / financial fallbacks are reported in `data_quality_summary.optional_provider_fallback_categories`; they remain visible but do not count as core `fallback_evidence_categories` or missing-source-date penalties unless the FMP proxy is actually used for financial-quality scoring.
 - `data_quality_summary.foreign_filer_context` explains structural ADR / foreign-filer coverage limitations, including SEC Companyfacts and 13F candidate-specific gaps, so normal non-US coverage limits are not presented as company-specific weakness.
 
@@ -406,6 +411,8 @@ Response:
   },
   "evidence_matrix": [],
   "data_quality_summary": {},
+  "evidence_freshness_policy": {},
+  "stale_review_queue": {"items": []},
   "score_driver_breakdown": {},
   "next_manual_checks": [],
   "qualitative_evidence_assessment": {

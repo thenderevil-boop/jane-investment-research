@@ -180,6 +180,43 @@ export type AnalyzeStockDataQualitySummary = {
   foreign_filer_context?: ForeignFilerContext;
 };
 
+export type EvidenceFreshnessPolicy = {
+  policy_version: 'phase49_evidence_freshness_v1';
+  manual_evidence_max_age_days: number;
+  reviewed_evidence_review_days: number;
+  provider_cache_review_days: number;
+  data_source_windows: Record<string, string>;
+  manual_review_triggers: string[];
+  affects_score: boolean;
+  not_investment_advice: boolean;
+};
+
+export type StaleReviewQueueItem = {
+  priority: 'high' | 'medium' | 'low';
+  category: string;
+  trigger: 'stale_manual_evidence' | 'review_due' | 'missing_source_date' | 'stale_source_status';
+  item_label: string;
+  reason: string;
+  recommended_action: 'refresh_or_archive' | 'review_evidence' | 'verify_or_refresh_source' | 'add_source_date';
+  source_date?: string | null;
+  review_due_at?: string | null;
+  evidence_id?: string | null;
+  blocks_confidence_upgrade: boolean;
+  affects_score: boolean;
+};
+
+export type StaleReviewQueue = {
+  items: StaleReviewQueueItem[];
+  stale_count: number;
+  review_due_count: number;
+  missing_source_date_count: number;
+  source_stale_count: number;
+  high_priority_count: number;
+  summary: string;
+  affects_score: boolean;
+  not_investment_advice: boolean;
+};
+
 export type JaneCompanyQualityCriterion = {
   name: string;
   display_name: string;
@@ -1239,6 +1276,8 @@ export type StockAnalysis = {
   jane_criteria_coverage?: JaneCriteriaCoverageMatrix;
   validation_os_report?: ValidationOSReport;
   data_quality_summary?: AnalyzeStockDataQualitySummary;
+  evidence_freshness_policy?: EvidenceFreshnessPolicy;
+  stale_review_queue?: StaleReviewQueue;
   score_driver_breakdown?: ScoreDriverBreakdown;
   next_manual_checks?: NextManualCheck[];
   qualitative_evidence_assessment?: QualitativeEvidenceAssessment;

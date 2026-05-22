@@ -89,6 +89,31 @@ def test_phase33_research_note_workflow_contract_is_documented() -> None:
     assert "ManualEvidenceWorkflowStatus" in frontend_types
 
 
+def test_phase49_evidence_freshness_contract_is_documented() -> None:
+    schema = _load_schema()
+    top_level_props = schema["properties"]
+    defs = schema["$defs"]
+    api_spec = _read("docs/API_SPEC.md")
+    readme = _read("README.md")
+    changelog = _read("docs/CHANGELOG.md")
+    frontend_types = _read("frontend/src/types.ts")
+
+    for field in ["evidence_freshness_policy", "stale_review_queue"]:
+        assert field in top_level_props
+        assert field in api_spec
+        assert field in readme
+        assert field in changelog
+        assert field in frontend_types
+
+    for definition in ["EvidenceFreshnessPolicy", "StaleReviewQueue", "StaleReviewQueueItem"]:
+        assert definition in defs
+        assert definition in frontend_types
+
+    for token in ["phase49_evidence_freshness_v1", "refresh_or_archive", "verify_or_refresh_source"]:
+        assert token in api_spec
+        assert token in frontend_types
+
+
 def test_phase_status_documents_are_at_phase30_or_newer() -> None:
     for path in ["README.md", "AGENTS.md", "docs/API_SPEC.md", "docs/CHANGELOG.md"]:
         text = _read(path)

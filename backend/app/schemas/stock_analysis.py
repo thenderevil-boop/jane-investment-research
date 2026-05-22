@@ -225,6 +225,43 @@ class AnalyzeStockDataQualitySummary(BaseModel):
     foreign_filer_context: dict[str, Any] = Field(default_factory=dict)
 
 
+class EvidenceFreshnessPolicy(BaseModel):
+    policy_version: str = "phase49_evidence_freshness_v1"
+    manual_evidence_max_age_days: int = 365
+    reviewed_evidence_review_days: int = 365
+    provider_cache_review_days: int = 30
+    data_source_windows: dict[str, str] = Field(default_factory=dict)
+    manual_review_triggers: list[str] = Field(default_factory=list)
+    affects_score: bool = False
+    not_investment_advice: bool = True
+
+
+class StaleReviewQueueItem(BaseModel):
+    priority: Literal["high", "medium", "low"]
+    category: str
+    trigger: Literal["stale_manual_evidence", "review_due", "missing_source_date", "stale_source_status"]
+    item_label: str
+    reason: str
+    recommended_action: Literal["refresh_or_archive", "review_evidence", "verify_or_refresh_source", "add_source_date"]
+    source_date: str | None = None
+    review_due_at: str | None = None
+    evidence_id: str | None = None
+    blocks_confidence_upgrade: bool = False
+    affects_score: bool = False
+
+
+class StaleReviewQueue(BaseModel):
+    items: list[StaleReviewQueueItem] = Field(default_factory=list)
+    stale_count: int = 0
+    review_due_count: int = 0
+    missing_source_date_count: int = 0
+    source_stale_count: int = 0
+    high_priority_count: int = 0
+    summary: str = "No stale or review-due evidence is currently queued."
+    affects_score: bool = False
+    not_investment_advice: bool = True
+
+
 class QualitativeEvidenceAssessmentItem(BaseModel):
     evidence_id: str | None = None
     origin: Literal["saved_library", "request_scoped"] = "request_scoped"
@@ -412,6 +449,8 @@ class AnalyzeStockResponse(BaseModel):
     jane_criteria_coverage: JaneCriteriaCoverageMatrix = Field(default_factory=JaneCriteriaCoverageMatrix)
     validation_os_report: ValidationOSReport = Field(default_factory=ValidationOSReport)
     data_quality_summary: AnalyzeStockDataQualitySummary
+    evidence_freshness_policy: EvidenceFreshnessPolicy = Field(default_factory=EvidenceFreshnessPolicy)
+    stale_review_queue: StaleReviewQueue = Field(default_factory=StaleReviewQueue)
     score_driver_breakdown: ScoreDriverBreakdown
     next_manual_checks: list[NextManualCheck]
     qualitative_evidence_assessment: QualitativeEvidenceAssessment

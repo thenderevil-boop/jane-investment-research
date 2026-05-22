@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 49 — Evidence Freshness Policy and Stale Review Queue
+
+- Added top-level `evidence_freshness_policy` to `POST /api/analyze-stock` documenting non-scoring freshness windows for manual evidence, provider caches, market data, filings, Form 4, 13F, and macro sources.
+- Added top-level `stale_review_queue` with stale manual evidence, due-for-review manual evidence, missing-source-date evidence, and stale live/cached/derived source-status items.
+- Queue items carry review priority, trigger, recommended action, optional source/review dates, optional manual evidence id, and `affects_score=false`; they may add manual checks but do not change final score, verdict, or investment-advice boundaries.
+- Updated AnalyzeStock schema and frontend types so freshness policy and stale review queue remain part of the documented API contract.
+
 ## Phase 47 — USPTO PatentsView C18 IP Proxy
 
 - Added opt-in USPTO PatentsView patent-count evidence for Jane C18 Patents and IP via `USE_LIVE_USPTO_PATENTS_DATA=true`; no API key is required.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 
@@ -35,10 +36,11 @@ from backend.app.schemas.stock_analysis import (
     NextManualCheck,
     ResearchVerdict,
     ScoreDriverBreakdown,
+    StaleReviewQueue,
     ValidationOSReport,
     ValidationQualitySummary,
 )
-from backend.app.utils.freshness import build_source_status, summarize_data_quality
+from backend.app.utils.freshness import build_source_status, parse_source_date, summarize_data_quality
 from backend.app.utils.forbidden_language import detect_forbidden_language
 from backend.app.utils.human_verification import append_jane_social_heat_check
 
@@ -2012,8 +2014,8 @@ def _category_is_fallback_evidence(category: str, status: dict, response: Analyz
     return matrix_quality == "mixed_with_fallback"
 
 
-def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
-    component_statuses = {
+def _component_statuses(response: AnalyzeStockResponse) -> dict[str, dict]:
+    return {
         "macro_environment": _status_dict(response.macro_regime.source_status),
         "company_profile": _status_dict(response.company_profile.get("source_status")),
         "financial_quality": _status_dict(response.financial_quality.source_status),
@@ -2029,6 +2031,142 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "institutional_13f": _status_dict(response.institutional_13f.get("source_status")),
         "earnings_transcript_analysis": _status_dict(response.earnings_transcript_analysis.source_status),
     }
+
+
+def _build_evidence_freshness_policy() -> dict:
+    return {
+        "policy_version": "phase49_evidence_freshness_v1",
+        "manual_evidence_max_age_days": 365,
+        "reviewed_evidence_review_days": 365,
+        "provider_cache_review_days": 30,
+        "data_source_windows": {
+            "market_data": "latest_expected_trading_day",
+            "fred_rates": "daily_rate_5_business_days",
+            "macro_series": "monthly_macro_latest_observation",
+            "form4": "form4_recent_180_days",
+            "sec_13f": "quarterly_filing_delay",
+            "company_filing": "latest_company_filing",
+            "external_provider_cache": "provider_cache_ttl",
+            "manual_evidence": "source_date_365_days_or_explicit_expiry",
+        },
+        "manual_review_triggers": [
+            "manual evidence source_date older than 365 days",
+            "manual evidence expires_at has passed",
+            "reviewed evidence review_due_at has passed",
+            "live/cached/derived source_status is_fresh=false",
+            "score-relevant source date is missing",
+        ],
+        "affects_score": False,
+        "not_investment_advice": True,
+    }
+
+
+def _review_due_at_is_due(value: str | None) -> bool:
+    parsed = parse_source_date(value)
+    if parsed is None:
+        return False
+    return parsed <= datetime.now(timezone.utc).date()
+
+
+def _build_stale_review_queue(response: AnalyzeStockResponse) -> dict:
+    items: list[dict] = []
+    for evidence in response.qualitative_evidence_assessment.evidence_items:
+        if not evidence.accepted:
+            continue
+        label = evidence.note_title or evidence.summary[:80] or evidence.criterion
+        if evidence.is_stale:
+            items.append(
+                {
+                    "priority": "high",
+                    "category": "qualitative_evidence",
+                    "trigger": "stale_manual_evidence",
+                    "item_label": label,
+                    "reason": evidence.stale_reason or "Manual evidence is stale under the Phase 49 freshness policy.",
+                    "recommended_action": "refresh_or_archive",
+                    "source_date": evidence.source_date,
+                    "review_due_at": evidence.next_review_due_at,
+                    "evidence_id": evidence.evidence_id,
+                    "blocks_confidence_upgrade": True,
+                    "affects_score": False,
+                }
+            )
+        elif _review_due_at_is_due(evidence.next_review_due_at):
+            items.append(
+                {
+                    "priority": "high",
+                    "category": "qualitative_evidence",
+                    "trigger": "review_due",
+                    "item_label": label,
+                    "reason": "Reviewed manual evidence is due for scheduled freshness review.",
+                    "recommended_action": "review_evidence",
+                    "source_date": evidence.source_date,
+                    "review_due_at": evidence.next_review_due_at,
+                    "evidence_id": evidence.evidence_id,
+                    "blocks_confidence_upgrade": True,
+                    "affects_score": False,
+                }
+            )
+        elif not evidence.source_date:
+            items.append(
+                {
+                    "priority": "medium",
+                    "category": "qualitative_evidence",
+                    "trigger": "missing_source_date",
+                    "item_label": label,
+                    "reason": "Manual evidence is missing source_date, so freshness cannot be assessed.",
+                    "recommended_action": "add_source_date",
+                    "source_date": None,
+                    "review_due_at": evidence.next_review_due_at,
+                    "evidence_id": evidence.evidence_id,
+                    "blocks_confidence_upgrade": True,
+                    "affects_score": False,
+                }
+            )
+    for category, status in _component_statuses(response).items():
+        source_type = status.get("source_type")
+        if source_type in {"live", "cached_live", "fallback", "derived"} and status.get("is_fresh") is False:
+            items.append(
+                {
+                    "priority": "medium",
+                    "category": category,
+                    "trigger": "stale_source_status",
+                    "item_label": category.replace("_", " "),
+                    "reason": f"{category} source_status is not fresh under its configured freshness window.",
+                    "recommended_action": "verify_or_refresh_source",
+                    "source_date": status.get("source_date") or None,
+                    "review_due_at": None,
+                    "evidence_id": None,
+                    "blocks_confidence_upgrade": False,
+                    "affects_score": False,
+                }
+            )
+    priority_rank = {"high": 0, "medium": 1, "low": 2}
+    items = sorted(items, key=lambda item: (priority_rank.get(item["priority"], 9), item["category"], item["item_label"]))[:20]
+    stale_count = sum(1 for item in items if item["trigger"] == "stale_manual_evidence")
+    review_due_count = sum(1 for item in items if item["trigger"] == "review_due" or _review_due_at_is_due(item.get("review_due_at")))
+    missing_count = sum(1 for item in items if item["trigger"] == "missing_source_date")
+    source_stale_count = sum(1 for item in items if item["trigger"] == "stale_source_status")
+    high_priority_count = sum(1 for item in items if item["priority"] == "high")
+    summary = (
+        f"{len(items)} evidence freshness review item(s) queued: {stale_count} stale manual, {review_due_count} review due, {source_stale_count} stale source, {missing_count} missing source date."
+        if items
+        else "No stale or review-due evidence is currently queued."
+    )
+    return {
+        "items": items,
+        "stale_count": stale_count,
+        "review_due_count": review_due_count,
+        "missing_source_date_count": missing_count,
+        "source_stale_count": source_stale_count,
+        "high_priority_count": high_priority_count,
+        "summary": summary,
+        "affects_score": False,
+        "not_investment_advice": True,
+    }
+
+
+def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
+    component_statuses = _component_statuses(response)
     quality_criteria = response.jane_company_quality.criteria
     insufficient_evidence_categories = sorted(
         criterion.name for criterion in quality_criteria if criterion.status == "insufficient"
@@ -2151,7 +2289,7 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
         "mock_evidence_categories": mock_categories,
         "fallback_evidence_categories": fallback_categories,
         "missing_source_date_categories": missing_source_date_categories,
-        "excluded_from_scoring": sorted(set(_excluded_indicator_names(response.macro_regime) + ["earnings_transcript_analysis", "jane_criteria_external_evidence", "government_relationship_evidence", "patent_ip_evidence"])),
+        "excluded_from_scoring": sorted(set(_excluded_indicator_names(response.macro_regime) + ["earnings_transcript_analysis", "jane_criteria_external_evidence", "government_relationship_evidence", "patent_ip_evidence", "evidence_freshness_policy", "stale_review_queue"])),
         "insufficient_evidence_categories": insufficient_evidence_categories,
         "company_quality": company_quality_breakdown,
         "qualitative_evidence": qualitative_summary,
@@ -3064,6 +3202,15 @@ def _build_manual_checks(response: AnalyzeStockResponse) -> list[dict]:
                     "area": "qualitative_evidence",
                     "check": "Refresh stale manual evidence or archive it.",
                     "reason": "Stale manual qualitative evidence is capped and needs a current source review.",
+                }
+            )
+        if response.stale_review_queue.items:
+            checks.append(
+                {
+                    "priority": "high" if response.stale_review_queue.high_priority_count else "medium",
+                    "area": "source_quality",
+                    "check": "Review stale evidence queue before increasing validation confidence.",
+                    "reason": response.stale_review_queue.summary,
                 }
             )
         if qualitative.low_quality_count or qualitative.incomplete_count:
@@ -4127,6 +4274,8 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
             "missing_source_date_categories": [],
             "excluded_from_scoring": [],
         },
+        evidence_freshness_policy=_build_evidence_freshness_policy(),
+        stale_review_queue={},
         score_driver_breakdown={
             "final_score": research_verdict.score,
             "final_confidence": research_verdict.confidence,
@@ -4221,6 +4370,9 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     response.evidence_matrix = [EvidenceMatrixItem.model_validate(item) for item in _build_evidence_matrix(response)]
     response.jane_criteria_coverage = JaneCriteriaCoverageMatrix.model_validate(_build_jane_criteria_coverage(response))
     response.data_quality_summary = AnalyzeStockDataQualitySummary.model_validate(_build_data_quality_summary(response))
+    response.stale_review_queue = StaleReviewQueue.model_validate(_build_stale_review_queue(response))
+    if response.stale_review_queue.items:
+        response.human_verification_queue.append("Review stale evidence queue before increasing validation confidence.")
     foreign_context = response.data_quality_summary.foreign_filer_context
     if foreign_context.get("is_foreign_filer_or_adr") and foreign_context.get("user_explanation"):
         response.human_verification_queue.append(foreign_context["user_explanation"])

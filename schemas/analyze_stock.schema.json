@@ -717,6 +717,56 @@
       "title": "EarningsTranscriptDimension",
       "type": "object"
     },
+    "EvidenceFreshnessPolicy": {
+      "properties": {
+        "policy_version": {
+          "default": "phase49_evidence_freshness_v1",
+          "title": "Policy Version",
+          "type": "string"
+        },
+        "manual_evidence_max_age_days": {
+          "default": 365,
+          "title": "Manual Evidence Max Age Days",
+          "type": "integer"
+        },
+        "reviewed_evidence_review_days": {
+          "default": 365,
+          "title": "Reviewed Evidence Review Days",
+          "type": "integer"
+        },
+        "provider_cache_review_days": {
+          "default": 30,
+          "title": "Provider Cache Review Days",
+          "type": "integer"
+        },
+        "data_source_windows": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Data Source Windows",
+          "type": "object"
+        },
+        "manual_review_triggers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manual Review Triggers",
+          "type": "array"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "title": "EvidenceFreshnessPolicy",
+      "type": "object"
+    },
     "EvidenceMatrixItem": {
       "properties": {
         "category": {
@@ -3413,6 +3463,160 @@
       "title": "ScoreObject",
       "type": "object"
     },
+    "StaleReviewQueue": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/StaleReviewQueueItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "stale_count": {
+          "default": 0,
+          "title": "Stale Count",
+          "type": "integer"
+        },
+        "review_due_count": {
+          "default": 0,
+          "title": "Review Due Count",
+          "type": "integer"
+        },
+        "missing_source_date_count": {
+          "default": 0,
+          "title": "Missing Source Date Count",
+          "type": "integer"
+        },
+        "source_stale_count": {
+          "default": 0,
+          "title": "Source Stale Count",
+          "type": "integer"
+        },
+        "high_priority_count": {
+          "default": 0,
+          "title": "High Priority Count",
+          "type": "integer"
+        },
+        "summary": {
+          "default": "No stale or review-due evidence is currently queued.",
+          "title": "Summary",
+          "type": "string"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "title": "StaleReviewQueue",
+      "type": "object"
+    },
+    "StaleReviewQueueItem": {
+      "properties": {
+        "priority": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "title": "Priority",
+          "type": "string"
+        },
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "trigger": {
+          "enum": [
+            "stale_manual_evidence",
+            "review_due",
+            "missing_source_date",
+            "stale_source_status"
+          ],
+          "title": "Trigger",
+          "type": "string"
+        },
+        "item_label": {
+          "title": "Item Label",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "recommended_action": {
+          "enum": [
+            "refresh_or_archive",
+            "review_evidence",
+            "verify_or_refresh_source",
+            "add_source_date"
+          ],
+          "title": "Recommended Action",
+          "type": "string"
+        },
+        "source_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Date"
+        },
+        "review_due_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Review Due At"
+        },
+        "evidence_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Id"
+        },
+        "blocks_confidence_upgrade": {
+          "default": false,
+          "title": "Blocks Confidence Upgrade",
+          "type": "boolean"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "priority",
+        "category",
+        "trigger",
+        "item_label",
+        "reason",
+        "recommended_action"
+      ],
+      "title": "StaleReviewQueueItem",
+      "type": "object"
+    },
     "TranscriptTheme": {
       "properties": {
         "theme": {
@@ -3774,6 +3978,12 @@
     },
     "data_quality_summary": {
       "$ref": "#/$defs/AnalyzeStockDataQualitySummary"
+    },
+    "evidence_freshness_policy": {
+      "$ref": "#/$defs/EvidenceFreshnessPolicy"
+    },
+    "stale_review_queue": {
+      "$ref": "#/$defs/StaleReviewQueue"
     },
     "score_driver_breakdown": {
       "$ref": "#/$defs/ScoreDriverBreakdown"
