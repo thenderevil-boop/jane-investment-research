@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
-from backend.app.schemas.manual_evidence import ManualQualitativeEvidence
+from backend.app.schemas.manual_evidence import ManualQualitativeEvidence, ManualQualitativeEvidencePatch
 from backend.app.schemas.stock_analysis import AnalyzeStockResponse, QualitativeEvidenceInput
 from backend.app.utils.forbidden_language import detect_forbidden_language
 
@@ -20,6 +20,14 @@ def _read(path: str) -> str:
 
 def _load_schema() -> dict:
     return json.loads(_read("schemas/analyze_stock.schema.json"))
+
+
+def _load_manual_evidence_schema() -> dict:
+    return json.loads(_read("schemas/manual_evidence.schema.json"))
+
+
+def _load_manual_evidence_dashboard_schema() -> dict:
+    return json.loads(_read("schemas/manual_evidence_dashboard.schema.json"))
 
 
 def _normalize(value: dict) -> dict:
@@ -152,6 +160,46 @@ def test_phase53_uspto_activation_and_adr_grade_explanation_contract_is_document
     assert "Grade D" in api_spec
     assert "company-quality weakness" in api_spec
     assert "yfinance short-interest" in api_spec
+
+
+def test_phase54_adr_manual_evidence_library_review_queue_contract_is_documented() -> None:
+    manual_schema_props = _load_manual_evidence_schema()["properties"]
+    dashboard_defs = _load_manual_evidence_dashboard_schema()["$defs"]
+    dashboard_queue_props = dashboard_defs.get("ManualEvidenceDashboardQueueItem", dashboard_defs["queueItem"])["properties"]
+    patch_props = ManualQualitativeEvidencePatch.model_json_schema()["properties"]
+    api_spec = _read("docs/API_SPEC.md")
+    readme = _read("README.md")
+    changelog = _read("docs/CHANGELOG.md")
+    data_sources = _read("docs/DATA_SOURCES.md")
+    framework = _read("docs/JANE_FRAMEWORK_MAPPING.md")
+    frontend_types = _read("frontend/src/types.ts")
+    evidence_library = _read("frontend/src/pages/EvidenceLibrary.tsx")
+
+    adr_fields = [
+        "adr_evidence_type",
+        "document_title",
+        "document_date",
+        "filing_period",
+        "local_market",
+        "local_ticker",
+        "adr_review_label",
+        "adr_review_guidance",
+        "affects_score",
+        "not_investment_advice",
+    ]
+    for field in adr_fields:
+        assert field in dashboard_queue_props
+        assert field in frontend_types
+        for text in [api_spec, readme, changelog, data_sources, framework]:
+            assert field in text
+
+    for field in ["adr_evidence_type", "document_title", "document_date", "filing_period", "quoted_text", "local_market", "local_ticker", "translation_note"]:
+        assert field in manual_schema_props
+        assert field in patch_props
+        assert field in evidence_library
+
+    for token in ["Phase 54", "source_date", "review queue", "without fetching URLs", "does not change scoring"]:
+        assert token in api_spec or token in readme or token in changelog
 
 
 def test_phase52_adr_manual_evidence_contract_is_documented() -> None:

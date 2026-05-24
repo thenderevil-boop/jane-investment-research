@@ -341,6 +341,22 @@ def normalize_comparison_context(value: dict[str, Any] | None, ticker: str | Non
 
 def enrich_manual_evidence_quality(evidence: dict) -> dict:
     row = dict(evidence)
+    for key in (
+        "source_url",
+        "source_date",
+        "adr_evidence_type",
+        "document_title",
+        "document_date",
+        "filing_period",
+        "quoted_text",
+        "local_market",
+        "local_ticker",
+        "translation_note",
+    ):
+        if isinstance(row.get(key), str) and not row[key].strip():
+            row[key] = None
+    if row.get("adr_evidence_type") and not row.get("source_date") and row.get("document_date"):
+        row["source_date"] = row.get("document_date")
     row.setdefault("review_status", "unreviewed")
     row.setdefault("reviewed_at", None)
     row.setdefault("reviewed_by", None)
@@ -460,6 +476,14 @@ class ManualQualitativeEvidencePatch(BaseModel):
     source_label: str | None = None
     source_url: str | None = None
     source_date: str | None = None
+    adr_evidence_type: AdrEvidenceType | None = None
+    document_title: str | None = None
+    document_date: str | None = None
+    filing_period: str | None = None
+    quoted_text: str | None = None
+    local_market: str | None = None
+    local_ticker: str | None = None
+    translation_note: str | None = None
     confidence: float | None = Field(default=None, ge=0, le=1)
     review_status: ManualEvidenceReviewStatus | None = None
     review_notes: str | None = None
@@ -473,7 +497,7 @@ class ManualQualitativeEvidencePatch(BaseModel):
     workflow_status: ManualEvidenceWorkflowStatus | None = None
     comparison_context: ManualEvidenceComparisonContext | None = None
 
-    @field_validator("summary", "source_label", "source_url", "review_notes", "note_title", "research_question")
+    @field_validator("summary", "source_label", "source_url", "document_title", "filing_period", "quoted_text", "local_market", "local_ticker", "translation_note", "review_notes", "note_title", "research_question")
     @classmethod
     def reject_secret_markers(cls, value: str | None) -> str | None:
         if value is not None and contains_secret_marker(value):

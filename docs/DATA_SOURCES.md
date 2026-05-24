@@ -141,6 +141,8 @@ Phase 21 comparison fields include optional `comparison_context` with `compariso
 
 The endpoint returns `source_status.source_type: "derived"` with provider `local_manual_evidence_library`. It never uses `source_type: "mixed"`, never calls yfinance, SEC, FRED, web, YouTube, social, sentiment, paid APIs, or Future Industry Radar, and never fetches or validates source URLs. Peer company index rows are derived only from user-provided comparison context and are not externally validated.
 
+Phase 54 adds ADR Manual Evidence Library UX and Review Queue Integration on top of this local-only endpoint. Saved ADR manual evidence preserves `adr_evidence_type`, `document_title`, `document_date`, `filing_period`, `local_market`, and `local_ticker` in dashboard queue items, uses `document_date` as a `source_date` fallback for freshness review, and emits `adr_review_label`, `adr_review_guidance`, `affects_score=false`, and `not_investment_advice=true` for ADR review workflow visibility. These fields are operational review metadata only; they do not fetch filing URLs, verify translations, change source-quality truth scores, or alter Jane scoring/verdict output.
+
 ## Phase 23 Candidate Research Workspace
 
 Candidate Workspace endpoints manage local-only user-supplied ticker ideas:

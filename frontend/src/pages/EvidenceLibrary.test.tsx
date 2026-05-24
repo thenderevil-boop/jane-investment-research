@@ -28,6 +28,26 @@ describe('EvidenceLibrary', () => {
     expect(html).not.toContain('[object Object]');
   });
 
+  it('renders ADR manual evidence library helper fields and review queue guidance', () => {
+    const html = renderToStaticMarkup(<EvidenceLibrary />);
+    expect(html).toContain('ADR Manual Evidence Library Helper');
+    expect(html).toContain('ADR evidence type');
+    expect(html).toContain('annual_report');
+    expect(html).toContain('local_regulatory_filing');
+    expect(html).toContain('Document title');
+    expect(html).toContain('Document date');
+    expect(html).toContain('Filing period');
+    expect(html).toContain('Quoted text');
+    expect(html).toContain('Local market');
+    expect(html).toContain('Local ticker');
+    expect(html).toContain('Translation note');
+    expect(html).toContain('Document date can fill source date for freshness review');
+    expect(html).toContain('review queue');
+    expect(html).toContain('not independently verified');
+    expect(html).toContain('does not change scoring');
+    expect(html).not.toContain('[object Object]');
+  });
+
   it('renders saved and request-scoped badges in Stock Research assessment', () => {
     const html = renderToStaticMarkup(
       <QualitativeEvidenceAssessmentSection

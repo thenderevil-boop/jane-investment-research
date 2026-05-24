@@ -103,6 +103,16 @@
         "summary": { "type": "string" },
         "source_label": { "type": "string" },
         "source_date": { "type": ["string", "null"] },
+        "adr_evidence_type": { "type": ["string", "null"] },
+        "document_title": { "type": ["string", "null"] },
+        "document_date": { "type": ["string", "null"] },
+        "filing_period": { "type": ["string", "null"] },
+        "local_market": { "type": ["string", "null"] },
+        "local_ticker": { "type": ["string", "null"] },
+        "adr_review_label": { "type": ["string", "null"] },
+        "adr_review_guidance": { "type": "array", "items": { "type": "string" } },
+        "affects_score": { "const": false },
+        "not_investment_advice": { "const": true },
         "has_comparison_context": { "type": "boolean" },
         "peer_companies": { "type": "array", "items": { "type": "string" } }
       }

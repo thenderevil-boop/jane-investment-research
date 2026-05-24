@@ -31,6 +31,7 @@ const defaultEvidence: ManualQualitativeEvidenceCreate = {
 };
 
 const comparisonEvidenceTypes = ['competitor_comparison', 'market_share_comparison', 'product_capability_comparison', 'ecosystem_comparison', 'pricing_power_comparison', 'switching_cost_comparison', 'r_and_d_comparison'];
+const adrEvidenceTypes = ['annual_report', 'local_regulatory_filing', 'governance_page', 'investor_presentation', 'earnings_webcast', 'company_ir_page', 'other'];
 
 function peerTextToArray(value: string) {
   return value.split(',').map((part) => part.trim().toUpperCase()).filter(Boolean);
@@ -79,6 +80,16 @@ export default function EvidenceLibrary() {
       await createManualEvidence({
         ...form,
         ticker: form.ticker.trim().toUpperCase(),
+        source_url: form.source_url || null,
+        source_date: form.source_date || null,
+        adr_evidence_type: form.adr_evidence_type || null,
+        document_title: form.document_title || null,
+        document_date: form.document_date || null,
+        filing_period: form.filing_period || null,
+        quoted_text: form.quoted_text || null,
+        local_market: form.local_market || null,
+        local_ticker: form.local_ticker || null,
+        translation_note: form.translation_note || null,
         limitations: form.limitations.filter(Boolean),
         tags: form.tags.filter(Boolean),
         comparison_context: form.comparison_context?.comparison_summary
@@ -162,8 +173,33 @@ export default function EvidenceLibrary() {
           <textarea id="manualSummary" value={form.summary} onChange={(event) => setForm({ ...form, summary: event.target.value })} rows={4} />
           <label htmlFor="manualSource">Source label</label>
           <input id="manualSource" value={form.source_label} onChange={(event) => setForm({ ...form, source_label: event.target.value })} />
+          <label htmlFor="manualSourceUrl">Source URL</label>
+          <input id="manualSourceUrl" value={form.source_url ?? ''} onChange={(event) => setForm({ ...form, source_url: event.target.value || null })} />
           <label htmlFor="manualDate">Source date</label>
           <input id="manualDate" value={form.source_date ?? ''} onChange={(event) => setForm({ ...form, source_date: event.target.value || null })} />
+          <section className="nestedPanel">
+            <h3>ADR Manual Evidence Library Helper</h3>
+            <p className="muted">For ADR / foreign-filer evidence, capture filing metadata before saving. Document date can fill source date for freshness review, sends incomplete items to the review queue, remains not independently verified, and does not change scoring.</p>
+            <label htmlFor="manualAdrEvidenceType">ADR evidence type</label>
+            <select id="manualAdrEvidenceType" value={form.adr_evidence_type ?? ''} onChange={(event) => setForm({ ...form, evidence_type: event.target.value ? 'filing_reference' : form.evidence_type, adr_evidence_type: event.target.value as ManualQualitativeEvidence['adr_evidence_type'] || null })}>
+              <option value="">Not ADR filing evidence</option>
+              {adrEvidenceTypes.map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+            <label htmlFor="manualDocumentTitle">Document title</label>
+            <input id="manualDocumentTitle" value={form.document_title ?? ''} onChange={(event) => setForm({ ...form, document_title: event.target.value || null })} />
+            <label htmlFor="manualDocumentDate">Document date</label>
+            <input id="manualDocumentDate" value={form.document_date ?? ''} onChange={(event) => setForm({ ...form, document_date: event.target.value || null })} />
+            <label htmlFor="manualFilingPeriod">Filing period</label>
+            <input id="manualFilingPeriod" value={form.filing_period ?? ''} onChange={(event) => setForm({ ...form, filing_period: event.target.value || null })} />
+            <label htmlFor="manualQuotedText">Quoted text</label>
+            <textarea id="manualQuotedText" value={form.quoted_text ?? ''} onChange={(event) => setForm({ ...form, quoted_text: event.target.value || null })} rows={3} />
+            <label htmlFor="manualLocalMarket">Local market</label>
+            <input id="manualLocalMarket" value={form.local_market ?? ''} onChange={(event) => setForm({ ...form, local_market: event.target.value || null })} />
+            <label htmlFor="manualLocalTicker">Local ticker</label>
+            <input id="manualLocalTicker" value={form.local_ticker ?? ''} onChange={(event) => setForm({ ...form, local_ticker: event.target.value || null })} />
+            <label htmlFor="manualTranslationNote">Translation note</label>
+            <input id="manualTranslationNote" value={form.translation_note ?? ''} onChange={(event) => setForm({ ...form, translation_note: event.target.value || null })} />
+          </section>
           <label htmlFor="manualReliability">Source reliability</label>
           <select id="manualReliability" value={form.source_reliability_label} onChange={(event) => setForm({ ...form, source_reliability_label: event.target.value as ManualQualitativeEvidence['source_reliability_label'] })}>
             {['user_note', 'official_company_material', 'sec_filing_reference', 'company_investor_relations', 'reputable_third_party_research', 'unknown', 'other'].map((value) => <option key={value} value={value}>{displayKey(value)}</option>)}
@@ -322,6 +358,9 @@ export default function EvidenceLibrary() {
                   </td>
                   <td>
                     {item.summary}
+                    {item.adr_evidence_type && (
+                      <small> ADR: {item.adr_evidence_type}; {item.document_title ?? 'untitled'} {item.document_date ? `dated ${item.document_date}` : 'missing document date'}{item.filing_period ? `; period ${item.filing_period}` : ''}{item.local_ticker ? `; local ticker ${item.local_ticker}` : ''}</small>
+                    )}
                     {item.comparison_context && <small> Peers: {item.comparison_context.peer_companies.join(', ') || 'N/A'}; advantage: {item.comparison_context.claimed_advantage}</small>}
                   </td>
                   <td>

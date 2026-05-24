@@ -816,6 +816,16 @@ export type ManualEvidenceDashboardQueueItem = {
   summary: string;
   source_label: string;
   source_date?: string | null;
+  adr_evidence_type?: AdrEvidenceType | null;
+  document_title?: string | null;
+  document_date?: string | null;
+  filing_period?: string | null;
+  local_market?: string | null;
+  local_ticker?: string | null;
+  adr_review_label?: string | null;
+  adr_review_guidance: string[];
+  affects_score: boolean;
+  not_investment_advice: boolean;
   has_comparison_context: boolean;
   peer_companies: string[];
 };

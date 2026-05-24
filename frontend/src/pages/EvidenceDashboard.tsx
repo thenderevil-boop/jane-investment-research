@@ -62,7 +62,7 @@ function QueueTable({ title, items, onMarkReviewed, onArchive }: {
                 <td>{item.evidence_quality_score} <SignalBadge label={item.evidence_quality_label} variant={item.evidence_quality_label === 'high' ? 'positive' : item.evidence_quality_label === 'incomplete' ? 'warning' : 'neutral'} /></td>
                 <td>{item.is_stale ? <span className="smallPill">stale</span> : <span className="muted">fresh</span>}{item.stale_reason && <small> {item.stale_reason}</small>}</td>
                 <td>{item.next_review_due_at ?? 'None'}</td>
-                <td>{item.summary}{item.peer_companies.length ? <small> Peers: {joinList(item.peer_companies)}</small> : null}</td>
+                <td>{item.summary}{item.adr_review_label ? <small> {item.adr_review_label}: {item.adr_evidence_type}; {item.document_title ?? 'untitled'} {item.document_date ? `dated ${item.document_date}` : 'missing document date'}{item.local_ticker ? `; local ticker ${item.local_ticker}` : ''}. {item.adr_review_guidance.join(' ')}</small> : null}{item.peer_companies.length ? <small> Peers: {joinList(item.peer_companies)}</small> : null}</td>
                 <td>
                   {onMarkReviewed && <button type="button" onClick={() => onMarkReviewed(item.evidence_id)}>Mark reviewed</button>}
                   {onArchive && <button type="button" onClick={() => onArchive(item.evidence_id)}>Archive</button>}

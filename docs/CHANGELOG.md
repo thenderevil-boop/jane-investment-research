@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 54 — ADR Manual Evidence Library UX and Review Queue Integration
+
+- Added Evidence Library ADR helper fields for `adr_evidence_type`, `document_title`, `document_date`, `filing_period`, `quoted_text`, `local_market`, `local_ticker`, and `translation_note`, so saved manual filing references can be entered without pasting raw JSON.
+- Saved ADR manual evidence now uses `document_date` as a `source_date` fallback for freshness and review-queue logic, matching request-scoped ADR evidence behavior.
+- `GET /api/manual-evidence/dashboard` queue items now expose ADR metadata plus `adr_review_label`, `adr_review_guidance`, `affects_score=false`, and `not_investment_advice=true`; these fields are workflow guidance only and do not fetch source URLs, verify claims, or change scoring/verdict semantics.
+- Missing ADR `document_date` / `source_date` continues to enter the local review queue as `source_date_missing` with metadata-completion guidance.
+
 ## Phase 53 — C18 USPTO Activation and ADR Grade Explanation Refinement
 
 - Surfaced USPTO PatentsView disabled-provider guidance in C18 Coverage Matrix limitations / `next_manual_check`, so `USE_LIVE_USPTO_PATENTS_DATA=false` is explained as an activation state rather than silently appearing as generic insufficient C18 evidence.

@@ -341,6 +341,33 @@
       "default": null,
       "title": "Source Date"
     },
+    "adr_evidence_type": {
+      "anyOf": [
+        {
+          "enum": [
+            "annual_report",
+            "local_regulatory_filing",
+            "governance_page",
+            "investor_presentation",
+            "earnings_webcast",
+            "company_ir_page",
+            "other"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "document_title": { "type": ["string", "null"], "default": null },
+    "document_date": { "type": ["string", "null"], "default": null },
+    "filing_period": { "type": ["string", "null"], "default": null },
+    "quoted_text": { "type": ["string", "null"], "default": null },
+    "local_market": { "type": ["string", "null"], "default": null },
+    "local_ticker": { "type": ["string", "null"], "default": null },
+    "translation_note": { "type": ["string", "null"], "default": null },
     "source_label": {
       "minLength": 1,
       "title": "Source Label",

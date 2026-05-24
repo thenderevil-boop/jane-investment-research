@@ -139,6 +139,8 @@ Phase 51 adds ADR / foreign-filer diagnostics above the same non-scoring coverag
 
 Phase 52 adds the intake side of that ADR path. Manual evidence can carry filing-reference metadata (`adr_evidence_type`, `document_title`, `document_date`, `filing_period`, `quoted_text`, `local_market`, `local_ticker`, `translation_note`) and, when complete, is labeled filing-backed for validation completeness. It can cover only explicitly selected Jane submetrics through `criterion_id` / `submetric`, remains user-provided and manually reviewed, and does not modify score weights, final verdicts, or automatic provider behavior.
 
+Phase 54 connects that ADR intake metadata to the saved Evidence Library and review queue UX. The Evidence Library form exposes ADR helper fields, saved ADR items fallback `document_date` into `source_date` for freshness review, and dashboard queue rows surface ADR filing metadata plus `adr_review_label` / `adr_review_guidance` while keeping `affects_score=false` and `not_investment_advice=true`. This improves manual review workflow visibility only; it does not add provider fetching, source verification, scoring weight, or verdict changes.
+
 Phase 29 surfaces the same coverage and evidence gaps through analyze-stock `validation_os_report`, a non-scoring explainability layer that summarizes Jane quality context, coverage gaps, manual checks, source-quality caveats, and research-only limitations without changing the final score or verdict.
 
 Implementation module:

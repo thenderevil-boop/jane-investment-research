@@ -100,6 +100,27 @@ def _review_due_reason(item: dict[str, Any], now: datetime) -> str | None:
     return None
 
 
+def _adr_review_label(item: dict[str, Any]) -> str | None:
+    if not item.get("adr_evidence_type"):
+        return None
+    if item.get("document_date") and item.get("source_url"):
+        return "ADR filing-backed manual review"
+    return "ADR filing metadata incomplete"
+
+
+def _adr_review_guidance(item: dict[str, Any]) -> list[str]:
+    if not item.get("adr_evidence_type"):
+        return []
+    guidance = [
+        "ADR / foreign-filer manual evidence is user-provided and not independently verified.",
+        "Use this queue item to review the filing reference, quoted text, local-market context, and mapped Jane submetric before marking reviewed.",
+        "Manual Evidence Library metadata does not change scoring or verdict semantics.",
+    ]
+    if not item.get("document_date"):
+        guidance.append("Add document date or source date so freshness review can be assessed.")
+    return guidance
+
+
 def _queue_item(item: dict[str, Any], reason: str) -> ManualEvidenceDashboardQueueItem:
     return ManualEvidenceDashboardQueueItem(
         evidence_id=str(item.get("evidence_id") or ""),
@@ -116,6 +137,16 @@ def _queue_item(item: dict[str, Any], reason: str) -> ManualEvidenceDashboardQue
         summary=str(item.get("summary") or ""),
         source_label=str(item.get("source_label") or ""),
         source_date=item.get("source_date"),
+        adr_evidence_type=item.get("adr_evidence_type"),
+        document_title=item.get("document_title"),
+        document_date=item.get("document_date"),
+        filing_period=item.get("filing_period"),
+        local_market=item.get("local_market"),
+        local_ticker=item.get("local_ticker"),
+        adr_review_label=_adr_review_label(item),
+        adr_review_guidance=_adr_review_guidance(item),
+        affects_score=False,
+        not_investment_advice=True,
         has_comparison_context=_has_comparison_context(item),
         peer_companies=_peer_companies(item),
     )

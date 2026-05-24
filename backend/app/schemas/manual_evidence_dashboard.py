@@ -85,6 +85,16 @@ class ManualEvidenceDashboardQueueItem(BaseModel):
     summary: str
     source_label: str
     source_date: str | None = None
+    adr_evidence_type: str | None = None
+    document_title: str | None = None
+    document_date: str | None = None
+    filing_period: str | None = None
+    local_market: str | None = None
+    local_ticker: str | None = None
+    adr_review_label: str | None = None
+    adr_review_guidance: list[str] = Field(default_factory=list)
+    affects_score: bool = False
+    not_investment_advice: bool = True
     has_comparison_context: bool
     peer_companies: list[str] = Field(default_factory=list)
 
