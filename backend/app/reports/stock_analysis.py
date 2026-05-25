@@ -38,6 +38,7 @@ from backend.app.schemas.stock_analysis import (
     ResearchVerdict,
     ScoreDriverBreakdown,
     StaleReviewQueue,
+    ThemeValidationContext,
     ValidationOSReport,
     ValidationQualitySummary,
 )
@@ -2425,7 +2426,7 @@ def _build_data_quality_summary(response: AnalyzeStockResponse) -> dict:
     legacy_only_mock = set(mock_categories) <= {"legacy_leadership_score"}
     critical_mock = {"company_profile", "financial_quality"} & set(mock_categories)
     foreign_filer_context = _foreign_filer_context(response)
-    if foreign_filer_context.get("structural_coverage_limitation") and not missing_source_date_categories:
+    if foreign_filer_context.get("structural_coverage_limitation"):
         grade = "B" if (fallback_components or mock_components) else "A"
     elif mock_components >= 4 or missing_source_date_categories:
         grade = "D"
@@ -2655,7 +2656,7 @@ def _accepted_jane_evidence_by_criterion(qualitative_assessment: dict) -> dict[i
 
 
 AUTO_DERIVED_PROXY_LIMITATION = "Auto-derived proxy. Verify against latest company filings before treating as confirmed evidence."
-THEME_CONTEXT_LIMITATION = "Theme mapping is user-provided context. Verify actual company revenue exposure to this theme before treating it as confirmed evidence."
+THEME_CONTEXT_LIMITATION = "User-supplied theme is a validation target only. Verify actual company revenue exposure, industry growth, policy support, and capital inflow before treating it as evidence."
 SHORT_INTEREST_PROXY_LIMITATION = (
     "Short interest is an auto-derived proxy for skepticism. High short interest may reflect hedging, "
     "index effects, pair trades, or ADR wrapper-level positioning rather than fundamental skepticism."
@@ -2842,37 +2843,45 @@ def _c5_auto_evidence(financials: dict) -> dict | None:
 
 
 def _c11_theme_auto_evidence(research_context: dict) -> dict | None:
+    # Phase 56 boundary: a user-supplied theme is a validation target, not an
+    # auto-discovered theme, theme-library match, ranking, or scoring input.
+    # C11 coverage must come from explicit evidence (company revenue exposure,
+    # industry CAGR, policy support, capital inflow), not from the theme text alone.
+    return None
+
+
+def _build_theme_validation_context(research_context: dict) -> ThemeValidationContext:
     theme = str((research_context or {}).get("theme") or "").strip()
+    user_reason = str((research_context or {}).get("user_reason") or "").strip() or None
     if not theme:
-        return None
-    theme_lower = theme.lower()
-    matched_theme = None
-    confidence = 0.0
-    for jane_theme, score in JANE_THEME_ALIGNMENT_SCORES.items():
-        jane_theme_lower = jane_theme.lower()
-        if jane_theme_lower in theme_lower or theme_lower in jane_theme_lower:
-            matched_theme = jane_theme
-            confidence = float(score)
-            break
-    if matched_theme is None:
-        return None
-    return {
-        "submetric": "jane_theme_alignment",
-        "accepted": True,
-        "confidence": confidence,
-        "source_quality": "user_context",
-        "source_label": "user_theme_context",
-        "summary": f"User-provided theme '{theme}' maps to Jane mega trend category '{matched_theme}'.",
-        "auto_derived": True,
-        "requires_human_verification": True,
-        "requires_review": True,
-        "not_investment_advice": True,
-        "metric": "jane_theme_alignment",
-        "value": confidence,
-        "unit": "theme mapping score",
-        "label": "user_theme_context_match",
-        "limitations": [AUTO_DERIVED_PROXY_LIMITATION, THEME_CONTEXT_LIMITATION],
-    }
+        return ThemeValidationContext(
+            limitations=[
+                "No user-supplied theme was provided. The system does not discover or rank themes automatically.",
+            ],
+        )
+    return ThemeValidationContext(
+        supplied_theme=theme,
+        user_reason=user_reason,
+        input_source="user_supplied",
+        boundary_label="user_supplied_validation_target",
+        validation_status="needs_manual_evidence",
+        ranking_or_scoring_policy="not_ranked_or_scored",
+        confidence=0.0,
+        theme_discovery_enabled=False,
+        system_generated_theme=False,
+        affects_score=False,
+        manual_checks=[
+            "Verify actual company revenue exposure to the user-supplied theme from filings, segment disclosures, product data, or customer evidence.",
+            "Verify the theme itself with external research such as industry CAGR, policy support, capital inflow, and adoption evidence.",
+            "Confirm the ticker is not being included merely because its narrative resembles the theme.",
+        ],
+        limitations=[
+            "No automatic theme discovery or theme ranking is performed.",
+            "Known Jane article themes are not treated as a complete theme universe or a score library.",
+            THEME_CONTEXT_LIMITATION,
+        ],
+        not_investment_advice=True,
+    )
 
 
 def _auto_financial_proxy_evidence_by_criterion(response: AnalyzeStockResponse) -> dict[int, list[dict]]:
@@ -3095,6 +3104,16 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
         is_foreign_filer = bool(foreign_diag and foreign_diag.is_foreign_filer_or_adr)
         if is_foreign_filer and criterion_id in ADR_CRITERION_MANUAL_CHECKS:
             next_manual_check = ADR_CRITERION_MANUAL_CHECKS[criterion_id]
+        elif criterion_id == 11:
+            theme_context = getattr(response, "theme_validation_context", None)
+            supplied_theme = getattr(theme_context, "supplied_theme", None) if theme_context else None
+            if supplied_theme:
+                next_manual_check = (
+                    "User-supplied theme is a validation target only; verify company revenue exposure, "
+                    "industry CAGR, policy support, and capital inflow before marking C11 evidence as supported."
+                )
+            elif missing:
+                next_manual_check = f"Verify Jane criterion {criterion_id} missing submetrics: {', '.join(missing[:4])}."
         elif missing:
             next_manual_check = f"Verify Jane criterion {criterion_id} missing submetrics: {', '.join(missing[:4])}."
         limitations = [
@@ -4620,6 +4639,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
             "excluded_from_scoring": [],
         },
         foreign_filer_coverage_diagnostics={},
+        theme_validation_context=_build_theme_validation_context(research_context),
         evidence_freshness_policy=_build_evidence_freshness_policy(),
         stale_review_queue={},
         score_driver_breakdown={

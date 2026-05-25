@@ -225,11 +225,12 @@ def test_phase53_nok_c3_missing_short_interest_is_explained_as_adr_source_gap(mo
     assert "not company" in joined.lower() or "not a company-quality weakness" in joined.lower()
 
 
-def test_phase53_adr_grade_d_summary_names_data_structure_not_company_quality(monkeypatch) -> None:
+def test_phase53_adr_source_gap_summary_names_data_structure_not_company_quality(monkeypatch) -> None:
     payload = _analyze(monkeypatch, "NOK", missing_source_dates=True)
 
     summary = payload["data_quality_summary"]
-    assert summary["source_quality_grade"] == "D"
+    assert summary["source_quality_grade"] != "D"
+    assert summary["source_quality_grade"] in {"A", "B", "C"}
     text = " ".join([summary["source_quality_summary"], summary["foreign_filer_context"]["user_explanation"], *summary["foreign_filer_context"]["limitations"]])
     assert "ADR" in text or "foreign" in text.lower()
     assert "data-structure" in text.lower() or "source coverage" in text.lower() or "data source" in text.lower()

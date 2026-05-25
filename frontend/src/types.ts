@@ -551,6 +551,22 @@ export type ValidationOSEvidenceGap = {
   next_manual_check?: string | null;
 };
 
+export type ThemeValidationContext = {
+  supplied_theme?: string | null;
+  user_reason?: string | null;
+  input_source: 'none' | 'user_supplied';
+  boundary_label: 'no_theme_supplied' | 'user_supplied_validation_target';
+  validation_status: 'not_requested' | 'needs_manual_evidence';
+  ranking_or_scoring_policy: 'not_applicable' | 'not_ranked_or_scored';
+  confidence: number;
+  theme_discovery_enabled: boolean;
+  system_generated_theme: boolean;
+  affects_score: boolean;
+  manual_checks: string[];
+  limitations: string[];
+  not_investment_advice: boolean;
+};
+
 export type ValidationOSReport = {
   ticker: string;
   research_label: string;
@@ -1346,6 +1362,7 @@ export type StockAnalysis = {
   validation_quality_summary?: ValidationQualitySummary;
   evidence_matrix?: EvidenceMatrixItem[];
   jane_criteria_coverage?: JaneCriteriaCoverageMatrix;
+  theme_validation_context?: ThemeValidationContext;
   validation_os_report?: ValidationOSReport;
   data_quality_summary?: AnalyzeStockDataQualitySummary;
   foreign_filer_coverage_diagnostics?: ForeignFilerCoverageDiagnostics;

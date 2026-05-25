@@ -35,6 +35,22 @@ class ResearchContext(BaseModel):
     user_reason: str | None = None
 
 
+class ThemeValidationContext(BaseModel):
+    supplied_theme: str | None = None
+    user_reason: str | None = None
+    input_source: Literal["none", "user_supplied"] = "none"
+    boundary_label: Literal["no_theme_supplied", "user_supplied_validation_target"] = "no_theme_supplied"
+    validation_status: Literal["not_requested", "needs_manual_evidence"] = "not_requested"
+    ranking_or_scoring_policy: Literal["not_applicable", "not_ranked_or_scored"] = "not_applicable"
+    confidence: float = Field(default=0.0, ge=0, le=1)
+    theme_discovery_enabled: bool = False
+    system_generated_theme: bool = False
+    affects_score: bool = False
+    manual_checks: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    not_investment_advice: bool = True
+
+
 class QualitativeEvidenceInput(BaseModel):
     evidence_id: str | None = None
     criterion: str
@@ -503,6 +519,7 @@ class AnalyzeStockResponse(BaseModel):
     validation_os_report: ValidationOSReport = Field(default_factory=ValidationOSReport)
     data_quality_summary: AnalyzeStockDataQualitySummary
     foreign_filer_coverage_diagnostics: ForeignFilerCoverageDiagnostics = Field(default_factory=ForeignFilerCoverageDiagnostics)
+    theme_validation_context: ThemeValidationContext = Field(default_factory=ThemeValidationContext)
     evidence_freshness_policy: EvidenceFreshnessPolicy = Field(default_factory=EvidenceFreshnessPolicy)
     stale_review_queue: StaleReviewQueue = Field(default_factory=StaleReviewQueue)
     score_driver_breakdown: ScoreDriverBreakdown

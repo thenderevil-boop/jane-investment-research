@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import type { DataSourceStatus, JaneCriterion, ScoreLike, StockAnalysis } from '../types';
 import { getJaneCriteria } from '../api/client';
-import StockResearch, { AnalystBriefSection, AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, ForeignFilerCoverageDiagnosticsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ResearchSignalExplanationSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ValidationOSReportSection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
+import StockResearch, { AnalystBriefSection, AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, ForeignFilerCoverageDiagnosticsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ResearchSignalExplanationSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ThemeValidationBoundarySection, ValidationOSReportSection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -48,6 +48,38 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Jane 20 Criteria Evidence Input');
     expect(html).toContain('User-provided evidence is local validation context only');
     expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders user-supplied theme boundary as validation-only context', () => {
+    const html = renderToStaticMarkup(
+      <ThemeValidationBoundarySection
+        context={{
+          supplied_theme: 'AI infrastructure',
+          user_reason: 'External Jane note',
+          input_source: 'user_supplied',
+          boundary_label: 'user_supplied_validation_target',
+          validation_status: 'needs_manual_evidence',
+          ranking_or_scoring_policy: 'not_ranked_or_scored',
+          confidence: 0,
+          theme_discovery_enabled: false,
+          system_generated_theme: false,
+          affects_score: false,
+          manual_checks: ['Verify actual company revenue exposure to the user-supplied theme.'],
+          limitations: ['No automatic theme discovery or theme ranking is performed.'],
+          not_investment_advice: true,
+        }}
+      />,
+    );
+
+    expect(html).toContain('User-Supplied Theme Validation Boundary');
+    expect(html).toContain('AI infrastructure');
+    expect(html).toContain('Validation target only');
+    expect(html).toContain('Theme discovery: off');
+    expect(html).toContain('Ranking/scoring: not ranked or scored');
+    expect(html).toContain('Affects score: no');
+    expect(html).toContain('Verify actual company revenue exposure');
+    expect(html).toContain('No automatic theme discovery');
+    expect(html).toContain('Not investment advice');
   });
 
   it('fetches Jane criteria from the canonical API endpoint', async () => {

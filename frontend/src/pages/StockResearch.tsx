@@ -7,7 +7,7 @@ import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
-import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, ForeignFilerCoverageDiagnostics, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ValidationOSReport, ValidationQualitySummary } from '../types';
+import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, ForeignFilerCoverageDiagnostics, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ThemeValidationContext, ValidationOSReport, ValidationQualitySummary } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
 export const janeLeadershipCriteria = [
@@ -1162,6 +1162,31 @@ export function JaneCriteriaCoverageSection({ coverage }: { coverage?: JaneCrite
   );
 }
 
+export function ThemeValidationBoundarySection({ context }: { context?: ThemeValidationContext }) {
+  if (!context || context.input_source !== 'user_supplied') return null;
+  return (
+    <section className="pageSection">
+      <h2>User-Supplied Theme Validation Boundary</h2>
+      <div className="verdictBand">
+        <SignalBadge label="Validation target only" variant="neutral" />
+        <span>Theme discovery: {context.theme_discovery_enabled ? 'on' : 'off'}</span>
+        <span>Ranking/scoring: {displayKey(context.ranking_or_scoring_policy)}</span>
+        <span>Affects score: {context.affects_score ? 'yes' : 'no'}</span>
+      </div>
+      <p><strong>Supplied theme:</strong> {context.supplied_theme}</p>
+      {context.user_reason && <p className="muted"><strong>User reason:</strong> {context.user_reason}</p>}
+      <p className="sourceWarning">User-supplied theme is a validation target only; it is not an automatic theme-library match, rank, or score input. Not investment advice.</p>
+      {context.manual_checks.length > 0 && (
+        <div>
+          <h3>Theme validation manual checks</h3>
+          <ul>{context.manual_checks.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+      )}
+      {context.limitations.length > 0 && <p className="muted">Limitations: {context.limitations.join(' ')}</p>}
+    </section>
+  );
+}
+
 export function ValidationOSReportSection({ report }: { report?: ValidationOSReport }) {
   if (!report) return null;
   return (
@@ -1513,6 +1538,7 @@ export default function StockResearch() {
           <AnalystBriefSection result={result} />
           <ResearchSignalExplanationSection result={result} />
           <CandidateSummarySection result={result} />
+          <ThemeValidationBoundarySection context={result.theme_validation_context} />
           <ValidationOSReportSection report={result.validation_os_report} />
           <ValidationReportExportSection ticker={ticker} theme={theme} userReason={userReason} qualitativeEvidenceJson={qualitativeEvidenceJson} />
           <ValidationQualitySummarySection summary={result.validation_quality_summary} />

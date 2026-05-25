@@ -56,7 +56,7 @@ Phase 47 USPTO PatentsView source notes:
 Phase 55 Coverage Matrix source notes:
 
 - SEC 13F remains controlled by `USE_LIVE_SEC_13F` and remains delayed quarterly evidence. When the existing smart-money 13F path observes a candidate-specific target match, analyze-stock can partially cover C19 `institutional_support` and `fund_support` with `financial_proxy_source="sec_13f"`, `source_quality="filing_backed"`, and human-review limitations.
-- `research_context.theme` is not fetched from external sources. Phase 55 only maps explicit user context for known Jane strategic themes into C11 `jane_theme_alignment` with `source_quality="user_context"`; users must still verify actual company revenue exposure to the theme. This does not change final score, verdict, or investment-advice boundaries.
+- `research_context.theme` is not fetched from external sources and does not trigger automatic theme discovery. Phase 56 makes it a user-supplied validation target in `theme_validation_context` only: C11 `jane_theme_alignment` is not auto-covered by matching theme text, `ranking_or_scoring_policy="not_ranked_or_scored"`, `affects_score=false`, and users must supply separate evidence for actual company revenue exposure, industry CAGR, policy support, and capital inflow. This does not change final score, verdict, or investment-advice boundaries.
 
 Phase 41 OpenBB sidecar options notes:
 

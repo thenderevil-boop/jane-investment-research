@@ -196,16 +196,16 @@ def test_c19_links_existing_13f_target_match_to_coverage_matrix(monkeypatch) -> 
     assert row["requires_human_verification"] is True
 
 
-def test_c11_maps_user_theme_context_to_mega_trend_alignment(monkeypatch) -> None:
+def test_c11_keeps_user_theme_as_validation_target_not_auto_coverage(monkeypatch) -> None:
     payload = _analyze(monkeypatch, theme="AI infrastructure")
 
     row = _coverage_row(payload, 11)
-    assert row["coverage_status"] == "partial"
-    assert row["financial_proxy_source"] == "user_theme_context"
-    assert "jane_theme_alignment" in row["covered_submetrics"]
-    assert row["source_quality"] == "user_context"
-    assert "AI infrastructure" in row["summary"]
-    assert "Verify actual company revenue exposure" in " ".join(row["limitations"])
+    assert row["coverage_status"] == "insufficient"
+    assert row["financial_proxy_source"] is None
+    assert "jane_theme_alignment" not in row["covered_submetrics"]
+    assert "jane_theme_alignment" in row["requires_user_input_submetrics"]
+    assert row["source_quality"] == "insufficient"
+    assert "User-supplied theme is a validation target" in row["next_manual_check"]
     assert row["requires_human_verification"] is True
 
 

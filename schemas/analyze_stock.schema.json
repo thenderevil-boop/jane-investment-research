@@ -3876,6 +3876,113 @@
       "title": "StaleReviewQueueItem",
       "type": "object"
     },
+    "ThemeValidationContext": {
+      "properties": {
+        "supplied_theme": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Supplied Theme"
+        },
+        "user_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Reason"
+        },
+        "input_source": {
+          "default": "none",
+          "enum": [
+            "none",
+            "user_supplied"
+          ],
+          "title": "Input Source",
+          "type": "string"
+        },
+        "boundary_label": {
+          "default": "no_theme_supplied",
+          "enum": [
+            "no_theme_supplied",
+            "user_supplied_validation_target"
+          ],
+          "title": "Boundary Label",
+          "type": "string"
+        },
+        "validation_status": {
+          "default": "not_requested",
+          "enum": [
+            "not_requested",
+            "needs_manual_evidence"
+          ],
+          "title": "Validation Status",
+          "type": "string"
+        },
+        "ranking_or_scoring_policy": {
+          "default": "not_applicable",
+          "enum": [
+            "not_applicable",
+            "not_ranked_or_scored"
+          ],
+          "title": "Ranking Or Scoring Policy",
+          "type": "string"
+        },
+        "confidence": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "theme_discovery_enabled": {
+          "default": false,
+          "title": "Theme Discovery Enabled",
+          "type": "boolean"
+        },
+        "system_generated_theme": {
+          "default": false,
+          "title": "System Generated Theme",
+          "type": "boolean"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "manual_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manual Checks",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "title": "ThemeValidationContext",
+      "type": "object"
+    },
     "TranscriptTheme": {
       "properties": {
         "theme": {
@@ -4240,6 +4347,9 @@
     },
     "foreign_filer_coverage_diagnostics": {
       "$ref": "#/$defs/ForeignFilerCoverageDiagnostics"
+    },
+    "theme_validation_context": {
+      "$ref": "#/$defs/ThemeValidationContext"
     },
     "evidence_freshness_policy": {
       "$ref": "#/$defs/EvidenceFreshnessPolicy"

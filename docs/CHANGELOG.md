@@ -1,10 +1,16 @@
 # Changelog
 
+## Phase 56 — User-Supplied Theme Validation Boundary
+
+- Added `theme_validation_context` to analyze-stock responses so `research_context.theme` is visible as a user-supplied validation target with `theme_discovery_enabled=false`, `system_generated_theme=false`, `ranking_or_scoring_policy="not_ranked_or_scored"`, `confidence=0`, `affects_score=false`, and `not_investment_advice=true`.
+- Tightened C11 Coverage Matrix behavior: theme text alone no longer auto-covers `jane_theme_alignment`; C11 remains insufficient until explicit manual evidence supports revenue exposure, industry CAGR, policy support, or capital inflow.
+- Added Stock Research UI copy for the user-supplied theme boundary and preserved final score, verdict, scoring weights, investment-advice boundaries, and provider behavior.
+
 ## Phase 55 — Coverage Matrix Auto-Evidence Expansion
 
 - Default-enabled no-key USPTO PatentsView C18 `patent_count` coverage while preserving `USE_LIVE_USPTO_PATENTS_DATA=false` as an explicit disabled-provider state.
 - Linked existing SEC 13F target-match context into C19 `institutional_support` / `fund_support` Coverage Matrix completeness as delayed, filing-backed, manual-review evidence.
-- Added user-theme context mapping for C11 `jane_theme_alignment` so known Jane strategic themes in `research_context.theme` can appear as user-context evidence without replacing manual revenue-exposure verification.
+- Phase 56 supersedes the prior C11 theme-text auto-coverage behavior: user-supplied themes remain validation targets only and require separate manual evidence for `jane_theme_alignment`.
 - Preserved final score, verdict, scoring weights, investment-advice boundaries, and existing response schema shape.
 
 ## Phase 54 — ADR Manual Evidence Library UX and Review Queue Integration
