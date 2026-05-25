@@ -7,7 +7,7 @@ import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
-import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, ForeignFilerCoverageDiagnostics, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ThemeValidationContext, ValidationOSReport, ValidationQualitySummary } from '../types';
+import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, ForeignFilerCoverageDiagnostics, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, CompanyEventSignalBreakdown, CompanyEventSignalItem, MacroFlowSignalBreakdown, MacroFlowSignalItem, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ThemeValidationContext, ValidationOSReport, ValidationQualitySummary } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
 export const janeLeadershipCriteria = [
@@ -986,6 +986,94 @@ export function FundamentalsCrossCheckSection({ crossCheck }: { crossCheck?: Rec
   );
 }
 
+function MacroFlowSignalsTable({ title, signals }: { title: string; signals: MacroFlowSignalItem[] }) {
+  if (!signals.length) return null;
+  return (
+    <div className="tableWrap">
+      <h3>{title}</h3>
+      <table>
+        <thead><tr><th>Signal</th><th>Value</th><th>Source</th><th>Interpretation</th><th>Limitations</th></tr></thead>
+        <tbody>
+          {signals.map((signal) => (
+            <tr key={`${signal.category}-${signal.name}`}>
+              <td>{signal.label || displayKey(signal.name)}<br /><span className="muted">{signal.name}</span></td>
+              <td>{displayValue(signal.observed_value)}</td>
+              <td><span className="smallPill">{signal.source_quality}</span> {signal.is_real_time_signal === false && <span className="smallPill">not real-time</span>}<br /><span className="muted">{signal.source_date || 'N/A'}</span></td>
+              <td>{signal.interpretation}</td>
+              <td>{signal.limitations.length ? signal.limitations.join(' ') : 'No additional limitation disclosed.'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function MacroFlowSignalBreakdownSection({ breakdown }: { breakdown?: MacroFlowSignalBreakdown }) {
+  if (!breakdown) return null;
+  return (
+    <section className="pageSection">
+      <h2>Macro / Flow Signal Breakdown</h2>
+      <div className="summaryMain">
+        <span className="smallPill">Non-scoring explanation only</span>
+        <span className="smallPill">phase57_macro_flow_signal_breakdown_v1</span>
+        {breakdown.final_score_unchanged && <span className="smallPill">Final score unchanged</span>}
+        {breakdown.not_investment_advice && <span className="smallPill">Not investment advice</span>}
+      </div>
+      <p>{breakdown.summary}</p>
+      <p className="muted">Macro: {breakdown.macro_regime_label} ({breakdown.macro_signal_count}) · Flow: {breakdown.smart_money_label} ({breakdown.flow_signal_count}) · Verdict: {breakdown.research_verdict_label} · Final score {displayValue(breakdown.final_score)}</p>
+      <MacroFlowSignalsTable title="Macro signals" signals={breakdown.macro_signals} />
+      <MacroFlowSignalsTable title="Flow signals" signals={breakdown.flow_signals} />
+      {!!breakdown.manual_checks.length && <p className="sourceWarning">{breakdown.manual_checks.join(' ')}</p>}
+      {!!breakdown.limitations.length && <ul>{breakdown.limitations.map((item) => <li key={item}>{item}</li>)}</ul>}
+    </section>
+  );
+}
+
+
+function CompanyEventSignalsTable({ signals }: { signals: CompanyEventSignalItem[] }) {
+  if (!signals.length) return null;
+  return (
+    <div className="tableWrap">
+      <table>
+        <thead><tr><th>Event signal</th><th>Value</th><th>Source</th><th>Interpretation</th><th>Manual check</th><th>Limitations</th></tr></thead>
+        <tbody>
+          {signals.map((signal) => (
+            <tr key={`${signal.category}-${signal.name}`}>
+              <td>{signal.label || displayKey(signal.name)}<br /><span className="muted">{signal.name}</span></td>
+              <td>{displayValue(signal.observed_value)}</td>
+              <td><span className="smallPill">{signal.source_quality}</span> {signal.affects_score === false && <span className="smallPill">not scoring</span>} {signal.is_real_time_signal === false && <span className="smallPill">not real-time</span>}<br /><span className="muted">{signal.source_date || 'N/A'}</span></td>
+              <td>{signal.interpretation}</td>
+              <td>{signal.manual_check}</td>
+              <td>{signal.limitations.length ? signal.limitations.join(' ') : 'No additional limitation disclosed.'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function CompanyEventSignalBreakdownSection({ breakdown }: { breakdown?: CompanyEventSignalBreakdown }) {
+  if (!breakdown) return null;
+  return (
+    <section className="pageSection">
+      <h2>Company Event / Insider / Lock-Up Signal Breakdown</h2>
+      <div className="summaryMain">
+        <span className="smallPill">Non-scoring explanation only</span>
+        <span className="smallPill">phase58_company_event_signal_breakdown_v1</span>
+        {breakdown.final_score_unchanged && <span className="smallPill">Final score unchanged</span>}
+        {breakdown.not_investment_advice && <span className="smallPill">Not investment advice</span>}
+      </div>
+      <p>{breakdown.summary}</p>
+      <p className="muted">Signals: {breakdown.event_signal_count} · Insider {displayValue(breakdown.insider_summary?.label)} · 13F {displayValue(breakdown.institutional_summary?.label)} · Options {displayValue(breakdown.options_summary?.label)} · Lock-up {displayValue(breakdown.lockup_summary?.label)}</p>
+      <CompanyEventSignalsTable signals={breakdown.event_signals} />
+      {!!breakdown.manual_checks.length && <p className="sourceWarning">{breakdown.manual_checks.join(' ')}</p>}
+      {!!breakdown.limitations.length && <ul>{breakdown.limitations.map((item) => <li key={item}>{item}</li>)}</ul>}
+    </section>
+  );
+}
+
 export function SmartMoneySourceQualitySection({ smartMoney }: { smartMoney?: ScoreLike }) {
   const breakdown = smartMoney?.source_quality_breakdown as Record<string, Record<string, unknown>> | undefined;
   if (!breakdown) return null;
@@ -1539,6 +1627,8 @@ export default function StockResearch() {
           <ResearchSignalExplanationSection result={result} />
           <CandidateSummarySection result={result} />
           <ThemeValidationBoundarySection context={result.theme_validation_context} />
+          <MacroFlowSignalBreakdownSection breakdown={result.macro_flow_signal_breakdown} />
+          <CompanyEventSignalBreakdownSection breakdown={result.company_event_signal_breakdown} />
           <ValidationOSReportSection report={result.validation_os_report} />
           <ValidationReportExportSection ticker={ticker} theme={theme} userReason={userReason} qualitativeEvidenceJson={qualitativeEvidenceJson} />
           <ValidationQualitySummarySection summary={result.validation_quality_summary} />

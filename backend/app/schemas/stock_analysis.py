@@ -51,6 +51,71 @@ class ThemeValidationContext(BaseModel):
     not_investment_advice: bool = True
 
 
+class MacroFlowSignalItem(BaseModel):
+    name: str
+    category: Literal["macro", "flow"]
+    label: str = ""
+    observed_value: str | float | int | None = None
+    source_quality: Literal["live", "cached_live", "derived", "mock", "fallback", "unknown"] = "unknown"
+    source_date: str = ""
+    interpretation: str
+    limitations: list[str] = Field(default_factory=list)
+    affects_score: bool = False
+    is_real_time_signal: bool | None = None
+
+
+class MacroFlowSignalBreakdown(BaseModel):
+    version: Literal["phase57_macro_flow_signal_breakdown_v1"] = "phase57_macro_flow_signal_breakdown_v1"
+    summary: str
+    macro_regime_label: str
+    smart_money_label: str
+    research_verdict_label: str
+    final_score: float = Field(ge=0, le=100)
+    macro_signal_count: int = 0
+    flow_signal_count: int = 0
+    macro_signals: list[MacroFlowSignalItem] = Field(default_factory=list)
+    flow_signals: list[MacroFlowSignalItem] = Field(default_factory=list)
+    manual_review_required: bool = True
+    manual_checks: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    affects_score: bool = False
+    final_score_unchanged: bool = True
+    not_investment_advice: bool = True
+
+
+
+
+class CompanyEventSignalItem(BaseModel):
+    name: str
+    category: Literal["company_event", "insider", "institutional", "options", "lockup"]
+    label: str = ""
+    observed_value: str | float | int | bool | None = None
+    source_quality: Literal["live", "cached_live", "derived", "mock", "fallback", "unknown"] = "unknown"
+    source_date: str = ""
+    interpretation: str
+    manual_check: str
+    limitations: list[str] = Field(default_factory=list)
+    affects_score: bool = False
+    is_real_time_signal: bool | None = None
+
+
+class CompanyEventSignalBreakdown(BaseModel):
+    version: Literal["phase58_company_event_signal_breakdown_v1"] = "phase58_company_event_signal_breakdown_v1"
+    summary: str
+    event_signal_count: int = 0
+    event_signals: list[CompanyEventSignalItem] = Field(default_factory=list)
+    insider_summary: dict[str, Any] = Field(default_factory=dict)
+    institutional_summary: dict[str, Any] = Field(default_factory=dict)
+    options_summary: dict[str, Any] = Field(default_factory=dict)
+    lockup_summary: dict[str, Any] = Field(default_factory=dict)
+    manual_review_required: bool = True
+    manual_checks: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    affects_score: bool = False
+    final_score_unchanged: bool = True
+    not_investment_advice: bool = True
+
+
 class QualitativeEvidenceInput(BaseModel):
     evidence_id: str | None = None
     criterion: str
@@ -520,6 +585,8 @@ class AnalyzeStockResponse(BaseModel):
     data_quality_summary: AnalyzeStockDataQualitySummary
     foreign_filer_coverage_diagnostics: ForeignFilerCoverageDiagnostics = Field(default_factory=ForeignFilerCoverageDiagnostics)
     theme_validation_context: ThemeValidationContext = Field(default_factory=ThemeValidationContext)
+    macro_flow_signal_breakdown: MacroFlowSignalBreakdown
+    company_event_signal_breakdown: CompanyEventSignalBreakdown
     evidence_freshness_policy: EvidenceFreshnessPolicy = Field(default_factory=EvidenceFreshnessPolicy)
     stale_review_queue: StaleReviewQueue = Field(default_factory=StaleReviewQueue)
     score_driver_breakdown: ScoreDriverBreakdown

@@ -2613,6 +2613,259 @@ def _smart_money_source_quality_breakdown(smart_money: ScoreObject, insider_acti
     }
 
 
+def _component_dict(value) -> dict:
+    if value is None:
+        return {}
+    if hasattr(value, "model_dump"):
+        return value.model_dump(mode="json")
+    if isinstance(value, dict):
+        return value
+    return {}
+
+
+def _source_type_for_breakdown(status: dict) -> str:
+    source_type = str(status.get("source_type") or "unknown")
+    return source_type if source_type in {"live", "cached_live", "derived", "mock", "fallback", "unknown"} else "unknown"
+
+
+def _build_macro_flow_signal_breakdown(macro_regime: ScoreObject, smart_money: ScoreObject, research_verdict: ResearchVerdict) -> dict:
+    macro_signals: list[dict] = []
+    for contribution in macro_regime.derived_metrics.get("component_contributions") or []:
+        if not isinstance(contribution, dict):
+            continue
+        name = str(contribution.get("name") or "")
+        if name not in {"fed_policy_trend", "fed_funds_rate", "ten_year_minus_two_year_spread_bps", "cpi_yoy", "ppi_yoy", "unemployment_rate", "vix", "equity_drawdown", "gain_from_recent_trough", "dxy_trend", "gold_trend", "oil_trend"}:
+            continue
+        macro_signals.append(
+            {
+                "name": name,
+                "category": "macro",
+                "label": str(contribution.get("display_name") or name),
+                "observed_value": contribution.get("raw_value"),
+                "source_quality": _source_type_for_breakdown(contribution),
+                "source_date": str(contribution.get("source_date") or ""),
+                "interpretation": f"{contribution.get('display_name') or name} contributes macro research context; review it with the source-quality and freshness caveats before interpretation.",
+                "limitations": [item for item in [contribution.get("limitation")] if item],
+                "affects_score": False,
+                "is_real_time_signal": False,
+            }
+        )
+        if len(macro_signals) >= 8:
+            break
+
+    components = smart_money.derived_metrics.get("components") or {}
+    flow_specs = [
+        ("insider_form4_signal", "Form 4 insider activity is filing context but requires transaction-code and plan review.", True),
+        ("institutional_support_13f", "13F is delayed quarterly filing context and is not a real-time positioning signal.", False),
+        ("options_abnormal_activity", "Options activity is ambiguous research context and may reflect hedging, speculation, or spreads.", True),
+    ]
+    flow_signals: list[dict] = []
+    for name, interpretation, real_time in flow_specs:
+        component = _component_dict(components.get(name))
+        status = _status_dict(component.get("source_status"))
+        limitations = list(dict.fromkeys([*(component.get("limitations") or []), *(_status_dict(status).get("limitations") or [])]))
+        if name == "institutional_support_13f" and not any("delayed" in str(item).lower() for item in limitations):
+            limitations.append("13F may lag up to 45 days after quarter end and should not be interpreted as real-time flow.")
+        flow_signals.append(
+            {
+                "name": name,
+                "category": "flow",
+                "label": str(component.get("label") or "not_available"),
+                "observed_value": component.get("score"),
+                "source_quality": _source_type_for_breakdown(status),
+                "source_date": str(component.get("source_date") or status.get("source_date") or ""),
+                "interpretation": interpretation,
+                "limitations": limitations,
+                "affects_score": False,
+                "is_real_time_signal": bool(real_time and _source_type_for_breakdown(status) in {"live", "cached_live"}),
+            }
+        )
+
+    return {
+        "version": "phase57_macro_flow_signal_breakdown_v1",
+        "summary": "Macro and flow signals are separated for analyst review. This Phase 57 MVP is explainability-only and not a trading signal.",
+        "macro_regime_label": macro_regime.label,
+        "smart_money_label": smart_money.label,
+        "research_verdict_label": research_verdict.label,
+        "final_score": research_verdict.score,
+        "macro_signal_count": len(macro_signals),
+        "flow_signal_count": len(flow_signals),
+        "macro_signals": macro_signals,
+        "flow_signals": flow_signals,
+        "manual_review_required": True,
+        "manual_checks": [
+            "Review macro release freshness and source-quality caveats before interpreting the backdrop.",
+            "Review Form 4, delayed 13F, and options context manually; these are not a trading signal.",
+        ],
+        "limitations": [
+            "Macro/flow breakdown is research context only and not a trading signal.",
+            "Phase 57 does not change final score, research verdict, or confidence gates.",
+            "Flow evidence can be delayed, ambiguous, fallback, or mock depending on configured providers.",
+        ],
+        "affects_score": False,
+        "final_score_unchanged": True,
+        "not_investment_advice": True,
+    }
+
+
+def _build_company_event_signal_breakdown(smart_money: ScoreObject) -> dict:
+    components = smart_money.derived_metrics.get("components") or {}
+    insider = _component_dict(components.get("insider_form4_signal"))
+    institutional = _component_dict(components.get("institutional_support_13f"))
+    options = _component_dict(components.get("options_abnormal_activity"))
+
+    def status_for(component: dict) -> dict:
+        return _status_dict(component.get("source_status") or component.get("raw_data", {}).get("source_status"))
+
+    insider_metrics = _status_dict(insider.get("derived_metrics"))
+    institutional_metrics = _status_dict(institutional.get("derived_metrics"))
+    options_metrics = _status_dict(options.get("derived_metrics"))
+    insider_status = status_for(insider)
+    institutional_status = status_for(institutional)
+    options_status = status_for(options)
+
+    def safe_event_text(value: object) -> str:
+        text = str(value)
+        replacements = {
+            "selling pressure": "disposition pressure",
+            "Selling pressure": "Disposition pressure",
+            "selling": "disposition",
+            "Selling": "Disposition",
+            "sell": "dispose",
+            "Sell": "Dispose",
+            "buy": "accumulate",
+            "Buy": "Accumulate",
+            "hold": "own",
+            "Hold": "Own",
+            "liquidate": "reduce exposure",
+            "Liquidate": "Reduce exposure",
+        }
+        for forbidden, replacement in replacements.items():
+            text = text.replace(forbidden, replacement)
+        return text
+
+    def event_item(name: str, category: str, component: dict, status: dict, interpretation: str, manual_check: str, observed_value=None, real_time: bool | None = None) -> dict:
+        limitations = [safe_event_text(item) for item in dict.fromkeys([*(component.get("limitations") or []), *(status.get("limitations") or [])])]
+        return {
+            "name": name,
+            "category": category,
+            "label": str(component.get("label") or "not_available"),
+            "observed_value": component.get("score") if observed_value is None else observed_value,
+            "source_quality": _source_type_for_breakdown(status),
+            "source_date": str(component.get("source_date") or status.get("source_date") or ""),
+            "interpretation": safe_event_text(interpretation),
+            "manual_check": safe_event_text(manual_check),
+            "limitations": limitations,
+            "affects_score": False,
+            "is_real_time_signal": real_time,
+        }
+
+    event_signals = [
+        event_item(
+            "form4_insider_accumulation_disposition",
+            "insider",
+            insider,
+            insider_status,
+            "Form 4 code P is treated as accumulation evidence and code S as disposition evidence; compensation, indirect ownership, and 10b5-1 plan context still require manual review.",
+            "Review recent Form 4 rows, transaction codes, ownership form, plan footnotes, and whether activity is one-off or repeated.",
+            insider_metrics.get("net_insider_accumulation_value_180d"),
+            bool(_source_type_for_breakdown(insider_status) in {"live", "cached_live"}),
+        ),
+        event_item(
+            "systematic_insider_plan_risk",
+            "insider",
+            insider,
+            insider_status,
+            "Repeated disposition patterns may resemble a systematic plan, but the system does not confirm 10b5-1 status without filing footnote review.",
+            "Check whether disposition activity is pre-planned, tax-related, compensation-related, or discretionary." ,
+            insider_metrics.get("likely_systematic_plan"),
+            False,
+        ),
+        event_item(
+            "delayed_13f_institutional_positioning",
+            "institutional",
+            institutional,
+            institutional_status,
+            "13F evidence is delayed quarterly filing context; it can show target matches or position changes but not current real-time institutional flow.",
+            "Review latest report date, filing date, manager identity, target match confidence, and quarter-over-quarter changes.",
+            institutional_metrics.get("target_match_count"),
+            False,
+        ),
+        event_item(
+            "options_attention_abnormality",
+            "options",
+            options,
+            options_status,
+            "Options volume, blocks, premium, and call/put ratio are ambiguous event context and may reflect hedging, speculation, or spread trades.",
+            "Check option volume/open interest, abnormal volume ratio, total premium, expirations, and whether direction aligns with price action.",
+            options_metrics.get("abnormal_volume_ratio"),
+            bool(_source_type_for_breakdown(options_status) in {"live", "cached_live"}),
+        ),
+        {
+            "name": "ipo_lockup_expiration",
+            "category": "lockup",
+            "label": "lockup_data_not_available",
+            "observed_value": None,
+            "source_quality": "unknown",
+            "source_date": "",
+            "interpretation": "IPO lock-up expiration can be company-event pressure context, but no lock-up provider is connected in this MVP.",
+            "manual_check": safe_event_text("If the company is a recent IPO or SPAC/de-SPAC, manually verify prospectus lock-up terms, expiration dates, and registered resale filings."),
+            "limitations": [safe_event_text("Phase 58 does not fetch prospectuses, resale registrations, IPO calendars, or lock-up datasets.")],
+            "affects_score": False,
+            "is_real_time_signal": False,
+        },
+    ]
+    return {
+        "version": "phase58_company_event_signal_breakdown_v1",
+        "summary": "Company event, insider, options, delayed 13F, and lock-up signals are separated for analyst review. This layer is non-scoring and not a trading signal.",
+        "event_signal_count": len(event_signals),
+        "event_signals": event_signals,
+        "insider_summary": {
+            "label": insider.get("label", "not_available"),
+            "source_quality": _source_type_for_breakdown(insider_status),
+            "net_insider_accumulation_value_180d": insider_metrics.get("net_insider_accumulation_value_180d"),
+            "accumulation_count_180d": insider_metrics.get("accumulation_count_180d"),
+            "disposition_count_180d": insider_metrics.get("disposition_count_180d"),
+            "likely_systematic_plan": insider_metrics.get("likely_systematic_plan"),
+        },
+        "institutional_summary": {
+            "label": institutional.get("label", "not_available"),
+            "source_quality": _source_type_for_breakdown(institutional_status),
+            "target_match_count": institutional_metrics.get("target_match_count"),
+            "qoq_change_count": institutional_metrics.get("qoq_change_count"),
+            "is_real_time_signal": False,
+        },
+        "options_summary": {
+            "label": options.get("label", "not_available"),
+            "source_quality": _source_type_for_breakdown(options_status),
+            "abnormal_volume_ratio": options_metrics.get("abnormal_volume_ratio"),
+            "call_put_ratio": options_metrics.get("call_put_ratio"),
+            "large_block_count": options_metrics.get("large_block_count"),
+            "total_premium": options_metrics.get("total_premium"),
+        },
+        "lockup_summary": {
+            "label": "lockup_data_not_available",
+            "source_quality": "unknown",
+            "requires_manual_check": True,
+        },
+        "manual_review_required": True,
+        "manual_checks": [
+            "Review Form 4 codes and footnotes before interpreting insider activity.",
+            "Treat 13F as delayed quarterly evidence, not real-time flow.",
+            "Review options context manually because elevated activity can reflect hedging or spread trades.",
+            "Manually verify lock-up expiration only for recent IPO/SPAC names; the MVP does not fetch lock-up data.",
+        ],
+        "limitations": [
+            "Phase 58 is an explainability layer only and does not change final score, research verdict, or confidence gates.",
+            "Company-event signals are research context only and not investment advice or trading instructions.",
+            "Lock-up information is unavailable unless the user manually verifies source filings.",
+        ],
+        "affects_score": False,
+        "final_score_unchanged": True,
+        "not_investment_advice": True,
+    }
+
+
 def _coverage_source_quality(items: list[dict]) -> str:
     accepted = [item for item in items if item.get("accepted") is True]
     if not accepted:
@@ -4640,6 +4893,8 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         },
         foreign_filer_coverage_diagnostics={},
         theme_validation_context=_build_theme_validation_context(research_context),
+        macro_flow_signal_breakdown=_build_macro_flow_signal_breakdown(macro_regime, smart_money, research_verdict),
+        company_event_signal_breakdown=_build_company_event_signal_breakdown(smart_money),
         evidence_freshness_policy=_build_evidence_freshness_policy(),
         stale_review_queue={},
         score_driver_breakdown={

@@ -245,6 +245,194 @@
       "title": "CandidateValidationSummary",
       "type": "object"
     },
+    "CompanyEventSignalBreakdown": {
+      "properties": {
+        "version": {
+          "const": "phase58_company_event_signal_breakdown_v1",
+          "default": "phase58_company_event_signal_breakdown_v1",
+          "title": "Version",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "event_signal_count": {
+          "default": 0,
+          "title": "Event Signal Count",
+          "type": "integer"
+        },
+        "event_signals": {
+          "items": {
+            "$ref": "#/$defs/CompanyEventSignalItem"
+          },
+          "title": "Event Signals",
+          "type": "array"
+        },
+        "insider_summary": {
+          "additionalProperties": true,
+          "title": "Insider Summary",
+          "type": "object"
+        },
+        "institutional_summary": {
+          "additionalProperties": true,
+          "title": "Institutional Summary",
+          "type": "object"
+        },
+        "options_summary": {
+          "additionalProperties": true,
+          "title": "Options Summary",
+          "type": "object"
+        },
+        "lockup_summary": {
+          "additionalProperties": true,
+          "title": "Lockup Summary",
+          "type": "object"
+        },
+        "manual_review_required": {
+          "default": true,
+          "title": "Manual Review Required",
+          "type": "boolean"
+        },
+        "manual_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manual Checks",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "final_score_unchanged": {
+          "default": true,
+          "title": "Final Score Unchanged",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "summary"
+      ],
+      "title": "CompanyEventSignalBreakdown",
+      "type": "object"
+    },
+    "CompanyEventSignalItem": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "company_event",
+            "insider",
+            "institutional",
+            "options",
+            "lockup"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "observed_value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed Value"
+        },
+        "source_quality": {
+          "default": "unknown",
+          "enum": [
+            "live",
+            "cached_live",
+            "derived",
+            "mock",
+            "fallback",
+            "unknown"
+          ],
+          "title": "Source Quality",
+          "type": "string"
+        },
+        "source_date": {
+          "default": "",
+          "title": "Source Date",
+          "type": "string"
+        },
+        "interpretation": {
+          "title": "Interpretation",
+          "type": "string"
+        },
+        "manual_check": {
+          "title": "Manual Check",
+          "type": "string"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "is_real_time_signal": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Is Real Time Signal"
+        }
+      },
+      "required": [
+        "name",
+        "category",
+        "interpretation",
+        "manual_check"
+      ],
+      "title": "CompanyEventSignalItem",
+      "type": "object"
+    },
     "ComparisonEvidenceAssessment": {
       "properties": {
         "ticker": {
@@ -2470,6 +2658,197 @@
       "title": "MacroDataQuality",
       "type": "object"
     },
+    "MacroFlowSignalBreakdown": {
+      "properties": {
+        "version": {
+          "const": "phase57_macro_flow_signal_breakdown_v1",
+          "default": "phase57_macro_flow_signal_breakdown_v1",
+          "title": "Version",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "macro_regime_label": {
+          "title": "Macro Regime Label",
+          "type": "string"
+        },
+        "smart_money_label": {
+          "title": "Smart Money Label",
+          "type": "string"
+        },
+        "research_verdict_label": {
+          "title": "Research Verdict Label",
+          "type": "string"
+        },
+        "final_score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Final Score",
+          "type": "number"
+        },
+        "macro_signal_count": {
+          "default": 0,
+          "title": "Macro Signal Count",
+          "type": "integer"
+        },
+        "flow_signal_count": {
+          "default": 0,
+          "title": "Flow Signal Count",
+          "type": "integer"
+        },
+        "macro_signals": {
+          "items": {
+            "$ref": "#/$defs/MacroFlowSignalItem"
+          },
+          "title": "Macro Signals",
+          "type": "array"
+        },
+        "flow_signals": {
+          "items": {
+            "$ref": "#/$defs/MacroFlowSignalItem"
+          },
+          "title": "Flow Signals",
+          "type": "array"
+        },
+        "manual_review_required": {
+          "default": true,
+          "title": "Manual Review Required",
+          "type": "boolean"
+        },
+        "manual_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manual Checks",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "final_score_unchanged": {
+          "default": true,
+          "title": "Final Score Unchanged",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "summary",
+        "macro_regime_label",
+        "smart_money_label",
+        "research_verdict_label",
+        "final_score"
+      ],
+      "title": "MacroFlowSignalBreakdown",
+      "type": "object"
+    },
+    "MacroFlowSignalItem": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "macro",
+            "flow"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "observed_value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed Value"
+        },
+        "source_quality": {
+          "default": "unknown",
+          "enum": [
+            "live",
+            "cached_live",
+            "derived",
+            "mock",
+            "fallback",
+            "unknown"
+          ],
+          "title": "Source Quality",
+          "type": "string"
+        },
+        "source_date": {
+          "default": "",
+          "title": "Source Date",
+          "type": "string"
+        },
+        "interpretation": {
+          "title": "Interpretation",
+          "type": "string"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "is_real_time_signal": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Is Real Time Signal"
+        }
+      },
+      "required": [
+        "name",
+        "category",
+        "interpretation"
+      ],
+      "title": "MacroFlowSignalItem",
+      "type": "object"
+    },
     "MacroIndicatorComponent": {
       "properties": {
         "name": {
@@ -4351,6 +4730,12 @@
     "theme_validation_context": {
       "$ref": "#/$defs/ThemeValidationContext"
     },
+    "macro_flow_signal_breakdown": {
+      "$ref": "#/$defs/MacroFlowSignalBreakdown"
+    },
+    "company_event_signal_breakdown": {
+      "$ref": "#/$defs/CompanyEventSignalBreakdown"
+    },
     "evidence_freshness_policy": {
       "$ref": "#/$defs/EvidenceFreshnessPolicy"
     },
@@ -4527,6 +4912,8 @@
     "validation_quality_summary",
     "evidence_matrix",
     "data_quality_summary",
+    "macro_flow_signal_breakdown",
+    "company_event_signal_breakdown",
     "score_driver_breakdown",
     "next_manual_checks",
     "qualitative_evidence_assessment",

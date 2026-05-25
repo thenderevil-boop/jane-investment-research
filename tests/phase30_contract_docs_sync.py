@@ -223,6 +223,65 @@ def test_phase55_coverage_matrix_auto_evidence_expansion_contract_is_documented(
         assert token in frontend_types
 
 
+def test_phase57_macro_flow_signal_breakdown_contract_is_documented() -> None:
+    schema = _load_schema()
+    defs = schema["$defs"]
+    api_spec = _read("docs/API_SPEC.md")
+    readme = _read("README.md")
+    changelog = _read("docs/CHANGELOG.md")
+    data_sources = _read("docs/DATA_SOURCES.md")
+    framework = _read("docs/JANE_FRAMEWORK_MAPPING.md")
+    frontend_types = _read("frontend/src/types.ts")
+    stock_research = _read("frontend/src/pages/StockResearch.tsx")
+
+    assert "macro_flow_signal_breakdown" in schema["properties"]
+    assert "MacroFlowSignalBreakdown" in defs
+    assert "MacroFlowSignalItem" in defs
+
+    for text in [api_spec, readme, changelog, data_sources, framework, frontend_types, stock_research]:
+        assert "macro_flow_signal_breakdown" in text
+        assert "phase57_macro_flow_signal_breakdown_v1" in text
+
+    for text in [api_spec, readme, changelog, data_sources, framework]:
+        assert "Phase 57" in text
+        assert "not a trading signal" in text
+        assert "does not change final score" in text or "does not change final scoring" in text
+
+    for token in ["macro_signals", "flow_signals", "final_score_unchanged", "not_investment_advice"]:
+        assert token in api_spec
+        assert token in frontend_types
+
+
+def test_phase58_company_event_signal_breakdown_contract_is_documented() -> None:
+    schema = _load_schema()
+    defs = schema["$defs"]
+    api_spec = _read("docs/API_SPEC.md")
+    readme = _read("README.md")
+    changelog = _read("docs/CHANGELOG.md")
+    data_sources = _read("docs/DATA_SOURCES.md")
+    framework = _read("docs/JANE_FRAMEWORK_MAPPING.md")
+    frontend_types = _read("frontend/src/types.ts")
+    stock_research = _read("frontend/src/pages/StockResearch.tsx")
+
+    assert "company_event_signal_breakdown" in schema["properties"]
+    assert "CompanyEventSignalBreakdown" in defs
+    assert "CompanyEventSignalItem" in defs
+
+    for text in [api_spec, readme, changelog, data_sources, framework, frontend_types, stock_research]:
+        assert "company_event_signal_breakdown" in text
+        assert "phase58_company_event_signal_breakdown_v1" in text
+
+    for text in [api_spec, readme, changelog, data_sources, framework]:
+        assert "Phase 58" in text
+        assert "lock-up" in text.lower()
+        assert "not a trading signal" in text
+        assert "does not change final score" in text or "does not change final scoring" in text
+
+    for token in ["event_signals", "insider_summary", "institutional_summary", "options_summary", "lockup_summary", "final_score_unchanged", "not_investment_advice"]:
+        assert token in api_spec
+        assert token in frontend_types
+
+
 def test_phase52_adr_manual_evidence_contract_is_documented() -> None:
     schema = _load_schema()
     input_props = QualitativeEvidenceInput.model_json_schema()["properties"]

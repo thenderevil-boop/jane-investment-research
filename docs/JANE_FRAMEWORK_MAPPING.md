@@ -2,6 +2,14 @@
 
 This file maps Jane's Markdown methodology into system modules.
 
+## Phase 57 Macro / Flow Signal Breakdown MVP
+
+`macro_flow_signal_breakdown` (`phase57_macro_flow_signal_breakdown_v1`) maps Jane's macro-cycle and capital-flow review habits into an analyze-stock explanation layer:
+
+- `macro_signals` summarize existing macro-regime components such as Fed policy, inflation, VIX, equity drawdown, and cross-asset context.
+- `flow_signals` summarize Form 4, delayed SEC 13F, and options context with source-quality and limitation copy.
+- The section is not a trading signal, does not change final score or final scoring, and keeps `affects_score=false` / `not_investment_advice=true`.
+
 ## 1. Long-Cycle Strategic Themes
 
 From the long-cycle opportunity files, the system must track these strategic themes:
@@ -188,3 +196,7 @@ Risk & Allocation Reference Engine
 Financial Quality Engine
 Valuation Context Engine
 ```
+
+## Phase 58 Company Event / Insider / Lock-Up Boundary
+
+Phase 58 maps company-event signals into `company_event_signal_breakdown` (`phase58_company_event_signal_breakdown_v1`) as validation explainability only. `event_signals` cover Form 4 accumulation/disposition evidence, systematic-plan review risk, delayed 13F positioning, options attention, and manual IPO lock-up verification. These signals support human review of Jane framework context but do not change final scoring, do not create automatic theme discovery, and are not a trading signal.

@@ -8,6 +8,14 @@ Build a US-market-only investment research automation system based on Jane's Mar
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
+## Phase 57 Macro / Flow Signal Breakdown MVP
+
+Phase 57 adds a non-scoring `macro_flow_signal_breakdown` to `POST /api/analyze-stock` responses:
+
+- `version="phase57_macro_flow_signal_breakdown_v1"` separates `macro_signals` from `flow_signals` so macro regime components and Form 4 / 13F / options context can be reviewed without digging through raw score objects.
+- The object exposes `macro_signal_count`, `flow_signal_count`, `final_score_unchanged=true`, `affects_score=false`, and `not_investment_advice=true`.
+- It is not a trading signal, does not change final score, research verdict, confidence, or scoring weights, and remains a manual-review explanation layer.
+
 ## Phase 17 SEC Companyfacts Financial Cross-Check
 
 Phase 17 adds official SEC EDGAR Companyfacts as a filing-backed cross-check layer for `POST /api/analyze-stock`:
@@ -810,3 +818,7 @@ Performance diagnostics:
 ## Project Guardrails
 
 Before changing an endpoint, verify Pydantic models, JSON schemas under `schemas\`, frontend TypeScript types, and `docs\API_SPEC.md` together. Mock raw data should be accessed through `backend.app.raw_store.repository`; live API clients should not be called from engines directly.
+
+### Phase 58 — Company Event / Insider / Lock-Up Signal Breakdown MVP
+
+Phase 58 adds `company_event_signal_breakdown` (`phase58_company_event_signal_breakdown_v1`) to `POST /api/analyze-stock` and the Stock Research UI. It separates `event_signals` for Form 4 insider activity, delayed 13F positioning, options abnormality, and IPO lock-up manual review context. The object includes `insider_summary`, `institutional_summary`, `options_summary`, `lockup_summary`, `final_score_unchanged`, and `not_investment_advice`. It is an explainability layer only, is not a trading signal, and does not change final score or Jane criteria scoring. Lock-up data is not fetched; recent IPO/SPAC names require manual prospectus or resale-filing verification.

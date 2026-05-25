@@ -567,6 +567,70 @@ export type ThemeValidationContext = {
   not_investment_advice: boolean;
 };
 
+export type MacroFlowSignalItem = {
+  name: string;
+  category: 'macro' | 'flow';
+  label: string;
+  observed_value?: string | number | null;
+  source_quality: SourceType;
+  source_date: string;
+  interpretation: string;
+  limitations: string[];
+  affects_score: boolean;
+  is_real_time_signal?: boolean | null;
+};
+
+export type MacroFlowSignalBreakdown = {
+  version: 'phase57_macro_flow_signal_breakdown_v1';
+  summary: string;
+  macro_regime_label: string;
+  smart_money_label: string;
+  research_verdict_label: string;
+  final_score: number;
+  macro_signal_count: number;
+  flow_signal_count: number;
+  macro_signals: MacroFlowSignalItem[];
+  flow_signals: MacroFlowSignalItem[];
+  manual_review_required: boolean;
+  manual_checks: string[];
+  limitations: string[];
+  affects_score: boolean;
+  final_score_unchanged: boolean;
+  not_investment_advice: boolean;
+};
+
+
+export type CompanyEventSignalItem = {
+  name: string;
+  category: 'company_event' | 'insider' | 'institutional' | 'options' | 'lockup';
+  label: string;
+  observed_value?: string | number | boolean | null;
+  source_quality: SourceType;
+  source_date: string;
+  interpretation: string;
+  manual_check: string;
+  limitations: string[];
+  affects_score: boolean;
+  is_real_time_signal?: boolean | null;
+};
+
+export type CompanyEventSignalBreakdown = {
+  version: 'phase58_company_event_signal_breakdown_v1';
+  summary: string;
+  event_signal_count: number;
+  event_signals: CompanyEventSignalItem[];
+  insider_summary: Record<string, unknown>;
+  institutional_summary: Record<string, unknown>;
+  options_summary: Record<string, unknown>;
+  lockup_summary: Record<string, unknown>;
+  manual_review_required: boolean;
+  manual_checks: string[];
+  limitations: string[];
+  affects_score: boolean;
+  final_score_unchanged: boolean;
+  not_investment_advice: boolean;
+};
+
 export type ValidationOSReport = {
   ticker: string;
   research_label: string;
@@ -1363,6 +1427,8 @@ export type StockAnalysis = {
   evidence_matrix?: EvidenceMatrixItem[];
   jane_criteria_coverage?: JaneCriteriaCoverageMatrix;
   theme_validation_context?: ThemeValidationContext;
+  macro_flow_signal_breakdown?: MacroFlowSignalBreakdown;
+  company_event_signal_breakdown?: CompanyEventSignalBreakdown;
   validation_os_report?: ValidationOSReport;
   data_quality_summary?: AnalyzeStockDataQualitySummary;
   foreign_filer_coverage_diagnostics?: ForeignFilerCoverageDiagnostics;

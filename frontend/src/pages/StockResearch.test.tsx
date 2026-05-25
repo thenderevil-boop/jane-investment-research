@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import type { DataSourceStatus, JaneCriterion, ScoreLike, StockAnalysis } from '../types';
 import { getJaneCriteria } from '../api/client';
-import StockResearch, { AnalystBriefSection, AnalyzeDataQualitySection, CandidateSummarySection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, ForeignFilerCoverageDiagnosticsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ResearchSignalExplanationSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ThemeValidationBoundarySection, ValidationOSReportSection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
+import StockResearch, { AnalystBriefSection, AnalyzeDataQualitySection, CandidateSummarySection, CompanyEventSignalBreakdownSection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, ForeignFilerCoverageDiagnosticsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, MacroFlowSignalBreakdownSection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ResearchSignalExplanationSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ThemeValidationBoundarySection, ValidationOSReportSection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -40,6 +40,84 @@ function score(status: DataSourceStatus | null = mockStatus): ScoreLike {
 }
 
 describe('StockResearch presentation helpers', () => {
+
+  it('renders Phase 58 company event and lock-up signal breakdown as non-scoring context', () => {
+    const html = renderToStaticMarkup(
+      <CompanyEventSignalBreakdownSection
+        breakdown={{
+          version: 'phase58_company_event_signal_breakdown_v1',
+          summary: 'Company event, insider, options, delayed 13F, and lock-up signals are separated for analyst review. This layer is non-scoring and not a trading signal.',
+          event_signal_count: 2,
+          event_signals: [
+            { name: 'form4_insider_accumulation_disposition', category: 'insider', label: 'insider_activity_neutral', observed_value: 125000, source_quality: 'live', source_date: '2026-05-01', interpretation: 'Form 4 code P is treated as accumulation evidence and code S as disposition evidence.', manual_check: 'Review recent Form 4 rows and plan footnotes.', limitations: ['Transaction context requires filing review.'], affects_score: false, is_real_time_signal: true },
+            { name: 'ipo_lockup_expiration', category: 'lockup', label: 'lockup_data_not_available', observed_value: null, source_quality: 'unknown', source_date: '', interpretation: 'IPO lock-up expiration can be company-event pressure context, but no lock-up provider is connected in this MVP.', manual_check: 'Manually verify prospectus lock-up terms.', limitations: ['Phase 58 does not fetch prospectuses.'], affects_score: false, is_real_time_signal: false },
+          ],
+          insider_summary: { label: 'insider_activity_neutral' },
+          institutional_summary: { label: 'institutional_target_match_observed' },
+          options_summary: { label: 'options_activity_elevated' },
+          lockup_summary: { label: 'lockup_data_not_available' },
+          manual_review_required: true,
+          manual_checks: ['Review Form 4 codes and footnotes before interpreting insider activity.'],
+          limitations: ['Phase 58 is an explainability layer only and does not change final score.'],
+          affects_score: false,
+          final_score_unchanged: true,
+          not_investment_advice: true,
+        }}
+      />,
+    );
+
+    expect(html).toContain('Company Event / Insider / Lock-Up Signal Breakdown');
+    expect(html).toContain('phase58_company_event_signal_breakdown_v1');
+    expect(html).toContain('form4_insider_accumulation_disposition');
+    expect(html).toContain('ipo_lockup_expiration');
+    expect(html).toContain('lockup_data_not_available');
+    expect(html).toContain('not a trading signal');
+    expect(html).toContain('not scoring');
+    expect(html).not.toContain('Buy');
+    expect(html).not.toContain('Sell');
+  });
+
+  it('renders Phase 57 macro and flow signal breakdown as non-scoring review context', () => {
+    const html = renderToStaticMarkup(
+      <MacroFlowSignalBreakdownSection
+        breakdown={{
+          version: 'phase57_macro_flow_signal_breakdown_v1',
+          summary: 'Macro and flow signals are separated for analyst review. This Phase 57 MVP is explainability-only and not a trading signal.',
+          macro_regime_label: 'neutral_to_constructive',
+          smart_money_label: 'positive_signal',
+          research_verdict_label: 'watchlist_candidate',
+          final_score: 42,
+          macro_signal_count: 2,
+          flow_signal_count: 2,
+          macro_signals: [
+            { name: 'fed_policy_trend', category: 'macro', label: 'Fed policy trend', observed_value: 'neutral', source_quality: 'derived', source_date: '2026-04-01', interpretation: 'Fed policy contributes macro context.', limitations: ['FRED may be delayed.'], affects_score: false, is_real_time_signal: false },
+            { name: 'vix', category: 'macro', label: 'VIX', observed_value: 17.5, source_quality: 'live', source_date: '2026-05-22', interpretation: 'Volatility contributes market stress context.', limitations: [], affects_score: false, is_real_time_signal: false },
+          ],
+          flow_signals: [
+            { name: 'institutional_support_13f', category: 'flow', label: 'institutional_target_match_observed', observed_value: 60, source_quality: 'live', source_date: '2026-03-31', interpretation: '13F is delayed quarterly filing context and is not real-time.', limitations: ['13F may lag up to 45 days.'], affects_score: false, is_real_time_signal: false },
+            { name: 'options_abnormal_activity', category: 'flow', label: 'options_activity_elevated', observed_value: 80, source_quality: 'mock', source_date: '2026-04-24', interpretation: 'Options activity is ambiguous.', limitations: ['May reflect hedging.'], affects_score: false, is_real_time_signal: false },
+          ],
+          manual_review_required: true,
+          manual_checks: ['Review Form 4, delayed 13F, and options context manually; these are not a trading signal.'],
+          limitations: ['Phase 57 does not change final score, research verdict, or confidence gates.'],
+          affects_score: false,
+          final_score_unchanged: true,
+          not_investment_advice: true,
+        }}
+      />,
+    );
+
+    expect(html).toContain('Macro / Flow Signal Breakdown');
+    expect(html).toContain('Non-scoring explanation only');
+    expect(html).toContain('Final score unchanged');
+    expect(html).toContain('Fed policy trend');
+    expect(html).toContain('institutional_support_13f');
+    expect(html).toContain('13F may lag up to 45 days');
+    expect(html).toContain('not a trading signal');
+    expect(html).not.toContain('Buy');
+    expect(html).not.toContain('Sell');
+  });
+
   it('renders qualitative evidence JSON input on the stock research form', () => {
     const html = renderToStaticMarkup(<StockResearch />);
     expect(html).toContain('Primary workflow: submit a ticker to validate the idea using evidence, data quality, and missing-data checks.');

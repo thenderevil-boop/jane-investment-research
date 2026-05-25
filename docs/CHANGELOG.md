@@ -1,5 +1,11 @@
 # Changelog
 
+## Phase 57 — Macro / Flow Signal Breakdown MVP
+
+- Added `macro_flow_signal_breakdown` / `phase57_macro_flow_signal_breakdown_v1` to analyze-stock responses with separate `macro_signals` and `flow_signals`, source-quality labels, limitations, manual checks, and `final_score_unchanged=true`.
+- Added Stock Research UI rendering and frontend types for the breakdown, labeled as `Non-scoring explanation only`, `Final score unchanged`, and `Not investment advice`.
+- Preserved final score, verdict, scoring weights, provider behavior, and investment-advice boundaries; the section is not a trading signal and does not change final score.
+
 ## Phase 56 — User-Supplied Theme Validation Boundary
 
 - Added `theme_validation_context` to analyze-stock responses so `research_context.theme` is visible as a user-supplied validation target with `theme_discovery_enabled=false`, `system_generated_theme=false`, `ranking_or_scoring_policy="not_ranked_or_scored"`, `confidence=0`, `affects_score=false`, and `not_investment_advice=true`.
@@ -240,3 +246,10 @@
 - Added canonical Jane 20 criteria model and `/api/jane-criteria` support.
 - Extended request-scoped qualitative evidence with optional `criterion_id`, `criterion_name`, and `submetric` metadata.
 - Preserved backward compatibility for legacy qualitative evidence request flows.
+
+## Phase 58 — Company Event / Insider / Lock-Up Signal Breakdown MVP
+
+- Added `company_event_signal_breakdown` (`phase58_company_event_signal_breakdown_v1`) to analyze-stock responses and frontend types.
+- Added Stock Research rendering for `event_signals`, `insider_summary`, `institutional_summary`, `options_summary`, and `lockup_summary`.
+- Preserved final score, verdict, confidence gates, and scoring weights; Phase 58 is not a trading signal and does not change final score.
+- Kept lock-up handling as a manual review boundary: no prospectus, resale-registration, IPO calendar, or lock-up provider fetches were added.
