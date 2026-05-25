@@ -40,7 +40,7 @@ JANE_CRITERIA: list[dict[str, Any]] = [
     _criterion(8, "Data Advantage", ["proprietary_data_loop", "personalization_loop", "usage_improves_product", "hard_to_replicate_dataset"], "qualitative"),
     _criterion(9, "Capital Allocation Ability", ["roic", "reinvestment_effectiveness", "acquisition_discipline", "shareholder_dilution_control"], "financial_proxy", ["roic", "reinvestment_effectiveness"], "yfinance_sec"),
     _criterion(10, "Free Cash Flow Creation", ["positive_fcf", "fcf_margin", "fcf_growth_trend", "cash_conversion_quality"], "financial_proxy", ["positive_fcf", "fcf_margin", "fcf_growth_trend", "cash_conversion_quality"], "yfinance"),
-    _criterion(11, "Mega Trend Alignment", ["jane_theme_alignment", "industry_cagr", "policy_support", "capital_inflow"], "qualitative"),
+    _criterion(11, "Mega Trend Alignment", ["jane_theme_alignment", "industry_cagr", "policy_support", "capital_inflow"], "qualitative", ["jane_theme_alignment"], "user_theme_context"),
     _criterion(12, "Talent Attraction and Retention", ["hiring_trend", "key_executive_retention", "technical_team_reputation", "employee_review_trend"], "qualitative"),
     _criterion(13, "Global Market Expansion", ["international_revenue_mix", "global_tam", "geographic_expansion", "global_partnerships"], "semi_structured", ["international_revenue_mix"], "sec_companyfacts"),
     _criterion(14, "Life-Changing / Necessary Product", ["mission_critical_usage", "daily_or_weekly_usage", "customer_dependency", "infrastructure_role"], "qualitative"),

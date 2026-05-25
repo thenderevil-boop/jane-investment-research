@@ -46,12 +46,17 @@ Phase 40 USASpending source notes:
 
 Phase 47 USPTO PatentsView source notes:
 
-- `USE_LIVE_USPTO_PATENTS_DATA=true` enables the USPTO PatentsView patent-count adapter for `POST /api/analyze-stock`; no API key is required.
+- `USE_LIVE_USPTO_PATENTS_DATA=true` enables the USPTO PatentsView patent-count adapter for `POST /api/analyze-stock`; no API key is required. Phase 55 makes this no-key provider enabled by default while preserving `USE_LIVE_USPTO_PATENTS_DATA=false` as an explicit opt-out / disabled-provider state.
 - The adapter queries `https://search.patentsview.org/api/v1/patent/` for assignee organization names matching the company name and patent dates in the last three years, then caches raw snapshots under `USPTO_PATENTS_CACHE_TTL_DAYS`.
 - `patent_ip_evidence` normalizes `total_hits` into `patent_count`, keeps up to 10 sample patent records, and maps positive counts to Jane C18 `patent_count` Coverage Matrix context.
 - Phase 53 surfaces disabled-provider activation guidance in C18 Coverage Matrix limitations / `next_manual_check` when `USE_LIVE_USPTO_PATENTS_DATA=false`, rather than leaving the row as generic insufficient evidence.
 - Assignee/entity matching can miss subsidiaries or include similarly named/acquired entities. Patent count remains non-scoring, manual-review context only and is not treated as independently verified defensibility.
 - Disabled, empty, or failed PatentsView states return explicit C18 `insufficient_data` evidence instead of failing analyze-stock; cache-after-failure responses are labeled `cached_live`.
+
+Phase 55 Coverage Matrix source notes:
+
+- SEC 13F remains controlled by `USE_LIVE_SEC_13F` and remains delayed quarterly evidence. When the existing smart-money 13F path observes a candidate-specific target match, analyze-stock can partially cover C19 `institutional_support` and `fund_support` with `financial_proxy_source="sec_13f"`, `source_quality="filing_backed"`, and human-review limitations.
+- `research_context.theme` is not fetched from external sources. Phase 55 only maps explicit user context for known Jane strategic themes into C11 `jane_theme_alignment` with `source_quality="user_context"`; users must still verify actual company revenue exposure to the theme. This does not change final score, verdict, or investment-advice boundaries.
 
 Phase 41 OpenBB sidecar options notes:
 

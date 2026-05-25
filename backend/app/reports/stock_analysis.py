@@ -2627,6 +2627,8 @@ def _coverage_source_quality(items: list[dict]) -> str:
         return "provider_backed"
     if "cached_live" in qualities:
         return "cached_live"
+    if "user_context" in qualities:
+        return "user_context"
     if "user_provided" in qualities:
         return "user_provided"
     return sorted(qualities)[0]
@@ -2653,6 +2655,7 @@ def _accepted_jane_evidence_by_criterion(qualitative_assessment: dict) -> dict[i
 
 
 AUTO_DERIVED_PROXY_LIMITATION = "Auto-derived proxy. Verify against latest company filings before treating as confirmed evidence."
+THEME_CONTEXT_LIMITATION = "Theme mapping is user-provided context. Verify actual company revenue exposure to this theme before treating it as confirmed evidence."
 SHORT_INTEREST_PROXY_LIMITATION = (
     "Short interest is an auto-derived proxy for skepticism. High short interest may reflect hedging, "
     "index effects, pair trades, or ADR wrapper-level positioning rather than fundamental skepticism."
@@ -2661,6 +2664,20 @@ INSIDER_OWNERSHIP_PROXY_LIMITATION = (
     "Insider ownership includes all insiders, not only founder/CEO. It does not confirm founder-operator "
     "status and must be manually verified."
 )
+
+JANE_THEME_ALIGNMENT_SCORES = {
+    "AI infrastructure": 1.0,
+    "AI energy infrastructure": 1.0,
+    "quantum computing": 1.0,
+    "data center cooling": 1.0,
+    "humanoid robotics": 1.0,
+    "space economy": 1.0,
+    "longevity science": 1.0,
+    "stablecoin payment rails": 1.0,
+    "cybersecurity": 0.5,
+    "electric grid": 0.5,
+    "water resources": 0.5,
+}
 
 
 def _auto_proxy_value(value) -> float | None:
@@ -2824,6 +2841,40 @@ def _c5_auto_evidence(financials: dict) -> dict | None:
     }
 
 
+def _c11_theme_auto_evidence(research_context: dict) -> dict | None:
+    theme = str((research_context or {}).get("theme") or "").strip()
+    if not theme:
+        return None
+    theme_lower = theme.lower()
+    matched_theme = None
+    confidence = 0.0
+    for jane_theme, score in JANE_THEME_ALIGNMENT_SCORES.items():
+        jane_theme_lower = jane_theme.lower()
+        if jane_theme_lower in theme_lower or theme_lower in jane_theme_lower:
+            matched_theme = jane_theme
+            confidence = float(score)
+            break
+    if matched_theme is None:
+        return None
+    return {
+        "submetric": "jane_theme_alignment",
+        "accepted": True,
+        "confidence": confidence,
+        "source_quality": "user_context",
+        "source_label": "user_theme_context",
+        "summary": f"User-provided theme '{theme}' maps to Jane mega trend category '{matched_theme}'.",
+        "auto_derived": True,
+        "requires_human_verification": True,
+        "requires_review": True,
+        "not_investment_advice": True,
+        "metric": "jane_theme_alignment",
+        "value": confidence,
+        "unit": "theme mapping score",
+        "label": "user_theme_context_match",
+        "limitations": [AUTO_DERIVED_PROXY_LIMITATION, THEME_CONTEXT_LIMITATION],
+    }
+
+
 def _auto_financial_proxy_evidence_by_criterion(response: AnalyzeStockResponse) -> dict[int, list[dict]]:
     financials = response.financial_quality.raw_data if response.financial_quality else {}
     evidence: dict[int, list[dict]] = {}
@@ -2836,7 +2887,54 @@ def _auto_financial_proxy_evidence_by_criterion(response: AnalyzeStockResponse) 
     c5 = _c5_auto_evidence(financials)
     if c5:
         evidence.setdefault(5, []).append(c5)
+    c11 = _c11_theme_auto_evidence((response.company_profile or {}).get("research_context") or {})
+    if c11:
+        evidence.setdefault(11, []).append(c11)
     return evidence
+
+
+def _institutional_13f_evidence_by_criterion(response: AnalyzeStockResponse) -> dict[int, list[dict]]:
+    institutional_13f = response.institutional_13f or {}
+    label = str(institutional_13f.get("label") or "")
+    candidate_specific = institutional_13f.get("candidate_specific_evidence") or {}
+    source_status = _status_dict(institutional_13f.get("source_status"))
+    source_type = source_status.get("source_type") or "unknown"
+    if label == "institutional_target_match_observed" or candidate_specific.get("matched_in_13f") is True:
+        confidence = 0.5
+        covered = ["institutional_support", "fund_support"]
+        summary = "Institutional 13F match confirmed in configured manager portfolio. Delayed quarterly evidence."
+    elif label == "institutional_evidence_limited":
+        confidence = 0.25
+        covered = ["institutional_support"]
+        summary = "Partial 13F evidence. Manager coverage limited."
+    else:
+        return {}
+    source_quality = "filing_backed" if label in {"institutional_target_match_observed", "institutional_evidence_limited"} or source_type in {"live", "cached_live"} else "mixed_with_fallback"
+    evidence = []
+    for submetric in covered:
+        evidence.append(
+            {
+                "submetric": submetric,
+                "accepted": True,
+                "confidence": confidence,
+                "source_quality": source_quality,
+                "source_label": "SEC EDGAR 13F",
+                "summary": summary,
+                "auto_derived": True,
+                "requires_human_verification": True,
+                "requires_review": True,
+                "not_investment_advice": True,
+                "metric": "institutional_13f_match",
+                "value": confidence,
+                "unit": "13F evidence proxy",
+                "label": label or "institutional_13f_context",
+                "limitations": [
+                    AUTO_DERIVED_PROXY_LIMITATION,
+                    "13F is delayed quarterly evidence. Does not reflect current institutional positions.",
+                ],
+            }
+        )
+    return {19: evidence}
 
 
 def _sec_financial_proxy_evidence_by_criterion(response: AnalyzeStockResponse) -> dict[int, list[dict]]:
@@ -2957,6 +3055,7 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
     evidence_by_id = _accepted_jane_evidence_by_criterion(response.qualitative_evidence_assessment.model_dump(mode="json"))
     sec_proxy_by_id = _sec_financial_proxy_evidence_by_criterion(response)
     auto_proxy_by_id = _auto_financial_proxy_evidence_by_criterion(response)
+    institutional_13f_by_id = _institutional_13f_evidence_by_criterion(response)
     transcript_by_id = _external_transcript_evidence_by_criterion(response)
     government_by_id = _government_relationship_evidence_by_criterion(response)
     patent_by_id = _patent_ip_evidence_by_criterion(response)
@@ -2970,6 +3069,7 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
             *evidence_by_id.get(criterion_id, []),
             *sec_proxy_by_id.get(criterion_id, []),
             *auto_proxy_by_id.get(criterion_id, []),
+            *institutional_13f_by_id.get(criterion_id, []),
             *transcript_by_id.get(criterion_id, []),
             *government_by_id.get(criterion_id, []),
             *patent_by_id.get(criterion_id, []),

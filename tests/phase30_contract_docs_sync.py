@@ -202,6 +202,27 @@ def test_phase54_adr_manual_evidence_library_review_queue_contract_is_documented
         assert token in api_spec or token in readme or token in changelog
 
 
+def test_phase55_coverage_matrix_auto_evidence_expansion_contract_is_documented() -> None:
+    api_spec = _read("docs/API_SPEC.md")
+    readme = _read("README.md")
+    changelog = _read("docs/CHANGELOG.md")
+    data_sources = _read("docs/DATA_SOURCES.md")
+    framework = _read("docs/JANE_FRAMEWORK_MAPPING.md")
+    frontend_types = _read("frontend/src/types.ts")
+
+    for text in [api_spec, readme, changelog, data_sources, framework]:
+        assert "Phase 55" in text
+        assert "USE_LIVE_USPTO_PATENTS_DATA" in text
+        assert "jane_theme_alignment" in text
+        assert "institutional_support" in text
+        assert "fund_support" in text
+        assert "does not change final score" in text or "without changing final scoring" in text or "Preserved final score" in text
+
+    for token in ["user_context", "filing_backed", "sec_13f", "financial_proxy_source"]:
+        assert token in api_spec
+        assert token in frontend_types
+
+
 def test_phase52_adr_manual_evidence_contract_is_documented() -> None:
     schema = _load_schema()
     input_props = QualitativeEvidenceInput.model_json_schema()["properties"]

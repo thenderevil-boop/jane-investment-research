@@ -141,6 +141,8 @@ Phase 52 adds the intake side of that ADR path. Manual evidence can carry filing
 
 Phase 54 connects that ADR intake metadata to the saved Evidence Library and review queue UX. The Evidence Library form exposes ADR helper fields, saved ADR items fallback `document_date` into `source_date` for freshness review, and dashboard queue rows surface ADR filing metadata plus `adr_review_label` / `adr_review_guidance` while keeping `affects_score=false` and `not_investment_advice=true`. This improves manual review workflow visibility only; it does not add provider fetching, source verification, scoring weight, or verdict changes.
 
+Phase 55 expands non-scoring Coverage Matrix auto-evidence for selected manual-review gaps. C18 `patent_count` uses USPTO PatentsView by default as a no-key provider but remains manually verified for relevance and defensibility. C19 can use existing SEC 13F target-match evidence to cover `institutional_support` and `fund_support` as delayed quarterly filing context. C11 can use explicit `research_context.theme` text for `jane_theme_alignment` when it matches known Jane strategic themes, but the system still requires manual proof of company revenue exposure. This does not change final score, verdict, or investment-advice boundaries.
+
 Phase 29 surfaces the same coverage and evidence gaps through analyze-stock `validation_os_report`, a non-scoring explainability layer that summarizes Jane quality context, coverage gaps, manual checks, source-quality caveats, and research-only limitations without changing the final score or verdict.
 
 Implementation module:

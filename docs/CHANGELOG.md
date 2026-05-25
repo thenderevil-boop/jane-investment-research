@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 55 — Coverage Matrix Auto-Evidence Expansion
+
+- Default-enabled no-key USPTO PatentsView C18 `patent_count` coverage while preserving `USE_LIVE_USPTO_PATENTS_DATA=false` as an explicit disabled-provider state.
+- Linked existing SEC 13F target-match context into C19 `institutional_support` / `fund_support` Coverage Matrix completeness as delayed, filing-backed, manual-review evidence.
+- Added user-theme context mapping for C11 `jane_theme_alignment` so known Jane strategic themes in `research_context.theme` can appear as user-context evidence without replacing manual revenue-exposure verification.
+- Preserved final score, verdict, scoring weights, investment-advice boundaries, and existing response schema shape.
+
 ## Phase 54 — ADR Manual Evidence Library UX and Review Queue Integration
 
 - Added Evidence Library ADR helper fields for `adr_evidence_type`, `document_title`, `document_date`, `filing_period`, `quoted_text`, `local_market`, `local_ticker`, and `translation_note`, so saved manual filing references can be entered without pasting raw JSON.
