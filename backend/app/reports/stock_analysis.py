@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 
+from backend.app import config
 from backend.app.data_sources.fmp_financials import get_fmp_financial_proxy
 from backend.app.data_sources.openbb_options import get_openbb_options_activity
 from backend.app.data_sources.fmp_transcripts import get_earnings_transcript_analysis
@@ -2866,6 +2867,211 @@ def _build_company_event_signal_breakdown(smart_money: ScoreObject) -> dict:
     }
 
 
+def _build_platform_business_quality_card(company_fundamentals: dict, qualitative_assessment: dict | object) -> dict:
+    source_status = _status_dict(company_fundamentals.get("source_status"))
+    source_quality = _source_type_for_breakdown(source_status)
+    source_date = str(company_fundamentals.get("source_date") or source_status.get("source_date") or "")
+
+    def numeric(value) -> float | None:
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def metric(
+        name: str,
+        label: str,
+        category: str,
+        status: str,
+        interpretation: str,
+        manual_check: str,
+        observed_value=None,
+        metric_source_quality: str = "unknown",
+        metric_source_date: str = "",
+        limitations: list[str] | None = None,
+        requires_manual_evidence: bool = True,
+    ) -> dict:
+        return {
+            "name": name,
+            "label": label,
+            "category": category,
+            "status": status,
+            "observed_value": observed_value,
+            "source_quality": metric_source_quality,
+            "source_date": metric_source_date,
+            "interpretation": interpretation,
+            "manual_check": manual_check,
+            "limitations": limitations or [],
+            "requires_manual_evidence": requires_manual_evidence,
+            "affects_score": False,
+        }
+
+    def qa_items() -> list[dict]:
+        if hasattr(qualitative_assessment, "model_dump"):
+            dumper = getattr(qualitative_assessment, "model_dump")
+            payload = dumper(mode="json")
+        elif isinstance(qualitative_assessment, dict):
+            payload = qualitative_assessment
+        else:
+            payload = {}
+        return [item for item in payload.get("evidence_items", []) if isinstance(item, dict)]
+
+    network_items = [
+        item
+        for item in qa_items()
+        if item.get("accepted") is True
+        and (str(item.get("criterion") or "") == "network_effect" or item.get("criterion_id") == 8 or str(item.get("submetric") or "") == "network_effect")
+    ]
+    network_summary = " ".join(str(item.get("summary") or "") for item in network_items).strip()
+    network_source_date = next((str(item.get("source_date") or "") for item in network_items if item.get("source_date")), "")
+
+    free_cash_flow = numeric(company_fundamentals.get("free_cash_flow_ttm"))
+    cash = numeric(company_fundamentals.get("cash_and_equivalents"))
+    operating_margin = numeric(company_fundamentals.get("operating_margin_pct"))
+    fcf_margin = numeric(company_fundamentals.get("free_cash_flow_margin_pct") or company_fundamentals.get("fcf_margin_pct"))
+
+    metrics = [
+        metric(
+            "gmv_growth",
+            "GMV growth",
+            "growth",
+            "manual_or_disclosed_only",
+            "GMV growth is only useful when the company discloses marketplace volume or equivalent transaction value.",
+            "Check shareholder letters, segment disclosures, S-1/10-K KPIs, and management commentary for GMV or bookings growth.",
+            None,
+            "unavailable",
+            "",
+            ["Do not infer GMV growth from revenue growth unless take rate and marketplace volume are separately disclosed."],
+        ),
+        metric(
+            "take_rate",
+            "Take rate",
+            "monetization",
+            "manual_or_disclosed_only",
+            "Take rate requires disclosed platform revenue divided by GMV or an equivalent marketplace denominator.",
+            "Verify whether the company reports platform revenue, GMV, bookings, transaction volume, or merchant/customer fee rates.",
+            None,
+            "unavailable",
+            "",
+            ["Do not back-solve take rate without an explicitly disclosed GMV or platform volume base."],
+        ),
+        metric(
+            "net_dollar_retention",
+            "NDR / net revenue retention",
+            "retention",
+            "manual_or_disclosed_only",
+            "NDR is a retention and expansion KPI that must come from company disclosure or a vetted provider.",
+            "Look for NDR/NRR, cohort retention, dollar-based retention, or expansion-rate disclosures in filings and investor presentations.",
+            None,
+            "unavailable",
+            "",
+            ["Revenue growth alone does not prove net dollar retention."],
+        ),
+        metric(
+            "burn_rate",
+            "Burn rate",
+            "cash",
+            "computed_proxy" if free_cash_flow is not None and free_cash_flow < 0 else "unavailable",
+            "Negative free cash flow can be used as a rough annual burn proxy; positive or missing FCF means burn rate is not inferred.",
+            "Verify cash burn against cash-flow statement seasonality, SBC, working-capital swings, financing activity, and management runway guidance.",
+            abs(free_cash_flow) if free_cash_flow is not None and free_cash_flow < 0 else None,
+            source_quality if free_cash_flow is not None and free_cash_flow < 0 else "unavailable",
+            source_date if free_cash_flow is not None and free_cash_flow < 0 else "",
+            ["Burn rate is a rough proxy from free cash flow and is not a forecast."] if free_cash_flow is not None and free_cash_flow < 0 else ["No negative free-cash-flow burn proxy is available from current fundamentals."],
+            free_cash_flow is None or free_cash_flow >= 0,
+        ),
+        metric(
+            "runway",
+            "Cash runway",
+            "cash",
+            "computed_proxy" if free_cash_flow is not None and free_cash_flow < 0 and cash is not None and cash > 0 else "unavailable",
+            "Runway can be approximated only when cash and negative free cash flow are both available.",
+            "Compare computed runway against disclosed liquidity, debt maturities, credit lines, capex plans, and management guidance.",
+            round(cash / (abs(free_cash_flow) / 12), 1) if free_cash_flow is not None and free_cash_flow < 0 and cash is not None and cash > 0 else None,
+            source_quality if free_cash_flow is not None and free_cash_flow < 0 and cash is not None and cash > 0 else "unavailable",
+            source_date if free_cash_flow is not None and free_cash_flow < 0 and cash is not None and cash > 0 else "",
+            ["Runway is an approximate months-of-cash proxy, not a solvency forecast."] if free_cash_flow is not None and free_cash_flow < 0 and cash is not None and cash > 0 else ["Cash runway is unavailable without both cash balance and negative free-cash-flow burn."],
+        ),
+        metric(
+            "marketplace_liquidity",
+            "Marketplace liquidity",
+            "marketplace",
+            "manual_or_disclosed_only",
+            "Marketplace liquidity requires supply/demand depth, transaction velocity, fill-rate, active buyer/seller, or similar disclosed marketplace KPIs.",
+            "Verify active buyers/sellers, transaction frequency, fill rate, inventory depth, utilization, wait times, or cohort liquidity disclosures.",
+            None,
+            "unavailable",
+            "",
+            ["The system does not infer marketplace liquidity from sector or revenue alone."],
+        ),
+        metric(
+            "network_effect",
+            "Network effect",
+            "network_effect",
+            "manual_evidence" if network_items else "manual_or_disclosed_only",
+            network_summary or "Network effect requires evidence of two-sided liquidity, ecosystem lock-in, switching costs, developer/customer adoption loops, or data/network flywheels.",
+            "Review whether supplied evidence proves durable network effects rather than ordinary brand, scale, or sales execution.",
+            len(network_items) if network_items else None,
+            "user_provided" if network_items else "unavailable",
+            network_source_date,
+            ["User-provided network-effect evidence still requires manual verification against filings, product metrics, and customer behavior."],
+        ),
+        metric(
+            "ltv_cac",
+            "LTV/CAC",
+            "unit_economics",
+            "manual_or_disclosed_only",
+            "LTV/CAC requires disclosed customer economics, churn/retention, gross margin, and acquisition-cost assumptions.",
+            "Check cohort disclosures, CAC payback, sales efficiency, gross retention, churn, ARPU, and sales/marketing efficiency.",
+            None,
+            "unavailable",
+            "",
+            ["The system does not estimate LTV/CAC from aggregate revenue and sales expense without cohort assumptions."],
+        ),
+        metric(
+            "contribution_margin_operating_leverage",
+            "Contribution margin / operating leverage",
+            "operating_leverage",
+            "computed_proxy" if operating_margin is not None or fcf_margin is not None else "unavailable",
+            "Operating margin and free-cash-flow margin can provide a public-data proxy for operating leverage, but contribution margin usually requires company disclosure.",
+            "Review gross margin, contribution margin disclosures, operating-expense scaling, operating leverage durability, and cohort profitability.",
+            {"operating_margin_pct": operating_margin, "free_cash_flow_margin_pct": fcf_margin} if operating_margin is not None or fcf_margin is not None else None,
+            source_quality if operating_margin is not None or fcf_margin is not None else "unavailable",
+            source_date if operating_margin is not None or fcf_margin is not None else "",
+            ["Contribution margin itself remains manual/disclosed evidence unless reported by the company."],
+            True,
+        ),
+    ]
+    computed = [item["name"] for item in metrics if item["status"] == "computed_proxy"]
+    manual_evidence = [item["name"] for item in metrics if item["status"] == "manual_evidence"]
+    manual_or_disclosed = [item["name"] for item in metrics if item["status"] == "manual_or_disclosed_only"]
+    return {
+        "version": "phase59_platform_business_quality_card_v1",
+        "summary": "Platform-business quality metrics are organized for manual review; this Phase 59 card does not change final score, verdict, or confidence gates.",
+        "platform_metric_count": len(metrics),
+        "computed_metric_names": computed,
+        "manual_evidence_metric_names": manual_evidence,
+        "manual_or_disclosed_metric_names": manual_or_disclosed,
+        "metrics": metrics,
+        "manual_review_required": True,
+        "manual_checks": [
+            "Verify GMV, take rate, NDR, marketplace liquidity, and LTV/CAC from company disclosures before treating them as platform evidence.",
+            "Treat computed burn/runway and operating-leverage fields as rough public-data proxies only.",
+            "Confirm network-effect evidence separately from generic scale or brand claims.",
+        ],
+        "limitations": [
+            "Platform metrics are unavailable unless disclosed or manually supplied with source context.",
+            "Phase 59 does not add a new provider and does not infer private marketplace KPIs from sector labels.",
+            "Phase 59 does not change final score, research verdict, or confidence gates.",
+        ],
+        "affects_score": False,
+        "final_score_unchanged": True,
+        "not_investment_advice": True,
+    }
+
+
 def _coverage_source_quality(items: list[dict]) -> str:
     accepted = [item for item in items if item.get("accepted") is True]
     if not accepted:
@@ -2957,6 +3163,28 @@ def _normalise_short_percent(value) -> float | None:
     return _normalise_fraction_or_percent(value)
 
 
+def _normalised_cik_set(raw: str | list[str]) -> set[str]:
+    values = raw if isinstance(raw, list) else str(raw or "").split(",")
+    result: set[str] = set()
+    for item in values:
+        digits = "".join(ch for ch in str(item or "") if ch.isdigit())
+        if digits:
+            result.add(digits.zfill(10))
+    return result
+
+
+def _sec_13f_target_manager_config_warning() -> str | None:
+    configured = _normalised_cik_set(config.SEC_13F_TARGET_MANAGERS)
+    defaults = _normalised_cik_set(config.DEFAULT_SEC_13F_TARGET_MANAGERS)
+    missing_defaults = sorted(defaults - configured)
+    if not configured or not missing_defaults:
+        return None
+    return (
+        "SEC_13F_TARGET_MANAGERS override is missing default managers: "
+        f"{', '.join(missing_defaults)}. This can reduce C19/smart-money target-match evidence until deployment env is restored."
+    )
+
+
 def _financial_proxy_quality_for_fields(financials: dict, fields: set[str]) -> str:
     filing_fields = set(financials.get("filing_backed_fields") or [])
     fmp_fields = set(financials.get("fmp_backed_fields") or [])
@@ -3024,7 +3252,7 @@ def _c3_auto_evidence(financials: dict) -> dict | None:
     parts = []
     if short_ratio is not None:
         metric_fields.add("short_ratio")
-        parts.append(f"Short ratio {short_ratio:.1f}x")
+        parts.append(f"Short ratio {short_ratio:.1f}x short interest proxy")
     if short_percent is not None:
         metric_fields.add("short_percent_of_float")
         parts.append(f"{short_percent:.1f}% of float short")
@@ -3172,6 +3400,13 @@ def _institutional_13f_evidence_by_criterion(response: AnalyzeStockResponse) -> 
     else:
         return {}
     source_quality = "filing_backed" if label in {"institutional_target_match_observed", "institutional_evidence_limited"} or source_type in {"live", "cached_live"} else "mixed_with_fallback"
+    limitations = [
+        AUTO_DERIVED_PROXY_LIMITATION,
+        "13F is delayed quarterly evidence. Does not reflect current institutional positions.",
+    ]
+    config_warning = _sec_13f_target_manager_config_warning()
+    if config_warning:
+        limitations.append(config_warning)
     evidence = []
     for submetric in covered:
         evidence.append(
@@ -3190,10 +3425,7 @@ def _institutional_13f_evidence_by_criterion(response: AnalyzeStockResponse) -> 
                 "value": confidence,
                 "unit": "13F evidence proxy",
                 "label": label or "institutional_13f_context",
-                "limitations": [
-                    AUTO_DERIVED_PROXY_LIMITATION,
-                    "13F is delayed quarterly evidence. Does not reflect current institutional positions.",
-                ],
+                "limitations": limitations,
             }
         )
     return {19: evidence}
@@ -3357,6 +3589,11 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
         is_foreign_filer = bool(foreign_diag and foreign_diag.is_foreign_filer_or_adr)
         if is_foreign_filer and criterion_id in ADR_CRITERION_MANUAL_CHECKS:
             next_manual_check = ADR_CRITERION_MANUAL_CHECKS[criterion_id]
+        elif criterion_id == 3 and "short_interest_proxy" in missing:
+            next_manual_check = (
+                "Verify C3 market skepticism evidence: short interest proxy, negative analyst consensus, media skepticism, "
+                "and product category disbelief. Yfinance short interest fields can auto-fill only when available."
+            )
         elif criterion_id == 11:
             theme_context = getattr(response, "theme_validation_context", None)
             supplied_theme = getattr(theme_context, "supplied_theme", None) if theme_context else None
@@ -4772,6 +5009,13 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         insider_activity = ScoreObject.model_validate(insider_activity)
     if not hasattr(institutional_13f, "model_dump"):
         institutional_13f = ScoreObject.model_validate(institutional_13f)
+    thirteen_f_config_warning = _sec_13f_target_manager_config_warning()
+    if thirteen_f_config_warning and thirteen_f_config_warning not in institutional_13f.limitations:
+        institutional_13f.limitations = [*institutional_13f.limitations, thirteen_f_config_warning]
+        institutional_13f.raw_data = {
+            **institutional_13f.raw_data,
+            "target_manager_config_warning": thirteen_f_config_warning,
+        }
     leadership_status = build_source_status(leadership_score.model_dump(mode="json"))
     leadership_score.source_status = leadership_status
     company_profile_status = build_source_status(company_profile)
@@ -4895,6 +5139,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         theme_validation_context=_build_theme_validation_context(research_context),
         macro_flow_signal_breakdown=_build_macro_flow_signal_breakdown(macro_regime, smart_money, research_verdict),
         company_event_signal_breakdown=_build_company_event_signal_breakdown(smart_money),
+        platform_business_quality_card=_build_platform_business_quality_card(company_fundamentals, qualitative_evidence_assessment),
         evidence_freshness_policy=_build_evidence_freshness_policy(),
         stale_review_queue={},
         score_driver_breakdown={

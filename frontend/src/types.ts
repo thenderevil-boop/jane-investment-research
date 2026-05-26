@@ -631,6 +631,37 @@ export type CompanyEventSignalBreakdown = {
   not_investment_advice: boolean;
 };
 
+export type PlatformBusinessQualityMetric = {
+  name: 'gmv_growth' | 'take_rate' | 'net_dollar_retention' | 'burn_rate' | 'runway' | 'marketplace_liquidity' | 'network_effect' | 'ltv_cac' | 'contribution_margin_operating_leverage';
+  label: string;
+  category: 'growth' | 'monetization' | 'retention' | 'cash' | 'marketplace' | 'network_effect' | 'unit_economics' | 'operating_leverage';
+  status: 'computed_proxy' | 'manual_evidence' | 'manual_or_disclosed_only' | 'unavailable';
+  observed_value?: unknown;
+  source_quality: SourceType | 'user_provided' | 'unavailable';
+  source_date: string;
+  interpretation: string;
+  manual_check: string;
+  limitations: string[];
+  requires_manual_evidence: boolean;
+  affects_score: boolean;
+};
+
+export type PlatformBusinessQualityCard = {
+  version: 'phase59_platform_business_quality_card_v1';
+  summary: string;
+  platform_metric_count: number;
+  computed_metric_names: string[];
+  manual_evidence_metric_names: string[];
+  manual_or_disclosed_metric_names: string[];
+  metrics: PlatformBusinessQualityMetric[];
+  manual_review_required: boolean;
+  manual_checks: string[];
+  limitations: string[];
+  affects_score: boolean;
+  final_score_unchanged: boolean;
+  not_investment_advice: boolean;
+};
+
 export type ValidationOSReport = {
   ticker: string;
   research_label: string;
@@ -1429,6 +1460,7 @@ export type StockAnalysis = {
   theme_validation_context?: ThemeValidationContext;
   macro_flow_signal_breakdown?: MacroFlowSignalBreakdown;
   company_event_signal_breakdown?: CompanyEventSignalBreakdown;
+  platform_business_quality_card?: PlatformBusinessQualityCard;
   validation_os_report?: ValidationOSReport;
   data_quality_summary?: AnalyzeStockDataQualitySummary;
   foreign_filer_coverage_diagnostics?: ForeignFilerCoverageDiagnostics;

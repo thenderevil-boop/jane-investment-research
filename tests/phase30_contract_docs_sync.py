@@ -282,6 +282,36 @@ def test_phase58_company_event_signal_breakdown_contract_is_documented() -> None
         assert token in frontend_types
 
 
+def test_phase59_platform_business_quality_card_contract_is_documented() -> None:
+    schema = _load_schema()
+    defs = schema["$defs"]
+    api_spec = _read("docs/API_SPEC.md")
+    readme = _read("README.md")
+    changelog = _read("docs/CHANGELOG.md")
+    data_sources = _read("docs/DATA_SOURCES.md")
+    framework = _read("docs/JANE_FRAMEWORK_MAPPING.md")
+    frontend_types = _read("frontend/src/types.ts")
+    stock_research = _read("frontend/src/pages/StockResearch.tsx")
+
+    assert "platform_business_quality_card" in schema["properties"]
+    assert "PlatformBusinessQualityCard" in defs
+    assert "PlatformBusinessQualityMetric" in defs
+
+    for text in [api_spec, readme, changelog, data_sources, framework, frontend_types, stock_research]:
+        assert "platform_business_quality_card" in text
+        assert "phase59_platform_business_quality_card_v1" in text
+
+    for text in [api_spec, readme, changelog, data_sources, framework]:
+        assert "Phase 59" in text
+        assert "GMV" in text
+        assert "take rate" in text
+        assert "does not change final score" in text or "does not change final scoring" in text
+
+    for token in ["gmv_growth", "take_rate", "net_dollar_retention", "runway", "network_effect", "ltv_cac", "final_score_unchanged", "not_investment_advice"]:
+        assert token in api_spec
+        assert token in frontend_types
+
+
 def test_phase52_adr_manual_evidence_contract_is_documented() -> None:
     schema = _load_schema()
     input_props = QualitativeEvidenceInput.model_json_schema()["properties"]

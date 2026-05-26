@@ -3271,6 +3271,198 @@
       "title": "PatentRecord",
       "type": "object"
     },
+    "PlatformBusinessQualityCard": {
+      "properties": {
+        "version": {
+          "const": "phase59_platform_business_quality_card_v1",
+          "default": "phase59_platform_business_quality_card_v1",
+          "title": "Version",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "platform_metric_count": {
+          "default": 0,
+          "title": "Platform Metric Count",
+          "type": "integer"
+        },
+        "computed_metric_names": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Computed Metric Names",
+          "type": "array"
+        },
+        "manual_evidence_metric_names": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manual Evidence Metric Names",
+          "type": "array"
+        },
+        "manual_or_disclosed_metric_names": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manual Or Disclosed Metric Names",
+          "type": "array"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/PlatformBusinessQualityMetric"
+          },
+          "title": "Metrics",
+          "type": "array"
+        },
+        "manual_review_required": {
+          "default": true,
+          "title": "Manual Review Required",
+          "type": "boolean"
+        },
+        "manual_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manual Checks",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "final_score_unchanged": {
+          "default": true,
+          "title": "Final Score Unchanged",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "summary"
+      ],
+      "title": "PlatformBusinessQualityCard",
+      "type": "object"
+    },
+    "PlatformBusinessQualityMetric": {
+      "properties": {
+        "name": {
+          "enum": [
+            "gmv_growth",
+            "take_rate",
+            "net_dollar_retention",
+            "burn_rate",
+            "runway",
+            "marketplace_liquidity",
+            "network_effect",
+            "ltv_cac",
+            "contribution_margin_operating_leverage"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "growth",
+            "monetization",
+            "retention",
+            "cash",
+            "marketplace",
+            "network_effect",
+            "unit_economics",
+            "operating_leverage"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "status": {
+          "default": "unavailable",
+          "enum": [
+            "computed_proxy",
+            "manual_evidence",
+            "manual_or_disclosed_only",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "observed_value": {
+          "default": null,
+          "title": "Observed Value"
+        },
+        "source_quality": {
+          "default": "unknown",
+          "enum": [
+            "live",
+            "cached_live",
+            "derived",
+            "user_provided",
+            "mock",
+            "fallback",
+            "unknown",
+            "unavailable"
+          ],
+          "title": "Source Quality",
+          "type": "string"
+        },
+        "source_date": {
+          "default": "",
+          "title": "Source Date",
+          "type": "string"
+        },
+        "interpretation": {
+          "title": "Interpretation",
+          "type": "string"
+        },
+        "manual_check": {
+          "title": "Manual Check",
+          "type": "string"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "requires_manual_evidence": {
+          "default": true,
+          "title": "Requires Manual Evidence",
+          "type": "boolean"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "label",
+        "category",
+        "interpretation",
+        "manual_check"
+      ],
+      "title": "PlatformBusinessQualityMetric",
+      "type": "object"
+    },
     "QualitativeEvidenceAssessment": {
       "properties": {
         "ticker": {
@@ -4736,6 +4928,9 @@
     "company_event_signal_breakdown": {
       "$ref": "#/$defs/CompanyEventSignalBreakdown"
     },
+    "platform_business_quality_card": {
+      "$ref": "#/$defs/PlatformBusinessQualityCard"
+    },
     "evidence_freshness_policy": {
       "$ref": "#/$defs/EvidenceFreshnessPolicy"
     },
@@ -4914,6 +5109,7 @@
     "data_quality_summary",
     "macro_flow_signal_breakdown",
     "company_event_signal_breakdown",
+    "platform_business_quality_card",
     "score_driver_breakdown",
     "next_manual_checks",
     "qualitative_evidence_assessment",

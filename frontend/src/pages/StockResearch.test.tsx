@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import type { DataSourceStatus, JaneCriterion, ScoreLike, StockAnalysis } from '../types';
 import { getJaneCriteria } from '../api/client';
-import StockResearch, { AnalystBriefSection, AnalyzeDataQualitySection, CandidateSummarySection, CompanyEventSignalBreakdownSection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, ForeignFilerCoverageDiagnosticsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, MacroFlowSignalBreakdownSection, ManualChecksSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ResearchSignalExplanationSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ThemeValidationBoundarySection, ValidationOSReportSection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
+import StockResearch, { AnalystBriefSection, AnalyzeDataQualitySection, CandidateSummarySection, CompanyEventSignalBreakdownSection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, ForeignFilerCoverageDiagnosticsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, MacroFlowSignalBreakdownSection, ManualChecksSection, PlatformBusinessQualityCardSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ResearchSignalExplanationSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ThemeValidationBoundarySection, ValidationOSReportSection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -40,6 +40,44 @@ function score(status: DataSourceStatus | null = mockStatus): ScoreLike {
 }
 
 describe('StockResearch presentation helpers', () => {
+
+  it('renders Phase 59 platform business quality card as manual/non-scoring context', () => {
+    const html = renderToStaticMarkup(
+      <PlatformBusinessQualityCardSection
+        card={{
+          version: 'phase59_platform_business_quality_card_v1',
+          summary: 'Platform-business quality metrics are organized for manual review; this Phase 59 card does not change final score, verdict, or confidence gates.',
+          platform_metric_count: 3,
+          computed_metric_names: ['contribution_margin_operating_leverage'],
+          manual_evidence_metric_names: ['network_effect'],
+          manual_or_disclosed_metric_names: ['gmv_growth', 'take_rate'],
+          metrics: [
+            { name: 'gmv_growth', label: 'GMV growth', category: 'growth', status: 'manual_or_disclosed_only', observed_value: null, source_quality: 'unavailable', source_date: '', interpretation: 'GMV growth requires disclosed marketplace volume.', manual_check: 'Check filings for GMV.', limitations: ['Do not infer GMV growth from revenue growth.'], requires_manual_evidence: true, affects_score: false },
+            { name: 'network_effect', label: 'Network effect', category: 'network_effect', status: 'manual_evidence', observed_value: 1, source_quality: 'user_provided', source_date: '2026-05-25', interpretation: 'Switching costs evidence supplied by user.', manual_check: 'Verify durable network effects.', limitations: ['Requires manual verification.'], requires_manual_evidence: true, affects_score: false },
+            { name: 'contribution_margin_operating_leverage', label: 'Contribution margin / operating leverage', category: 'operating_leverage', status: 'computed_proxy', observed_value: { operating_margin_pct: 60.1 }, source_quality: 'derived', source_date: '2026-05-01', interpretation: 'Operating margin is a proxy for operating leverage.', manual_check: 'Review contribution margin disclosures.', limitations: ['Contribution margin remains manual/disclosed evidence.'], requires_manual_evidence: true, affects_score: false },
+          ],
+          manual_review_required: true,
+          manual_checks: ['Verify GMV, take rate, NDR, marketplace liquidity, and LTV/CAC from company disclosures.'],
+          limitations: ['Platform metrics are unavailable unless disclosed or manually supplied with source context.'],
+          affects_score: false,
+          final_score_unchanged: true,
+          not_investment_advice: true,
+        }}
+      />,
+    );
+
+    expect(html).toContain('Platform Business Quality Card');
+    expect(html).toContain('phase59_platform_business_quality_card_v1');
+    expect(html).toContain('Non-scoring explanation only');
+    expect(html).toContain('Final score unchanged');
+    expect(html).toContain('gmv_growth');
+    expect(html).toContain('take_rate');
+    expect(html).toContain('network_effect');
+    expect(html).toContain('manual_or_disclosed_only');
+    expect(html).toContain('contribution_margin_operating_leverage');
+    expect(html).not.toContain('Buy');
+    expect(html).not.toContain('Sell');
+  });
 
   it('renders Phase 58 company event and lock-up signal breakdown as non-scoring context', () => {
     const html = renderToStaticMarkup(

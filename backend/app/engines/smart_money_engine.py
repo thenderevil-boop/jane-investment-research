@@ -23,6 +23,31 @@ FORM4_TRANSACTION_ROW_CAP = 25
 THIRTEEN_F_QOQ_CHANGE_CAP = 20
 
 
+def _normalized_cik_list(raw: str | list[str]) -> list[str]:
+    values = raw if isinstance(raw, list) else str(raw or "").split(",")
+    normalized: list[str] = []
+    for item in values:
+        cik = str(item or "").strip()
+        if not cik:
+            continue
+        digits = "".join(ch for ch in cik if ch.isdigit())
+        if digits:
+            normalized.append(digits.zfill(10))
+    return normalized
+
+
+def _sec_13f_target_manager_config_warning() -> str | None:
+    configured = set(_normalized_cik_list(config.SEC_13F_TARGET_MANAGERS))
+    defaults = set(_normalized_cik_list(config.DEFAULT_SEC_13F_TARGET_MANAGERS))
+    missing_defaults = sorted(defaults - configured)
+    if not configured or not missing_defaults:
+        return None
+    return (
+        "SEC_13F_TARGET_MANAGERS override is missing default managers: "
+        f"{', '.join(missing_defaults)}. This can reduce C19/smart-money target-match evidence until deployment env is restored."
+    )
+
+
 def _capped_qoq_changes(qoq_changes: list[dict[str, Any]], limit: int = THIRTEEN_F_QOQ_CHANGE_CAP) -> list[dict[str, Any]]:
     return sorted(
         list(qoq_changes or []),
@@ -268,6 +293,9 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
         missing.append("live SEC 13F data")
     if live_holdings or deduped_snapshots:
         limitations = [*THIRTEEN_F_LIMITATIONS, *source_snapshot.get("limitations", [])]
+        config_warning = _sec_13f_target_manager_config_warning()
+        if config_warning:
+            limitations.append(config_warning)
         if mock_sourced_13f:
             limitations.append("Mock 13F target matches are diagnostics only and do not count as live institutional evidence.")
         institutional_raw_data = {
@@ -367,7 +395,7 @@ def evaluate_13f_institutional_support(data: dict[str, Any]) -> ScoreObject:
             "sector_median_institutional_ownership": raw.get("sector_median_institutional_ownership"),
         },
         {"institutional_support": "up" if score >= 60 else "down" if score == 20 else "stable"},
-        [*THIRTEEN_F_LIMITATIONS, "Mock 13F fixture is not used to boost smart-money score."],
+        [*THIRTEEN_F_LIMITATIONS, "Mock 13F fixture is not used to boost smart-money score.", *([warning] if (warning := _sec_13f_target_manager_config_warning()) else [])],
         missing,
         source_type=source_type,
     )

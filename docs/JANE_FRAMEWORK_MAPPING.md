@@ -200,3 +200,7 @@ Valuation Context Engine
 ## Phase 58 Company Event / Insider / Lock-Up Boundary
 
 Phase 58 maps company-event signals into `company_event_signal_breakdown` (`phase58_company_event_signal_breakdown_v1`) as validation explainability only. `event_signals` cover Form 4 accumulation/disposition evidence, systematic-plan review risk, delayed 13F positioning, options attention, and manual IPO lock-up verification. These signals support human review of Jane framework context but do not change final scoring, do not create automatic theme discovery, and are not a trading signal.
+
+## Phase 59 Platform Business Quality Boundary
+
+Phase 59 maps platform-business quality questions into `platform_business_quality_card` (`phase59_platform_business_quality_card_v1`) as validation explainability only. The card helps review Jane-style scalable business model, network effect, cash-flow creation, retention, and marketplace-quality questions through `gmv_growth`, `take_rate`, `net_dollar_retention`, `burn_rate`, `runway`, `marketplace_liquidity`, `network_effect`, `ltv_cac`, and `contribution_margin_operating_leverage`. Public financial proxies may help with burn/runway and operating leverage, but GMV, take rate, NDR, marketplace liquidity, network effect, and LTV/CAC remain manual or disclosed evidence. Phase 59 does not change final scoring, does not infer private platform KPIs, and does not create automatic theme discovery.

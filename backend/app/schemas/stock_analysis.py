@@ -116,6 +116,47 @@ class CompanyEventSignalBreakdown(BaseModel):
     not_investment_advice: bool = True
 
 
+class PlatformBusinessQualityMetric(BaseModel):
+    name: Literal[
+        "gmv_growth",
+        "take_rate",
+        "net_dollar_retention",
+        "burn_rate",
+        "runway",
+        "marketplace_liquidity",
+        "network_effect",
+        "ltv_cac",
+        "contribution_margin_operating_leverage",
+    ]
+    label: str
+    category: Literal["growth", "monetization", "retention", "cash", "marketplace", "network_effect", "unit_economics", "operating_leverage"]
+    status: Literal["computed_proxy", "manual_evidence", "manual_or_disclosed_only", "unavailable"] = "unavailable"
+    observed_value: Any = None
+    source_quality: Literal["live", "cached_live", "derived", "user_provided", "mock", "fallback", "unknown", "unavailable"] = "unknown"
+    source_date: str = ""
+    interpretation: str
+    manual_check: str
+    limitations: list[str] = Field(default_factory=list)
+    requires_manual_evidence: bool = True
+    affects_score: bool = False
+
+
+class PlatformBusinessQualityCard(BaseModel):
+    version: Literal["phase59_platform_business_quality_card_v1"] = "phase59_platform_business_quality_card_v1"
+    summary: str
+    platform_metric_count: int = 0
+    computed_metric_names: list[str] = Field(default_factory=list)
+    manual_evidence_metric_names: list[str] = Field(default_factory=list)
+    manual_or_disclosed_metric_names: list[str] = Field(default_factory=list)
+    metrics: list[PlatformBusinessQualityMetric] = Field(default_factory=list)
+    manual_review_required: bool = True
+    manual_checks: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    affects_score: bool = False
+    final_score_unchanged: bool = True
+    not_investment_advice: bool = True
+
+
 class QualitativeEvidenceInput(BaseModel):
     evidence_id: str | None = None
     criterion: str
@@ -587,6 +628,7 @@ class AnalyzeStockResponse(BaseModel):
     theme_validation_context: ThemeValidationContext = Field(default_factory=ThemeValidationContext)
     macro_flow_signal_breakdown: MacroFlowSignalBreakdown
     company_event_signal_breakdown: CompanyEventSignalBreakdown
+    platform_business_quality_card: PlatformBusinessQualityCard
     evidence_freshness_policy: EvidenceFreshnessPolicy = Field(default_factory=EvidenceFreshnessPolicy)
     stale_review_queue: StaleReviewQueue = Field(default_factory=StaleReviewQueue)
     score_driver_breakdown: ScoreDriverBreakdown

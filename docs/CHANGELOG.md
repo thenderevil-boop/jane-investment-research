@@ -1,5 +1,11 @@
 # Changelog
 
+## Phase 60A — C3/C19/C11 Coverage Auto Evidence Hardening
+
+- Added a non-scoring `SEC_13F_TARGET_MANAGERS` override guardrail: analyze-stock surfaces a warning in `institutional_13f.limitations` and C19 Coverage Matrix limitations when a deployment override drops default core managers such as Vanguard, BlackRock, or State Street.
+- Hardened C3 short-interest auto evidence copy so yfinance `shortRatio` / `shortPercentOfFloat` appears as explicit `short_interest_proxy` coverage when present and as a readable manual gap when unavailable.
+- Preserved Phase 56 C11 boundary: user theme text alone remains a validation target, while explicit user-supplied criterion/submetric evidence can partially cover C11 without changing final score, verdict, or provider behavior.
+
 ## Phase 57 — Macro / Flow Signal Breakdown MVP
 
 - Added `macro_flow_signal_breakdown` / `phase57_macro_flow_signal_breakdown_v1` to analyze-stock responses with separate `macro_signals` and `flow_signals`, source-quality labels, limitations, manual checks, and `final_score_unchanged=true`.
@@ -253,3 +259,10 @@
 - Added Stock Research rendering for `event_signals`, `insider_summary`, `institutional_summary`, `options_summary`, and `lockup_summary`.
 - Preserved final score, verdict, confidence gates, and scoring weights; Phase 58 is not a trading signal and does not change final score.
 - Kept lock-up handling as a manual review boundary: no prospectus, resale-registration, IPO calendar, or lock-up provider fetches were added.
+
+## Phase 59 — Platform Business Quality Card MVP
+
+- Added `platform_business_quality_card` (`phase59_platform_business_quality_card_v1`) to analyze-stock responses, frontend types, and Stock Research rendering.
+- Added platform metric rows for `gmv_growth`, `take_rate`, `net_dollar_retention`, `burn_rate`, `runway`, `marketplace_liquidity`, `network_effect`, `ltv_cac`, and `contribution_margin_operating_leverage`.
+- Kept GMV, take rate, NDR, marketplace liquidity, network effect, and LTV/CAC as manual/disclosed evidence unless supplied with source context; the system does not guess private platform KPIs.
+- Preserved final score, verdict, confidence gates, and scoring weights; Phase 59 does not change final score.

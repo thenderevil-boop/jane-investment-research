@@ -7,7 +7,7 @@ import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
-import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, ForeignFilerCoverageDiagnostics, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, CompanyEventSignalBreakdown, CompanyEventSignalItem, MacroFlowSignalBreakdown, MacroFlowSignalItem, NextManualCheck, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ThemeValidationContext, ValidationOSReport, ValidationQualitySummary } from '../types';
+import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, ForeignFilerCoverageDiagnostics, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, CompanyEventSignalBreakdown, CompanyEventSignalItem, MacroFlowSignalBreakdown, MacroFlowSignalItem, NextManualCheck, PlatformBusinessQualityCard, PlatformBusinessQualityMetric, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ThemeValidationContext, ValidationOSReport, ValidationQualitySummary } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
 export const janeLeadershipCriteria = [
@@ -1074,6 +1074,50 @@ export function CompanyEventSignalBreakdownSection({ breakdown }: { breakdown?: 
   );
 }
 
+function PlatformBusinessQualityMetricsTable({ metrics }: { metrics: PlatformBusinessQualityMetric[] }) {
+  if (!metrics.length) return null;
+  return (
+    <div className="tableWrap">
+      <table>
+        <thead><tr><th>Platform metric</th><th>Status</th><th>Value</th><th>Source</th><th>Interpretation</th><th>Manual check</th><th>Limitations</th></tr></thead>
+        <tbody>
+          {metrics.map((metric) => (
+            <tr key={metric.name}>
+              <td>{metric.label || displayKey(metric.name)}<br /><span className="muted">{metric.name}</span></td>
+              <td><span className="smallPill">{metric.status}</span> {metric.affects_score === false && <span className="smallPill">not scoring</span>}</td>
+              <td>{displayValue(metric.observed_value)}</td>
+              <td><span className="smallPill">{metric.source_quality}</span><br /><span className="muted">{metric.source_date || 'N/A'}</span></td>
+              <td>{metric.interpretation}</td>
+              <td>{metric.manual_check}</td>
+              <td>{metric.limitations.length ? metric.limitations.join(' ') : 'No additional limitation disclosed.'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function PlatformBusinessQualityCardSection({ card }: { card?: PlatformBusinessQualityCard }) {
+  if (!card) return null;
+  return (
+    <section className="pageSection">
+      <h2>Platform Business Quality Card</h2>
+      <div className="summaryMain">
+        <span className="smallPill">Non-scoring explanation only</span>
+        <span className="smallPill">phase59_platform_business_quality_card_v1</span>
+        {card.final_score_unchanged && <span className="smallPill">Final score unchanged</span>}
+        {card.not_investment_advice && <span className="smallPill">Not investment advice</span>}
+      </div>
+      <p>{card.summary}</p>
+      <p className="muted">Metrics: {card.platform_metric_count} · Computed proxies: {card.computed_metric_names.join(', ') || 'none'} · Manual evidence: {card.manual_evidence_metric_names.join(', ') || 'none'} · Manual/disclosed only: {card.manual_or_disclosed_metric_names.join(', ') || 'none'}</p>
+      <PlatformBusinessQualityMetricsTable metrics={card.metrics} />
+      {!!card.manual_checks.length && <p className="sourceWarning">{card.manual_checks.join(' ')}</p>}
+      {!!card.limitations.length && <ul>{card.limitations.map((item) => <li key={item}>{item}</li>)}</ul>}
+    </section>
+  );
+}
+
 export function SmartMoneySourceQualitySection({ smartMoney }: { smartMoney?: ScoreLike }) {
   const breakdown = smartMoney?.source_quality_breakdown as Record<string, Record<string, unknown>> | undefined;
   if (!breakdown) return null;
@@ -1629,6 +1673,7 @@ export default function StockResearch() {
           <ThemeValidationBoundarySection context={result.theme_validation_context} />
           <MacroFlowSignalBreakdownSection breakdown={result.macro_flow_signal_breakdown} />
           <CompanyEventSignalBreakdownSection breakdown={result.company_event_signal_breakdown} />
+          <PlatformBusinessQualityCardSection card={result.platform_business_quality_card} />
           <ValidationOSReportSection report={result.validation_os_report} />
           <ValidationReportExportSection ticker={ticker} theme={theme} userReason={userReason} qualitativeEvidenceJson={qualitativeEvidenceJson} />
           <ValidationQualitySummarySection summary={result.validation_quality_summary} />
