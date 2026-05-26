@@ -1823,6 +1823,74 @@
       ],
       "title": "StockCandidate",
       "type": "object"
+    },
+    "TodayResearchAction": {
+      "properties": {
+        "priority": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "title": "Priority",
+          "type": "string"
+        },
+        "ticker": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ticker"
+        },
+        "action_type": {
+          "enum": [
+            "source_setup",
+            "evidence_review",
+            "coverage_gap",
+            "watchlist_change",
+            "macro_context"
+          ],
+          "title": "Action Type",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "source": {
+          "const": "existing_data",
+          "default": "existing_data",
+          "title": "Source",
+          "type": "string"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "priority",
+        "action_type",
+        "title",
+        "reason"
+      ],
+      "title": "TodayResearchAction",
+      "type": "object"
     }
   },
   "properties": {
@@ -1921,6 +1989,13 @@
         ]
       },
       "title": "Human Verification Queue",
+      "type": "array"
+    },
+    "today_research_actions": {
+      "items": {
+        "$ref": "#/$defs/TodayResearchAction"
+      },
+      "title": "Today Research Actions",
       "type": "array"
     },
     "data_quality": {

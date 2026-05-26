@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { DailyReport, DataSourceStatus } from '../types';
-import { DailyDataCoverageSummary } from './DailyReport';
+import { DailyDataCoverageSummary, DailyResearchActions } from './DailyReport';
 
 function status(sourceType: DataSourceStatus['source_type'], sourceDate = '2026-05-15', isFresh = true): DataSourceStatus {
   return {
@@ -44,6 +44,31 @@ describe('DailyReport presentation helpers', () => {
     expect(html).toContain('Missing source date');
     expect(html).toContain('Some components still use mock data.');
     expect(html).not.toContain('Live / derived');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders today research actions as the daily starting point', () => {
+    const html = renderToStaticMarkup(
+      <DailyResearchActions
+        actions={[
+          {
+            priority: 'high',
+            ticker: 'NVDA',
+            action_type: 'coverage_gap',
+            title: 'Resolve evidence gap',
+            reason: 'C1 moat evidence is the highest-value research action.',
+            source: 'existing_data',
+            affects_score: false,
+            not_investment_advice: true,
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('5-minute workflow');
+    expect(html).toContain('Today research actions');
+    expect(html).toContain('NVDA: Resolve evidence gap');
+    expect(html).toContain('C1 moat evidence');
     expect(html).not.toContain('[object Object]');
   });
 });

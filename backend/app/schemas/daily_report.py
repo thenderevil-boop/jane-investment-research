@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 from backend.app.schemas.candidate import StockCandidate
 from backend.app.schemas.common import DataQualitySummary, DataSourceStatus, HumanVerificationQueueItem, ScoreObject
@@ -41,6 +43,17 @@ class JaneReferenceConditions(BaseModel):
     limitations: list[str]
 
 
+class TodayResearchAction(BaseModel):
+    priority: Literal["high", "medium", "low"]
+    ticker: str | None = None
+    action_type: Literal["source_setup", "evidence_review", "coverage_gap", "watchlist_change", "macro_context"]
+    title: str
+    reason: str
+    source: Literal["existing_data"] = "existing_data"
+    affects_score: bool = False
+    not_investment_advice: bool = True
+
+
 class DailyResearchReport(BaseModel):
     date: str
     market: str = "US"
@@ -60,6 +73,7 @@ class DailyResearchReport(BaseModel):
     limitations: list[str]
     missing_data: list[str]
     human_verification_queue: list[str | HumanVerificationQueueItem]
+    today_research_actions: list[TodayResearchAction] = Field(default_factory=list)
     data_quality: DataQualitySummary | None = None
     source_status: DataSourceStatus | None = None
     daily_report_metadata: DailyReportMetadata | None = None

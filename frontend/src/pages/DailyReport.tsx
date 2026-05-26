@@ -11,7 +11,7 @@ import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import TrendSummary from '../components/TrendSummary';
 import WarningBanner from '../components/WarningBanner';
-import type { DailyReport, ScoreLike } from '../types';
+import type { DailyReport, ScoreLike, TodayResearchAction } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
 function scoreMax(score?: ScoreLike) {
@@ -89,6 +89,33 @@ export function DailyDataCoverageSummary({ report }: { report: DailyReport }) {
   );
 }
 
+function actionLabel(action: TodayResearchAction) {
+  return action.ticker ? `${action.ticker}: ${action.title}` : action.title;
+}
+
+export function DailyResearchActions({ actions }: { actions?: TodayResearchAction[] }) {
+  if (!actions?.length) return null;
+  return (
+    <section className="pageSection dailyActions">
+      <div className="panelHeader">
+        <div>
+          <p className="eyebrow">5-minute workflow</p>
+          <h2>Today research actions</h2>
+          <p className="muted">Start here: macro context, source changes, then the highest-value evidence work.</p>
+        </div>
+      </div>
+      <ol className="noteList">
+        {actions.map((action) => (
+          <li key={`${action.action_type}-${action.ticker ?? 'market'}-${action.title}`}>
+            <strong>{action.priority.toUpperCase()} · {actionLabel(action)}</strong>
+            <span> — {action.reason}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 function latestSourceDate(report: DailyReport): string {
   const dates = [
     report.macro_regime?.source_status?.source_date,
@@ -135,6 +162,7 @@ export default function DailyReport() {
         </div>
         <div className="disclaimer">Research reference only. Not investment advice.</div>
       </header>
+      <DailyResearchActions actions={report.today_research_actions} />
       <DailyDataCoverageSummary report={report} />
       <DataQualitySummary summary={report.data_quality} latestSourceDate={latestSourceDate(report)} />
 

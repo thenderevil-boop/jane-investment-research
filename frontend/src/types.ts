@@ -1400,6 +1400,17 @@ export type HumanVerificationQueueItem = {
 
 export type HumanVerificationQueueEntry = string | HumanVerificationQueueItem;
 
+export type TodayResearchAction = {
+  priority: 'high' | 'medium' | 'low';
+  ticker?: string | null;
+  action_type: 'source_setup' | 'evidence_review' | 'coverage_gap' | 'watchlist_change' | 'macro_context';
+  title: string;
+  reason: string;
+  source: 'existing_data';
+  affects_score: boolean;
+  not_investment_advice: boolean;
+};
+
 export type DailyReport = {
   date: string;
   market: string;
@@ -1426,6 +1437,7 @@ export type DailyReport = {
   limitations?: string[];
   missing_data?: string[];
   human_verification_queue?: HumanVerificationQueueEntry[];
+  today_research_actions?: TodayResearchAction[];
   data_quality?: DataQualitySummary | null;
   source_status?: DataSourceStatus | null;
   daily_report_metadata?: DailyReportMetadata | null;

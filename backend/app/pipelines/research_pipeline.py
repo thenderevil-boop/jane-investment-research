@@ -25,7 +25,7 @@ from backend.app.raw_store.repository import read_macro_data, read_market_data, 
 from backend.app.services.daily_candidates import configured_daily_report_candidates
 from backend.app.schemas.candidate import StockCandidate
 from backend.app.schemas.common import DataSourceStatus, ScoreObject
-from backend.app.schemas.daily_report import DailyResearchReport, JaneReferenceCondition, JaneReferenceConditions
+from backend.app.schemas.daily_report import DailyResearchReport, JaneReferenceCondition, JaneReferenceConditions, TodayResearchAction
 from backend.app.utils.freshness import build_source_status, summarize_data_quality
 from backend.app.utils.human_verification import append_jane_social_heat_check
 from backend.app.utils.performance import add_timing, finalize_performance_context, reset_performance_context
@@ -374,9 +374,63 @@ def build_daily_report(
         report.human_verification_queue.append("Review components with missing source dates before interpreting scores.")
     if report.data_quality.fallback_components:
         report.human_verification_queue.append("Review fallback source status because one or more live data sources were unavailable.")
+    report.today_research_actions = _build_today_research_actions(report)
     if config.INCLUDE_PERFORMANCE_DIAGNOSTICS:
         report.performance_diagnostics = finalize_performance_context(performance_started_at)
     return report
+
+
+def _build_today_research_actions(report: DailyResearchReport) -> list[TodayResearchAction]:
+    actions: list[TodayResearchAction] = []
+    macro_label = report.macro_regime.label if report.macro_regime else "unknown"
+    actions.append(
+        TodayResearchAction(
+            priority="medium",
+            action_type="macro_context",
+            title="Start with macro context",
+            reason=f"Daily macro regime is {macro_label}; use it as context before single-name research, not as a timing directive.",
+        )
+    )
+    if report.data_quality and report.data_quality.fallback_components:
+        actions.append(
+            TodayResearchAction(
+                priority="high",
+                action_type="source_setup",
+                title="Review fallback data sources",
+                reason="One or more live or derived data sources are unavailable; confirm provider settings before comparing today with prior runs.",
+            )
+        )
+    for candidate in report.stock_candidates[:3]:
+        if candidate.missing_data:
+            actions.append(
+                TodayResearchAction(
+                    priority="high",
+                    ticker=candidate.ticker,
+                    action_type="coverage_gap",
+                    title=f"Resolve {candidate.ticker} evidence gap",
+                    reason=f"Candidate radar still lists missing data: {', '.join(candidate.missing_data[:2])}.",
+                )
+            )
+            break
+    if report.human_verification_queue:
+        actions.append(
+            TodayResearchAction(
+                priority="medium",
+                action_type="evidence_review",
+                title="Complete manual evidence review queue",
+                reason=f"Daily report has {len(report.human_verification_queue)} review item(s) that can clarify evidence quality before deeper analysis.",
+            )
+        )
+    if not any(action.action_type == "coverage_gap" for action in actions):
+        actions.append(
+            TodayResearchAction(
+                priority="medium",
+                action_type="coverage_gap",
+                title="Check top Coverage Matrix gaps before adding new signals",
+                reason="Use existing Jane Coverage Matrix and manual evidence status to choose the next evidence item, rather than adding another explanation card.",
+            )
+        )
+    return actions[:3]
 
 
 def _build_jane_reference_conditions(macro_snapshot: dict[str, object]) -> JaneReferenceConditions:

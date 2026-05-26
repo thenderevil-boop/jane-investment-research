@@ -8,6 +8,16 @@ Build a US-market-only investment research automation system based on Jane's Mar
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
+## Phase 60B Product Baseline & Daily Workflow Gates
+
+Phase 60B makes Daily Report the product starting surface and adds hard gates before further feature expansion:
+
+- `docs/PRODUCT_BASELINE.md` defines the 5-minute Daily Report workflow, current capabilities, runtime settings, Coverage Matrix actionability, and next usable milestone.
+- `docs/ARCHITECTURE_BASELINE.md` maps backend, provider, evidence, schema, and frontend responsibility boundaries.
+- `docs/LANGUAGE_POLICY.md` centralizes allowed/restricted wording and is enforced by Phase 60B tests.
+- `docs/ROADMAP.md` resets the roadmap around Daily Report workflow status, operations settings, evidence-gap inbox, and watchlist comparison.
+- Daily Report now exposes `today_research_actions` so the first view highlights macro context, source setup, evidence review, or Coverage Matrix action work using existing data.
+
 ## Phase 57 Macro / Flow Signal Breakdown MVP
 
 Phase 57 adds a non-scoring `macro_flow_signal_breakdown` to `POST /api/analyze-stock` responses:

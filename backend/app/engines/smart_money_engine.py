@@ -43,8 +43,8 @@ def _sec_13f_target_manager_config_warning() -> str | None:
     if not configured or not missing_defaults:
         return None
     return (
-        "SEC_13F_TARGET_MANAGERS override is missing default managers: "
-        f"{', '.join(missing_defaults)}. This can reduce C19/smart-money target-match evidence until deployment env is restored."
+        "SEC_13F_TARGET_MANAGERS runtime universe is narrower than the bundled starter universe: "
+        f"{', '.join(missing_defaults)} are not included. C19/smart-money target-match evidence may not be comparable with prior runs unless this manager universe is intentional."
     )
 
 

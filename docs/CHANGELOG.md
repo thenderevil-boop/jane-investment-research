@@ -1,5 +1,13 @@
 # Changelog
 
+## Phase 60B — Product Baseline & Architecture Stabilization
+
+- Made Daily Report the product starting surface by adding `today_research_actions`, a 2-3 item existing-data workflow list for macro context, source setup, evidence review, watchlist changes, or Coverage Matrix gaps.
+- Added `docs/PRODUCT_BASELINE.md`, `docs/ARCHITECTURE_BASELINE.md`, `docs/LANGUAGE_POLICY.md`, and `docs/ROADMAP.md` to define hard gates, the 5-minute Daily Report workflow, runtime-maintainable 13F manager universe policy, and phase sequencing.
+- Added a language-policy test gate so forbidden/directive wording is checked centrally instead of repaired one phrase at a time.
+- Reframed SEC 13F manager warnings as runtime universe health/comparability guidance; the bundled starter managers are not permanent scoring requirements.
+- Preserved existing score weights, final score semantics, provider set, and investment-advice boundaries.
+
 ## Phase 60A — C3/C19/C11 Coverage Auto Evidence Hardening
 
 - Added a non-scoring `SEC_13F_TARGET_MANAGERS` override guardrail: analyze-stock surfaces a warning in `institutional_13f.limitations` and C19 Coverage Matrix limitations when a deployment override drops default core managers such as Vanguard, BlackRock, or State Street.

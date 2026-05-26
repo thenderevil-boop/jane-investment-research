@@ -26,7 +26,7 @@ Response:
 
 Returns latest daily research report.
 
-Phase 13 keeps this endpoint as background context, source health, cache warmup, and market-environment snapshot support. It is snapshot-first and is not the primary user workflow. `POST /api/analyze-stock` is the primary workflow for user-provided ticker validation.
+Phase 60B makes Daily Report the product starting surface by adding `today_research_actions`: 2-3 existing-data research workflow actions that can cover macro context, source setup, evidence review, watchlist changes, or Coverage Matrix gaps. These actions use `source="existing_data"`, `affects_score=false`, and `not_investment_advice=true`; they are not directive recommendations and do not change underlying scores.
 
 Phase 11.5 defaults this endpoint to `DAILY_REPORT_READ_MODE=snapshot_first`. When a fresh daily snapshot exists in raw store, the endpoint returns that snapshot without refreshing live providers. The top-level `source_status` uses schema-compatible `source_type="derived"` and `provider="daily_report_snapshot"` to identify snapshot-served reports. If the snapshot is missing or stale, the endpoint computes the report only when `DAILY_BATCH_ALLOW_LIVE_FETCH=true`; otherwise it returns a safe 503 payload with `not_investment_advice=true`.
 
