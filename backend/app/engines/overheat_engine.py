@@ -280,6 +280,40 @@ def volume_and_extension_context_component(data: dict[str, Any]) -> ScoreObject:
     )
 
 
+def _source_backing(components: list[ScoreObject], weights: dict[str, float]) -> dict[str, Any]:
+    component_rows = []
+    live_backed_weight = 0.0
+    mock_or_fallback_weight = 0.0
+    for component in components:
+        raw_source_type = str(component.raw_data.get("source_type") or "mock")
+        source_type = raw_source_type if raw_source_type in {"live", "cached_live", "derived", "fallback", "mock"} else "mock"
+        weight = float(weights.get(component.name, 0.0))
+        live_backed = source_type in {"live", "cached_live", "derived"}
+        if live_backed:
+            live_backed_weight += weight
+        else:
+            mock_or_fallback_weight += weight
+        component_rows.append(
+            {
+                "component": component.name,
+                "configured_weight": round(weight, 4),
+                "source_type": source_type,
+                "live_backed": live_backed,
+                "score_contribution": round(component.score * weight, 2),
+                "limitations": component.limitations,
+            }
+        )
+    return {
+        "version": "phase61_overheat_source_backing_v1",
+        "components": component_rows,
+        "total_configured_weight": round(sum(weights.values()), 4),
+        "live_backed_weight": round(live_backed_weight, 4),
+        "mock_or_fallback_weight": round(mock_or_fallback_weight, 4),
+        "final_score_unchanged": True,
+        "not_investment_advice": True,
+    }
+
+
 def overheat_label(score: float) -> str:
     if score >= 80:
         return "high_risk_warning"
@@ -314,7 +348,7 @@ def evaluate_overheat(data: dict[str, Any]) -> ScoreObject:
         score=round(total, 2),
         label=overheat_label(total),
         raw_data={key: data.get(key) for key in sorted(data.keys()) if key != "fear_greed"},
-        derived_metrics={"components": component_payload, "weights": weights, **explanation},
+        derived_metrics={"components": component_payload, "weights": weights, "source_backing": _source_backing(components, weights), **explanation},
         benchmark={
             "high_risk_warning_minimum": 80,
             "overheated_minimum": 60,

@@ -21,11 +21,19 @@ from backend.app.engines.overheat_engine import evaluate_overheat
 from backend.app.engines.risk_allocation_engine import evaluate_risk_allocation
 from backend.app.engines.sec_13f_target_matching import build_candidate_13f_evidence
 from backend.app.engines.smart_money_engine import evaluate_smart_money
-from backend.app.raw_store.repository import read_macro_data, read_market_data, read_sec_filings
+from backend.app.raw_store.repository import read_daily_report_snapshot, read_macro_data, read_market_data, read_sec_filings
 from backend.app.services.daily_candidates import configured_daily_report_candidates
 from backend.app.schemas.candidate import StockCandidate
 from backend.app.schemas.common import DataSourceStatus, ScoreObject
-from backend.app.schemas.daily_report import DailyResearchReport, JaneReferenceCondition, JaneReferenceConditions, TodayResearchAction
+from backend.app.schemas.daily_report import (
+    DailyMacroDelta,
+    DailyResearchReport,
+    DailyWatchlistDelta,
+    DailyWatchlistDeltaItem,
+    JaneReferenceCondition,
+    JaneReferenceConditions,
+    TodayResearchAction,
+)
 from backend.app.utils.freshness import build_source_status, summarize_data_quality
 from backend.app.utils.human_verification import append_jane_social_heat_check
 from backend.app.utils.performance import add_timing, finalize_performance_context, reset_performance_context
@@ -374,11 +382,96 @@ def build_daily_report(
         report.human_verification_queue.append("Review components with missing source dates before interpreting scores.")
     if report.data_quality.fallback_components:
         report.human_verification_queue.append("Review fallback source status because one or more live data sources were unavailable.")
+    previous_snapshot = read_daily_report_snapshot()
+    report.macro_delta = _build_macro_delta(report, previous_snapshot)
+    report.watchlist_delta = _build_watchlist_delta(report, previous_snapshot)
     report.today_research_actions = _build_today_research_actions(report)
     if config.INCLUDE_PERFORMANCE_DIAGNOSTICS:
         report.performance_diagnostics = finalize_performance_context(performance_started_at)
     return report
 
+
+def _number(value: object) -> float | None:
+    return float(value) if isinstance(value, (int, float)) else None
+
+
+def _nested_number(payload: dict | None, *path: str) -> float | None:
+    cursor: object = payload or {}
+    for key in path:
+        if not isinstance(cursor, dict):
+            return None
+        cursor = cursor.get(key)
+    return _number(cursor)
+
+
+def _delta(current: float | None, previous: float | None) -> float | None:
+    if current is None or previous is None:
+        return None
+    return round(current - previous, 2)
+
+
+def _build_macro_delta(report: DailyResearchReport, previous_snapshot: dict | None) -> DailyMacroDelta | None:
+    if not previous_snapshot:
+        return None
+    current_raw = report.macro_regime.raw_data if report.macro_regime else {}
+    previous_raw = previous_snapshot.get("macro_regime", {}).get("raw_data", {}) if isinstance(previous_snapshot.get("macro_regime"), dict) else {}
+    latest_inflation = []
+    for key, label in [("cpi_yoy", "CPI YoY"), ("ppi_yoy", "PPI YoY")]:
+        current = _number(current_raw.get(key))
+        previous = _number(previous_raw.get(key))
+        if current is not None or previous is not None:
+            latest_inflation.append({"name": label, "current": current, "previous": previous, "change": _delta(current, previous)})
+    return DailyMacroDelta(
+        previous_report_date=str(previous_snapshot.get("date") or "") or None,
+        macro_score_change=_delta(_number(report.macro_regime.score), _nested_number(previous_snapshot, "macro_regime", "score")),
+        vix_change=_delta(_number(current_raw.get("vix")), _number(previous_raw.get("vix"))),
+        yield_curve_10y2y_spread_change_bps=_delta(_number(current_raw.get("ten_year_minus_two_year_spread_bps")), _number(previous_raw.get("ten_year_minus_two_year_spread_bps"))),
+        latest_inflation_observations=latest_inflation,
+        limitations=["Delta compares the current Daily Report with the latest stored snapshot and is research workflow context only."],
+    )
+
+
+def _candidate_by_ticker(snapshot: dict | None) -> dict[str, dict]:
+    candidates = snapshot.get("stock_candidates") if isinstance(snapshot, dict) else []
+    if not isinstance(candidates, list):
+        return {}
+    return {str(item.get("ticker") or "").upper(): item for item in candidates if isinstance(item, dict) and item.get("ticker")}
+
+
+def _candidate_13f_status(candidate: StockCandidate, previous: dict | None) -> str:
+    current_status = None
+    if isinstance(candidate.institutional_13f, dict):
+        current_status = (candidate.institutional_13f.get("source_status") or {}).get("source_type")
+    previous_status = ((previous or {}).get("institutional_13f") or {}).get("source_status", {}).get("source_type") if isinstance((previous or {}).get("institutional_13f"), dict) else None
+    if current_status and previous_status and current_status != previous_status:
+        return f"changed:{previous_status}_to_{current_status}"
+    if current_status:
+        return str(current_status)
+    return "unknown"
+
+
+def _build_watchlist_delta(report: DailyResearchReport, previous_snapshot: dict | None) -> DailyWatchlistDelta | None:
+    if not previous_snapshot:
+        return None
+    previous_by_ticker = _candidate_by_ticker(previous_snapshot)
+    items: list[DailyWatchlistDeltaItem] = []
+    for candidate in report.stock_candidates:
+        previous = previous_by_ticker.get(candidate.ticker.upper())
+        items.append(
+            DailyWatchlistDeltaItem(
+                ticker=candidate.ticker,
+                price_change_pct=None,
+                overheat_score_change=_delta(_number(candidate.overheat_score), _number((previous or {}).get("overheat_score"))),
+                new_form4_count=None,
+                institutional_13f_status=_candidate_13f_status(candidate, previous),
+                data_issue=", ".join(candidate.missing_data[:2]) if candidate.missing_data else None,
+            )
+        )
+    return DailyWatchlistDelta(
+        previous_report_date=str(previous_snapshot.get("date") or "") or None,
+        items=items,
+        limitations=["Watchlist delta compares configured Daily Report candidates with the latest stored snapshot; price delta remains null unless a stable prior/current price field is available."],
+    )
 
 def _build_today_research_actions(report: DailyResearchReport) -> list[TodayResearchAction]:
     actions: list[TodayResearchAction] = []
@@ -400,6 +493,19 @@ def _build_today_research_actions(report: DailyResearchReport) -> list[TodayRese
                 reason="One or more live or derived data sources are unavailable; confirm provider settings before comparing today with prior runs.",
             )
         )
+    if report.watchlist_delta and report.watchlist_delta.items:
+        changed = [item for item in report.watchlist_delta.items if item.overheat_score_change is not None or item.data_issue]
+        if changed:
+            first = changed[0]
+            actions.append(
+                TodayResearchAction(
+                    priority="high" if first.data_issue else "medium",
+                    ticker=first.ticker,
+                    action_type="watchlist_change",
+                    title=f"Review {first.ticker} watchlist delta",
+                    reason="Daily Watchlist Delta shows a changed score, source status, or data issue versus the previous snapshot.",
+                )
+            )
     for candidate in report.stock_candidates[:3]:
         if candidate.missing_data:
             actions.append(

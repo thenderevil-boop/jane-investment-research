@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { DailyReport, DataSourceStatus } from '../types';
-import { DailyDataCoverageSummary, DailyResearchActions } from './DailyReport';
+import { DailyDataCoverageSummary, DailyDeltaSummary, DailyResearchActions, OverheatSourceBacking } from './DailyReport';
 
 function status(sourceType: DataSourceStatus['source_type'], sourceDate = '2026-05-15', isFresh = true): DataSourceStatus {
   return {
@@ -70,5 +70,75 @@ describe('DailyReport presentation helpers', () => {
     expect(html).toContain('NVDA: Resolve evidence gap');
     expect(html).toContain('C1 moat evidence');
     expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders macro and watchlist deltas compactly', () => {
+    const report = {
+      date: '2026-05-26',
+      market: 'US',
+      macro_delta: {
+        version: 'phase61_macro_delta_v1',
+        previous_report_date: '2026-05-25',
+        macro_score_change: 4,
+        vix_change: -1.5,
+        yield_curve_10y2y_spread_change_bps: 6,
+        latest_inflation_observations: [],
+        source: 'daily_report_snapshot_compare',
+        limitations: [],
+        not_investment_advice: true,
+      },
+      watchlist_delta: {
+        version: 'phase61_watchlist_delta_v1',
+        previous_report_date: '2026-05-25',
+        items: [
+          {
+            ticker: 'NVDA',
+            price_change_pct: null,
+            overheat_score_change: 3,
+            new_form4_count: null,
+            institutional_13f_status: 'cached_live',
+            data_issue: 'source_date',
+            source: 'daily_report_snapshot_compare',
+            not_investment_advice: true,
+          },
+        ],
+        limitations: [],
+        not_investment_advice: true,
+      },
+    } as DailyReport;
+
+    const html = renderToStaticMarkup(<DailyDeltaSummary report={report} />);
+
+    expect(html).toContain('Daily efficiency');
+    expect(html).toContain('Delta summary');
+    expect(html).toContain('+4');
+    expect(html).toContain('-1.5');
+    expect(html).toContain('NVDA');
+    expect(html).toContain('cached_live');
+    expect(html).toContain('source_date');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders overheat source backing without changing the score', () => {
+    const html = renderToStaticMarkup(
+      <OverheatSourceBacking
+        score={{
+          score: 55,
+          label: 'elevated_heat',
+          derived_metrics: {
+            source_backing: {
+              live_backed_weight: 0.5,
+              mock_or_fallback_weight: 0.5,
+              components: [],
+            },
+          },
+        }}
+      />,
+    );
+
+    expect(html).toContain('Overheat transparency');
+    expect(html).toContain('Live-backed weight disclosure');
+    expect(html).toContain('Mock/fallback weight');
+    expect(html).toContain('0.5');
   });
 });

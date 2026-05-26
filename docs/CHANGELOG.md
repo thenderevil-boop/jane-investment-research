@@ -1,5 +1,14 @@
 # Changelog
 
+## Phase 61 — Auto Coverage Completion and Daily Efficiency
+
+- Confirmed C19 SEC 13F candidate-specific target matches flow into Coverage Matrix `institutional_support` / `fund_support`, while fallback/no-position states do not false-cover C19.
+- Confirmed C18 USPTO PatentsView patent counts flow into Coverage Matrix `patent_count` as non-scoring, manual-review proxy evidence.
+- Added Overheat `derived_metrics.source_backing` to disclose live/derived versus mock/fallback configured weight without changing the overheat score.
+- Added Daily Report `macro_delta` and `watchlist_delta` snapshot comparisons and surfaced them in the Daily Report UI.
+- Extended `today_research_actions` to prioritize watchlist/source deltas from existing data.
+- Preserved score weights, final verdicts, provider boundaries, and investment-advice safety policy.
+
 ## Phase 60B — Product Baseline & Architecture Stabilization
 
 - Made Daily Report the product starting surface by adding `today_research_actions`, a 2-3 item existing-data workflow list for macro context, source setup, evidence review, watchlist changes, or Coverage Matrix gaps.

@@ -4,6 +4,13 @@
 
 Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions, Phase 11 adds opt-in official SEC EDGAR 13F institutional holdings, and Phase 17 adds opt-in official SEC EDGAR Companyfacts financial cross-checks. Phase 35 adds FRED `UMCSENT` as Daily Report context-only consumer sentiment and explicit yfinance-derived market-context coverage metadata. Phase 37 adds an external provider adapter foundation for future FMP, OpenBB sidecar, Alpha Vantage, and USASpending integrations. Phase 38 adds the first concrete Phase 37 adapter: opt-in FMP earnings-call transcript evidence for analyze-stock. Phase 39 maps FMP transcript analysis into non-scoring Jane C2/C17 external evidence context. Phase 40 adds opt-in USASpending.gov federal award evidence for C15 Government Relationship context. Phase 41 adds opt-in OpenBB sidecar / Stockgrid large options block evidence for the Smart Money options component. Phase 42 adds opt-in FMP financial statements and TTM ratios as an ADR / SEC-gap financial proxy for analyze-stock. Phase 57 adds `macro_flow_signal_breakdown` / `phase57_macro_flow_signal_breakdown_v1` as a non-scoring analyze-stock explanation layer for existing macro and flow sources; it is not a trading signal and does not change final score. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
 
+Phase 61 daily-efficiency notes:
+
+- Daily Report adds `macro_delta` (`phase61_macro_delta_v1`) by comparing current macro score, VIX, 10Y-2Y spread, and available CPI/PPI observations with the latest stored Daily Report snapshot.
+- Daily Report adds `watchlist_delta` (`phase61_watchlist_delta_v1`) for configured candidates, including price-change placeholder, overheat-score change, Form 4 placeholder, SEC 13F source/status, and data issue context.
+- Overheat score adds `derived_metrics.source_backing` / `phase61_overheat_source_backing_v1` to disclose configured live/derived versus mock/fallback weight. This is transparency only and keeps `final_score_unchanged=true`.
+- C18 USPTO and C19 13F Coverage Matrix links are completion gates: provider-backed patent counts and candidate-specific 13F target matches can improve non-scoring coverage completeness, but fallback/no-position states must not false-cover criteria.
+
 ## Phase 13 Endpoint Roles
 
 `POST /api/analyze-stock` is the primary consumer of source evidence. It validates a user-provided US ticker and may reuse market, FRED macro, SEC Form 4, and SEC 13F snapshots through the raw-store boundary.

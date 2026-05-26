@@ -28,6 +28,12 @@ Returns latest daily research report.
 
 Phase 60B makes Daily Report the product starting surface by adding `today_research_actions`: 2-3 existing-data research workflow actions that can cover macro context, source setup, evidence review, watchlist changes, or Coverage Matrix gaps. These actions use `source="existing_data"`, `affects_score=false`, and `not_investment_advice=true`; they are not directive recommendations and do not change underlying scores.
 
+Phase 61 adds daily-efficiency fields to the same response:
+
+- `macro_delta` (`phase61_macro_delta_v1`) compares current macro score, VIX, 10Y-2Y spread, and available CPI/PPI observations with the latest stored Daily Report snapshot.
+- `watchlist_delta` (`phase61_watchlist_delta_v1`) compares configured candidates with the latest stored snapshot and surfaces overheat-score change, 13F status, Form 4 placeholder, price-change placeholder, and data issues.
+- `overheat_risk.derived_metrics.source_backing` (`phase61_overheat_source_backing_v1`) discloses live/derived versus mock/fallback configured weight while preserving `final_score_unchanged=true`.
+
 Phase 11.5 defaults this endpoint to `DAILY_REPORT_READ_MODE=snapshot_first`. When a fresh daily snapshot exists in raw store, the endpoint returns that snapshot without refreshing live providers. The top-level `source_status` uses schema-compatible `source_type="derived"` and `provider="daily_report_snapshot"` to identify snapshot-served reports. If the snapshot is missing or stale, the endpoint computes the report only when `DAILY_BATCH_ALLOW_LIVE_FETCH=true`; otherwise it returns a safe 503 payload with `not_investment_advice=true`.
 
 Phase 11.5a adds `daily_report_metadata` to `/api/daily-report/latest` responses and stale-snapshot 503 details. Metadata includes `read_mode`, `snapshot_used`, `snapshot_id`, `snapshot_generated_at`, `snapshot_is_fresh`, `batch_refresh_status`, `batch_refresh_started_at`, `batch_refresh_completed_at`, and `batch_duration_ms`. The endpoint must not silently recompute without this metadata.

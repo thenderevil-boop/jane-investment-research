@@ -626,6 +626,104 @@
       "title": "CrisisOutput",
       "type": "object"
     },
+    "DailyMacroDelta": {
+      "properties": {
+        "version": {
+          "const": "phase61_macro_delta_v1",
+          "default": "phase61_macro_delta_v1",
+          "title": "Version",
+          "type": "string"
+        },
+        "previous_report_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Previous Report Date"
+        },
+        "macro_score_change": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Macro Score Change"
+        },
+        "vix_change": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vix Change"
+        },
+        "yield_curve_10y2y_spread_change_bps": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Yield Curve 10Y2Y Spread Change Bps"
+        },
+        "latest_inflation_observations": {
+          "items": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "title": "Latest Inflation Observations",
+          "type": "array"
+        },
+        "source": {
+          "const": "daily_report_snapshot_compare",
+          "default": "daily_report_snapshot_compare",
+          "title": "Source",
+          "type": "string"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "title": "DailyMacroDelta",
+      "type": "object"
+    },
     "DailyReportMetadata": {
       "properties": {
         "read_mode": {
@@ -723,6 +821,126 @@
         }
       },
       "title": "DailyReportMetadata",
+      "type": "object"
+    },
+    "DailyWatchlistDelta": {
+      "properties": {
+        "version": {
+          "const": "phase61_watchlist_delta_v1",
+          "default": "phase61_watchlist_delta_v1",
+          "title": "Version",
+          "type": "string"
+        },
+        "previous_report_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Previous Report Date"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/DailyWatchlistDeltaItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "title": "DailyWatchlistDelta",
+      "type": "object"
+    },
+    "DailyWatchlistDeltaItem": {
+      "properties": {
+        "ticker": {
+          "title": "Ticker",
+          "type": "string"
+        },
+        "price_change_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Price Change Pct"
+        },
+        "overheat_score_change": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Overheat Score Change"
+        },
+        "new_form4_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "New Form4 Count"
+        },
+        "institutional_13f_status": {
+          "default": "unknown",
+          "title": "Institutional 13F Status",
+          "type": "string"
+        },
+        "data_issue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Issue"
+        },
+        "source": {
+          "const": "daily_report_snapshot_compare",
+          "default": "daily_report_snapshot_compare",
+          "title": "Source",
+          "type": "string"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ticker"
+      ],
+      "title": "DailyWatchlistDeltaItem",
       "type": "object"
     },
     "DataQualitySummary": {
@@ -1997,6 +2215,28 @@
       },
       "title": "Today Research Actions",
       "type": "array"
+    },
+    "macro_delta": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DailyMacroDelta"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "watchlist_delta": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DailyWatchlistDelta"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "data_quality": {
       "anyOf": [

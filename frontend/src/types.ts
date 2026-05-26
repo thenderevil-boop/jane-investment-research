@@ -1411,6 +1411,37 @@ export type TodayResearchAction = {
   not_investment_advice: boolean;
 };
 
+export type DailyMacroDelta = {
+  version: 'phase61_macro_delta_v1';
+  previous_report_date?: string | null;
+  macro_score_change?: number | null;
+  vix_change?: number | null;
+  yield_curve_10y2y_spread_change_bps?: number | null;
+  latest_inflation_observations?: Array<Record<string, string | number | null>>;
+  source: 'daily_report_snapshot_compare';
+  limitations?: string[];
+  not_investment_advice: boolean;
+};
+
+export type DailyWatchlistDeltaItem = {
+  ticker: string;
+  price_change_pct?: number | null;
+  overheat_score_change?: number | null;
+  new_form4_count?: number | null;
+  institutional_13f_status: string;
+  data_issue?: string | null;
+  source: 'daily_report_snapshot_compare';
+  not_investment_advice: boolean;
+};
+
+export type DailyWatchlistDelta = {
+  version: 'phase61_watchlist_delta_v1';
+  previous_report_date?: string | null;
+  items?: DailyWatchlistDeltaItem[];
+  limitations?: string[];
+  not_investment_advice: boolean;
+};
+
 export type DailyReport = {
   date: string;
   market: string;
@@ -1438,6 +1469,8 @@ export type DailyReport = {
   missing_data?: string[];
   human_verification_queue?: HumanVerificationQueueEntry[];
   today_research_actions?: TodayResearchAction[];
+  macro_delta?: DailyMacroDelta | null;
+  watchlist_delta?: DailyWatchlistDelta | null;
   data_quality?: DataQualitySummary | null;
   source_status?: DataSourceStatus | null;
   daily_report_metadata?: DailyReportMetadata | null;

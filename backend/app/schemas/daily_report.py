@@ -54,6 +54,37 @@ class TodayResearchAction(BaseModel):
     not_investment_advice: bool = True
 
 
+class DailyMacroDelta(BaseModel):
+    version: Literal["phase61_macro_delta_v1"] = "phase61_macro_delta_v1"
+    previous_report_date: str | None = None
+    macro_score_change: float | None = None
+    vix_change: float | None = None
+    yield_curve_10y2y_spread_change_bps: float | None = None
+    latest_inflation_observations: list[dict[str, float | str | None]] = Field(default_factory=list)
+    source: Literal["daily_report_snapshot_compare"] = "daily_report_snapshot_compare"
+    limitations: list[str] = Field(default_factory=list)
+    not_investment_advice: bool = True
+
+
+class DailyWatchlistDeltaItem(BaseModel):
+    ticker: str
+    price_change_pct: float | None = None
+    overheat_score_change: float | None = None
+    new_form4_count: int | None = None
+    institutional_13f_status: str = "unknown"
+    data_issue: str | None = None
+    source: Literal["daily_report_snapshot_compare"] = "daily_report_snapshot_compare"
+    not_investment_advice: bool = True
+
+
+class DailyWatchlistDelta(BaseModel):
+    version: Literal["phase61_watchlist_delta_v1"] = "phase61_watchlist_delta_v1"
+    previous_report_date: str | None = None
+    items: list[DailyWatchlistDeltaItem] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    not_investment_advice: bool = True
+
+
 class DailyResearchReport(BaseModel):
     date: str
     market: str = "US"
@@ -74,6 +105,8 @@ class DailyResearchReport(BaseModel):
     missing_data: list[str]
     human_verification_queue: list[str | HumanVerificationQueueItem]
     today_research_actions: list[TodayResearchAction] = Field(default_factory=list)
+    macro_delta: DailyMacroDelta | None = None
+    watchlist_delta: DailyWatchlistDelta | None = None
     data_quality: DataQualitySummary | None = None
     source_status: DataSourceStatus | None = None
     daily_report_metadata: DailyReportMetadata | None = None

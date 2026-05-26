@@ -8,6 +8,16 @@ Build a US-market-only investment research automation system based on Jane's Mar
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
+## Phase 61 Auto Coverage Completion and Daily Efficiency
+
+Phase 61 completes the highest-ROI coverage/daily-efficiency path without changing score weights, verdicts, safety boundaries, or adding pages:
+
+- Confirms candidate-specific SEC 13F evidence reaches Jane C19 Coverage Matrix (`institutional_support`, `fund_support`) when a target match is observed; fallback/no-position states do not false-cover C19.
+- Confirms USPTO PatentsView patent count reaches Jane C18 Coverage Matrix (`patent_count`) as a non-scoring, manual-review proxy.
+- Adds Overheat `derived_metrics.source_backing` so UI/API consumers can see configured live/derived versus mock/fallback weight while `final_score_unchanged=true`.
+- Adds Daily Report `macro_delta` and `watchlist_delta` to compare the current report with the latest stored snapshot.
+- Extends `today_research_actions` so the 5-minute workflow can prioritize watchlist/source deltas when existing data changes.
+
 ## Phase 60B Product Baseline & Daily Workflow Gates
 
 Phase 60B makes Daily Report the product starting surface and adds hard gates before further feature expansion:

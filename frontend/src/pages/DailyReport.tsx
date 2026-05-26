@@ -116,6 +116,76 @@ export function DailyResearchActions({ actions }: { actions?: TodayResearchActio
   );
 }
 
+function formatDelta(value?: number | null, suffix = '') {
+  if (value === null || value === undefined) return 'N/A';
+  const sign = value > 0 ? '+' : '';
+  return `${sign}${value}${suffix}`;
+}
+
+export function DailyDeltaSummary({ report }: { report: DailyReport }) {
+  const macro = report.macro_delta;
+  const watchlist = report.watchlist_delta;
+  if (!macro && !watchlist?.items?.length) return null;
+  return (
+    <section className="pageSection dailyDelta">
+      <div className="panelHeader">
+        <div>
+          <p className="eyebrow">Daily efficiency</p>
+          <h2>Delta summary</h2>
+          <p className="muted">Compare today with the previous stored snapshot before opening detailed evidence.</p>
+        </div>
+      </div>
+      {macro && (
+        <div className="briefMetricGrid">
+          <div><span>Macro score</span><strong>{formatDelta(macro.macro_score_change)}</strong></div>
+          <div><span>VIX</span><strong>{formatDelta(macro.vix_change)}</strong></div>
+          <div><span>10Y-2Y spread</span><strong>{formatDelta(macro.yield_curve_10y2y_spread_change_bps, ' bps')}</strong></div>
+        </div>
+      )}
+      {watchlist?.items?.length ? (
+        <div className="tableWrap">
+          <table>
+            <thead><tr><th>Ticker</th><th>Price change</th><th>Overheat change</th><th>New Form 4</th><th>13F status</th><th>Data issue</th></tr></thead>
+            <tbody>
+              {watchlist.items.map((item) => (
+                <tr key={item.ticker}>
+                  <td>{item.ticker}</td>
+                  <td>{formatDelta(item.price_change_pct, '%')}</td>
+                  <td>{formatDelta(item.overheat_score_change)}</td>
+                  <td>{item.new_form4_count ?? 'N/A'}</td>
+                  <td>{item.institutional_13f_status}</td>
+                  <td>{item.data_issue || 'None listed'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+export function OverheatSourceBacking({ score }: { score?: ScoreLike }) {
+  const backing = score?.derived_metrics?.source_backing as { live_backed_weight?: number; mock_or_fallback_weight?: number; components?: Array<{ component: string; source_type: string; configured_weight: number }> } | undefined;
+  if (!backing) return null;
+  return (
+    <section className="pageSection overheatBacking">
+      <div className="panelHeader">
+        <div>
+          <p className="eyebrow">Overheat transparency</p>
+          <h2>Live-backed weight disclosure</h2>
+          <p className="muted">Score is unchanged; this only shows how much configured weight is live/derived versus mock/fallback.</p>
+        </div>
+      </div>
+      <div className="briefMetricGrid">
+        <div><span>Live-backed weight</span><strong>{backing.live_backed_weight ?? 0}</strong></div>
+        <div><span>Mock/fallback weight</span><strong>{backing.mock_or_fallback_weight ?? 0}</strong></div>
+      </div>
+      {(backing.mock_or_fallback_weight ?? 0) > 0 && <p className="muted">Treat overheat as context until mock/fallback-backed components are replaced by stable live sources.</p>}
+    </section>
+  );
+}
+
 function latestSourceDate(report: DailyReport): string {
   const dates = [
     report.macro_regime?.source_status?.source_date,
@@ -163,6 +233,7 @@ export default function DailyReport() {
         <div className="disclaimer">Research reference only. Not investment advice.</div>
       </header>
       <DailyResearchActions actions={report.today_research_actions} />
+      <DailyDeltaSummary report={report} />
       <DailyDataCoverageSummary report={report} />
       <DataQualitySummary summary={report.data_quality} latestSourceDate={latestSourceDate(report)} />
 
@@ -185,6 +256,7 @@ export default function DailyReport() {
           <ScoreEvidence title="Entry environment" score={report.market_timing} />
           <ScoreEvidence title="Overheat risk" score={report.overheat_risk} />
         </div>
+        <OverheatSourceBacking score={report.overheat_risk} />
       </Section>
 
       <Section title="Future Industry Radar">

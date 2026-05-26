@@ -2,6 +2,16 @@
 
 This file maps Jane's Markdown methodology into system modules.
 
+## Phase 61 Auto Coverage Completion and Daily Efficiency
+
+Phase 61 maps Jane's preference for daily change detection and evidence completion into the product workflow:
+
+- Jane C18 Patents / IP can receive non-scoring `patent_count` coverage from USPTO PatentsView when provider-backed patent-count evidence is present. It remains a proxy that requires manual patent-quality and assignee review.
+- Jane C19 VC / Institutional Support can receive non-scoring `institutional_support` / `fund_support` coverage from candidate-specific SEC 13F target matches. 13F remains delayed quarterly evidence and is not real-time flow.
+- Daily Report `macro_delta` compares current macro context with the latest stored snapshot so the user sees change, not just state.
+- Daily Report `watchlist_delta` compares configured candidate context with the latest stored snapshot so the user can start from changed overheat/source/data-issue context.
+- Overheat `source_backing` discloses live/derived versus mock/fallback configured weight without changing the overheat score.
+
 ## Phase 57 Macro / Flow Signal Breakdown MVP
 
 `macro_flow_signal_breakdown` (`phase57_macro_flow_signal_breakdown_v1`) maps Jane's macro-cycle and capital-flow review habits into an analyze-stock explanation layer:
