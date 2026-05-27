@@ -9,6 +9,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from backend.app.schemas.daily_report import DailyResearchReport
+from backend.app.schemas.operations_diagnostics import OperationsDiagnosticsResponse
+from backend.app.schemas.operations_settings import SEC13FManagerUniverseSettings
 from backend.app.schemas.stock_analysis import AnalyzeStockResponse
 
 
@@ -19,6 +21,8 @@ def write_schema(path: str, schema: dict) -> None:
 def main() -> None:
     write_schema("schemas/analyze_stock.schema.json", AnalyzeStockResponse.model_json_schema())
     write_schema("schemas/daily_report.schema.json", DailyResearchReport.model_json_schema())
+    write_schema("schemas/operations_diagnostics.schema.json", OperationsDiagnosticsResponse.model_json_schema())
+    write_schema("schemas/operations_13f_manager_universe_settings.schema.json", SEC13FManagerUniverseSettings.model_json_schema())
 
 
 if __name__ == "__main__":

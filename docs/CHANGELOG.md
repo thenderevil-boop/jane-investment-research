@@ -1,5 +1,27 @@
 # Changelog
 
+## Phase 63 — Editable 13F Manager Universe
+
+- Added `GET/PUT/DELETE /api/operations/settings/13f-manager-universe` with contract version `phase63_13f_manager_universe_settings_v1`.
+- Added local raw-store persistence for editable SEC 13F manager CIK lists with precedence `local_settings` > `startup_env` > `bundled_starter_universe`.
+- Wired operations diagnostics and future 13F target-manager reads to the effective manager universe while preserving 13F delay caveats.
+- Added Operations Diagnostics UI controls to save/reset the local 13F manager universe; this changes research scope only and does not change scoring, verdicts, or provider calls.
+
+## Phase 61 Research Workflow Summary
+
+- Added top-level `research_workflow_summary` to `POST /api/analyze-stock` as a non-scoring first-screen workflow layer.
+- Derived deterministic research status, confidence, top strengths, top gaps, and next research actions from existing scores, data-quality grade, Coverage Matrix counts, score drivers, Form 4, 13F, and valuation context.
+- Displayed the workflow summary at the top of the Stock Research Analyst Brief before score cards and detailed evidence sections.
+- Preserved final scores, weights, engine logic, provider behavior, endpoint safety boundaries, and `not_investment_advice=true`.
+
+## Phase 62 — Read-only Operations & Data Source Diagnostics
+
+- Added `GET /api/operations/diagnostics` with contract version `phase62_operations_diagnostics_v1`.
+- Added read-only Operations Diagnostics UI with Provider Health, Coverage Readiness, 13F Runtime Universe, and secrets-policy sections.
+- Mapped C18 readiness to USPTO `patent_count` and C19 readiness to SEC 13F `institutional_support` / `fund_support` without changing scoring or verdicts.
+- Exposed safe key-present booleans and `api_key_values_returned=false`; API key values are never returned.
+- Kept diagnostics read-only: no provider calls are triggered and no settings are editable in this phase.
+
 ## Phase 61 — Auto Coverage Completion and Daily Efficiency
 
 - Confirmed C19 SEC 13F candidate-specific target matches flow into Coverage Matrix `institutional_support` / `fund_support`, while fallback/no-position states do not false-cover C19.

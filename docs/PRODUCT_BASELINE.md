@@ -43,6 +43,12 @@ Daily Report now exposes `today_research_actions` as the product starting point.
 
 This is a hard gate: future phases should improve the 5-minute Daily Report workflow before adding more decorative cards.
 
+## Operations Diagnostics baseline
+
+Phase 62 adds a read-only Operations Diagnostics surface backed by `GET /api/operations/diagnostics` (`phase62_operations_diagnostics_v1`). It provides Provider Health, Coverage Readiness, 13F Runtime Universe, and secrets-policy visibility before interpreting Daily Report or Stock Research outputs. It exposes `api_key_values_returned=false`, never returns API key values, and does not trigger provider calls.
+
+Phase 63 adds editable local 13F manager-universe settings via `GET/PUT/DELETE /api/operations/settings/13f-manager-universe` (`phase63_13f_manager_universe_settings_v1`). Precedence is `local_settings` > `startup_env` > `bundled_starter_universe`. The editor changes research scope only; it does not change scoring, final verdicts, provider calls, or 13F's delayed filing limitations.
+
 ## Current data sources
 
 The system can use a mix of live, cached live, derived, mock, fallback, and user-provided evidence. Key sources include SEC EDGAR, SEC 13F, SEC Companyfacts, FMP, yfinance, FRED-compatible macro data, USPTO PatentsView, manual evidence, and bundled fixtures.
@@ -60,7 +66,7 @@ $env:SEC_13F_LOOKBACK_QUARTERS="4"
 .venv\Scripts\python.exe -m uvicorn backend.app.main:app --reload
 ```
 
-The 13F manager list above is a starter runtime universe, not a permanent scoring rule. Users may replace it with their intended manager universe. Future phases should make this visible and then editable through operations settings.
+The 13F manager list above is a starter runtime universe, not a permanent scoring rule. Users may replace it with their intended manager universe through the Phase 63 Operations Diagnostics local settings editor. Local settings override `SEC_13F_TARGET_MANAGERS`; clearing local settings falls back to startup env or bundled starter universe.
 
 ## Coverage Matrix product gate
 

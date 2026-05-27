@@ -7,6 +7,8 @@ from fastapi.testclient import TestClient
 
 from backend.app.main import app
 from backend.app.schemas.manual_evidence import ManualQualitativeEvidence, ManualQualitativeEvidencePatch
+from backend.app.schemas.operations_diagnostics import OperationsDiagnosticsResponse
+from backend.app.schemas.operations_settings import SEC13FManagerUniverseSettings
 from backend.app.schemas.stock_analysis import AnalyzeStockResponse, QualitativeEvidenceInput
 from backend.app.utils.forbidden_language import detect_forbidden_language
 
@@ -74,6 +76,30 @@ def test_phase28_and_phase29_response_fields_are_in_schema_docs_and_types() -> N
     ]:
         assert definition in defs
         assert definition in frontend_types
+
+
+def test_phase61_research_workflow_summary_contract_is_documented() -> None:
+    schema = _load_schema()
+    top_level_props = schema["properties"]
+    defs = schema["$defs"]
+    api_spec = _read("docs/API_SPEC.md")
+    changelog = _read("docs/CHANGELOG.md")
+    frontend_types = _read("frontend/src/types.ts")
+
+    assert "research_workflow_summary" in top_level_props
+    assert "research_workflow_summary" in api_spec
+    assert "research_workflow_summary" in changelog
+    assert "research_workflow_summary" in frontend_types
+    assert "ResearchWorkflowSummary" in defs
+    assert "ResearchWorkflowSummary" in frontend_types
+    for status in [
+        "high_conviction_candidate",
+        "watchlist_candidate",
+        "needs_evidence_before_research",
+        "deprioritize_data_gaps",
+    ]:
+        assert status in api_spec
+        assert status in frontend_types
 
 
 def test_phase33_research_note_workflow_contract_is_documented() -> None:
@@ -345,6 +371,67 @@ def test_phase52_adr_manual_evidence_contract_is_documented() -> None:
         assert token in changelog
         if token not in {"missing_source_date", "ADR Manual Evidence Intake"}:
             assert token in frontend_types
+
+
+def test_phase62_operations_diagnostics_contract_is_documented() -> None:
+    committed = _normalize(json.loads(_read("schemas/operations_diagnostics.schema.json")))
+    generated = _normalize(OperationsDiagnosticsResponse.model_json_schema())
+    api_spec = _read("docs/API_SPEC.md")
+    readme = _read("README.md")
+    changelog = _read("docs/CHANGELOG.md")
+    data_sources = _read("docs/DATA_SOURCES.md")
+    framework = _read("docs/JANE_FRAMEWORK_MAPPING.md")
+    frontend_types = _read("frontend/src/types.ts")
+
+    assert committed == generated
+    for token in [
+        "phase62_operations_diagnostics_v1",
+        "operations/diagnostics",
+        "Provider Health",
+        "Coverage Readiness",
+        "13F Runtime Universe",
+        "api_key_values_returned",
+        "C18",
+        "C19",
+    ]:
+        assert token in api_spec
+        assert token in readme
+        assert token in changelog
+        assert token in data_sources
+        assert token in framework
+
+    for token in ["OperationsDiagnostics", "api_key_values_returned", "CoverageReadinessRow", "ProviderDiagnosticRow"]:
+        assert token in frontend_types
+
+
+def test_phase63_editable_13f_manager_universe_contract_is_documented() -> None:
+    committed = _normalize(json.loads(_read("schemas/operations_13f_manager_universe_settings.schema.json")))
+    generated = _normalize(SEC13FManagerUniverseSettings.model_json_schema())
+    api_spec = _read("docs/API_SPEC.md")
+    readme = _read("README.md")
+    changelog = _read("docs/CHANGELOG.md")
+    data_sources = _read("docs/DATA_SOURCES.md")
+    framework = _read("docs/JANE_FRAMEWORK_MAPPING.md")
+    frontend_types = _read("frontend/src/types.ts")
+
+    assert committed == generated
+    for token in [
+        "phase63_13f_manager_universe_settings_v1",
+        "operations/settings/13f-manager-universe",
+        "local_settings",
+        "startup_env",
+        "bundled_starter_universe",
+        "does not change scoring",
+    ]:
+        assert token in api_spec
+        assert token in readme
+        assert token in changelog
+        assert token in data_sources
+        assert token in framework
+
+    for token in ["SEC13FManagerUniverseSettings", "phase63_13f_manager_universe_settings_v1", "local_settings"]:
+        assert token in frontend_types
+
 
 
 def test_phase_status_documents_are_at_phase30_or_newer() -> None:

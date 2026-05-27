@@ -6,6 +6,9 @@
 - `backend/app/pipelines/research_pipeline.py` builds Daily Report payloads and the 5-minute `today_research_actions` starting flow.
 - `backend/app/reports/stock_analysis.py` builds deep single-name `POST /api/analyze-stock` responses.
 
+- `backend/app/services/operations_diagnostics_service.py` builds the read-only Phase 62 diagnostics payload for `GET /api/operations/diagnostics`; it reports Provider Health, Coverage Readiness, 13F Runtime Universe, and `api_key_values_returned=false` without triggering provider calls.
+- `backend/app/services/operations_settings_service.py` builds Phase 63 editable local settings for `GET/PUT/DELETE /api/operations/settings/13f-manager-universe`; local_settings override startup_env, then bundled_starter_universe, and this changes research scope only but does not change scoring.
+
 ## Scoring engines
 
 Scoring engines live under `backend/app/engines/`. They evaluate macro regime, market timing, smart money, crisis, overheat, risk allocation, and Jane-style company-quality evidence. Phase 60B does not rewrite score weights.
@@ -31,12 +34,17 @@ Manual evidence and review queues support human-supplied source-backed thesis ev
 - `frontend/src/pages/DailyReport.tsx` is the product starting surface.
 - `frontend/src/pages/StockResearch.tsx` is the deep single-name analysis surface.
 - `frontend/src/pages/EvidenceLibrary.tsx` and `frontend/src/pages/EvidenceDashboard.tsx` support manual evidence workflow.
+- `frontend/src/pages/OperationsDiagnostics.tsx` is the operations visibility and local settings surface for Provider Health, Coverage Readiness, 13F Runtime Universe, and editable local 13F manager universe controls.
 - `frontend/src/types.ts` mirrors backend contracts.
 
 ## Contract surfaces
 
 - `backend/app/schemas/stock_analysis.py`
 - `backend/app/schemas/daily_report.py`
+- `backend/app/schemas/operations_diagnostics.py`
+- `backend/app/schemas/operations_settings.py`
+- `schemas/operations_diagnostics.schema.json`
+- `schemas/operations_13f_manager_universe_settings.schema.json`
 - `schemas/analyze_stock.schema.json`
 - `schemas/daily_report.schema.json`
 - `docs/API_SPEC.md`
@@ -50,5 +58,5 @@ Manual evidence and review queues support human-supplied source-backed thesis ev
 
 - Research workflow status belongs in Daily Report first.
 - 13F manager universe visibility belongs in operations settings.
-- Editable manager universe belongs in a later local settings/UI phase.
+- Editable manager universe now belongs to the Phase 63 local settings/UI boundary; future work should add audit/history or richer validation rather than changing scoring.
 - New providers should be added only when they unblock a hard gate or a concrete research action.

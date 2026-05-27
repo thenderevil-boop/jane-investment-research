@@ -1,4 +1,4 @@
-import type { AnalyzeStockExportPayload, AnalyzeStockExportResponse, ApiError, CandidateAnalysisHistoryItem, CandidateAnalyzeResponse, CandidateDashboard, CandidateFilters, CandidateResearchItem, CandidateResearchItemCreate, CandidateReviewNote, CandidateReviewNoteCreate, DailyReport, JaneCriteriaResponse, LocalBackupExportOptions, LocalBackupExportResponse, ManualEvidenceDashboard, ManualEvidenceDashboardFilters, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, QualitativeEvidenceInput, ResearchContext, StockAnalysis } from '../types';
+import type { AnalyzeStockExportPayload, AnalyzeStockExportResponse, ApiError, CandidateAnalysisHistoryItem, CandidateAnalyzeResponse, CandidateDashboard, CandidateFilters, CandidateResearchItem, CandidateResearchItemCreate, CandidateReviewNote, CandidateReviewNoteCreate, DailyReport, JaneCriteriaResponse, LocalBackupExportOptions, LocalBackupExportResponse, ManualEvidenceDashboard, ManualEvidenceDashboardFilters, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, OperationsDiagnostics, QualitativeEvidenceInput, ResearchContext, SEC13FManagerUniverseSettings, StockAnalysis } from '../types';
 
 async function parseJson<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') ?? '';
@@ -64,6 +64,26 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function getLatestDailyReport(): Promise<DailyReport> {
   return request<DailyReport>('/api/daily-report/latest');
+}
+
+export function getOperationsDiagnostics(): Promise<OperationsDiagnostics> {
+  return request<OperationsDiagnostics>('/api/operations/diagnostics');
+}
+
+export function getSEC13FManagerUniverseSettings(): Promise<SEC13FManagerUniverseSettings> {
+  return request<SEC13FManagerUniverseSettings>('/api/operations/settings/13f-manager-universe');
+}
+
+export function updateSEC13FManagerUniverseSettings(managerCiks: string[], note?: string): Promise<SEC13FManagerUniverseSettings> {
+  return request<SEC13FManagerUniverseSettings>('/api/operations/settings/13f-manager-universe', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ manager_ciks: managerCiks, note }),
+  });
+}
+
+export function resetSEC13FManagerUniverseSettings(): Promise<SEC13FManagerUniverseSettings> {
+  return request<SEC13FManagerUniverseSettings>('/api/operations/settings/13f-manager-universe', { method: 'DELETE' });
 }
 
 export function getJaneCriteria(): Promise<JaneCriteriaResponse> {

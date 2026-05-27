@@ -20,6 +20,7 @@ from backend.app.data_sources.mock_macro import MOCK_MACRO_SCENARIOS
 from backend.app.engines.sec_13f_aggregation import aggregate_13f_holdings, compare_13f_quarter_over_quarter, summarize_13f_portfolio
 from backend.app.engines.sec_13f_target_matching import match_13f_targets, normalize_target_security_map
 from backend.app.features.market_features import build_market_snapshot_features
+from backend.app.services.operations_settings_service import effective_13f_manager_ciks
 from backend.app.utils.freshness import (
     DAILY_RATE_FRESHNESS_WINDOW,
     COMPANY_FILING_FRESHNESS_WINDOW,
@@ -1830,7 +1831,7 @@ def warm_price_reference_cache(tickers: list[str], max_tickers: int | None = Non
 
 
 def _target_13f_managers(fixture_summary: dict[str, Any]) -> list[str]:
-    configured = [item.strip() for item in config.SEC_13F_TARGET_MANAGERS.split(",") if item.strip()]
+    configured = effective_13f_manager_ciks(include_bundled_default=config.SEC_13F_TARGET_MANAGERS != "")
     if configured:
         return configured
     fixture_manager = str(fixture_summary.get("institution_name") or "").strip()

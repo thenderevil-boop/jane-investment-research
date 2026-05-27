@@ -4082,6 +4082,76 @@
       "title": "ResearchVerdict",
       "type": "object"
     },
+    "ResearchWorkflowSummary": {
+      "properties": {
+        "version": {
+          "const": "phase61_v1",
+          "default": "phase61_v1",
+          "title": "Version",
+          "type": "string"
+        },
+        "research_status": {
+          "default": "needs_evidence_before_research",
+          "enum": [
+            "high_conviction_candidate",
+            "watchlist_candidate",
+            "needs_evidence_before_research",
+            "deprioritize_data_gaps"
+          ],
+          "title": "Research Status",
+          "type": "string"
+        },
+        "confidence": {
+          "default": "low",
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "title": "Confidence",
+          "type": "string"
+        },
+        "one_line_summary": {
+          "maxLength": 120,
+          "title": "One Line Summary",
+          "type": "string"
+        },
+        "top_3_strengths": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "title": "Top 3 Strengths",
+          "type": "array"
+        },
+        "top_3_gaps": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "title": "Top 3 Gaps",
+          "type": "array"
+        },
+        "next_3_research_actions": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "title": "Next 3 Research Actions",
+          "type": "array"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "one_line_summary"
+      ],
+      "title": "ResearchWorkflowSummary",
+      "type": "object"
+    },
     "ScoreDriver": {
       "properties": {
         "name": {
@@ -4912,6 +4982,9 @@
     },
     "validation_os_report": {
       "$ref": "#/$defs/ValidationOSReport"
+    },
+    "research_workflow_summary": {
+      "$ref": "#/$defs/ResearchWorkflowSummary"
     },
     "data_quality_summary": {
       "$ref": "#/$defs/AnalyzeStockDataQualitySummary"

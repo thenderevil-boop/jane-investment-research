@@ -264,6 +264,7 @@ function hasSocialHeatHumanCheck(result: StockAnalysis): boolean {
 
 export function AnalystBriefSection({ result }: { result: StockAnalysis }) {
   const report = result.validation_os_report;
+  const workflowSummary = result.research_workflow_summary;
   const summary = result.candidate_validation_summary;
   const volumeContext = getVolumeExtensionComponent(result);
   const marketTimingConditions = getMarketTimingConditions(result);
@@ -295,6 +296,23 @@ export function AnalystBriefSection({ result }: { result: StockAnalysis }) {
         </div>
         <SignalBadge label={displayKey(label)} variant={label === 'high_risk_context' ? 'warning' : 'neutral'} />
       </div>
+      {workflowSummary && (
+        <div className="verdictBand workflowSummaryBand">
+          <SignalBadge
+            label={displayKey(workflowSummary.research_status)}
+            variant={workflowSummary.research_status === 'deprioritize_data_gaps' ? 'warning' : 'positive'}
+          />
+          <strong>{displayKey(workflowSummary.confidence)} confidence</strong>
+          <span>{workflowSummary.one_line_summary}</span>
+        </div>
+      )}
+      {workflowSummary && (
+        <div className="threeColumn workflowSummaryLists">
+          <div><h3>Top strengths</h3><ul>{workflowSummary.top_3_strengths.map((item) => <li key={item}>{item}</li>)}</ul></div>
+          <div><h3>Top gaps</h3><ul>{workflowSummary.top_3_gaps.map((item) => <li key={item}>{item}</li>)}</ul></div>
+          <div><h3>Next research actions</h3><ul>{workflowSummary.next_3_research_actions.map((item) => <li key={item}>{item}</li>)}</ul></div>
+        </div>
+      )}
       <div className="briefMetricGrid">
         <div><span>Validation</span><strong>{displayOptionalKey(report?.validation_level ?? summary?.research_priority)}</strong></div>
         <div><span>Data quality</span><strong>Data quality: {report?.data_quality_grade ?? result.data_quality_summary?.source_quality_grade ?? 'N/A'}</strong></div>

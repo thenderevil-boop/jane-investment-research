@@ -342,6 +342,22 @@ class ValidationOSReport(BaseModel):
     not_investment_advice: bool = True
 
 
+class ResearchWorkflowSummary(BaseModel):
+    version: Literal["phase61_v1"] = "phase61_v1"
+    research_status: Literal[
+        "high_conviction_candidate",
+        "watchlist_candidate",
+        "needs_evidence_before_research",
+        "deprioritize_data_gaps",
+    ] = "needs_evidence_before_research"
+    confidence: Literal["high", "medium", "low"] = "low"
+    one_line_summary: str = Field(max_length=120)
+    top_3_strengths: list[str] = Field(default_factory=list, max_length=3)
+    top_3_gaps: list[str] = Field(default_factory=list, max_length=3)
+    next_3_research_actions: list[str] = Field(default_factory=list, max_length=3)
+    not_investment_advice: bool = True
+
+
 class AnalyzeStockDataQualitySummary(BaseModel):
     mode: Literal["live_with_fallback", "mixed_preliminary", "mostly_mock", "insufficient"]
     confidence_cap_applied: bool
@@ -623,6 +639,11 @@ class AnalyzeStockResponse(BaseModel):
     evidence_matrix: list[EvidenceMatrixItem]
     jane_criteria_coverage: JaneCriteriaCoverageMatrix = Field(default_factory=JaneCriteriaCoverageMatrix)
     validation_os_report: ValidationOSReport = Field(default_factory=ValidationOSReport)
+    research_workflow_summary: ResearchWorkflowSummary = Field(
+        default_factory=lambda: ResearchWorkflowSummary(
+            one_line_summary="Research workflow summary has not been computed."
+        )
+    )
     data_quality_summary: AnalyzeStockDataQualitySummary
     foreign_filer_coverage_diagnostics: ForeignFilerCoverageDiagnostics = Field(default_factory=ForeignFilerCoverageDiagnostics)
     theme_validation_context: ThemeValidationContext = Field(default_factory=ThemeValidationContext)

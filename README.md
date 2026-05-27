@@ -8,6 +8,35 @@ Build a US-market-only investment research automation system based on Jane's Mar
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
+## Phase 63 Editable 13F Manager Universe
+
+Phase 63 adds `GET/PUT/DELETE /api/operations/settings/13f-manager-universe` (`phase63_13f_manager_universe_settings_v1`) and an Operations Diagnostics editor for the SEC 13F target-manager universe:
+
+- `local_settings` override `startup_env`, which overrides `bundled_starter_universe`; this precedence is visible in the API and UI.
+- Local settings persist under the local raw-store settings boundary and update future 13F target-manager reads without triggering provider calls.
+- The editor changes research scope only; it does not change scoring, verdicts, or make 13F real-time evidence.
+- CIKs are normalized to 10 digits, invalid/empty lists are rejected, and reset clears local settings back to startup env or bundled starter universe.
+- No API keys or secrets are accepted or returned.
+
+## Phase 62 Read-only Operations & Data Source Diagnostics
+
+Phase 62 adds `GET /api/operations/diagnostics` (`phase62_operations_diagnostics_v1`) and an Operations Diagnostics UI so provider/settings visibility becomes explicit before interpreting Daily Report or Stock Research outputs:
+
+- Provider Health shows enabled state, source/status, safe key-present booleans, cache TTL, limitations, and next action for SEC 13F, SEC Form 4, USPTO, FRED, yfinance, FMP, USASpending, OpenBB, SEC Companyfacts, and Daily Report snapshot/raw-store.
+- Coverage Readiness maps Jane C18 (`patent_count`) and C19 (`institutional_support`, `fund_support`) plus adjacent criteria to provider readiness without changing scoring or verdicts.
+- 13F Runtime Universe shows whether the manager universe comes from startup env or bundled starter universe; it is visibility only, not editable settings.
+- Secrets policy exposes `api_key_values_returned=false`; API key values are never returned.
+- Diagnostics are read-only and do not trigger provider calls.
+
+## Phase 61 Research Workflow Summary
+
+Phase 61 adds `research_workflow_summary` to `POST /api/analyze-stock` as a non-scoring first-screen workflow layer:
+
+- Returns `version="phase61_v1"`, deterministic `research_status`, confidence, one-line summary, top three strengths, top three gaps, next three research actions, and `not_investment_advice=true`.
+- Uses only existing final score, data-quality grade, Jane Coverage Matrix counts, score-driver breakdown, ADR/data-gap diagnostics, Form 4, 13F, and valuation context.
+- Displays at the top of the Stock Research Analyst Brief before score cards and detailed evidence sections.
+- Does not change scoring weights, final score, engine logic, provider behavior, or safety boundaries.
+
 ## Phase 61 Auto Coverage Completion and Daily Efficiency
 
 Phase 61 completes the highest-ROI coverage/daily-efficiency path without changing score weights, verdicts, safety boundaries, or adding pages:

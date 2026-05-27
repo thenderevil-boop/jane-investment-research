@@ -2,6 +2,24 @@
 
 This file maps Jane's Markdown methodology into system modules.
 
+## Phase 63 Editable 13F Manager Universe
+
+Phase 63 maps Jane's C19 institutional-support review workflow to an editable operations boundary:
+
+- `GET/PUT/DELETE /api/operations/settings/13f-manager-universe` (`phase63_13f_manager_universe_settings_v1`) controls which SEC 13F managers are used for future target-match reads.
+- Precedence is explicit: `local_settings` > `startup_env` > `bundled_starter_universe`, so C19 comparability can be reviewed across runs.
+- Editing the universe changes research scope only; it does not change scoring, final verdicts, or the delayed nature of 13F evidence.
+- The bundled starter universe remains a starter list for operations visibility, not a permanent scoring requirement.
+
+## Phase 62 Read-only Operations & Data Source Diagnostics
+
+Phase 62 maps Jane's preference for source-aware interpretation into operations visibility before scoring interpretation:
+
+- `GET /api/operations/diagnostics` (`phase62_operations_diagnostics_v1`) and the Operations Diagnostics UI expose Provider Health, Coverage Readiness, and 13F Runtime Universe status.
+- C18 readiness is tied to USPTO `patent_count`; C19 readiness is tied to SEC 13F `institutional_support` / `fund_support`.
+- `api_key_values_returned=false` and safe key-present booleans keep source setup visible without exposing secrets.
+- Diagnostics are read-only, do not trigger provider calls, and do not change Jane scores, verdicts, or recommendations.
+
 ## Phase 61 Auto Coverage Completion and Daily Efficiency
 
 Phase 61 maps Jane's preference for daily change detection and evidence completion into the product workflow:

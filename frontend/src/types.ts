@@ -1,4 +1,73 @@
 export type SourceType = 'live' | 'cached_live' | 'mock' | 'fallback' | 'derived' | 'unknown';
+export type DiagnosticsSourceType = SourceType | 'disabled';
+
+export type ProviderDiagnosticRow = {
+  provider_id: string;
+  label: string;
+  enabled: boolean;
+  requires_api_key: boolean;
+  has_api_key: boolean;
+  source_type: DiagnosticsSourceType;
+  status: 'available' | 'disabled' | 'missing_key' | 'stale' | 'unavailable' | 'not_configured';
+  cache_ttl_days?: number | null;
+  cache_ttl_hours?: number | null;
+  last_snapshot_at?: string | null;
+  limitations: string[];
+  missing_data: string[];
+  next_action: string;
+};
+
+export type CoverageReadinessRow = {
+  criterion_id: number;
+  criterion_name: string;
+  provider_id: string;
+  readiness: 'ready' | 'partial' | 'disabled' | 'missing_key' | 'stale' | 'unavailable';
+  covered_submetrics: string[];
+  next_action: string;
+  not_investment_advice: boolean;
+};
+
+export type OperationsDiagnostics = {
+  version: 'phase62_operations_diagnostics_v1';
+  generated_at: string;
+  runtime: {
+    daily_report_read_mode: string;
+    daily_batch_allow_live_fetch: boolean;
+    read_only: boolean;
+    triggers_provider_calls: boolean;
+    not_investment_advice: boolean;
+  };
+  providers: ProviderDiagnosticRow[];
+  coverage_readiness: CoverageReadinessRow[];
+  manager_universe: {
+    source: 'startup_env' | 'local_settings' | 'bundled_starter_universe';
+    manager_count: number;
+    is_runtime_override: boolean;
+    bundled_starter_count: number;
+    editable: boolean;
+    warnings: string[];
+  };
+  secrets_policy: {
+    api_key_values_returned: boolean;
+    redaction_policy: string;
+  };
+  not_investment_advice: boolean;
+};
+
+export type SEC13FManagerUniverseSettings = {
+  version: 'phase63_13f_manager_universe_settings_v1';
+  source: 'local_settings' | 'startup_env' | 'bundled_starter_universe';
+  effective_manager_ciks: string[];
+  local_manager_ciks: string[];
+  startup_env_manager_ciks: string[];
+  bundled_starter_manager_ciks: string[];
+  bundled_starter_count: number;
+  editable: boolean;
+  precedence: Array<'local_settings' | 'startup_env' | 'bundled_starter_universe'>;
+  note?: string | null;
+  warnings: string[];
+  not_investment_advice: boolean;
+};
 
 export type DataSourceStatus = {
   source_type: SourceType;
@@ -690,6 +759,17 @@ export type ValidationOSReport = {
   manual_verification_required: boolean;
   scoring_note: string;
   limitations: string[];
+  not_investment_advice: boolean;
+};
+
+export type ResearchWorkflowSummary = {
+  version: 'phase61_v1';
+  research_status: 'high_conviction_candidate' | 'watchlist_candidate' | 'needs_evidence_before_research' | 'deprioritize_data_gaps';
+  confidence: 'high' | 'medium' | 'low';
+  one_line_summary: string;
+  top_3_strengths: string[];
+  top_3_gaps: string[];
+  next_3_research_actions: string[];
   not_investment_advice: boolean;
 };
 
@@ -1507,6 +1587,7 @@ export type StockAnalysis = {
   company_event_signal_breakdown?: CompanyEventSignalBreakdown;
   platform_business_quality_card?: PlatformBusinessQualityCard;
   validation_os_report?: ValidationOSReport;
+  research_workflow_summary?: ResearchWorkflowSummary;
   data_quality_summary?: AnalyzeStockDataQualitySummary;
   foreign_filer_coverage_diagnostics?: ForeignFilerCoverageDiagnostics;
   evidence_freshness_policy?: EvidenceFreshnessPolicy;

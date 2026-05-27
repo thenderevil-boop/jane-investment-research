@@ -1,0 +1,98 @@
+{
+  "properties": {
+    "version": {
+      "const": "phase63_13f_manager_universe_settings_v1",
+      "default": "phase63_13f_manager_universe_settings_v1",
+      "title": "Version",
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "local_settings",
+        "startup_env",
+        "bundled_starter_universe"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "effective_manager_ciks": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Effective Manager Ciks",
+      "type": "array"
+    },
+    "local_manager_ciks": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Local Manager Ciks",
+      "type": "array"
+    },
+    "startup_env_manager_ciks": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Startup Env Manager Ciks",
+      "type": "array"
+    },
+    "bundled_starter_manager_ciks": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Bundled Starter Manager Ciks",
+      "type": "array"
+    },
+    "bundled_starter_count": {
+      "title": "Bundled Starter Count",
+      "type": "integer"
+    },
+    "editable": {
+      "default": true,
+      "title": "Editable",
+      "type": "boolean"
+    },
+    "precedence": {
+      "items": {
+        "enum": [
+          "local_settings",
+          "startup_env",
+          "bundled_starter_universe"
+        ],
+        "type": "string"
+      },
+      "title": "Precedence",
+      "type": "array"
+    },
+    "note": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Note"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "not_investment_advice": {
+      "default": true,
+      "title": "Not Investment Advice",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "source",
+    "effective_manager_ciks"
+  ],
+  "title": "SEC13FManagerUniverseSettings",
+  "type": "object"
+}

@@ -10,6 +10,7 @@ from backend.app.engines.sec_13f_target_matching import match_13f_targets, norma
 from backend.app.schemas.common import ScoreObject
 from backend.app.utils.confidence import source_confidence_weights
 from backend.app.utils.freshness import build_source_status
+from backend.app.services.operations_settings_service import effective_13f_manager_ciks
 
 BASE_LIMITATION = "Some smart-money subcomponents remain mock; SEC Form 4 and SEC 13F components may use live/cached SEC EDGAR when enabled."
 THIRTEEN_F_LIMITATIONS = [
@@ -37,7 +38,7 @@ def _normalized_cik_list(raw: str | list[str]) -> list[str]:
 
 
 def _sec_13f_target_manager_config_warning() -> str | None:
-    configured = set(_normalized_cik_list(config.SEC_13F_TARGET_MANAGERS))
+    configured = set(_normalized_cik_list(effective_13f_manager_ciks()))
     defaults = set(_normalized_cik_list(config.DEFAULT_SEC_13F_TARGET_MANAGERS))
     missing_defaults = sorted(defaults - configured)
     if not configured or not missing_defaults:

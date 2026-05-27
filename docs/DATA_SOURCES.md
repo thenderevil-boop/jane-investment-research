@@ -4,6 +4,21 @@
 
 Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions, Phase 11 adds opt-in official SEC EDGAR 13F institutional holdings, and Phase 17 adds opt-in official SEC EDGAR Companyfacts financial cross-checks. Phase 35 adds FRED `UMCSENT` as Daily Report context-only consumer sentiment and explicit yfinance-derived market-context coverage metadata. Phase 37 adds an external provider adapter foundation for future FMP, OpenBB sidecar, Alpha Vantage, and USASpending integrations. Phase 38 adds the first concrete Phase 37 adapter: opt-in FMP earnings-call transcript evidence for analyze-stock. Phase 39 maps FMP transcript analysis into non-scoring Jane C2/C17 external evidence context. Phase 40 adds opt-in USASpending.gov federal award evidence for C15 Government Relationship context. Phase 41 adds opt-in OpenBB sidecar / Stockgrid large options block evidence for the Smart Money options component. Phase 42 adds opt-in FMP financial statements and TTM ratios as an ADR / SEC-gap financial proxy for analyze-stock. Phase 57 adds `macro_flow_signal_breakdown` / `phase57_macro_flow_signal_breakdown_v1` as a non-scoring analyze-stock explanation layer for existing macro and flow sources; it is not a trading signal and does not change final score. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
 
+Phase 63 editable 13F manager universe notes:
+
+- `GET/PUT/DELETE /api/operations/settings/13f-manager-universe` (`phase63_13f_manager_universe_settings_v1`) makes the SEC 13F target-manager universe locally editable.
+- Effective precedence is `local_settings` > `startup_env` > `bundled_starter_universe`; diagnostics surface the active source for comparability review.
+- Local settings update future 13F target-manager reads but do not trigger provider calls, and the settings layer does not change scoring or make 13F evidence real-time.
+- Saved values are manager CIKs only; no API key values or secrets are accepted or returned.
+
+Phase 62 operations diagnostics notes:
+
+- `GET /api/operations/diagnostics` (`phase62_operations_diagnostics_v1`) exposes read-only Provider Health, Coverage Readiness, and 13F Runtime Universe visibility.
+- Provider Health covers SEC 13F, SEC Form 4, USPTO PatentsView, FRED macro, yfinance, FMP financial proxy, FMP transcript, USASpending, OpenBB sidecar, SEC Companyfacts, and Daily Report snapshot/raw-store.
+- Coverage Readiness maps C18 to USPTO `patent_count` and C19 to SEC 13F `institutional_support` / `fund_support` while preserving non-scoring/manual-review boundaries.
+- Diagnostics expose only safe booleans such as `has_api_key`; `api_key_values_returned=false` and API key values are never returned.
+- Phase 62 does not trigger provider calls and does not make 13F manager universe settings editable.
+
 Phase 61 daily-efficiency notes:
 
 - Daily Report adds `macro_delta` (`phase61_macro_delta_v1`) by comparing current macro score, VIX, 10Y-2Y spread, and available CPI/PPI observations with the latest stored Daily Report snapshot.

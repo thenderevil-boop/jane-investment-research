@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { addCandidateNote, analyzeCandidate, analyzeStock, archiveCandidate, archiveManualEvidence, createCandidate, exportAnalyzeStockReport, exportLocalBackup, getCandidateAnalysisHistory, getCandidateDashboard, getCandidateNotes, getLatestDailyReport, getManualEvidenceDashboard, listCandidates, refreshCandidateEvidenceSummary, restoreCandidate, updateCandidate, listManualEvidence, updateManualEvidence, createManualEvidence } from './client';
+import { addCandidateNote, analyzeCandidate, analyzeStock, archiveCandidate, archiveManualEvidence, createCandidate, exportAnalyzeStockReport, exportLocalBackup, getCandidateAnalysisHistory, getCandidateDashboard, getCandidateNotes, getLatestDailyReport, getManualEvidenceDashboard, getOperationsDiagnostics, listCandidates, refreshCandidateEvidenceSummary, restoreCandidate, updateCandidate, listManualEvidence, updateManualEvidence, createManualEvidence } from './client';
 
 describe('api client', () => {
   afterEach(() => {
@@ -50,6 +50,13 @@ describe('api client', () => {
     expect(body.qualitative_evidence).toHaveLength(1);
     expect(body.qualitative_evidence[0].criterion).toBe('network_effect');
     expect(init.signal).toBe(controller.signal);
+  });
+
+  it('calls operations diagnostics endpoint', async () => {
+    const fetchMock = vi.fn(async () => new Response('{"version":"phase62_operations_diagnostics_v1","providers":[],"coverage_readiness":[],"not_investment_advice":true}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    await getOperationsDiagnostics();
+    expect(fetchMock).toHaveBeenCalledWith('/api/operations/diagnostics', undefined);
   });
 
   it('calls manual evidence library endpoints', async () => {

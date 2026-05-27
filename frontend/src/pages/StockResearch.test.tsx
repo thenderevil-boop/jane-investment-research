@@ -363,6 +363,16 @@ describe('StockResearch presentation helpers', () => {
         limitations: [],
         not_investment_advice: true,
       },
+      research_workflow_summary: {
+        version: 'phase61_v1',
+        research_status: 'watchlist_candidate',
+        confidence: 'medium',
+        one_line_summary: 'NVDA: watchlist_candidate with score 45, data grade B, coverage 6.',
+        top_3_strengths: ['Macro context is constructive.'],
+        top_3_gaps: ['C1 evidence is insufficient.'],
+        next_3_research_actions: ['Document monopoly/moat evidence for C1', 'Check 13F cache in Operations and refresh', 'Verify SEC EDGAR user agent configuration'],
+        not_investment_advice: true,
+      },
       macro_regime: { score: 62, label: 'neutral_to_constructive', confidence: 0.95 },
       market_timing_context: {
         score: 0,
@@ -506,6 +516,12 @@ describe('StockResearch presentation helpers', () => {
 
     expect(html).toContain('Analyst Brief');
     expect(html).toContain('watchlist candidate');
+    expect(html).toContain('medium confidence');
+    expect(html).toContain('NVDA: watchlist_candidate with score 45, data grade B, coverage 6.');
+    expect(html).toContain('Next research actions');
+    expect(html).toContain('Document monopoly/moat evidence for C1');
+    expect(html).toContain('Check 13F cache in Operations and refresh');
+    expect(html).toContain('Verify SEC EDGAR user agent configuration');
     expect(html).toContain('Data quality: B');
     expect(html).toContain('Macro: neutral to constructive');
     expect(html).toContain('Entry timing conditions');

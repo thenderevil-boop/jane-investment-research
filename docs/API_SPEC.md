@@ -10,6 +10,61 @@ http://localhost:8000
 
 ## Endpoints
 
+### GET /api/operations/diagnostics
+
+Returns read-only operations and data-source diagnostics for provider/settings visibility. Phase 62 adds this contract as `phase62_operations_diagnostics_v1`; the endpoint does not trigger live provider calls and does not change scores, verdicts, or Daily Report generation.
+
+Response highlights:
+
+- `runtime`: Daily Report read mode, daily batch live-fetch flag, `read_only=true`, `triggers_provider_calls=false`, and `not_investment_advice=true`.
+- `providers`: Provider Health rows with provider id, enabled state, source/status, safe `has_api_key` boolean, cache TTL, limitations, missing-data hints, and next action.
+- `coverage_readiness`: Coverage Readiness rows mapping Jane C18 and C19 plus adjacent criteria to provider readiness and covered submetrics.
+- `manager_universe`: 13F Runtime Universe source (`startup_env`, `local_settings`, or `bundled_starter_universe`), manager count, runtime override flag, and warnings.
+- `secrets_policy`: `api_key_values_returned=false`; API key values are never returned.
+
+Example:
+
+```json
+{
+  "version": "phase62_operations_diagnostics_v1",
+  "runtime": {
+    "daily_report_read_mode": "snapshot_first",
+    "daily_batch_allow_live_fetch": false,
+    "read_only": true,
+    "triggers_provider_calls": false,
+    "not_investment_advice": true
+  },
+  "providers": [
+    {"provider_id": "sec_13f", "label": "SEC 13F institutional holdings", "enabled": true, "source_type": "live", "status": "available", "next_action": "Use candidate-specific target matches for C19 readiness; review delayed filing limitations."}
+  ],
+  "coverage_readiness": [
+    {"criterion_id": 18, "criterion_name": "Patents / IP", "provider_id": "uspto_patentsview", "readiness": "ready", "covered_submetrics": ["patent_count"], "not_investment_advice": true},
+    {"criterion_id": 19, "criterion_name": "VC / Institutional Support", "provider_id": "sec_13f", "readiness": "ready", "covered_submetrics": ["institutional_support", "fund_support"], "not_investment_advice": true}
+  ],
+  "manager_universe": {"source": "bundled_starter_universe", "manager_count": 5, "is_runtime_override": false},
+  "secrets_policy": {"api_key_values_returned": false, "redaction_policy": "only safe booleans are exposed; API key values are never returned"},
+  "not_investment_advice": true
+}
+```
+
+### GET /api/operations/settings/13f-manager-universe
+
+Returns the editable SEC 13F manager-universe settings contract (`phase63_13f_manager_universe_settings_v1`). The response shows `effective_manager_ciks`, `local_manager_ciks`, `startup_env_manager_ciks`, `bundled_starter_manager_ciks`, `source`, and precedence: `local_settings` > `startup_env` > `bundled_starter_universe`. This endpoint is settings visibility only and does not change scoring.
+
+### PUT /api/operations/settings/13f-manager-universe
+
+Persists local 13F manager-universe settings. Request body:
+
+```json
+{"manager_ciks": ["0001067983", "0000102909"], "note": "core institutional review list"}
+```
+
+CIKs are normalized to 10 digits, duplicates are removed, and empty/invalid lists return validation errors. Local settings affect future SEC 13F target-manager reads and diagnostics manager-universe source, but do not change scoring, final verdicts, provider keys, or 13F's delayed filing limitations.
+
+### DELETE /api/operations/settings/13f-manager-universe
+
+Clears local 13F manager-universe settings and returns the effective settings after reset. After reset the effective source falls back to `startup_env` when configured, otherwise `bundled_starter_universe`. No API key values or secrets are accepted or returned.
+
 ### GET /api/health
 
 Response:
@@ -124,6 +179,7 @@ Phase 14 makes the response a candidate validation report rather than a loose bu
 - `comparison_evidence_assessment`: manual competitor/comparison evidence summary for peer context hooks.
 - `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, qualitative evidence, comparison evidence, Jane company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
 - `jane_criteria_coverage`: non-scoring coverage matrix across the canonical Jane 20 criteria, accepted evidence items, SEC Companyfacts financial proxies where available, C2/C3/C5 auto-derived yfinance/financial proxies, C18 PatentsView patent-count proxy, C19 SEC 13F institutional-support context, covered and missing submetrics, and next manual checks. Phase 53 adds explicit C18 activation guidance when USPTO PatentsView is disabled; Phase 55 enables no-key USPTO by default and bridges existing 13F context without changing final scoring. Phase 56 keeps C11 `jane_theme_alignment` as manual evidence: user-supplied themes do not auto-cover C11.
+- `research_workflow_summary`: Phase 61 non-scoring first-screen workflow summary. It returns `version="phase61_v1"`, deterministic `research_status` (`high_conviction_candidate`, `watchlist_candidate`, `needs_evidence_before_research`, or `deprioritize_data_gaps`), `confidence`, a max-120-character safe summary, top three strengths/gaps from existing score drivers, next three research actions, and `not_investment_advice=true`. It reads existing score, data-quality grade, coverage counts, ADR/data-gap diagnostics, Form 4, 13F, and valuation context only; it does not change scores, weights, verdicts, provider behavior, or engine logic.
 - `theme_validation_context`: Phase 56 non-scoring boundary object for `research_context.theme`; it labels the theme as `input_source="user_supplied"`, `boundary_label="user_supplied_validation_target"`, `theme_discovery_enabled=false`, `system_generated_theme=false`, `ranking_or_scoring_policy="not_ranked_or_scored"`, `confidence=0`, and `affects_score=false`, with manual checks for revenue exposure, industry CAGR, policy support, and capital inflow.
 - `macro_flow_signal_breakdown`: Phase 57 `phase57_macro_flow_signal_breakdown_v1` explainability object that separates `macro_signals` and `flow_signals`, exposes `macro_signal_count`, `flow_signal_count`, `final_score_unchanged=true`, `affects_score=false`, and `not_investment_advice=true`. It is not a trading signal and does not change final score, research verdict, confidence, or scoring weights.
 - `data_quality_summary`: user-facing source-quality grade, confidence-cap reason, mock/fallback categories, optional-provider fallback categories, qualitative evidence counts, SEC Companyfacts status, FMP financial proxy status for ADR / SEC gaps, ADR/foreign-filer coverage context, and excluded scoring indicators. For ADR / foreign-filer Grade D cases, Phase 53 explains that the grade can reflect data-source coverage / data-structure limits rather than company-quality weakness.

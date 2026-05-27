@@ -34,6 +34,8 @@ from backend.app.schemas.manual_evidence import ManualEvidenceQualityLabel, Manu
 from backend.app.schemas.manual_evidence_dashboard import ManualEvidenceDashboardFilters, ManualEvidenceDashboardResponse
 from backend.app.schemas.candidate_workspace import CandidateAnalysisHistoryItem, CandidateAnalyzeRequest, CandidateAnalyzeResponse, CandidateDashboardResponse, CandidatePriority, CandidateResearchItem, CandidateResearchItemCreate, CandidateResearchItemPatch, CandidateReviewNote, CandidateReviewNoteCreate, CandidateStatus
 from backend.app.schemas.export import AnalyzeStockExportRequest, AnalyzeStockExportResponse, LocalBackupExportResponse
+from backend.app.schemas.operations_diagnostics import OperationsDiagnosticsResponse
+from backend.app.schemas.operations_settings import SEC13FManagerUniverseSettings, SEC13FManagerUniverseUpdate
 from backend.app.schemas.stock_analysis import AnalyzeStockRequest, AnalyzeStockResponse
 from backend.app.schemas.supplemental import DataHealthResponse, PriceReferenceWarmupRequest, RawDataResponse, ThemesLatestResponse, TickerSignalsResponse
 from backend.app.raw_store.candidate_workspace import CandidateWorkspaceStoreError
@@ -54,6 +56,8 @@ from backend.app.services.candidate_workspace import (
 from backend.app.services.daily_report_service import latest_daily_report_response
 from backend.app.services.export_service import export_analyze_stock_report, export_local_backup
 from backend.app.services.manual_evidence_dashboard import summarize_manual_evidence_dashboard
+from backend.app.services.operations_diagnostics_service import build_operations_diagnostics
+from backend.app.services.operations_settings_service import clear_13f_manager_universe_settings, get_13f_manager_universe_settings, update_13f_manager_universe_settings
 from backend.app.services.snapshot_metadata import (
     ensure_macro_score_explanation as _ensure_macro_score_explanation,
     metadata_from_snapshot as _metadata_from_snapshot,
@@ -94,6 +98,26 @@ def health() -> HealthResponse:
 @router.get("/jane-criteria", response_model=JaneCriteriaResponse)
 def jane_criteria() -> JaneCriteriaResponse:
     return _ensure_safe_response(JaneCriteriaResponse(criteria=JANE_CRITERIA, count=len(JANE_CRITERIA)))
+
+
+@router.get("/operations/diagnostics", response_model=OperationsDiagnosticsResponse)
+def operations_diagnostics() -> OperationsDiagnosticsResponse:
+    return _ensure_safe_response(build_operations_diagnostics())
+
+
+@router.get("/operations/settings/13f-manager-universe", response_model=SEC13FManagerUniverseSettings)
+def get_sec_13f_manager_universe_settings() -> SEC13FManagerUniverseSettings:
+    return _ensure_safe_response(get_13f_manager_universe_settings())
+
+
+@router.put("/operations/settings/13f-manager-universe", response_model=SEC13FManagerUniverseSettings)
+def put_sec_13f_manager_universe_settings(update: SEC13FManagerUniverseUpdate) -> SEC13FManagerUniverseSettings:
+    return _ensure_safe_response(update_13f_manager_universe_settings(update))
+
+
+@router.delete("/operations/settings/13f-manager-universe", response_model=SEC13FManagerUniverseSettings)
+def delete_sec_13f_manager_universe_settings() -> SEC13FManagerUniverseSettings:
+    return _ensure_safe_response(clear_13f_manager_universe_settings())
 
 
 @router.get("/data-health", response_model=DataHealthResponse)

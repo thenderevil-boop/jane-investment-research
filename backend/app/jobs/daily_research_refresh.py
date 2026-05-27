@@ -10,6 +10,7 @@ from backend.app.pipelines.research_pipeline import build_daily_report
 from backend.app.raw_store import repository
 from backend.app.services.daily_batch_context import DailyBatchContext, use_daily_batch_context
 from backend.app.services.daily_candidates import configured_daily_report_candidates
+from backend.app.services.operations_settings_service import effective_13f_manager_ciks
 
 
 def _daily_research_tickers() -> list[str]:
@@ -23,7 +24,7 @@ def _daily_research_tickers() -> list[str]:
 
 
 def _target_managers(ticker: str) -> list[str]:
-    configured = [item.strip() for item in config.SEC_13F_TARGET_MANAGERS.split(",") if item.strip()]
+    configured = effective_13f_manager_ciks()
     if configured:
         return configured[:5]
     fixture = repository.read_company_fundamentals(ticker)

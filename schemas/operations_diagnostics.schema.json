@@ -1,0 +1,315 @@
+{
+  "$defs": {
+    "CoverageReadinessRow": {
+      "properties": {
+        "criterion_id": {
+          "title": "Criterion Id",
+          "type": "integer"
+        },
+        "criterion_name": {
+          "title": "Criterion Name",
+          "type": "string"
+        },
+        "provider_id": {
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "readiness": {
+          "enum": [
+            "ready",
+            "partial",
+            "disabled",
+            "missing_key",
+            "stale",
+            "unavailable"
+          ],
+          "title": "Readiness",
+          "type": "string"
+        },
+        "covered_submetrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Covered Submetrics",
+          "type": "array"
+        },
+        "next_action": {
+          "title": "Next Action",
+          "type": "string"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "criterion_id",
+        "criterion_name",
+        "provider_id",
+        "readiness",
+        "next_action"
+      ],
+      "title": "CoverageReadinessRow",
+      "type": "object"
+    },
+    "ManagerUniverseDiagnostics": {
+      "properties": {
+        "source": {
+          "enum": [
+            "startup_env",
+            "local_settings",
+            "bundled_starter_universe"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "manager_count": {
+          "title": "Manager Count",
+          "type": "integer"
+        },
+        "is_runtime_override": {
+          "title": "Is Runtime Override",
+          "type": "boolean"
+        },
+        "bundled_starter_count": {
+          "title": "Bundled Starter Count",
+          "type": "integer"
+        },
+        "editable": {
+          "default": true,
+          "title": "Editable",
+          "type": "boolean"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source",
+        "manager_count",
+        "is_runtime_override",
+        "bundled_starter_count"
+      ],
+      "title": "ManagerUniverseDiagnostics",
+      "type": "object"
+    },
+    "ProviderDiagnosticRow": {
+      "properties": {
+        "provider_id": {
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "requires_api_key": {
+          "default": false,
+          "title": "Requires Api Key",
+          "type": "boolean"
+        },
+        "has_api_key": {
+          "default": false,
+          "title": "Has Api Key",
+          "type": "boolean"
+        },
+        "source_type": {
+          "default": "unknown",
+          "enum": [
+            "live",
+            "cached_live",
+            "derived",
+            "fallback",
+            "mock",
+            "disabled",
+            "unknown"
+          ],
+          "title": "Source Type",
+          "type": "string"
+        },
+        "status": {
+          "default": "unavailable",
+          "enum": [
+            "available",
+            "disabled",
+            "missing_key",
+            "stale",
+            "unavailable",
+            "not_configured"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "cache_ttl_days": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Ttl Days"
+        },
+        "cache_ttl_hours": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Ttl Hours"
+        },
+        "last_snapshot_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Snapshot At"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        },
+        "next_action": {
+          "title": "Next Action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider_id",
+        "label",
+        "enabled",
+        "next_action"
+      ],
+      "title": "ProviderDiagnosticRow",
+      "type": "object"
+    },
+    "RuntimeDiagnostics": {
+      "properties": {
+        "daily_report_read_mode": {
+          "title": "Daily Report Read Mode",
+          "type": "string"
+        },
+        "daily_batch_allow_live_fetch": {
+          "title": "Daily Batch Allow Live Fetch",
+          "type": "boolean"
+        },
+        "read_only": {
+          "default": true,
+          "title": "Read Only",
+          "type": "boolean"
+        },
+        "triggers_provider_calls": {
+          "default": false,
+          "title": "Triggers Provider Calls",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "daily_report_read_mode",
+        "daily_batch_allow_live_fetch"
+      ],
+      "title": "RuntimeDiagnostics",
+      "type": "object"
+    },
+    "SecretsPolicyDiagnostics": {
+      "properties": {
+        "api_key_values_returned": {
+          "default": false,
+          "title": "Api Key Values Returned",
+          "type": "boolean"
+        },
+        "redaction_policy": {
+          "default": "only safe booleans are exposed; API key values are never returned",
+          "title": "Redaction Policy",
+          "type": "string"
+        }
+      },
+      "title": "SecretsPolicyDiagnostics",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "version": {
+      "const": "phase62_operations_diagnostics_v1",
+      "default": "phase62_operations_diagnostics_v1",
+      "title": "Version",
+      "type": "string"
+    },
+    "generated_at": {
+      "title": "Generated At",
+      "type": "string"
+    },
+    "runtime": {
+      "$ref": "#/$defs/RuntimeDiagnostics"
+    },
+    "providers": {
+      "items": {
+        "$ref": "#/$defs/ProviderDiagnosticRow"
+      },
+      "title": "Providers",
+      "type": "array"
+    },
+    "coverage_readiness": {
+      "items": {
+        "$ref": "#/$defs/CoverageReadinessRow"
+      },
+      "title": "Coverage Readiness",
+      "type": "array"
+    },
+    "manager_universe": {
+      "$ref": "#/$defs/ManagerUniverseDiagnostics"
+    },
+    "secrets_policy": {
+      "$ref": "#/$defs/SecretsPolicyDiagnostics"
+    },
+    "not_investment_advice": {
+      "default": true,
+      "title": "Not Investment Advice",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "generated_at",
+    "runtime",
+    "providers",
+    "coverage_readiness",
+    "manager_universe"
+  ],
+  "title": "OperationsDiagnosticsResponse",
+  "type": "object"
+}

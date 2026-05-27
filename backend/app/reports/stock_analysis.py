@@ -23,6 +23,7 @@ from backend.app.engines.sec_13f_target_matching import build_candidate_13f_evid
 from backend.app.engines.smart_money_engine import evaluate_smart_money
 from backend.app.pipelines.research_pipeline import _build_jane_reference_conditions, _enrich_source_status, score_object
 from backend.app.raw_store.repository import get_company_fundamentals, get_company_profile, get_sec_companyfacts, load_manual_evidence_for_ticker, read_macro_data, read_market_data, read_sec_filings
+from backend.app.services.operations_settings_service import effective_13f_manager_ciks
 from backend.app.schemas.common import ScoreObject
 from backend.app.schemas.manual_evidence import enrich_manual_evidence_quality, normalize_comparison_context, score_manual_evidence_quality
 from backend.app.schemas.stock_analysis import (
@@ -37,6 +38,7 @@ from backend.app.schemas.stock_analysis import (
     JaneCompanyQuality,
     NextManualCheck,
     ResearchVerdict,
+    ResearchWorkflowSummary,
     ScoreDriverBreakdown,
     StaleReviewQueue,
     ThemeValidationContext,
@@ -3174,7 +3176,7 @@ def _normalised_cik_set(raw: str | list[str]) -> set[str]:
 
 
 def _sec_13f_target_manager_config_warning() -> str | None:
-    configured = _normalised_cik_set(config.SEC_13F_TARGET_MANAGERS)
+    configured = _normalised_cik_set(effective_13f_manager_ciks())
     defaults = _normalised_cik_set(config.DEFAULT_SEC_13F_TARGET_MANAGERS)
     missing_defaults = sorted(defaults - configured)
     if not configured or not missing_defaults:
@@ -4949,6 +4951,141 @@ def _build_validation_os_report(response: AnalyzeStockResponse) -> dict:
     }
 
 
+def _covered_or_partial_count(response: AnalyzeStockResponse) -> int:
+    coverage = response.jane_criteria_coverage
+    return int(coverage.covered_count or 0) + int(coverage.partial_count or 0)
+
+
+def _financial_metric_available_count(response: AnalyzeStockResponse) -> int:
+    derived = response.financial_quality.derived_metrics or {}
+    core_count = derived.get("available_core_metric_count")
+    if isinstance(core_count, int | float):
+        return int(core_count)
+    sec_facts = response.sec_financial_facts.get("facts") or {}
+    return sum(1 for item in sec_facts.values() if item)
+
+
+def _is_adr_limited(response: AnalyzeStockResponse) -> bool:
+    diagnostics = response.foreign_filer_coverage_diagnostics
+    if diagnostics.is_foreign_filer_or_adr:
+        return True
+    limitation_text = " ".join(
+        [
+            *(str(item.reason) for item in diagnostics.coverage_limitations),
+            *response.missing_data,
+            *response.data_quality_summary.foreign_filer_context.get("signals", []),
+        ]
+    ).lower()
+    return "adr" in limitation_text or "foreign filer" in limitation_text
+
+
+def _research_status(response: AnalyzeStockResponse) -> str:
+    score = response.research_verdict.score
+    grade = response.data_quality_summary.source_quality_grade
+    coverage_count = _covered_or_partial_count(response)
+    adr_limited = _is_adr_limited(response)
+    financial_metric_count = _financial_metric_available_count(response)
+
+    if score < 30 or (grade == "D" and adr_limited and financial_metric_count < 2):
+        return "deprioritize_data_gaps"
+    if score >= 70 and grade in {"A", "B"} and coverage_count >= 8:
+        return "high_conviction_candidate"
+    if (score >= 45 and grade in {"A", "B", "C"} and coverage_count >= 4) or (score >= 55 and grade == "D" and adr_limited and financial_metric_count >= 2):
+        return "watchlist_candidate"
+    if score >= 30 and coverage_count < 4:
+        return "needs_evidence_before_research"
+    return "deprioritize_data_gaps"
+
+
+def _research_workflow_confidence(status: str, response: AnalyzeStockResponse) -> str:
+    if status == "high_conviction_candidate":
+        return "high"
+    if status == "watchlist_candidate":
+        return "medium"
+    if status == "needs_evidence_before_research" and response.data_quality_summary.source_quality_grade in {"A", "B"}:
+        return "medium"
+    return "low"
+
+
+def _safe_short_summary(response: AnalyzeStockResponse, status: str, coverage_count: int) -> str:
+    grade = response.data_quality_summary.source_quality_grade
+    summary = f"{response.ticker}: {status} with score {response.research_verdict.score:.0f}, data grade {grade}, coverage {coverage_count}."
+    return summary[:120]
+
+
+def _driver_summaries(drivers: list) -> list[str]:
+    summaries = []
+    for driver in drivers:
+        item = driver.model_dump(mode="json") if hasattr(driver, "model_dump") else driver
+        text = str(item.get("summary") or item.get("name") or "").strip()
+        if text and text not in summaries:
+            summaries.append(text)
+    return summaries[:3]
+
+
+def _criterion_row(response: AnalyzeStockResponse, criterion_id: int):
+    return next((item for item in response.jane_criteria_coverage.criteria if item.criterion_id == criterion_id), None)
+
+
+def _has_form4_fallback(response: AnalyzeStockResponse) -> bool:
+    insider_status = _status_dict(response.insider_activity.get("source_status") or response.insider_activity.get("raw_data", {}).get("source_status"))
+    smart_breakdown = response.smart_money.source_quality_breakdown or {}
+    form4_breakdown = smart_breakdown.get("form4") if isinstance(smart_breakdown, dict) else {}
+    return bool(
+        insider_status.get("source_type") == "fallback"
+        or insider_status.get("fallback_used")
+        or (isinstance(form4_breakdown, dict) and form4_breakdown.get("fallback_used"))
+        or (isinstance(form4_breakdown, dict) and form4_breakdown.get("source_type") == "fallback")
+    )
+
+
+def _phase61_research_actions(response: AnalyzeStockResponse) -> list[str]:
+    actions = []
+    c1 = _criterion_row(response, 1)
+    if c1 and c1.coverage_status == "insufficient":
+        actions.append("Document monopoly/moat evidence for C1")
+    candidate_13f = response.institutional_13f.get("candidate_specific_evidence") or {}
+    if candidate_13f.get("matched_in_13f") is False:
+        actions.append("Check 13F cache in Operations and refresh")
+    if _has_form4_fallback(response):
+        actions.append("Verify SEC EDGAR user agent configuration")
+    c2 = _criterion_row(response, 2)
+    if c2 and ("founder_is_ceo" in c2.missing_submetrics or c2.coverage_status == "insufficient"):
+        actions.append("Confirm founder-operator status")
+    if response.valuation_context.label == "elevated":
+        actions.append("Compare valuation vs peer group")
+    for check in response.next_manual_checks:
+        if len(actions) >= 3:
+            break
+        if check.check not in actions:
+            actions.append(check.check)
+    for fallback in [
+        "Review source-quality caveats",
+        "Update missing Jane evidence",
+        "Recheck validation coverage",
+    ]:
+        if len(actions) >= 3:
+            break
+        if fallback not in actions:
+            actions.append(fallback)
+    return actions[:3]
+
+
+def _build_research_workflow_summary(response: AnalyzeStockResponse) -> dict:
+    status = _research_status(response)
+    coverage_count = _covered_or_partial_count(response)
+    return {
+        "version": "phase61_v1",
+        "research_status": status,
+        "confidence": _research_workflow_confidence(status, response),
+        "one_line_summary": _safe_short_summary(response, status, coverage_count),
+        "top_3_strengths": _driver_summaries(response.score_driver_breakdown.positive_drivers),
+        "top_3_gaps": _driver_summaries(response.score_driver_breakdown.negative_or_limiting_drivers),
+        "next_3_research_actions": _phase61_research_actions(response),
+        "not_investment_advice": True,
+    }
+
+
 def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     fixture = STOCK_FIXTURES.get(request.ticker, DEFAULT_STOCK)
     market_context = read_market_data()
@@ -5248,4 +5385,5 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     response.candidate_validation_summary = CandidateValidationSummary.model_validate(_build_candidate_summary(response))
     response.validation_quality_summary = ValidationQualitySummary.model_validate(_build_validation_quality_summary(response))
     response.validation_os_report = ValidationOSReport.model_validate(_build_validation_os_report(response))
+    response.research_workflow_summary = ResearchWorkflowSummary.model_validate(_build_research_workflow_summary(response))
     return AnalyzeStockResponse.model_validate(_sanitize_api_secret_markers(response.model_dump(mode="json")))
