@@ -2,7 +2,7 @@
 
 ## Planning baseline
 
-Phase 64A keeps architecture planning aligned with the committed Phase 61-63 baseline. Phase 64 adds `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`), a non-scoring Evidence Gap Inbox that converts Coverage Matrix/manual-evidence/operations-readiness state into prioritized research actions. Gap types include `manual_evidence_required`, `source_setup_required`, `provider_cache_refresh_required`, `provider_limitation`, `adr_or_foreign_filer_limitation`, and `optional_context`.
+Phase 69 adds the Manual Evidence Quality Loop on top of the Phase 64A-aligned Phase 61-68 routeable workflow stack. Phase 64 adds `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`), a non-scoring Evidence Gap Inbox that converts Coverage Matrix/manual-evidence/operations-readiness state into prioritized research actions. Gap types include `manual_evidence_required`, `source_setup_required`, `provider_cache_refresh_required`, `provider_limitation`, `adr_or_foreign_filer_limitation`, and `optional_context`. Phase 68 aligns the Stock Research workflow summary with the same dominant blocker/reason/route vocabulary. Phase 69 links saved manual evidence back to those gaps through `manual_evidence_resolution` metadata.
 
 ## Backend request flow
 

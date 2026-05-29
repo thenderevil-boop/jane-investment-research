@@ -1,132 +1,614 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ManualEvidenceDashboardResponse",
-  "type": "object",
+  "$defs": {
+    "ManualEvidenceDashboardQueueItem": {
+      "properties": {
+        "evidence_id": {
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "ticker": {
+          "title": "Ticker",
+          "type": "string"
+        },
+        "criterion": {
+          "title": "Criterion",
+          "type": "string"
+        },
+        "evidence_type": {
+          "title": "Evidence Type",
+          "type": "string"
+        },
+        "review_status": {
+          "title": "Review Status",
+          "type": "string"
+        },
+        "evidence_quality_label": {
+          "title": "Evidence Quality Label",
+          "type": "string"
+        },
+        "evidence_quality_score": {
+          "title": "Evidence Quality Score",
+          "type": "integer"
+        },
+        "is_stale": {
+          "title": "Is Stale",
+          "type": "boolean"
+        },
+        "stale_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stale Reason"
+        },
+        "next_review_due_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Review Due At"
+        },
+        "review_due_reason": {
+          "title": "Review Due Reason",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "source_label": {
+          "title": "Source Label",
+          "type": "string"
+        },
+        "source_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Date"
+        },
+        "adr_evidence_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adr Evidence Type"
+        },
+        "document_title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Document Title"
+        },
+        "document_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Document Date"
+        },
+        "filing_period": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filing Period"
+        },
+        "local_market": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Local Market"
+        },
+        "local_ticker": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Local Ticker"
+        },
+        "adr_review_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adr Review Label"
+        },
+        "adr_review_guidance": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Adr Review Guidance",
+          "type": "array"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        },
+        "has_comparison_context": {
+          "title": "Has Comparison Context",
+          "type": "boolean"
+        },
+        "peer_companies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Peer Companies",
+          "type": "array"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "ticker",
+        "criterion",
+        "evidence_type",
+        "review_status",
+        "evidence_quality_label",
+        "evidence_quality_score",
+        "is_stale",
+        "review_due_reason",
+        "summary",
+        "source_label",
+        "has_comparison_context"
+      ],
+      "title": "ManualEvidenceDashboardQueueItem",
+      "type": "object"
+    },
+    "ManualEvidenceDashboardSourceStatus": {
+      "properties": {
+        "source_type": {
+          "const": "derived",
+          "default": "derived",
+          "title": "Source Type",
+          "type": "string"
+        },
+        "provider": {
+          "const": "local_manual_evidence_library",
+          "default": "local_manual_evidence_library",
+          "title": "Provider",
+          "type": "string"
+        },
+        "source_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Date"
+        },
+        "fetched_at": {
+          "default": null,
+          "title": "Fetched At",
+          "type": "null"
+        },
+        "is_fresh": {
+          "default": true,
+          "title": "Is Fresh",
+          "type": "boolean"
+        },
+        "freshness_window": {
+          "const": "local_evidence_store",
+          "default": "local_evidence_store",
+          "title": "Freshness Window",
+          "type": "string"
+        },
+        "fallback_used": {
+          "default": false,
+          "title": "Fallback Used",
+          "type": "boolean"
+        },
+        "fallback_reason": {
+          "default": null,
+          "title": "Fallback Reason",
+          "type": "null"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "title": "ManualEvidenceDashboardSourceStatus",
+      "type": "object"
+    },
+    "ManualEvidenceDashboardSummary": {
+      "properties": {
+        "total_evidence_count": {
+          "default": 0,
+          "title": "Total Evidence Count",
+          "type": "integer"
+        },
+        "active_evidence_count": {
+          "default": 0,
+          "title": "Active Evidence Count",
+          "type": "integer"
+        },
+        "reviewed_count": {
+          "default": 0,
+          "title": "Reviewed Count",
+          "type": "integer"
+        },
+        "unreviewed_count": {
+          "default": 0,
+          "title": "Unreviewed Count",
+          "type": "integer"
+        },
+        "stale_count": {
+          "default": 0,
+          "title": "Stale Count",
+          "type": "integer"
+        },
+        "review_due_count": {
+          "default": 0,
+          "title": "Review Due Count",
+          "type": "integer"
+        },
+        "review_scheduled_count": {
+          "default": 0,
+          "title": "Review Scheduled Count",
+          "type": "integer"
+        },
+        "review_overdue_count": {
+          "default": 0,
+          "title": "Review Overdue Count",
+          "type": "integer"
+        },
+        "archived_count": {
+          "default": 0,
+          "title": "Archived Count",
+          "type": "integer"
+        },
+        "rejected_count": {
+          "default": 0,
+          "title": "Rejected Count",
+          "type": "integer"
+        },
+        "comparison_evidence_count": {
+          "default": 0,
+          "title": "Comparison Evidence Count",
+          "type": "integer"
+        },
+        "tickers_covered_count": {
+          "default": 0,
+          "title": "Tickers Covered Count",
+          "type": "integer"
+        },
+        "average_quality_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Average Quality Score"
+        },
+        "quality_label_breakdown": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Quality Label Breakdown",
+          "type": "object"
+        },
+        "review_status_breakdown": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Review Status Breakdown",
+          "type": "object"
+        },
+        "criteria_coverage": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Criteria Coverage",
+          "type": "object"
+        }
+      },
+      "title": "ManualEvidenceDashboardSummary",
+      "type": "object"
+    },
+    "ManualEvidencePeerCompanyIndexItem": {
+      "properties": {
+        "peer_company": {
+          "title": "Peer Company",
+          "type": "string"
+        },
+        "evidence_count": {
+          "default": 0,
+          "title": "Evidence Count",
+          "type": "integer"
+        },
+        "tickers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tickers",
+          "type": "array"
+        },
+        "criteria": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Criteria",
+          "type": "array"
+        },
+        "comparison_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Comparison Types",
+          "type": "array"
+        },
+        "claimed_advantage_breakdown": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Claimed Advantage Breakdown",
+          "type": "object"
+        }
+      },
+      "required": [
+        "peer_company"
+      ],
+      "title": "ManualEvidencePeerCompanyIndexItem",
+      "type": "object"
+    },
+    "ManualEvidenceTickerSummary": {
+      "properties": {
+        "ticker": {
+          "title": "Ticker",
+          "type": "string"
+        },
+        "total_evidence_count": {
+          "default": 0,
+          "title": "Total Evidence Count",
+          "type": "integer"
+        },
+        "active_evidence_count": {
+          "default": 0,
+          "title": "Active Evidence Count",
+          "type": "integer"
+        },
+        "reviewed_count": {
+          "default": 0,
+          "title": "Reviewed Count",
+          "type": "integer"
+        },
+        "unreviewed_count": {
+          "default": 0,
+          "title": "Unreviewed Count",
+          "type": "integer"
+        },
+        "stale_count": {
+          "default": 0,
+          "title": "Stale Count",
+          "type": "integer"
+        },
+        "review_due_count": {
+          "default": 0,
+          "title": "Review Due Count",
+          "type": "integer"
+        },
+        "review_scheduled_count": {
+          "default": 0,
+          "title": "Review Scheduled Count",
+          "type": "integer"
+        },
+        "review_overdue_count": {
+          "default": 0,
+          "title": "Review Overdue Count",
+          "type": "integer"
+        },
+        "comparison_evidence_count": {
+          "default": 0,
+          "title": "Comparison Evidence Count",
+          "type": "integer"
+        },
+        "criteria_covered": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Criteria Covered",
+          "type": "array"
+        },
+        "criteria_missing": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Criteria Missing",
+          "type": "array"
+        },
+        "peer_companies_mentioned": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Peer Companies Mentioned",
+          "type": "array"
+        },
+        "quality_label_breakdown": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Quality Label Breakdown",
+          "type": "object"
+        },
+        "highest_quality_label": {
+          "default": "none",
+          "enum": [
+            "high",
+            "medium",
+            "low",
+            "incomplete",
+            "none"
+          ],
+          "title": "Highest Quality Label",
+          "type": "string"
+        },
+        "next_review_due_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Review Due At"
+        }
+      },
+      "required": [
+        "ticker"
+      ],
+      "title": "ManualEvidenceTickerSummary",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "generated_at": {
+      "title": "Generated At",
+      "type": "string"
+    },
+    "source_status": {
+      "$ref": "#/$defs/ManualEvidenceDashboardSourceStatus"
+    },
+    "summary": {
+      "$ref": "#/$defs/ManualEvidenceDashboardSummary"
+    },
+    "ticker_summaries": {
+      "items": {
+        "$ref": "#/$defs/ManualEvidenceTickerSummary"
+      },
+      "title": "Ticker Summaries",
+      "type": "array"
+    },
+    "review_queue": {
+      "items": {
+        "$ref": "#/$defs/ManualEvidenceDashboardQueueItem"
+      },
+      "title": "Review Queue",
+      "type": "array"
+    },
+    "stale_queue": {
+      "items": {
+        "$ref": "#/$defs/ManualEvidenceDashboardQueueItem"
+      },
+      "title": "Stale Queue",
+      "type": "array"
+    },
+    "audit_queue": {
+      "items": {
+        "$ref": "#/$defs/ManualEvidenceDashboardQueueItem"
+      },
+      "title": "Audit Queue",
+      "type": "array"
+    },
+    "peer_company_index": {
+      "items": {
+        "$ref": "#/$defs/ManualEvidencePeerCompanyIndexItem"
+      },
+      "title": "Peer Company Index",
+      "type": "array"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "missing_data": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Data",
+      "type": "array"
+    },
+    "not_investment_advice": {
+      "default": true,
+      "title": "Not Investment Advice",
+      "type": "boolean"
+    }
+  },
   "required": [
     "generated_at",
     "source_status",
-    "summary",
-    "ticker_summaries",
-    "review_queue",
-    "stale_queue",
-    "audit_queue",
-    "peer_company_index",
-    "limitations",
-    "missing_data",
-    "not_investment_advice"
+    "summary"
   ],
-  "properties": {
-    "generated_at": { "type": "string" },
-    "source_status": {
-      "type": "object",
-      "required": ["source_type", "provider", "source_date", "fetched_at", "is_fresh", "freshness_window", "fallback_used", "fallback_reason", "limitations", "missing_data"],
-      "properties": {
-        "source_type": { "const": "derived" },
-        "provider": { "const": "local_manual_evidence_library" },
-        "source_date": { "type": ["string", "null"] },
-        "fetched_at": { "type": "null" },
-        "is_fresh": { "type": "boolean" },
-        "freshness_window": { "const": "local_evidence_store" },
-        "fallback_used": { "type": "boolean" },
-        "fallback_reason": { "type": "null" },
-        "limitations": { "type": "array", "items": { "type": "string" } },
-        "missing_data": { "type": "array", "items": { "type": "string" } }
-      }
-    },
-    "summary": {
-      "type": "object",
-      "required": ["total_evidence_count", "active_evidence_count", "reviewed_count", "unreviewed_count", "stale_count", "review_due_count", "review_scheduled_count", "review_overdue_count", "archived_count", "rejected_count", "comparison_evidence_count", "tickers_covered_count", "average_quality_score", "quality_label_breakdown", "review_status_breakdown", "criteria_coverage"],
-      "properties": {
-        "total_evidence_count": { "type": "number" },
-        "active_evidence_count": { "type": "number" },
-        "reviewed_count": { "type": "number" },
-        "unreviewed_count": { "type": "number" },
-        "stale_count": { "type": "number" },
-        "review_due_count": { "type": "number" },
-        "review_scheduled_count": { "type": "number" },
-        "review_overdue_count": { "type": "number" },
-        "archived_count": { "type": "number" },
-        "rejected_count": { "type": "number" },
-        "comparison_evidence_count": { "type": "number" },
-        "tickers_covered_count": { "type": "number" },
-        "average_quality_score": { "type": ["number", "null"] },
-        "quality_label_breakdown": { "type": "object", "additionalProperties": { "type": "number" } },
-        "review_status_breakdown": { "type": "object", "additionalProperties": { "type": "number" } },
-        "criteria_coverage": { "type": "object", "additionalProperties": { "type": "number" } }
-      }
-    },
-    "ticker_summaries": { "type": "array", "items": { "$ref": "#/$defs/tickerSummary" } },
-    "review_queue": { "type": "array", "items": { "$ref": "#/$defs/queueItem" } },
-    "stale_queue": { "type": "array", "items": { "$ref": "#/$defs/queueItem" } },
-    "audit_queue": { "type": "array", "items": { "$ref": "#/$defs/queueItem" } },
-    "peer_company_index": { "type": "array", "items": { "$ref": "#/$defs/peerCompany" } },
-    "limitations": { "type": "array", "items": { "type": "string" } },
-    "missing_data": { "type": "array", "items": { "type": "string" } },
-    "not_investment_advice": { "const": true }
-  },
-  "$defs": {
-    "tickerSummary": {
-      "type": "object",
-      "properties": {
-        "ticker": { "type": "string" },
-        "total_evidence_count": { "type": "number" },
-        "active_evidence_count": { "type": "number" },
-        "reviewed_count": { "type": "number" },
-        "unreviewed_count": { "type": "number" },
-        "stale_count": { "type": "number" },
-        "review_due_count": { "type": "number" },
-        "review_scheduled_count": { "type": "number" },
-        "review_overdue_count": { "type": "number" },
-        "comparison_evidence_count": { "type": "number" },
-        "criteria_covered": { "type": "array", "items": { "type": "string" } },
-        "criteria_missing": { "type": "array", "items": { "type": "string" } },
-        "peer_companies_mentioned": { "type": "array", "items": { "type": "string" } },
-        "quality_label_breakdown": { "type": "object", "additionalProperties": { "type": "number" } },
-        "highest_quality_label": { "enum": ["high", "medium", "low", "incomplete", "none"] },
-        "next_review_due_at": { "type": ["string", "null"] }
-      }
-    },
-    "queueItem": {
-      "type": "object",
-      "properties": {
-        "evidence_id": { "type": "string" },
-        "ticker": { "type": "string" },
-        "criterion": { "type": "string" },
-        "evidence_type": { "type": "string" },
-        "review_status": { "type": "string" },
-        "evidence_quality_label": { "type": "string" },
-        "evidence_quality_score": { "type": "number" },
-        "is_stale": { "type": "boolean" },
-        "stale_reason": { "type": ["string", "null"] },
-        "next_review_due_at": { "type": ["string", "null"] },
-        "review_due_reason": { "type": "string" },
-        "summary": { "type": "string" },
-        "source_label": { "type": "string" },
-        "source_date": { "type": ["string", "null"] },
-        "adr_evidence_type": { "type": ["string", "null"] },
-        "document_title": { "type": ["string", "null"] },
-        "document_date": { "type": ["string", "null"] },
-        "filing_period": { "type": ["string", "null"] },
-        "local_market": { "type": ["string", "null"] },
-        "local_ticker": { "type": ["string", "null"] },
-        "adr_review_label": { "type": ["string", "null"] },
-        "adr_review_guidance": { "type": "array", "items": { "type": "string" } },
-        "affects_score": { "const": false },
-        "not_investment_advice": { "const": true },
-        "has_comparison_context": { "type": "boolean" },
-        "peer_companies": { "type": "array", "items": { "type": "string" } }
-      }
-    },
-    "peerCompany": {
-      "type": "object",
-      "properties": {
-        "peer_company": { "type": "string" },
-        "evidence_count": { "type": "number" },
-        "tickers": { "type": "array", "items": { "type": "string" } },
-        "criteria": { "type": "array", "items": { "type": "string" } },
-        "comparison_types": { "type": "array", "items": { "type": "string" } },
-        "claimed_advantage_breakdown": { "type": "object", "additionalProperties": { "type": "number" } }
-      }
-    }
-  }
+  "title": "ManualEvidenceDashboardResponse",
+  "type": "object"
 }

@@ -73,6 +73,9 @@ ManualEvidenceSourceReliability = Literal[
 ManualEvidenceQualityLabel = Literal["high", "medium", "low", "incomplete"]
 ManualEvidenceThesisDirection = Literal["supportive", "neutral", "challenging", "unknown"]
 ManualEvidenceWorkflowStatus = Literal["draft", "review_ready", "accepted", "needs_refresh", "rejected", "archived"]
+ManualEvidenceResolutionStatus = Literal["unresolved", "candidate_evidence_present", "pending_review", "incomplete", "stale", "resolved_for_review"]
+ManualEvidenceReviewState = Literal["none", "pending_review", "reviewed", "rejected", "archived"]
+ManualEvidenceFreshnessState = Literal["none", "fresh", "stale", "unknown"]
 AdrEvidenceType = Literal[
     "annual_report",
     "local_regulatory_filing",
@@ -339,6 +342,62 @@ def normalize_comparison_context(value: dict[str, Any] | None, ticker: str | Non
     return context
 
 
+def build_manual_evidence_resolution_metadata(evidence: dict) -> dict:
+    review_status = str(evidence.get("review_status") or "unreviewed")
+    is_stale = bool(evidence.get("is_stale"))
+    linked_criterion_id = evidence.get("linked_criterion_id") or evidence.get("criterion_id")
+    linked_submetrics = [str(value) for value in evidence.get("linked_submetrics") or [] if str(value).strip()]
+    missing_required_fields = []
+    for field_name in ("summary", "source_label", "source_url", "source_date"):
+        if not str(evidence.get(field_name) or "").strip():
+            missing_required_fields.append(field_name)
+    if linked_criterion_id is None:
+        missing_required_fields.append("linked_criterion_id")
+    if not linked_submetrics:
+        missing_required_fields.append("linked_submetrics")
+
+    if review_status in {"rejected", "archived"}:
+        review_state: ManualEvidenceReviewState = review_status  # type: ignore[assignment]
+        freshness_state: ManualEvidenceFreshnessState = "none"
+        resolution_status: ManualEvidenceResolutionStatus = "unresolved"
+    else:
+        review_state = "reviewed" if review_status == "reviewed" else "pending_review"
+        freshness_state = "stale" if is_stale else "fresh"
+        if is_stale:
+            resolution_status = "stale"
+        elif missing_required_fields:
+            resolution_status = "incomplete"
+        elif review_state == "pending_review":
+            resolution_status = "pending_review"
+        else:
+            resolution_status = "resolved_for_review"
+
+    if resolution_status == "unresolved":
+        note = "No active manual evidence currently resolves this gap; this does not affect final score."
+    elif resolution_status == "resolved_for_review":
+        note = "Reviewed candidate manual evidence is linked for research review; it does not affect final score."
+    elif resolution_status == "stale":
+        note = "Linked manual evidence is stale and should be refreshed before review; it does not affect final score."
+    elif resolution_status == "pending_review":
+        note = "Linked manual evidence is pending local review; it does not affect final score."
+    else:
+        note = "Linked manual evidence is incomplete and needs required fields before review; it does not affect final score."
+
+    return {
+        "linked_gap_id": evidence.get("linked_gap_id"),
+        "linked_criterion_id": linked_criterion_id,
+        "linked_submetrics": linked_submetrics,
+        "resolution_status": resolution_status,
+        "missing_required_fields": sorted(set(missing_required_fields)),
+        "review_state": review_state,
+        "freshness_state": freshness_state,
+        "evidence_quality_note": note,
+        "affects_score": False,
+        "final_score_unchanged": True,
+        "not_investment_advice": True,
+    }
+
+
 def enrich_manual_evidence_quality(evidence: dict) -> dict:
     row = dict(evidence)
     for key in (
@@ -370,9 +429,13 @@ def enrich_manual_evidence_quality(evidence: dict) -> dict:
     row.setdefault("research_question", None)
     row.setdefault("thesis_direction", "unknown")
     row.setdefault("workflow_status", "draft")
+    row.setdefault("linked_gap_id", None)
+    row.setdefault("linked_criterion_id", None)
+    row.setdefault("linked_submetrics", [])
     row.setdefault("user_provided", True)
     row["comparison_context"] = normalize_comparison_context(row.get("comparison_context"), row.get("ticker"))
     row.update(score_manual_evidence_quality(row))
+    row.update(build_manual_evidence_resolution_metadata(row))
     return row
 
 
@@ -443,6 +506,17 @@ class ManualQualitativeEvidenceCreate(BaseModel):
     thesis_direction: ManualEvidenceThesisDirection = "unknown"
     workflow_status: ManualEvidenceWorkflowStatus = "draft"
     comparison_context: ManualEvidenceComparisonContext | None = None
+    linked_gap_id: str | None = None
+    linked_criterion_id: int | None = Field(default=None, ge=1, le=20)
+    linked_submetrics: list[str] = Field(default_factory=list)
+    resolution_status: ManualEvidenceResolutionStatus = "unresolved"
+    missing_required_fields: list[str] = Field(default_factory=list)
+    review_state: ManualEvidenceReviewState = "none"
+    freshness_state: ManualEvidenceFreshnessState = "none"
+    evidence_quality_note: str = "Manual evidence has not been linked to an evidence gap."
+    affects_score: bool = False
+    final_score_unchanged: bool = True
+    not_investment_advice: bool = True
     evidence_quality_score: int = Field(default=0, ge=0, le=100)
     evidence_quality_label: ManualEvidenceQualityLabel = "incomplete"
     evidence_quality_reasons: list[str] = Field(default_factory=list)
@@ -454,7 +528,7 @@ class ManualQualitativeEvidenceCreate(BaseModel):
     def normalize_ticker(cls, value: str) -> str:
         return value.strip().upper()
 
-    @field_validator("summary", "source_label", "source_url", "review_notes", "note_title", "research_question")
+    @field_validator("summary", "source_label", "source_url", "review_notes", "note_title", "research_question", "linked_gap_id")
     @classmethod
     def reject_secret_markers(cls, value: str | None) -> str | None:
         if value is not None and contains_secret_marker(value):
@@ -496,8 +570,11 @@ class ManualQualitativeEvidencePatch(BaseModel):
     thesis_direction: ManualEvidenceThesisDirection | None = None
     workflow_status: ManualEvidenceWorkflowStatus | None = None
     comparison_context: ManualEvidenceComparisonContext | None = None
+    linked_gap_id: str | None = None
+    linked_criterion_id: int | None = Field(default=None, ge=1, le=20)
+    linked_submetrics: list[str] | None = None
 
-    @field_validator("summary", "source_label", "source_url", "document_title", "filing_period", "quoted_text", "local_market", "local_ticker", "translation_note", "review_notes", "note_title", "research_question")
+    @field_validator("summary", "source_label", "source_url", "document_title", "filing_period", "quoted_text", "local_market", "local_ticker", "translation_note", "review_notes", "note_title", "research_question", "linked_gap_id")
     @classmethod
     def reject_secret_markers(cls, value: str | None) -> str | None:
         if value is not None and contains_secret_marker(value):

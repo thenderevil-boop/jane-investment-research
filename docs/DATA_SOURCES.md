@@ -4,6 +4,12 @@
 
 Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions, Phase 11 adds opt-in official SEC EDGAR 13F institutional holdings, and Phase 17 adds opt-in official SEC EDGAR Companyfacts financial cross-checks. Phase 35 adds FRED `UMCSENT` as Daily Report context-only consumer sentiment and explicit yfinance-derived market-context coverage metadata. Phase 37 adds an external provider adapter foundation for future FMP, OpenBB sidecar, Alpha Vantage, and USASpending integrations. Phase 38 adds the first concrete Phase 37 adapter: opt-in FMP earnings-call transcript evidence for analyze-stock. Phase 39 maps FMP transcript analysis into non-scoring Jane C2/C17 external evidence context. Phase 40 adds opt-in USASpending.gov federal award evidence for C15 Government Relationship context. Phase 41 adds opt-in OpenBB sidecar / Stockgrid large options block evidence for the Smart Money options component. Phase 42 adds opt-in FMP financial statements and TTM ratios as an ADR / SEC-gap financial proxy for analyze-stock. Phase 57 adds `macro_flow_signal_breakdown` / `phase57_macro_flow_signal_breakdown_v1` as a non-scoring analyze-stock explanation layer for existing macro and flow sources; it is not a trading signal and does not change final score. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
 
+Phase 69 Manual Evidence Quality Loop notes:
+
+- Saved Manual Evidence Library items can link to a Coverage Matrix / Evidence Gap target via `linked_gap_id`, `linked_criterion_id`, and `linked_submetrics`.
+- `manual_evidence_resolution` is derived from local saved evidence only; it does not trigger provider calls, fetch `source_url`, verify evidence truth, or change scoring/verdict behavior.
+- Resolution states distinguish `resolved_for_review`, `pending_review`, `incomplete`, `stale`, and `unresolved` so the user can refresh or review evidence before treating a gap as handled.
+
 Phase 68 workflow-alignment notes:
 
 - `POST /api/analyze-stock` `research_workflow_summary` now returns `phase68_research_workflow_summary_v2` with `workflow_alignment_version="phase68_workflow_alignment_v1"`.

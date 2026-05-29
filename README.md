@@ -8,6 +8,15 @@ Build a US-market-only investment research automation system based on Jane's Mar
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
+## Phase 69 Manual Evidence Quality Loop
+
+Phase 69 links saved Manual Evidence Library items back into the single-name research workflow:
+
+- `POST /api/manual-evidence` and saved evidence responses now preserve `linked_gap_id`, `linked_criterion_id`, `linked_submetrics`, `resolution_status`, `missing_required_fields`, `review_state`, `freshness_state`, and `evidence_quality_note`.
+- `POST /api/analyze-stock` surfaces `manual_evidence_resolution` inside `evidence_gap_inbox.items[]` and `jane_criteria_coverage.criteria[]`, so the user can see whether a gap has active linked evidence, whether it is reviewed, stale, incomplete, or still unresolved.
+- Stock Research displays linked manual-evidence state in the Evidence Gap Inbox and Coverage Matrix.
+- The quality loop is workflow metadata only: `affects_score=false`, `final_score_unchanged=true`, `not_investment_advice=true`; it does not fetch URLs, verify source truth, change provider behavior, or alter verdict semantics.
+
 ## Phase 68 Research Workflow Summary v2 Alignment
 
 Phase 68 upgrades `POST /api/analyze-stock` `research_workflow_summary` to `phase68_research_workflow_summary_v2`:

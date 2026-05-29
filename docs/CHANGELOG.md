@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 69 — Manual Evidence Quality Loop
+
+- Added saved Manual Evidence Library linkage metadata (`linked_gap_id`, `linked_criterion_id`, `linked_submetrics`) and derived quality-loop state (`resolution_status`, `missing_required_fields`, `review_state`, `freshness_state`, `evidence_quality_note`).
+- Added `manual_evidence_resolution` to `evidence_gap_inbox.items[]` and `jane_criteria_coverage.criteria[]` so Stock Research can show whether linked evidence is reviewed, stale, incomplete, or unresolved.
+- Added Stock Research rendering for linked manual-evidence state in Evidence Gap Inbox and Coverage Matrix.
+- Preserved provider behavior, source URL non-fetching, final verdict semantics, and investment-advice boundaries; quality-loop fields are workflow metadata only.
+
 ## Phase 68 — Research Workflow Summary v2 Alignment
 
 - Upgraded `research_workflow_summary` to `phase68_research_workflow_summary_v2` with `workflow_alignment_version="phase68_workflow_alignment_v1"`.

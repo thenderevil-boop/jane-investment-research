@@ -6,13 +6,16 @@ Jane Investment Research is a research workflow assistant for macro / quality-gr
 
 ## Planning baseline
 
-Phase 64A synchronizes roadmap/baseline docs after the committed Phase 61-63 work. Current baseline now includes:
+Current baseline includes the Phase 64A docs-aligned Phase 61-69 routeable research workflow stack:
 
+- Phase 64 Evidence Gap Inbox / Manual Research Queue for Coverage Matrix actionability.
+- Phase 65 Daily Report Command Center for first-screen routeable actions.
+- Phase 66 Source Health Action Routing for provider/setup readiness actions.
 - Phase 68 Research Workflow Summary v2 Alignment for Stock Research dominant blocker / reason / route vocabulary.
-- Phase 62 read-only Operations Diagnostics.
-- Phase 63 editable local 13F manager-universe settings.
+- Phase 69 Manual Evidence Quality Loop for linking saved evidence back to Evidence Gap Inbox and Coverage Matrix gaps.
+- Phase 62 read-only Operations Diagnostics and Phase 63 editable local 13F manager-universe settings remain the provider/settings visibility baseline.
 
-The next implementation target is Phase 64 Evidence Gap Inbox / Manual Research Queue. Later phases should refine Daily Report Command Center behavior, source-health action routing, candidate comparison, and workflow-status alignment before adding new cards/providers.
+The next implementation target should improve candidate/watchlist comparison or Daily Report action usefulness only if the hard gates below remain green; avoid adding decorative cards/providers before routeable evidence workflows stay useful.
 
 ## Primary user workflow
 
@@ -28,7 +31,7 @@ The product entry point is the **5-minute Daily Report workflow**:
 
 `POST /api/analyze-stock` remains the deep single-name surface. It includes:
 
-- `evidence_gap_inbox`
+- Evidence Gap Inbox / Manual Evidence Quality Loop
 - final score and existing research verdict fields
 - Evidence Matrix
 - Jane Coverage Matrix
@@ -45,6 +48,10 @@ These layers should not replace the Daily Report starting workflow.
 ## Evidence Gap Inbox baseline
 
 Phase 64 adds `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`) to `POST /api/analyze-stock`. It turns Coverage Matrix/manual evidence/ADR/source readiness gaps into prioritized manual research actions with route hints and gap types such as `manual_evidence_required`, `source_setup_required`, `provider_cache_refresh_required`, and `adr_or_foreign_filer_limitation`. It is non-scoring (`affects_score=false`, `final_score_unchanged=true`) and does not trigger provider calls.
+
+## Manual Evidence Quality Loop baseline
+
+Phase 69 adds local quality-loop metadata to saved Manual Evidence Library items and surfaces it inside Stock Research. Saved evidence can link to `linked_gap_id`, `linked_criterion_id`, and `linked_submetrics`; analyze-stock derives `manual_evidence_resolution` for Evidence Gap Inbox items and Coverage Matrix rows. The resolution state shows whether evidence is reviewed, stale, incomplete, rejected/archived, or unresolved before the user treats a gap as handled. It is workflow metadata only (`affects_score=false`, `final_score_unchanged=true`, `not_investment_advice=true`), does not fetch URLs, does not independently verify source truth, and does not change provider behavior or final verdict semantics.
 
 ## Daily Report baseline
 
@@ -111,4 +118,4 @@ Future development should not proceed to new cards or providers unless these har
 
 ## Next milestone
 
-Phase 64 has added the Evidence Gap Inbox / Manual Research Queue to analyze-stock. The next milestone should connect its top routeable actions into Daily Report Command Center behavior without duplicating scoring or adding new providers.
+Phase 69 has connected saved manual evidence quality state back into Evidence Gap Inbox and Coverage Matrix actionability. The next milestone should improve cross-candidate/watchlist readiness comparison or Daily Report action usefulness while preserving the same routeable, non-scoring workflow boundaries.

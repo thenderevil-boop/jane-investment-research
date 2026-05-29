@@ -2,6 +2,14 @@
 
 This file maps Jane's Markdown methodology into system modules.
 
+## Phase 69 Manual Evidence Quality Loop
+
+Phase 69 connects Jane Coverage Matrix gaps to saved manual evidence quality state:
+
+- Manual evidence can declare `linked_gap_id`, `linked_criterion_id`, and `linked_submetrics` for a specific Jane criterion/gap.
+- `evidence_gap_inbox.items[].manual_evidence_resolution` and `jane_criteria_coverage.criteria[].manual_evidence_resolution` show linked evidence counts, review state, freshness state, missing required fields, and resolution status.
+- This is a research workflow loop only: stale, incomplete, unreviewed, rejected, or archived evidence does not automatically resolve Jane criteria, and no score/verdict semantics change.
+
 ## Phase 68 Research Workflow Summary v2 Alignment
 
 Phase 68 aligns Jane's single-name workflow summary with the routeable evidence/source workflow:

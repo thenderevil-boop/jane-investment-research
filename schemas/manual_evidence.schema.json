@@ -2,34 +2,6 @@
   "$defs": {
     "ManualEvidenceComparisonContext": {
       "properties": {
-        "claimed_advantage": {
-          "default": "unclear",
-          "enum": [
-            "stronger",
-            "similar",
-            "weaker",
-            "unclear"
-          ],
-          "title": "Claimed Advantage",
-          "type": "string"
-        },
-        "comparison_period": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Comparison Period"
-        },
-        "comparison_summary": {
-          "minLength": 1,
-          "title": "Comparison Summary",
-          "type": "string"
-        },
         "comparison_type": {
           "enum": [
             "competitor",
@@ -45,12 +17,40 @@
           "title": "Comparison Type",
           "type": "string"
         },
-        "limitations": {
+        "subject_company": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subject Company"
+        },
+        "peer_companies": {
           "items": {
             "type": "string"
           },
-          "title": "Limitations",
+          "title": "Peer Companies",
           "type": "array"
+        },
+        "comparison_summary": {
+          "minLength": 1,
+          "title": "Comparison Summary",
+          "type": "string"
+        },
+        "claimed_advantage": {
+          "default": "unclear",
+          "enum": [
+            "stronger",
+            "similar",
+            "weaker",
+            "unclear"
+          ],
+          "title": "Claimed Advantage",
+          "type": "string"
         },
         "metric_name": {
           "anyOf": [
@@ -63,18 +63,6 @@
           ],
           "default": null,
           "title": "Metric Name"
-        },
-        "metric_unit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Metric Unit"
         },
         "metric_value": {
           "anyOf": [
@@ -91,12 +79,29 @@
           "default": null,
           "title": "Metric Value"
         },
-        "peer_companies": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Peer Companies",
-          "type": "array"
+        "metric_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metric Unit"
+        },
+        "comparison_period": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comparison Period"
         },
         "source_basis": {
           "default": "user_note",
@@ -111,17 +116,12 @@
           "title": "Source Basis",
           "type": "string"
         },
-        "subject_company": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Subject Company"
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
         }
       },
       "required": [
@@ -133,38 +133,11 @@
     }
   },
   "properties": {
-    "comparison_context": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ManualEvidenceComparisonContext"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
-    },
-    "confidence": {
-      "maximum": 1,
-      "minimum": 0,
-      "title": "Confidence",
-      "type": "number"
-    },
-    "created_at": {
-      "title": "Created At",
+    "ticker": {
+      "maxLength": 10,
+      "minLength": 1,
+      "title": "Ticker",
       "type": "string"
-    },
-    "created_by": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": "local_user",
-      "title": "Created By"
     },
     "criterion": {
       "enum": [
@@ -177,35 +150,6 @@
       ],
       "title": "Criterion",
       "type": "string"
-    },
-    "evidence_id": {
-      "title": "Evidence Id",
-      "type": "string"
-    },
-    "evidence_quality_label": {
-      "default": "incomplete",
-      "enum": [
-        "high",
-        "medium",
-        "low",
-        "incomplete"
-      ],
-      "title": "Evidence Quality Label",
-      "type": "string"
-    },
-    "evidence_quality_reasons": {
-      "items": {
-        "type": "string"
-      },
-      "title": "Evidence Quality Reasons",
-      "type": "array"
-    },
-    "evidence_quality_score": {
-      "default": 0,
-      "maximum": 100,
-      "minimum": 0,
-      "title": "Evidence Quality Score",
-      "type": "integer"
     },
     "evidence_type": {
       "enum": [
@@ -234,7 +178,17 @@
       "title": "Evidence Type",
       "type": "string"
     },
-    "expires_at": {
+    "summary": {
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "source_label": {
+      "minLength": 1,
+      "title": "Source Label",
+      "type": "string"
+    },
+    "source_url": {
       "anyOf": [
         {
           "type": "string"
@@ -244,14 +198,9 @@
         }
       ],
       "default": null,
-      "title": "Expires At"
+      "title": "Source Url"
     },
-    "is_stale": {
-      "default": false,
-      "title": "Is Stale",
-      "type": "boolean"
-    },
-    "last_reviewed_at": {
+    "source_date": {
       "anyOf": [
         {
           "type": "string"
@@ -261,16 +210,30 @@
         }
       ],
       "default": null,
-      "title": "Last Reviewed At"
+      "title": "Source Date"
     },
-    "limitations": {
-      "items": {
-        "type": "string"
-      },
-      "title": "Limitations",
-      "type": "array"
+    "adr_evidence_type": {
+      "anyOf": [
+        {
+          "enum": [
+            "annual_report",
+            "local_regulatory_filing",
+            "governance_page",
+            "investor_presentation",
+            "earnings_webcast",
+            "company_ir_page",
+            "other"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Adr Evidence Type"
     },
-    "next_review_due_at": {
+    "document_title": {
       "anyOf": [
         {
           "type": "string"
@@ -280,9 +243,9 @@
         }
       ],
       "default": null,
-      "title": "Next Review Due At"
+      "title": "Document Title"
     },
-    "review_notes": {
+    "document_date": {
       "anyOf": [
         {
           "type": "string"
@@ -292,7 +255,73 @@
         }
       ],
       "default": null,
-      "title": "Review Notes"
+      "title": "Document Date"
+    },
+    "filing_period": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Filing Period"
+    },
+    "quoted_text": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Quoted Text"
+    },
+    "local_market": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Local Market"
+    },
+    "local_ticker": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Local Ticker"
+    },
+    "translation_note": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Translation Note"
+    },
+    "confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Confidence",
+      "type": "number"
     },
     "review_status": {
       "default": "unreviewed",
@@ -329,7 +358,7 @@
       "default": null,
       "title": "Reviewed By"
     },
-    "source_date": {
+    "review_notes": {
       "anyOf": [
         {
           "type": "string"
@@ -339,39 +368,7 @@
         }
       ],
       "default": null,
-      "title": "Source Date"
-    },
-    "adr_evidence_type": {
-      "anyOf": [
-        {
-          "enum": [
-            "annual_report",
-            "local_regulatory_filing",
-            "governance_page",
-            "investor_presentation",
-            "earnings_webcast",
-            "company_ir_page",
-            "other"
-          ],
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
-    },
-    "document_title": { "type": ["string", "null"], "default": null },
-    "document_date": { "type": ["string", "null"], "default": null },
-    "filing_period": { "type": ["string", "null"], "default": null },
-    "quoted_text": { "type": ["string", "null"], "default": null },
-    "local_market": { "type": ["string", "null"], "default": null },
-    "local_ticker": { "type": ["string", "null"], "default": null },
-    "translation_note": { "type": ["string", "null"], "default": null },
-    "source_label": {
-      "minLength": 1,
-      "title": "Source Label",
-      "type": "string"
+      "title": "Review Notes"
     },
     "source_reliability_label": {
       "default": "unknown",
@@ -387,7 +384,7 @@
       "title": "Source Reliability Label",
       "type": "string"
     },
-    "source_url": {
+    "expires_at": {
       "anyOf": [
         {
           "type": "string"
@@ -397,7 +394,247 @@
         }
       ],
       "default": null,
-      "title": "Source Url"
+      "title": "Expires At"
+    },
+    "last_reviewed_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Last Reviewed At"
+    },
+    "next_review_due_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Next Review Due At"
+    },
+    "user_provided": {
+      "default": true,
+      "title": "User Provided",
+      "type": "boolean"
+    },
+    "created_by": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": "local_user",
+      "title": "Created By"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    },
+    "note_title": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Note Title"
+    },
+    "research_question": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Research Question"
+    },
+    "thesis_direction": {
+      "default": "unknown",
+      "enum": [
+        "supportive",
+        "neutral",
+        "challenging",
+        "unknown"
+      ],
+      "title": "Thesis Direction",
+      "type": "string"
+    },
+    "workflow_status": {
+      "default": "draft",
+      "enum": [
+        "draft",
+        "review_ready",
+        "accepted",
+        "needs_refresh",
+        "rejected",
+        "archived"
+      ],
+      "title": "Workflow Status",
+      "type": "string"
+    },
+    "comparison_context": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ManualEvidenceComparisonContext"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "linked_gap_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Linked Gap Id"
+    },
+    "linked_criterion_id": {
+      "anyOf": [
+        {
+          "maximum": 20,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Linked Criterion Id"
+    },
+    "linked_submetrics": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Linked Submetrics",
+      "type": "array"
+    },
+    "resolution_status": {
+      "default": "unresolved",
+      "enum": [
+        "unresolved",
+        "candidate_evidence_present",
+        "pending_review",
+        "incomplete",
+        "stale",
+        "resolved_for_review"
+      ],
+      "title": "Resolution Status",
+      "type": "string"
+    },
+    "missing_required_fields": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Required Fields",
+      "type": "array"
+    },
+    "review_state": {
+      "default": "none",
+      "enum": [
+        "none",
+        "pending_review",
+        "reviewed",
+        "rejected",
+        "archived"
+      ],
+      "title": "Review State",
+      "type": "string"
+    },
+    "freshness_state": {
+      "default": "none",
+      "enum": [
+        "none",
+        "fresh",
+        "stale",
+        "unknown"
+      ],
+      "title": "Freshness State",
+      "type": "string"
+    },
+    "evidence_quality_note": {
+      "default": "Manual evidence has not been linked to an evidence gap.",
+      "title": "Evidence Quality Note",
+      "type": "string"
+    },
+    "affects_score": {
+      "default": false,
+      "title": "Affects Score",
+      "type": "boolean"
+    },
+    "final_score_unchanged": {
+      "default": true,
+      "title": "Final Score Unchanged",
+      "type": "boolean"
+    },
+    "not_investment_advice": {
+      "default": true,
+      "title": "Not Investment Advice",
+      "type": "boolean"
+    },
+    "evidence_quality_score": {
+      "default": 0,
+      "maximum": 100,
+      "minimum": 0,
+      "title": "Evidence Quality Score",
+      "type": "integer"
+    },
+    "evidence_quality_label": {
+      "default": "incomplete",
+      "enum": [
+        "high",
+        "medium",
+        "low",
+        "incomplete"
+      ],
+      "title": "Evidence Quality Label",
+      "type": "string"
+    },
+    "evidence_quality_reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Quality Reasons",
+      "type": "array"
+    },
+    "is_stale": {
+      "default": false,
+      "title": "Is Stale",
+      "type": "boolean"
     },
     "stale_reason": {
       "anyOf": [
@@ -411,32 +648,17 @@
       "default": null,
       "title": "Stale Reason"
     },
-    "summary": {
-      "minLength": 1,
-      "title": "Summary",
+    "evidence_id": {
+      "title": "Evidence Id",
       "type": "string"
     },
-    "tags": {
-      "items": {
-        "type": "string"
-      },
-      "title": "Tags",
-      "type": "array"
-    },
-    "ticker": {
-      "maxLength": 10,
-      "minLength": 1,
-      "title": "Ticker",
+    "created_at": {
+      "title": "Created At",
       "type": "string"
     },
     "updated_at": {
       "title": "Updated At",
       "type": "string"
-    },
-    "user_provided": {
-      "default": true,
-      "title": "User Provided",
-      "type": "boolean"
     }
   },
   "required": [

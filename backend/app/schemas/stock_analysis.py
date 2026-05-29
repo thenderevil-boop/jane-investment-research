@@ -269,6 +269,22 @@ class EvidenceMatrixItem(BaseModel):
     replaced_by: str | None = None
 
 
+class ManualEvidenceResolution(BaseModel):
+    linked_gap_id: str | None = None
+    linked_criterion_id: int | None = Field(default=None, ge=1, le=20)
+    linked_submetrics: list[str] = Field(default_factory=list)
+    linked_evidence_count: int = 0
+    linked_evidence_ids: list[str] = Field(default_factory=list)
+    resolution_status: Literal["unresolved", "candidate_evidence_present", "pending_review", "incomplete", "stale", "resolved_for_review"] = "unresolved"
+    missing_required_fields: list[str] = Field(default_factory=list)
+    review_state: Literal["none", "pending_review", "reviewed", "rejected", "archived"] = "none"
+    freshness_state: Literal["none", "fresh", "stale", "unknown"] = "none"
+    evidence_quality_note: str = "No linked manual evidence is currently active."
+    affects_score: bool = False
+    final_score_unchanged: bool = True
+    not_investment_advice: bool = True
+
+
 class JaneCriterionCoverageItem(BaseModel):
     criterion_id: int = Field(ge=1, le=20)
     criterion_name: str
@@ -298,6 +314,7 @@ class JaneCriterionCoverageItem(BaseModel):
     summary: str
     limitations: list[str]
     next_manual_check: str | None = None
+    manual_evidence_resolution: ManualEvidenceResolution = Field(default_factory=ManualEvidenceResolution)
 
 
 class JaneCriteriaCoverageMatrix(BaseModel):
@@ -399,6 +416,7 @@ class EvidenceGapInboxItem(BaseModel):
     missing_submetrics: list[str] = Field(default_factory=list)
     related_provider: str | None = None
     rationale: str = ""
+    manual_evidence_resolution: ManualEvidenceResolution = Field(default_factory=ManualEvidenceResolution)
     affects_score: bool = False
     not_investment_advice: bool = True
 
@@ -548,6 +566,15 @@ class QualitativeEvidenceAssessmentItem(BaseModel):
     thesis_direction: Literal["supportive", "neutral", "challenging", "unknown"] = "unknown"
     workflow_status: Literal["draft", "review_ready", "accepted", "needs_refresh", "rejected", "archived"] = "draft"
     comparison_context: dict[str, Any] | None = None
+    linked_gap_id: str | None = None
+    linked_criterion_id: int | None = Field(default=None, ge=1, le=20)
+    linked_submetrics: list[str] = Field(default_factory=list)
+    resolution_status: Literal["unresolved", "candidate_evidence_present", "pending_review", "incomplete", "stale", "resolved_for_review"] = "unresolved"
+    missing_required_fields: list[str] = Field(default_factory=list)
+    review_state: Literal["none", "pending_review", "reviewed", "rejected", "archived"] = "none"
+    freshness_state: Literal["none", "fresh", "stale", "unknown"] = "none"
+    evidence_quality_note: str = "Manual evidence has not been linked to an evidence gap."
+    final_score_unchanged: bool = True
 
 
 class QualitativeEvidenceAssessment(BaseModel):

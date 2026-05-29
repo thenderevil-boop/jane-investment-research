@@ -1,8 +1,8 @@
 # Roadmap
 
-## Current baseline after Phase 68
+## Current baseline after Phase 69
 
-The committed Phase 63 baseline added Phase 61 research workflow summary, Phase 62 read-only Operations Diagnostics, and Phase 63 editable 13F manager-universe local settings. Phase 64 added analyze-stock `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`) so Coverage Matrix gaps become routeable manual research actions. Phase 65 added Daily Report `command_center` (`phase65_daily_command_center_v1`) so the first screen combines macro/source/watchlist/evidence attention with route hints. Phase 66 added Operations Diagnostics `source_health_actions` (`phase66_source_health_actions_v1`) and routes high-attention source-health items into the Daily Command Center. Phase 68 upgrades analyze-stock `research_workflow_summary` to `phase68_research_workflow_summary_v2` so Stock Research exposes dominant blocker/reason/route metadata aligned with Evidence Gap Inbox and source-health routing.
+The committed Phase 63 baseline added Phase 61 research workflow summary, Phase 62 read-only Operations Diagnostics, and Phase 63 editable 13F manager-universe local settings. Phase 64 added analyze-stock `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`) so Coverage Matrix gaps become routeable manual research actions. Phase 65 added Daily Report `command_center` (`phase65_daily_command_center_v1`) so the first screen combines macro/source/watchlist/evidence attention with route hints. Phase 66 added Operations Diagnostics `source_health_actions` (`phase66_source_health_actions_v1`) and routes high-attention source-health items into the Daily Command Center. Phase 68 upgrades analyze-stock `research_workflow_summary` to `phase68_research_workflow_summary_v2` so Stock Research exposes dominant blocker/reason/route metadata aligned with Evidence Gap Inbox and source-health routing. Phase 69 adds the Manual Evidence Quality Loop so saved manual evidence can link back to Evidence Gap Inbox and Coverage Matrix gaps through `manual_evidence_resolution` without changing scoring or verdict semantics.
 
 The product direction is intentionally **workflow-first**:
 
@@ -114,9 +114,13 @@ Do not resume feature stacking with more cards, mock-heavy engines, automatic th
 
 **System rationale:** Manual Evidence Library should connect to Evidence Gap Inbox and Coverage Matrix actionability.
 
-**In scope:** Track evidence-to-gap resolution metadata, missing required fields, review state, and freshness state.
+**In scope:** Track evidence-to-gap resolution metadata, missing required fields, review state, and freshness state; surface `manual_evidence_resolution` in Evidence Gap Inbox and Coverage Matrix; render linked manual-evidence state in Stock Research.
 
-**Non-goals:** Automatically trusting user evidence as high-confidence scoring input or changing final verdicts.
+**Non-goals:** Automatically trusting user evidence as high-confidence scoring input, fetching/validating source URLs, changing provider behavior, or changing final verdicts.
+
+**Acceptance:** Saved evidence preserves `linked_gap_id`, `linked_criterion_id`, `linked_submetrics`, `resolution_status`, `missing_required_fields`, `review_state`, `freshness_state`, and `evidence_quality_note`; analyze-stock exposes linked evidence counts/state in `evidence_gap_inbox.items[].manual_evidence_resolution` and `jane_criteria_coverage.criteria[].manual_evidence_resolution`; Stock Research displays the quality-loop state; `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true` remain explicit workflow boundaries.
+
+**Status:** Implemented as a non-scoring Manual Evidence Quality Loop for Stock Research actionability. Next planning target can revisit Phase 67 candidate/watchlist comparison only after the routeable evidence workflow remains green.
 
 ## Deferred work
 

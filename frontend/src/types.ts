@@ -599,6 +599,22 @@ export type JaneCriteriaResponse = {
   not_investment_advice: true;
 };
 
+export type ManualEvidenceResolution = {
+  linked_gap_id?: string | null;
+  linked_criterion_id?: number | null;
+  linked_submetrics: string[];
+  linked_evidence_count: number;
+  linked_evidence_ids: string[];
+  resolution_status: 'unresolved' | 'candidate_evidence_present' | 'pending_review' | 'incomplete' | 'stale' | 'resolved_for_review';
+  missing_required_fields: string[];
+  review_state: 'none' | 'pending_review' | 'reviewed' | 'rejected' | 'archived';
+  freshness_state: 'none' | 'fresh' | 'stale' | 'unknown';
+  evidence_quality_note: string;
+  affects_score: boolean;
+  final_score_unchanged: boolean;
+  not_investment_advice: boolean;
+};
+
 export type JaneCriterionCoverageItem = {
   criterion_id: number;
   criterion_name: string;
@@ -617,6 +633,7 @@ export type JaneCriterionCoverageItem = {
   summary: string;
   limitations: string[];
   next_manual_check?: string | null;
+  manual_evidence_resolution?: ManualEvidenceResolution;
 };
 
 export type JaneCriteriaCoverageMatrix = {
@@ -818,6 +835,7 @@ export type EvidenceGapInboxItem = {
   missing_submetrics: string[];
   related_provider?: string | null;
   rationale: string;
+  manual_evidence_resolution?: ManualEvidenceResolution;
   affects_score: boolean;
   not_investment_advice: boolean;
 };

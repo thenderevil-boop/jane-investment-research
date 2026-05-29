@@ -720,6 +720,15 @@ def _build_qualitative_evidence_assessment(ticker: str, evidence_inputs: list, s
                 "thesis_direction": item.get("thesis_direction", "unknown"),
                 "workflow_status": item.get("workflow_status", "draft"),
                 "comparison_context": item.get("comparison_context"),
+                "linked_gap_id": item.get("linked_gap_id"),
+                "linked_criterion_id": item.get("linked_criterion_id"),
+                "linked_submetrics": item.get("linked_submetrics", []),
+                "resolution_status": item.get("resolution_status", "unresolved"),
+                "missing_required_fields": item.get("missing_required_fields", []),
+                "review_state": item.get("review_state", "none"),
+                "freshness_state": item.get("freshness_state", "none"),
+                "evidence_quality_note": item.get("evidence_quality_note", "Manual evidence has not been linked to an evidence gap."),
+                "final_score_unchanged": True,
             }
         )
 
@@ -3548,6 +3557,73 @@ ADR_CRITERION_MANUAL_CHECKS = {
 }
 
 
+def _manual_evidence_resolution_for_target(qualitative_assessment: dict, *, gap_id: str | None = None, criterion_id: int | None = None) -> dict:
+    linked_items = []
+    for item in qualitative_assessment.get("evidence_items") or []:
+        if not isinstance(item, dict) or item.get("accepted") is not True:
+            continue
+        if item.get("origin") != "saved_library":
+            continue
+        item_gap = item.get("linked_gap_id")
+        item_criterion = item.get("linked_criterion_id") or item.get("criterion_id") or JANE_CANONICAL_ID_BY_LEGACY_SLUG.get(str(item.get("criterion") or ""))
+        if gap_id and item_gap == gap_id:
+            linked_items.append(item)
+            continue
+        if criterion_id is not None and item_criterion is not None:
+            try:
+                if int(item_criterion) == int(criterion_id):
+                    linked_items.append(item)
+            except (TypeError, ValueError):
+                continue
+
+    if not linked_items:
+        return {
+            "linked_gap_id": gap_id,
+            "linked_criterion_id": criterion_id,
+            "linked_submetrics": [],
+            "linked_evidence_count": 0,
+            "linked_evidence_ids": [],
+            "resolution_status": "unresolved",
+            "missing_required_fields": [],
+            "review_state": "none",
+            "freshness_state": "none",
+            "evidence_quality_note": "No active manual evidence currently resolves this gap; this does not affect final score.",
+            "affects_score": False,
+            "final_score_unchanged": True,
+            "not_investment_advice": True,
+        }
+
+    status_order = {"stale": 0, "incomplete": 1, "pending_review": 2, "candidate_evidence_present": 3, "resolved_for_review": 4, "unresolved": 5}
+    review_order = {"pending_review": 0, "reviewed": 1, "none": 2, "rejected": 3, "archived": 4}
+    freshness_order = {"stale": 0, "unknown": 1, "fresh": 2, "none": 3}
+    dominant = sorted(
+        linked_items,
+        key=lambda item: (
+            status_order.get(str(item.get("resolution_status") or "unresolved"), 9),
+            review_order.get(str(item.get("review_state") or "none"), 9),
+            freshness_order.get(str(item.get("freshness_state") or "none"), 9),
+        ),
+    )[0]
+    linked_submetrics = sorted({str(value) for item in linked_items for value in (item.get("linked_submetrics") or []) if str(value).strip()})
+    missing_required_fields = sorted({str(value) for item in linked_items for value in (item.get("missing_required_fields") or []) if str(value).strip()})
+    evidence_ids = sorted({str(item.get("evidence_id")) for item in linked_items if item.get("evidence_id")})
+    return {
+        "linked_gap_id": gap_id or dominant.get("linked_gap_id"),
+        "linked_criterion_id": criterion_id or dominant.get("linked_criterion_id") or dominant.get("criterion_id"),
+        "linked_submetrics": linked_submetrics,
+        "linked_evidence_count": len(linked_items),
+        "linked_evidence_ids": evidence_ids,
+        "resolution_status": dominant.get("resolution_status", "candidate_evidence_present"),
+        "missing_required_fields": missing_required_fields,
+        "review_state": dominant.get("review_state", "pending_review"),
+        "freshness_state": dominant.get("freshness_state", "unknown"),
+        "evidence_quality_note": dominant.get("evidence_quality_note") or "Linked manual evidence is candidate evidence for research review; it does not affect final score.",
+        "affects_score": False,
+        "final_score_unchanged": True,
+        "not_investment_advice": True,
+    }
+
+
 def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
     evidence_by_id = _accepted_jane_evidence_by_criterion(response.qualitative_evidence_assessment.model_dump(mode="json"))
     sec_proxy_by_id = _sec_financial_proxy_evidence_by_criterion(response)
@@ -3559,6 +3635,10 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
     rows = []
     for criterion in JANE_CRITERIA:
         criterion_id = int(criterion["criterion_id"])
+        manual_resolution = _manual_evidence_resolution_for_target(
+            response.qualitative_evidence_assessment.model_dump(mode="json"),
+            criterion_id=criterion_id,
+        )
         all_submetrics = list(criterion.get("submetrics") or [])
         auto_submetrics = list(criterion.get("auto_derivable_submetrics") or [])
         required_user_submetrics = list(criterion.get("requires_user_input_submetrics") or [])
@@ -3649,6 +3729,7 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
                 "summary": summary,
                 "limitations": limitations,
                 "next_manual_check": next_manual_check,
+                "manual_evidence_resolution": manual_resolution,
             }
         )
     covered_count = sum(1 for item in rows if item["coverage_status"] == "covered")
@@ -5194,6 +5275,11 @@ def _build_evidence_gap_inbox(response: AnalyzeStockResponse) -> dict:
             "missing_submetrics": missing_submetrics or [],
             "related_provider": related_provider,
             "rationale": rationale,
+            "manual_evidence_resolution": _manual_evidence_resolution_for_target(
+                response.qualitative_evidence_assessment.model_dump(mode="json"),
+                gap_id=gap_id,
+                criterion_id=criterion_id,
+            ),
             "affects_score": False,
             "not_investment_advice": True,
         })

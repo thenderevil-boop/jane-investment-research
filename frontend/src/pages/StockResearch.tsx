@@ -7,7 +7,7 @@ import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
-import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceGapInbox, EvidenceMatrixItem, FinancialStatementSignals, ForeignFilerCoverageDiagnostics, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, CompanyEventSignalBreakdown, CompanyEventSignalItem, MacroFlowSignalBreakdown, MacroFlowSignalItem, NextManualCheck, PlatformBusinessQualityCard, PlatformBusinessQualityMetric, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ThemeValidationContext, ValidationOSReport, ValidationQualitySummary } from '../types';
+import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceGapInbox, EvidenceMatrixItem, FinancialStatementSignals, ForeignFilerCoverageDiagnostics, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, CompanyEventSignalBreakdown, CompanyEventSignalItem, MacroFlowSignalBreakdown, MacroFlowSignalItem, ManualEvidenceResolution, NextManualCheck, PlatformBusinessQualityCard, PlatformBusinessQualityMetric, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ThemeValidationContext, ValidationOSReport, ValidationQualitySummary } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
 export const janeLeadershipCriteria = [
@@ -271,6 +271,17 @@ function gapTypeLabel(gapType: string) {
   return label ? `${label.charAt(0).toUpperCase()}${label.slice(1)}` : label;
 }
 
+function ManualEvidenceResolutionInline({ resolution }: { resolution?: ManualEvidenceResolution }) {
+  if (!resolution || resolution.linked_evidence_count <= 0) return null;
+  return (
+    <span>
+      Linked manual evidence: {resolution.linked_evidence_count} · Resolution: {displayKey(resolution.resolution_status)} · Review: {displayKey(resolution.review_state)} · Freshness: {displayKey(resolution.freshness_state)}
+      {resolution.missing_required_fields.length > 0 ? ` · Missing fields: ${resolution.missing_required_fields.join(', ')}` : ''}
+      {resolution.final_score_unchanged ? ' · Final score unchanged' : ''}
+    </span>
+  );
+}
+
 function EvidenceGapInboxBrief({ inbox }: { inbox?: EvidenceGapInbox }) {
   const items = (inbox?.items ?? []).slice(0, 3);
   if (!items.length) return null;
@@ -283,6 +294,7 @@ function EvidenceGapInboxBrief({ inbox }: { inbox?: EvidenceGapInbox }) {
           {item.criterion_id ? `C${item.criterion_id} ${item.criterion_name}: ` : `${item.criterion_name}: `}
           {gapTypeLabel(item.gap_type)} — {item.recommended_action} · Route: {routeLabel(item.source_route)}
           {item.blocks_research_status ? ' · Blocks workflow status' : ''}
+          <ManualEvidenceResolutionInline resolution={item.manual_evidence_resolution} />
         </span>
       ))}
     </div>
@@ -1345,6 +1357,13 @@ export function JaneCriteriaCoverageSection({ coverage }: { coverage?: JaneCrite
             {row.requires_user_input_submetrics.length > 0 && <p className="muted">Requires user input: {row.requires_user_input_submetrics.join(', ')}</p>}
             {row.financial_proxy_source && <p className="muted">Financial proxy source: {row.financial_proxy_source}</p>}
             {row.next_manual_check && <p className="sourceWarning">{row.next_manual_check}</p>}
+            {row.manual_evidence_resolution && row.manual_evidence_resolution.linked_evidence_count > 0 && (
+              <p className="muted">
+                <strong>Manual evidence quality loop:</strong> Linked manual evidence: {row.manual_evidence_resolution.linked_evidence_count} · Resolution: {displayKey(row.manual_evidence_resolution.resolution_status)} · Review: {displayKey(row.manual_evidence_resolution.review_state)} · Freshness: {displayKey(row.manual_evidence_resolution.freshness_state)}
+                {row.manual_evidence_resolution.missing_required_fields.length > 0 ? ` · Missing fields: ${row.manual_evidence_resolution.missing_required_fields.join(', ')}` : ''}
+                {row.manual_evidence_resolution.final_score_unchanged ? ' · Final score unchanged' : ''}
+              </p>
+            )}
             {row.limitations.length > 0 && <p className="muted">Limitations: {row.limitations.join(' ')}</p>}
           </article>
         ))}

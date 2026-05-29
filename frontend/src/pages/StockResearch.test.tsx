@@ -399,6 +399,21 @@ describe('StockResearch presentation helpers', () => {
             blocks_research_status: true,
             missing_submetrics: ['moat_evidence'],
             rationale: 'Coverage Matrix row requires human-verifiable evidence before confidence can improve.',
+            manual_evidence_resolution: {
+              linked_gap_id: 'NVDA_C1_manual_evidence',
+              linked_criterion_id: 1,
+              linked_submetrics: ['moat_evidence'],
+              linked_evidence_count: 1,
+              linked_evidence_ids: ['manual_nvda_c1'],
+              resolution_status: 'resolved_for_review',
+              missing_required_fields: [],
+              review_state: 'reviewed',
+              freshness_state: 'fresh',
+              evidence_quality_note: 'Reviewed candidate manual evidence is linked for research review; it does not affect final score.',
+              affects_score: false,
+              final_score_unchanged: true,
+              not_investment_advice: true,
+            },
             affects_score: false,
             not_investment_advice: true,
           },
@@ -590,6 +605,11 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Manual evidence required');
     expect(html).toContain('Provider cache refresh required');
     expect(html).toContain('Blocks workflow status');
+    expect(html).toContain('Linked manual evidence: 1');
+    expect(html).toContain('Resolution: resolved for review');
+    expect(html).toContain('Review: reviewed');
+    expect(html).toContain('Freshness: fresh');
+    expect(html).toContain('Final score unchanged');
     expect(html).toContain('Route: manual evidence');
     expect(html).toContain('Route: operations');
     expect(html).toContain('Document monopoly/moat evidence for C1');
@@ -1355,6 +1375,21 @@ describe('StockResearch presentation helpers', () => {
               summary: 'Jane criterion 1 coverage is partial.',
               limitations: ['User-provided evidence still requires manual source verification.'],
               next_manual_check: 'Verify Jane criterion 1 missing submetrics: network_effect.',
+              manual_evidence_resolution: {
+                linked_gap_id: 'NVDA_C1_manual_evidence',
+                linked_criterion_id: 1,
+                linked_submetrics: ['switching_cost'],
+                linked_evidence_count: 1,
+                linked_evidence_ids: ['manual_nvda_c1'],
+                resolution_status: 'stale',
+                missing_required_fields: ['source_url'],
+                review_state: 'pending_review',
+                freshness_state: 'stale',
+                evidence_quality_note: 'Linked manual evidence is stale and should be refreshed before review; it does not affect final score.',
+                affects_score: false,
+                final_score_unchanged: true,
+                not_investment_advice: true,
+              },
             },
           ],
         }}
@@ -1366,6 +1401,12 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Market Monopoly / Entry Barrier');
     expect(html).toContain('switching_cost');
     expect(html).toContain('network_effect');
+    expect(html).toContain('Manual evidence quality loop');
+    expect(html).toContain('Resolution: stale');
+    expect(html).toContain('Review: pending review');
+    expect(html).toContain('Freshness: stale');
+    expect(html).toContain('Missing fields: source_url');
+    expect(html).toContain('Final score unchanged');
     expect(html).toContain('Not investment advice');
     expect(html).not.toContain('[object Object]');
   });

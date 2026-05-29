@@ -1084,6 +1084,9 @@
           "title": "Rationale",
           "type": "string"
         },
+        "manual_evidence_resolution": {
+          "$ref": "#/$defs/ManualEvidenceResolution"
+        },
         "affects_score": {
           "default": false,
           "title": "Affects Score",
@@ -2331,6 +2334,9 @@
           ],
           "default": null,
           "title": "Next Manual Check"
+        },
+        "manual_evidence_resolution": {
+          "$ref": "#/$defs/ManualEvidenceResolution"
         }
       },
       "required": [
@@ -3269,6 +3275,120 @@
         "missing_data"
       ],
       "title": "MacroRegimeOutput",
+      "type": "object"
+    },
+    "ManualEvidenceResolution": {
+      "properties": {
+        "linked_gap_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Linked Gap Id"
+        },
+        "linked_criterion_id": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Linked Criterion Id"
+        },
+        "linked_submetrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Linked Submetrics",
+          "type": "array"
+        },
+        "linked_evidence_count": {
+          "default": 0,
+          "title": "Linked Evidence Count",
+          "type": "integer"
+        },
+        "linked_evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Linked Evidence Ids",
+          "type": "array"
+        },
+        "resolution_status": {
+          "default": "unresolved",
+          "enum": [
+            "unresolved",
+            "candidate_evidence_present",
+            "pending_review",
+            "incomplete",
+            "stale",
+            "resolved_for_review"
+          ],
+          "title": "Resolution Status",
+          "type": "string"
+        },
+        "missing_required_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Required Fields",
+          "type": "array"
+        },
+        "review_state": {
+          "default": "none",
+          "enum": [
+            "none",
+            "pending_review",
+            "reviewed",
+            "rejected",
+            "archived"
+          ],
+          "title": "Review State",
+          "type": "string"
+        },
+        "freshness_state": {
+          "default": "none",
+          "enum": [
+            "none",
+            "fresh",
+            "stale",
+            "unknown"
+          ],
+          "title": "Freshness State",
+          "type": "string"
+        },
+        "evidence_quality_note": {
+          "default": "No linked manual evidence is currently active.",
+          "title": "Evidence Quality Note",
+          "type": "string"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "final_score_unchanged": {
+          "default": true,
+          "title": "Final Score Unchanged",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "title": "ManualEvidenceResolution",
       "type": "object"
     },
     "NextManualCheck": {
@@ -4215,6 +4335,92 @@
           ],
           "default": null,
           "title": "Comparison Context"
+        },
+        "linked_gap_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Linked Gap Id"
+        },
+        "linked_criterion_id": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Linked Criterion Id"
+        },
+        "linked_submetrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Linked Submetrics",
+          "type": "array"
+        },
+        "resolution_status": {
+          "default": "unresolved",
+          "enum": [
+            "unresolved",
+            "candidate_evidence_present",
+            "pending_review",
+            "incomplete",
+            "stale",
+            "resolved_for_review"
+          ],
+          "title": "Resolution Status",
+          "type": "string"
+        },
+        "missing_required_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Required Fields",
+          "type": "array"
+        },
+        "review_state": {
+          "default": "none",
+          "enum": [
+            "none",
+            "pending_review",
+            "reviewed",
+            "rejected",
+            "archived"
+          ],
+          "title": "Review State",
+          "type": "string"
+        },
+        "freshness_state": {
+          "default": "none",
+          "enum": [
+            "none",
+            "fresh",
+            "stale",
+            "unknown"
+          ],
+          "title": "Freshness State",
+          "type": "string"
+        },
+        "evidence_quality_note": {
+          "default": "Manual evidence has not been linked to an evidence gap.",
+          "title": "Evidence Quality Note",
+          "type": "string"
+        },
+        "final_score_unchanged": {
+          "default": true,
+          "title": "Final Score Unchanged",
+          "type": "boolean"
         }
       },
       "required": [

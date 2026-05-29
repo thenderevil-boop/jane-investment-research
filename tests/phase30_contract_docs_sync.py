@@ -191,7 +191,9 @@ def test_phase53_uspto_activation_and_adr_grade_explanation_contract_is_document
 def test_phase54_adr_manual_evidence_library_review_queue_contract_is_documented() -> None:
     manual_schema_props = _load_manual_evidence_schema()["properties"]
     dashboard_defs = _load_manual_evidence_dashboard_schema()["$defs"]
-    dashboard_queue_props = dashboard_defs.get("ManualEvidenceDashboardQueueItem", dashboard_defs["queueItem"])["properties"]
+    dashboard_queue_schema = dashboard_defs.get("ManualEvidenceDashboardQueueItem") or dashboard_defs.get("queueItem")
+    assert dashboard_queue_schema is not None
+    dashboard_queue_props = dashboard_queue_schema["properties"]
     patch_props = ManualQualitativeEvidencePatch.model_json_schema()["properties"]
     api_spec = _read("docs/API_SPEC.md")
     readme = _read("README.md")
@@ -436,6 +438,80 @@ def test_phase64_evidence_gap_inbox_contract_is_documented() -> None:
     for token in ["affects_score=false", "final_score_unchanged=true"]:
         for text in [api_spec, readme, changelog, data_sources, framework, product, roadmap]:
             assert token in text
+
+
+
+def test_phase69_manual_evidence_quality_loop_contract_is_documented() -> None:
+    schema = _load_schema()
+    defs = schema["$defs"]
+    manual_schema_props = _load_manual_evidence_schema()["properties"]
+    patch_props = ManualQualitativeEvidencePatch.model_json_schema()["properties"]
+    evidence_item_props = defs["QualitativeEvidenceAssessmentItem"]["properties"]
+    gap_item_props = defs["EvidenceGapInboxItem"]["properties"]
+    coverage_item_props = defs["JaneCriterionCoverageItem"]["properties"]
+    api_spec = _read("docs/API_SPEC.md")
+    readme = _read("README.md")
+    changelog = _read("docs/CHANGELOG.md")
+    data_sources = _read("docs/DATA_SOURCES.md")
+    framework = _read("docs/JANE_FRAMEWORK_MAPPING.md")
+    product = _read("docs/PRODUCT_BASELINE.md")
+    architecture = _read("docs/ARCHITECTURE_BASELINE.md")
+    roadmap = _read("docs/ROADMAP.md")
+    frontend_types = _read("frontend/src/types.ts")
+    stock_research = _read("frontend/src/pages/StockResearch.tsx")
+
+    assert "ManualEvidenceResolution" in defs
+    assert "manual_evidence_resolution" in gap_item_props
+    assert "manual_evidence_resolution" in coverage_item_props
+
+    quality_fields = [
+        "linked_gap_id",
+        "linked_criterion_id",
+        "linked_submetrics",
+        "resolution_status",
+        "missing_required_fields",
+        "review_state",
+        "freshness_state",
+        "evidence_quality_note",
+        "affects_score",
+        "final_score_unchanged",
+        "not_investment_advice",
+    ]
+    for field in quality_fields:
+        assert field in manual_schema_props
+        assert field in evidence_item_props
+        assert field in api_spec
+        assert field in frontend_types
+
+    for field in ["linked_gap_id", "linked_criterion_id", "linked_submetrics"]:
+        assert field in patch_props
+
+    for token in [
+        "manual_evidence_resolution",
+        "ManualEvidenceResolution",
+        "resolved_for_review",
+        "pending_review",
+        "incomplete",
+        "stale",
+        "unresolved",
+    ]:
+        assert token in api_spec
+        assert token in frontend_types
+
+    for token in ["manual_evidence_resolution", "ManualEvidenceResolution", "Linked manual evidence", "Final score unchanged"]:
+        assert token in stock_research
+
+    for text in [api_spec, readme, changelog, data_sources, framework, product, architecture, roadmap]:
+        assert "Phase 69" in text
+        assert "Manual Evidence Quality Loop" in text
+        assert "manual_evidence_resolution" in text
+        assert "does not change" in text or "without changing" in text
+
+    for token in ["affects_score=false", "final_score_unchanged=true", "not_investment_advice=true"]:
+        assert token in api_spec
+        assert token in readme
+        assert token in product
+        assert token in roadmap
 
 
 
