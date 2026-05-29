@@ -404,6 +404,69 @@ def test_phase62_operations_diagnostics_contract_is_documented() -> None:
         assert token in frontend_types
 
 
+def test_phase64_evidence_gap_inbox_contract_is_documented() -> None:
+    schema = _load_schema()
+    top_level_props = schema["properties"]
+    defs = schema["$defs"]
+    api_spec = _read("docs/API_SPEC.md")
+    readme = _read("README.md")
+    changelog = _read("docs/CHANGELOG.md")
+    data_sources = _read("docs/DATA_SOURCES.md")
+    framework = _read("docs/JANE_FRAMEWORK_MAPPING.md")
+    product = _read("docs/PRODUCT_BASELINE.md")
+    architecture = _read("docs/ARCHITECTURE_BASELINE.md")
+    roadmap = _read("docs/ROADMAP.md")
+    frontend_types = _read("frontend/src/types.ts")
+
+    assert "evidence_gap_inbox" in top_level_props
+    for definition in ["EvidenceGapInbox", "EvidenceGapInboxItem", "EvidenceGapInboxSummary"]:
+        assert definition in defs
+        assert definition in frontend_types
+
+    for token in [
+        "phase64_evidence_gap_inbox_v1",
+        "manual_evidence_required",
+        "source_setup_required",
+        "provider_cache_refresh_required",
+        "adr_or_foreign_filer_limitation",
+    ]:
+        for text in [api_spec, readme, changelog, data_sources, framework, product, architecture, roadmap, frontend_types]:
+            assert token in text
+
+    for token in ["affects_score=false", "final_score_unchanged=true"]:
+        for text in [api_spec, readme, changelog, data_sources, framework, product, roadmap]:
+            assert token in text
+
+
+
+def test_phase64a_roadmap_baseline_sync_is_documented() -> None:
+    roadmap = _read("docs/ROADMAP.md")
+    product = _read("docs/PRODUCT_BASELINE.md")
+    architecture = _read("docs/ARCHITECTURE_BASELINE.md")
+    readme = _read("README.md")
+    changelog = _read("docs/CHANGELOG.md")
+
+    for text in [roadmap, product, architecture, readme, changelog]:
+        assert "Phase 64A" in text
+        assert "Phase 61" in text
+        assert "Phase 62" in text
+        assert "Phase 63" in text
+        assert "Phase 64 Evidence Gap Inbox" in text
+
+    for token in [
+        "current baseline",
+        "Evidence Gap Inbox",
+        "Manual Research Queue",
+        "automatic future-theme discovery",
+        "ranking",
+        "Documentation-only",
+    ]:
+        assert token in roadmap or token in changelog or token in readme
+
+    assert "does not change backend logic" in readme or "no backend logic" in changelog
+
+
+
 def test_phase63_editable_13f_manager_universe_contract_is_documented() -> None:
     committed = _normalize(json.loads(_read("schemas/operations_13f_manager_universe_settings.schema.json")))
     generated = _normalize(SEC13FManagerUniverseSettings.model_json_schema())

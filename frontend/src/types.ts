@@ -773,6 +773,43 @@ export type ResearchWorkflowSummary = {
   not_investment_advice: boolean;
 };
 
+export type EvidenceGapInboxItem = {
+  gap_id: string;
+  criterion_id?: number | null;
+  criterion_name: string;
+  priority: 'high' | 'medium' | 'low';
+  gap_type: 'manual_evidence_required' | 'source_setup_required' | 'provider_cache_refresh_required' | 'provider_limitation' | 'adr_or_foreign_filer_limitation' | 'optional_context';
+  current_status: string;
+  recommended_action: string;
+  source_route: 'manual_evidence' | 'operations' | 'stock_research' | 'evidence_dashboard';
+  blocks_research_status: boolean;
+  missing_submetrics: string[];
+  related_provider?: string | null;
+  rationale: string;
+  affects_score: boolean;
+  not_investment_advice: boolean;
+};
+
+export type EvidenceGapInboxSummary = {
+  total_count: number;
+  high_priority_count: number;
+  manual_evidence_required_count: number;
+  source_setup_required_count: number;
+  provider_cache_refresh_required_count: number;
+  provider_limitation_count: number;
+  adr_or_foreign_filer_limitation_count: number;
+  optional_context_count: number;
+};
+
+export type EvidenceGapInbox = {
+  version: 'phase64_evidence_gap_inbox_v1';
+  items: EvidenceGapInboxItem[];
+  summary: EvidenceGapInboxSummary;
+  affects_score: boolean;
+  final_score_unchanged: boolean;
+  not_investment_advice: boolean;
+};
+
 export type JaneLeadershipCriterionDefinition = {
   name: string;
   display_name_zh: string;
@@ -1588,6 +1625,7 @@ export type StockAnalysis = {
   platform_business_quality_card?: PlatformBusinessQualityCard;
   validation_os_report?: ValidationOSReport;
   research_workflow_summary?: ResearchWorkflowSummary;
+  evidence_gap_inbox?: EvidenceGapInbox;
   data_quality_summary?: AnalyzeStockDataQualitySummary;
   foreign_filer_coverage_diagnostics?: ForeignFilerCoverageDiagnostics;
   evidence_freshness_policy?: EvidenceFreshnessPolicy;

@@ -358,6 +358,50 @@ class ResearchWorkflowSummary(BaseModel):
     not_investment_advice: bool = True
 
 
+class EvidenceGapInboxItem(BaseModel):
+    gap_id: str
+    criterion_id: int | None = Field(default=None, ge=1, le=20)
+    criterion_name: str
+    priority: Literal["high", "medium", "low"]
+    gap_type: Literal[
+        "manual_evidence_required",
+        "source_setup_required",
+        "provider_cache_refresh_required",
+        "provider_limitation",
+        "adr_or_foreign_filer_limitation",
+        "optional_context",
+    ]
+    current_status: str
+    recommended_action: str
+    source_route: Literal["manual_evidence", "operations", "stock_research", "evidence_dashboard"]
+    blocks_research_status: bool = False
+    missing_submetrics: list[str] = Field(default_factory=list)
+    related_provider: str | None = None
+    rationale: str = ""
+    affects_score: bool = False
+    not_investment_advice: bool = True
+
+
+class EvidenceGapInboxSummary(BaseModel):
+    total_count: int = 0
+    high_priority_count: int = 0
+    manual_evidence_required_count: int = 0
+    source_setup_required_count: int = 0
+    provider_cache_refresh_required_count: int = 0
+    provider_limitation_count: int = 0
+    adr_or_foreign_filer_limitation_count: int = 0
+    optional_context_count: int = 0
+
+
+class EvidenceGapInbox(BaseModel):
+    version: Literal["phase64_evidence_gap_inbox_v1"] = "phase64_evidence_gap_inbox_v1"
+    items: list[EvidenceGapInboxItem] = Field(default_factory=list)
+    summary: EvidenceGapInboxSummary = Field(default_factory=EvidenceGapInboxSummary)
+    affects_score: bool = False
+    final_score_unchanged: bool = True
+    not_investment_advice: bool = True
+
+
 class AnalyzeStockDataQualitySummary(BaseModel):
     mode: Literal["live_with_fallback", "mixed_preliminary", "mostly_mock", "insufficient"]
     confidence_cap_applied: bool
@@ -644,6 +688,7 @@ class AnalyzeStockResponse(BaseModel):
             one_line_summary="Research workflow summary has not been computed."
         )
     )
+    evidence_gap_inbox: EvidenceGapInbox = Field(default_factory=EvidenceGapInbox)
     data_quality_summary: AnalyzeStockDataQualitySummary
     foreign_filer_coverage_diagnostics: ForeignFilerCoverageDiagnostics = Field(default_factory=ForeignFilerCoverageDiagnostics)
     theme_validation_context: ThemeValidationContext = Field(default_factory=ThemeValidationContext)

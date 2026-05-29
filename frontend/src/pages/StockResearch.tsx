@@ -7,7 +7,7 @@ import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
-import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceMatrixItem, FinancialStatementSignals, ForeignFilerCoverageDiagnostics, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, CompanyEventSignalBreakdown, CompanyEventSignalItem, MacroFlowSignalBreakdown, MacroFlowSignalItem, NextManualCheck, PlatformBusinessQualityCard, PlatformBusinessQualityMetric, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ThemeValidationContext, ValidationOSReport, ValidationQualitySummary } from '../types';
+import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceGapInbox, EvidenceMatrixItem, FinancialStatementSignals, ForeignFilerCoverageDiagnostics, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, CompanyEventSignalBreakdown, CompanyEventSignalItem, MacroFlowSignalBreakdown, MacroFlowSignalItem, NextManualCheck, PlatformBusinessQualityCard, PlatformBusinessQualityMetric, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ThemeValidationContext, ValidationOSReport, ValidationQualitySummary } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
 
 export const janeLeadershipCriteria = [
@@ -262,6 +262,33 @@ function hasSocialHeatHumanCheck(result: StockAnalysis): boolean {
   ));
 }
 
+function routeLabel(route: string) {
+  return route.replace(/_/g, ' ');
+}
+
+function gapTypeLabel(gapType: string) {
+  const label = displayKey(gapType);
+  return label ? `${label.charAt(0).toUpperCase()}${label.slice(1)}` : label;
+}
+
+function EvidenceGapInboxBrief({ inbox }: { inbox?: EvidenceGapInbox }) {
+  const items = (inbox?.items ?? []).slice(0, 3);
+  if (!items.length) return null;
+  return (
+    <div className="briefOverheatContext evidenceGapInboxBrief">
+      <strong>Evidence Gap Inbox</strong>
+      <span>Top evidence gaps · Non-scoring manual research queue</span>
+      {items.map((item) => (
+        <span key={item.gap_id}>
+          {item.criterion_id ? `C${item.criterion_id} ${item.criterion_name}: ` : `${item.criterion_name}: `}
+          {gapTypeLabel(item.gap_type)} — {item.recommended_action} · Route: {routeLabel(item.source_route)}
+          {item.blocks_research_status ? ' · Blocks workflow status' : ''}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function AnalystBriefSection({ result }: { result: StockAnalysis }) {
   const report = result.validation_os_report;
   const workflowSummary = result.research_workflow_summary;
@@ -313,6 +340,7 @@ export function AnalystBriefSection({ result }: { result: StockAnalysis }) {
           <div><h3>Next research actions</h3><ul>{workflowSummary.next_3_research_actions.map((item) => <li key={item}>{item}</li>)}</ul></div>
         </div>
       )}
+      <EvidenceGapInboxBrief inbox={result.evidence_gap_inbox} />
       <div className="briefMetricGrid">
         <div><span>Validation</span><strong>{displayOptionalKey(report?.validation_level ?? summary?.research_priority)}</strong></div>
         <div><span>Data quality</span><strong>Data quality: {report?.data_quality_grade ?? result.data_quality_summary?.source_quality_grade ?? 'N/A'}</strong></div>

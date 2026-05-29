@@ -2,6 +2,14 @@
 
 This file maps Jane's Markdown methodology into system modules.
 
+## Phase 64 Evidence Gap Inbox / Manual Research Queue
+
+Phase 64 maps Jane's evidence-gap review process into a structured non-scoring queue:
+
+- `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`) converts Jane Coverage Matrix gaps, manual evidence needs, C19 SEC 13F cache/setup gaps, Form 4 fallback, and ADR/local-filing limitations into prioritized research actions using gap types such as `manual_evidence_required`, `source_setup_required`, `provider_cache_refresh_required`, and `adr_or_foreign_filer_limitation`.
+- Gap routes point to `manual_evidence`, `operations`, `stock_research`, or `evidence_dashboard`, so the user can resolve evidence gaps rather than only reading insufficient rows.
+- The queue preserves Jane's human-review boundary with `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`.
+
 ## Phase 63 Editable 13F Manager Universe
 
 Phase 63 maps Jane's C19 institutional-support review workflow to an editable operations boundary:

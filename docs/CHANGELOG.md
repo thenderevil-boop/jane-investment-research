@@ -1,5 +1,19 @@
 # Changelog
 
+## Phase 64 — Evidence Gap Inbox / Manual Research Queue
+
+- Added `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`) to `POST /api/analyze-stock` as a non-scoring manual research queue.
+- Converted Coverage Matrix gaps, manual-evidence needs, SEC 13F cache/setup gaps, Form 4 fallback, and ADR/foreign-filer limitations into prioritized `recommended_action` items with source routes and gap types such as `manual_evidence_required`, `source_setup_required`, `provider_cache_refresh_required`, and `adr_or_foreign_filer_limitation`.
+- Added Stock Research Analyst Brief rendering for top evidence gaps, route hints, blocker flags, and non-scoring copy.
+- Preserved score weights, final score, final verdicts, provider behavior, and investment-advice boundaries with `affects_score=false` and `final_score_unchanged=true`.
+
+## Phase 64A — Roadmap / Baseline Sync
+
+- Updated `docs/ROADMAP.md` so the current baseline reflects committed Phase 61 Research Workflow Summary, Phase 62 Operations Diagnostics, and Phase 63 Editable 13F Manager Universe work.
+- Updated Product and Architecture baselines to make Phase 64 Evidence Gap Inbox / Manual Research Queue the next implementation target.
+- Reaffirmed deferred work: automatic future-theme discovery, more signal cards, ranking, and mock-heavy engines stay paused unless explicitly requested.
+- Documentation-only sync; no backend logic, frontend UI, schema, provider, settings, scoring, or verdict changes.
+
 ## Phase 63 — Editable 13F Manager Universe
 
 - Added `GET/PUT/DELETE /api/operations/settings/13f-manager-universe` with contract version `phase63_13f_manager_universe_settings_v1`.

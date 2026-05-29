@@ -4,6 +4,13 @@
 
 Mock fixtures remain the default. Phase 8 added opt-in live market prices, Phase 9 adds opt-in live FRED-compatible macro data for selected US macro fields, Phase 10.5 adds opt-in official SEC EDGAR Form 4 insider transactions, Phase 11 adds opt-in official SEC EDGAR 13F institutional holdings, and Phase 17 adds opt-in official SEC EDGAR Companyfacts financial cross-checks. Phase 35 adds FRED `UMCSENT` as Daily Report context-only consumer sentiment and explicit yfinance-derived market-context coverage metadata. Phase 37 adds an external provider adapter foundation for future FMP, OpenBB sidecar, Alpha Vantage, and USASpending integrations. Phase 38 adds the first concrete Phase 37 adapter: opt-in FMP earnings-call transcript evidence for analyze-stock. Phase 39 maps FMP transcript analysis into non-scoring Jane C2/C17 external evidence context. Phase 40 adds opt-in USASpending.gov federal award evidence for C15 Government Relationship context. Phase 41 adds opt-in OpenBB sidecar / Stockgrid large options block evidence for the Smart Money options component. Phase 42 adds opt-in FMP financial statements and TTM ratios as an ADR / SEC-gap financial proxy for analyze-stock. Phase 57 adds `macro_flow_signal_breakdown` / `phase57_macro_flow_signal_breakdown_v1` as a non-scoring analyze-stock explanation layer for existing macro and flow sources; it is not a trading signal and does not change final score. Phase 8.1 makes source status, freshness, and fallback state visible in API responses and the frontend.
 
+Phase 64 Evidence Gap Inbox notes:
+
+- `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`) is generated from existing analyze-stock response state; it does not trigger provider calls. It uses gap types such as `manual_evidence_required`, `source_setup_required`, `provider_cache_refresh_required`, and `adr_or_foreign_filer_limitation`.
+- C19 SEC 13F gaps route to Operations when cache/setup review is needed; Form 4 fallback routes to SEC EDGAR user-agent/source setup review.
+- ADR / foreign-filer limitations route to manual evidence/local filing review and are not automatic company-quality downgrades.
+- All items preserve `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`.
+
 Phase 63 editable 13F manager universe notes:
 
 - `GET/PUT/DELETE /api/operations/settings/13f-manager-universe` (`phase63_13f_manager_universe_settings_v1`) makes the SEC 13F target-manager universe locally editable.

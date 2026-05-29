@@ -31,6 +31,7 @@ from backend.app.schemas.stock_analysis import (
     AnalyzeStockRequest,
     AnalyzeStockResponse,
     CandidateValidationSummary,
+    EvidenceGapInbox,
     EvidenceMatrixItem,
     FinancialStatementSignals,
     ForeignFilerCoverageDiagnostics,
@@ -5086,6 +5087,139 @@ def _build_research_workflow_summary(response: AnalyzeStockResponse) -> dict:
     }
 
 
+def _build_evidence_gap_inbox(response: AnalyzeStockResponse) -> dict:
+    items: list[dict] = []
+    ticker = response.ticker.upper()
+
+    def add_item(
+        *,
+        gap_id: str,
+        criterion_id: int | None,
+        criterion_name: str,
+        priority: str,
+        gap_type: str,
+        current_status: str,
+        recommended_action: str,
+        source_route: str,
+        blocks_research_status: bool = False,
+        missing_submetrics: list[str] | None = None,
+        related_provider: str | None = None,
+        rationale: str = "",
+    ) -> None:
+        if any(item["gap_id"] == gap_id for item in items):
+            return
+        items.append({
+            "gap_id": gap_id,
+            "criterion_id": criterion_id,
+            "criterion_name": criterion_name,
+            "priority": priority,
+            "gap_type": gap_type,
+            "current_status": current_status,
+            "recommended_action": recommended_action,
+            "source_route": source_route,
+            "blocks_research_status": blocks_research_status,
+            "missing_submetrics": missing_submetrics or [],
+            "related_provider": related_provider,
+            "rationale": rationale,
+            "affects_score": False,
+            "not_investment_advice": True,
+        })
+
+    high_manual_ids = {1, 2, 5, 11}
+    medium_manual_ids = {3, 15, 17, 18, 19}
+    for criterion in response.jane_criteria_coverage.criteria:
+        if criterion.coverage_status not in {"partial", "insufficient"}:
+            continue
+        if criterion.criterion_id == 19:
+            continue
+        if criterion.requires_human_verification or criterion.missing_submetrics or criterion.next_manual_check:
+            priority = "high" if criterion.criterion_id in high_manual_ids else "medium" if criterion.criterion_id in medium_manual_ids else "low"
+            action = criterion.next_manual_check or f"Add manual evidence for C{criterion.criterion_id} {criterion.criterion_name}"
+            add_item(
+                gap_id=f"{ticker}_C{criterion.criterion_id}_manual_evidence",
+                criterion_id=criterion.criterion_id,
+                criterion_name=criterion.criterion_name,
+                priority=priority,
+                gap_type="manual_evidence_required",
+                current_status=criterion.coverage_status,
+                recommended_action=action,
+                source_route="manual_evidence",
+                blocks_research_status=criterion.criterion_id in high_manual_ids and criterion.coverage_status == "insufficient",
+                missing_submetrics=list(criterion.missing_submetrics),
+                rationale="Coverage Matrix row requires human-verifiable evidence before confidence can improve.",
+            )
+
+    c19 = next((item for item in response.jane_criteria_coverage.criteria if item.criterion_id == 19), None)
+    candidate_13f = response.institutional_13f.get("candidate_specific_evidence") if isinstance(response.institutional_13f, dict) else {}
+    if c19 and c19.coverage_status != "covered":
+        matched = candidate_13f.get("matched_in_13f") if isinstance(candidate_13f, dict) else None
+        add_item(
+            gap_id=f"{ticker}_C19_13f_operations",
+            criterion_id=19,
+            criterion_name=c19.criterion_name,
+            priority="medium",
+            gap_type="provider_cache_refresh_required" if matched is False else "source_setup_required",
+            current_status=c19.coverage_status,
+            recommended_action="Check 13F cache in Operations and refresh",
+            source_route="operations",
+            blocks_research_status=False,
+            missing_submetrics=list(c19.missing_submetrics),
+            related_provider="sec_13f",
+            rationale="C19 institutional-support coverage depends on delayed SEC 13F target-manager evidence and cache readiness.",
+        )
+
+    if _has_form4_fallback(response):
+        add_item(
+            gap_id=f"{ticker}_form4_source_setup",
+            criterion_id=None,
+            criterion_name="SEC Form 4 insider activity",
+            priority="medium",
+            gap_type="source_setup_required",
+            current_status="fallback",
+            recommended_action="Verify SEC EDGAR user agent configuration",
+            source_route="operations",
+            blocks_research_status=False,
+            related_provider="sec_form4",
+            rationale="Form 4 fallback limits insider/company-event evidence quality.",
+        )
+
+    if response.foreign_filer_coverage_diagnostics.is_foreign_filer_or_adr:
+        add_item(
+            gap_id=f"{ticker}_adr_local_filing_manual_review",
+            criterion_id=None,
+            criterion_name="ADR / foreign-filer source coverage",
+            priority="medium",
+            gap_type="adr_or_foreign_filer_limitation",
+            current_status="structural_limit",
+            recommended_action="Add ADR/local filing evidence in Manual Evidence Library",
+            source_route="manual_evidence",
+            blocks_research_status=False,
+            rationale="ADR or foreign-filer coverage gaps are source-structure limitations, not automatic company-quality weakness.",
+        )
+
+    priority_order = {"high": 0, "medium": 1, "low": 2}
+    items = sorted(items, key=lambda item: (priority_order[item["priority"]], item["criterion_id"] or 99, item["gap_id"]))[:12]
+    summary = {
+        "total_count": len(items),
+        "high_priority_count": sum(1 for item in items if item["priority"] == "high"),
+        "manual_evidence_required_count": sum(1 for item in items if item["gap_type"] == "manual_evidence_required"),
+        "source_setup_required_count": sum(1 for item in items if item["gap_type"] == "source_setup_required"),
+        "provider_cache_refresh_required_count": sum(1 for item in items if item["gap_type"] == "provider_cache_refresh_required"),
+        "provider_limitation_count": sum(1 for item in items if item["gap_type"] == "provider_limitation"),
+        "adr_or_foreign_filer_limitation_count": sum(1 for item in items if item["gap_type"] == "adr_or_foreign_filer_limitation"),
+        "optional_context_count": sum(1 for item in items if item["gap_type"] == "optional_context"),
+    }
+    return {
+        "version": "phase64_evidence_gap_inbox_v1",
+        "items": items,
+        "summary": summary,
+        "affects_score": False,
+        "final_score_unchanged": True,
+        "not_investment_advice": True,
+    }
+
+
+
 def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     fixture = STOCK_FIXTURES.get(request.ticker, DEFAULT_STOCK)
     market_context = read_market_data()
@@ -5386,4 +5520,5 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     response.validation_quality_summary = ValidationQualitySummary.model_validate(_build_validation_quality_summary(response))
     response.validation_os_report = ValidationOSReport.model_validate(_build_validation_os_report(response))
     response.research_workflow_summary = ResearchWorkflowSummary.model_validate(_build_research_workflow_summary(response))
+    response.evidence_gap_inbox = EvidenceGapInbox.model_validate(_build_evidence_gap_inbox(response))
     return AnalyzeStockResponse.model_validate(_sanitize_api_secret_markers(response.model_dump(mode="json")))

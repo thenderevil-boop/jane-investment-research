@@ -8,6 +8,24 @@ Build a US-market-only investment research automation system based on Jane's Mar
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
+## Phase 64 Evidence Gap Inbox / Manual Research Queue
+
+Phase 64 adds `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`) to `POST /api/analyze-stock` and surfaces top research gaps in the Analyst Brief:
+
+- Converts Coverage Matrix, 13F/Form 4 source state, ADR diagnostics, and manual-evidence needs into prioritized research actions.
+- Supported `gap_type` values include `manual_evidence_required`, `source_setup_required`, `provider_cache_refresh_required`, `provider_limitation`, `adr_or_foreign_filer_limitation`, and `optional_context`.
+- Each item includes priority, criterion, current status, recommended action, source route, blocker flag, missing submetrics, and `not_investment_advice=true`.
+- This is a non-scoring manual research queue: `affects_score=false`, `final_score_unchanged=true`, and provider calls are not triggered.
+
+## Phase 64A Roadmap / Baseline Sync
+
+Phase 64A updates the repo planning baseline after the committed Phase 61-63 work:
+
+- `docs/ROADMAP.md` now treats Phase 61 Research Workflow Summary, Phase 62 Operations Diagnostics, and Phase 63 Editable 13F Manager Universe as the current baseline.
+- The next implementation target is Phase 64 Evidence Gap Inbox / Manual Research Queue, followed by Daily Report Command Center refinement and source-health action routing.
+- Deferred work remains explicit: automatic future-theme discovery, more signal cards, ranking, and mock-heavy engines stay paused unless explicitly requested.
+- This phase is docs/contract sync only and does not change backend logic, frontend UI, schemas, scoring, providers, or settings.
+
 ## Phase 63 Editable 13F Manager Universe
 
 Phase 63 adds `GET/PUT/DELETE /api/operations/settings/13f-manager-universe` (`phase63_13f_manager_universe_settings_v1`) and an Operations Diagnostics editor for the SEC 13F target-manager universe:

@@ -373,6 +373,55 @@ describe('StockResearch presentation helpers', () => {
         next_3_research_actions: ['Document monopoly/moat evidence for C1', 'Check 13F cache in Operations and refresh', 'Verify SEC EDGAR user agent configuration'],
         not_investment_advice: true,
       },
+      evidence_gap_inbox: {
+        version: 'phase64_evidence_gap_inbox_v1',
+        items: [
+          {
+            gap_id: 'NVDA_C1_manual_evidence',
+            criterion_id: 1,
+            criterion_name: 'Monopoly / Moat',
+            priority: 'high',
+            gap_type: 'manual_evidence_required',
+            current_status: 'insufficient',
+            recommended_action: 'Document monopoly/moat evidence for C1',
+            source_route: 'manual_evidence',
+            blocks_research_status: true,
+            missing_submetrics: ['moat_evidence'],
+            rationale: 'Coverage Matrix row requires human-verifiable evidence before confidence can improve.',
+            affects_score: false,
+            not_investment_advice: true,
+          },
+          {
+            gap_id: 'NVDA_C19_13f_operations',
+            criterion_id: 19,
+            criterion_name: 'VC / Institutional Support',
+            priority: 'medium',
+            gap_type: 'provider_cache_refresh_required',
+            current_status: 'partial',
+            recommended_action: 'Check 13F cache in Operations and refresh',
+            source_route: 'operations',
+            blocks_research_status: false,
+            missing_submetrics: ['institutional_support'],
+            related_provider: 'sec_13f',
+            rationale: 'C19 institutional-support coverage depends on delayed SEC 13F target-manager evidence and cache readiness.',
+            affects_score: false,
+            not_investment_advice: true,
+          },
+        ],
+        summary: {
+          total_count: 2,
+          high_priority_count: 1,
+          manual_evidence_required_count: 1,
+          source_setup_required_count: 0,
+          provider_cache_refresh_required_count: 1,
+          provider_limitation_count: 0,
+          adr_or_foreign_filer_limitation_count: 0,
+          optional_context_count: 0,
+        },
+        affects_score: false,
+        final_score_unchanged: true,
+        not_investment_advice: true,
+      },
       macro_regime: { score: 62, label: 'neutral_to_constructive', confidence: 0.95 },
       market_timing_context: {
         score: 0,
@@ -519,6 +568,13 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('medium confidence');
     expect(html).toContain('NVDA: watchlist_candidate with score 45, data grade B, coverage 6.');
     expect(html).toContain('Next research actions');
+    expect(html).toContain('Evidence Gap Inbox');
+    expect(html).toContain('Top evidence gaps');
+    expect(html).toContain('Manual evidence required');
+    expect(html).toContain('Provider cache refresh required');
+    expect(html).toContain('Blocks workflow status');
+    expect(html).toContain('Route: manual evidence');
+    expect(html).toContain('Route: operations');
     expect(html).toContain('Document monopoly/moat evidence for C1');
     expect(html).toContain('Check 13F cache in Operations and refresh');
     expect(html).toContain('Verify SEC EDGAR user agent configuration');

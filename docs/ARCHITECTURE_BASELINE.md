@@ -1,10 +1,14 @@
 # Architecture Baseline
 
+## Planning baseline
+
+Phase 64A keeps architecture planning aligned with the committed Phase 61-63 baseline. Phase 64 adds `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`), a non-scoring Evidence Gap Inbox that converts Coverage Matrix/manual-evidence/operations-readiness state into prioritized research actions. Gap types include `manual_evidence_required`, `source_setup_required`, `provider_cache_refresh_required`, `provider_limitation`, `adr_or_foreign_filer_limitation`, and `optional_context`.
+
 ## Backend request flow
 
 - `backend/app/api/routes.py` exposes API endpoints.
 - `backend/app/pipelines/research_pipeline.py` builds Daily Report payloads and the 5-minute `today_research_actions` starting flow.
-- `backend/app/reports/stock_analysis.py` builds deep single-name `POST /api/analyze-stock` responses.
+- `backend/app/reports/stock_analysis.py` builds deep single-name `POST /api/analyze-stock` responses and the Phase 64 `evidence_gap_inbox` non-scoring manual research queue.
 
 - `backend/app/services/operations_diagnostics_service.py` builds the read-only Phase 62 diagnostics payload for `GET /api/operations/diagnostics`; it reports Provider Health, Coverage Readiness, 13F Runtime Universe, and `api_key_values_returned=false` without triggering provider calls.
 - `backend/app/services/operations_settings_service.py` builds Phase 63 editable local settings for `GET/PUT/DELETE /api/operations/settings/13f-manager-universe`; local_settings override startup_env, then bundled_starter_universe, and this changes research scope only but does not change scoring.
@@ -32,7 +36,7 @@ Manual evidence and review queues support human-supplied source-backed thesis ev
 ## Frontend pages
 
 - `frontend/src/pages/DailyReport.tsx` is the product starting surface.
-- `frontend/src/pages/StockResearch.tsx` is the deep single-name analysis surface.
+- `frontend/src/pages/StockResearch.tsx` is the deep single-name analysis surface and renders the Phase 64 Evidence Gap Inbox top actions in Analyst Brief.
 - `frontend/src/pages/EvidenceLibrary.tsx` and `frontend/src/pages/EvidenceDashboard.tsx` support manual evidence workflow.
 - `frontend/src/pages/OperationsDiagnostics.tsx` is the operations visibility and local settings surface for Provider Health, Coverage Readiness, 13F Runtime Universe, and editable local 13F manager universe controls.
 - `frontend/src/types.ts` mirrors backend contracts.
@@ -56,7 +60,7 @@ Manual evidence and review queues support human-supplied source-backed thesis ev
 
 ## Where future work should go
 
-- Research workflow status belongs in Daily Report first.
-- 13F manager universe visibility belongs in operations settings.
-- Editable manager universe now belongs to the Phase 63 local settings/UI boundary; future work should add audit/history or richer validation rather than changing scoring.
+- Research workflow status now exists in analyze-stock and should be aligned with Daily Report/Evidence Gap Inbox rather than expanded as a separate card.
+- Evidence Gap Inbox now exists in analyze-stock; the next architecture target is to route its top actions into Daily Report Command Center behavior.
+- 13F manager universe visibility and local editability belong in operations settings.
 - New providers should be added only when they unblock a hard gate or a concrete research action.

@@ -955,6 +955,204 @@
       "title": "EvidenceFreshnessPolicy",
       "type": "object"
     },
+    "EvidenceGapInbox": {
+      "properties": {
+        "version": {
+          "const": "phase64_evidence_gap_inbox_v1",
+          "default": "phase64_evidence_gap_inbox_v1",
+          "title": "Version",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/EvidenceGapInboxItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "summary": {
+          "$ref": "#/$defs/EvidenceGapInboxSummary"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "final_score_unchanged": {
+          "default": true,
+          "title": "Final Score Unchanged",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "title": "EvidenceGapInbox",
+      "type": "object"
+    },
+    "EvidenceGapInboxItem": {
+      "properties": {
+        "gap_id": {
+          "title": "Gap Id",
+          "type": "string"
+        },
+        "criterion_id": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Criterion Id"
+        },
+        "criterion_name": {
+          "title": "Criterion Name",
+          "type": "string"
+        },
+        "priority": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "title": "Priority",
+          "type": "string"
+        },
+        "gap_type": {
+          "enum": [
+            "manual_evidence_required",
+            "source_setup_required",
+            "provider_cache_refresh_required",
+            "provider_limitation",
+            "adr_or_foreign_filer_limitation",
+            "optional_context"
+          ],
+          "title": "Gap Type",
+          "type": "string"
+        },
+        "current_status": {
+          "title": "Current Status",
+          "type": "string"
+        },
+        "recommended_action": {
+          "title": "Recommended Action",
+          "type": "string"
+        },
+        "source_route": {
+          "enum": [
+            "manual_evidence",
+            "operations",
+            "stock_research",
+            "evidence_dashboard"
+          ],
+          "title": "Source Route",
+          "type": "string"
+        },
+        "blocks_research_status": {
+          "default": false,
+          "title": "Blocks Research Status",
+          "type": "boolean"
+        },
+        "missing_submetrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Submetrics",
+          "type": "array"
+        },
+        "related_provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Related Provider"
+        },
+        "rationale": {
+          "default": "",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "gap_id",
+        "criterion_name",
+        "priority",
+        "gap_type",
+        "current_status",
+        "recommended_action",
+        "source_route"
+      ],
+      "title": "EvidenceGapInboxItem",
+      "type": "object"
+    },
+    "EvidenceGapInboxSummary": {
+      "properties": {
+        "total_count": {
+          "default": 0,
+          "title": "Total Count",
+          "type": "integer"
+        },
+        "high_priority_count": {
+          "default": 0,
+          "title": "High Priority Count",
+          "type": "integer"
+        },
+        "manual_evidence_required_count": {
+          "default": 0,
+          "title": "Manual Evidence Required Count",
+          "type": "integer"
+        },
+        "source_setup_required_count": {
+          "default": 0,
+          "title": "Source Setup Required Count",
+          "type": "integer"
+        },
+        "provider_cache_refresh_required_count": {
+          "default": 0,
+          "title": "Provider Cache Refresh Required Count",
+          "type": "integer"
+        },
+        "provider_limitation_count": {
+          "default": 0,
+          "title": "Provider Limitation Count",
+          "type": "integer"
+        },
+        "adr_or_foreign_filer_limitation_count": {
+          "default": 0,
+          "title": "Adr Or Foreign Filer Limitation Count",
+          "type": "integer"
+        },
+        "optional_context_count": {
+          "default": 0,
+          "title": "Optional Context Count",
+          "type": "integer"
+        }
+      },
+      "title": "EvidenceGapInboxSummary",
+      "type": "object"
+    },
     "EvidenceMatrixItem": {
       "properties": {
         "category": {
@@ -4985,6 +5183,9 @@
     },
     "research_workflow_summary": {
       "$ref": "#/$defs/ResearchWorkflowSummary"
+    },
+    "evidence_gap_inbox": {
+      "$ref": "#/$defs/EvidenceGapInbox"
     },
     "data_quality_summary": {
       "$ref": "#/$defs/AnalyzeStockDataQualitySummary"
