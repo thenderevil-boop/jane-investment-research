@@ -597,3 +597,42 @@ def test_live_analyze_stock_payload_has_documented_phase28_and_phase29_fields() 
     assert payload["validation_os_report"]["not_investment_advice"] is True
     assert payload["jane_criteria_coverage"]["not_investment_advice"] is True
     assert detect_forbidden_language(payload) == []
+
+def test_phase70_candidate_readiness_comparison_contract_is_documented() -> None:
+    candidate_schema = json.loads((ROOT / "schemas/candidate_workspace.schema.json").read_text(encoding="utf-8"))
+    readiness_schema = candidate_schema["$defs"]["CandidateReadinessComparisonResponse"]
+    props = readiness_schema["properties"]
+    api_spec = (ROOT / "docs/API_SPEC.md").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    changelog = (ROOT / "docs/CHANGELOG.md").read_text(encoding="utf-8")
+    frontend_types = (ROOT / "frontend/src/types.ts").read_text(encoding="utf-8")
+
+    for field in [
+        "version",
+        "summary",
+        "items",
+        "ranking_policy",
+        "affects_score",
+        "final_score_unchanged",
+        "not_investment_advice",
+    ]:
+        assert field in props
+
+    for token in [
+        "phase70_candidate_readiness_comparison_v1",
+        "CandidateReadinessComparison",
+        "readiness_state",
+        "evidence_completeness",
+        "top_gap",
+        "next_action",
+        "not_ranked_by_score_or_recommendation",
+        "affects_score=false",
+        "final_score_unchanged=true",
+        "not_investment_advice=true",
+    ]:
+        assert token in api_spec
+        assert token in frontend_types or token.startswith("affects_score") or token.startswith("final_score") or token.startswith("not_investment")
+
+    for doc in [readme, changelog, api_spec]:
+        assert "Phase 70" in doc
+        assert "Candidate Readiness Comparison" in doc

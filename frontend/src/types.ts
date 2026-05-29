@@ -1318,6 +1318,55 @@ export type CandidateDashboard = {
   not_investment_advice: boolean;
 };
 
+export type CandidateReadinessComparison = {
+  version: 'phase70_candidate_readiness_comparison_v1';
+  generated_at: string;
+  summary: {
+    candidate_count: number;
+    comparison_ready_count: number;
+    needs_manual_evidence_count: number;
+    needs_analysis_refresh_count: number;
+    review_queue_attention_count: number;
+  };
+  items: Array<{
+    candidate_id: string;
+    ticker: string;
+    company_name?: string | null;
+    theme?: string | null;
+    status: CandidateStatus;
+    priority: CandidatePriority;
+    latest_label?: string | null;
+    latest_data_quality_grade?: string | null;
+    readiness_state: 'comparison_ready_for_review' | 'needs_evidence_before_comparison' | 'needs_analysis_refresh' | 'review_queue_attention';
+    evidence_completeness: {
+      covered_count: number;
+      missing_count: number;
+      active_evidence_count: number;
+      stale_evidence_count: number;
+      unreviewed_evidence_count: number;
+      criteria_covered: string[];
+      criteria_missing: string[];
+    };
+    top_gap: {
+      gap_type: 'manual_evidence_required' | 'analysis_refresh_required' | 'review_queue_attention' | 'none';
+      criterion?: string | null;
+      source_route: 'manual_evidence' | 'stock_research' | 'evidence_library' | 'none';
+      reason: string;
+    };
+    next_action: string;
+    route_hint: 'manual_evidence' | 'stock_research' | 'evidence_library';
+    affects_score: boolean;
+    final_score_unchanged: boolean;
+    not_investment_advice: boolean;
+  }>;
+  ranking_policy: 'not_ranked_by_score_or_recommendation';
+  limitations: string[];
+  missing_data: string[];
+  affects_score: boolean;
+  final_score_unchanged: boolean;
+  not_investment_advice: boolean;
+};
+
 export type CandidateFilters = {
   include_archived?: boolean;
   ticker?: string;

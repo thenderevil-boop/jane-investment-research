@@ -32,7 +32,7 @@ from backend.app.schemas.jane_criteria import JaneCriteriaResponse
 from backend.app.schemas.macro_regime import MacroRegimeOutput
 from backend.app.schemas.manual_evidence import ManualEvidenceQualityLabel, ManualEvidenceReviewStatus, ManualEvidenceCriterion, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, ManualQualitativeEvidencePatch
 from backend.app.schemas.manual_evidence_dashboard import ManualEvidenceDashboardFilters, ManualEvidenceDashboardResponse
-from backend.app.schemas.candidate_workspace import CandidateAnalysisHistoryItem, CandidateAnalyzeRequest, CandidateAnalyzeResponse, CandidateDashboardResponse, CandidatePriority, CandidateResearchItem, CandidateResearchItemCreate, CandidateResearchItemPatch, CandidateReviewNote, CandidateReviewNoteCreate, CandidateStatus
+from backend.app.schemas.candidate_workspace import CandidateAnalysisHistoryItem, CandidateAnalyzeRequest, CandidateAnalyzeResponse, CandidateDashboardResponse, CandidatePriority, CandidateReadinessComparisonResponse, CandidateResearchItem, CandidateResearchItemCreate, CandidateResearchItemPatch, CandidateReviewNote, CandidateReviewNoteCreate, CandidateStatus
 from backend.app.schemas.export import AnalyzeStockExportRequest, AnalyzeStockExportResponse, LocalBackupExportResponse
 from backend.app.schemas.operations_diagnostics import OperationsDiagnosticsResponse
 from backend.app.schemas.operations_settings import SEC13FManagerUniverseSettings, SEC13FManagerUniverseUpdate
@@ -44,6 +44,7 @@ from backend.app.services.candidate_workspace import (
     analyze_candidate,
     archive_candidate_item,
     build_candidate_dashboard,
+    build_candidate_readiness_comparison,
     create_candidate_item,
     get_candidate_item,
     list_candidate_analysis_history,
@@ -258,6 +259,14 @@ def local_backup_export_endpoint(
 def candidates_dashboard(include_archived: bool = Query(default=False)) -> CandidateDashboardResponse:
     try:
         return _ensure_safe_response(build_candidate_dashboard(include_archived=include_archived))
+    except CandidateWorkspaceStoreError as exc:
+        raise HTTPException(status_code=500, detail={"error": str(exc), "not_investment_advice": True}) from exc
+
+
+@router.get("/candidates/readiness-comparison", response_model=CandidateReadinessComparisonResponse)
+def candidates_readiness_comparison(include_archived: bool = Query(default=False)) -> CandidateReadinessComparisonResponse:
+    try:
+        return _ensure_safe_response(build_candidate_readiness_comparison(include_archived=include_archived))
     except CandidateWorkspaceStoreError as exc:
         raise HTTPException(status_code=500, detail={"error": str(exc), "not_investment_advice": True}) from exc
 

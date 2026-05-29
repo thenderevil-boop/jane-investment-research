@@ -8,6 +8,18 @@ Build a US-market-only investment research automation system based on Jane's Mar
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
+## Phase 70 Candidate Readiness Comparison MVP
+
+Phase 70 adds `/api/candidates/readiness-comparison`, a workflow-only comparison surface for user-supplied Candidate Workspace items. It summarizes candidate count, readiness state, manual evidence gaps, analysis-refresh needs, review-queue attention, top gap, and next action.
+
+Boundary rules:
+
+- `version="phase70_candidate_readiness_comparison_v1"`.
+- `ranking_policy="not_ranked_by_score_or_recommendation"`.
+- `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`.
+- It does not discover stocks, fetch external sources, change scoring, or issue buy/sell/hold language.
+- It depends on local Candidate Workspace and Manual Evidence Library state.
+
 ## Phase 69 Manual Evidence Quality Loop
 
 Phase 69 links saved Manual Evidence Library items back into the single-name research workflow:

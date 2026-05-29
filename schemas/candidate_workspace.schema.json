@@ -1,159 +1,1153 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Candidate Workspace",
-  "type": "object",
-  "required": ["generated_at", "source_status", "summary", "items", "review_queue", "limitations", "missing_data", "not_investment_advice"],
-  "properties": {
-    "generated_at": {"type": "string"},
-    "source_status": {
-      "type": "object",
-      "required": ["source_type", "provider", "freshness_window", "fallback_used"],
+  "$defs": {
+    "CandidateAnalysisHistoryItem": {
       "properties": {
-        "source_type": {"const": "derived"},
-        "provider": {"const": "local_candidate_workspace"},
-        "source_date": {"type": ["string", "null"]},
-        "is_fresh": {"type": "boolean"},
-        "freshness_window": {"const": "local_workspace_store"},
-        "fallback_used": {"const": false},
-        "fallback_reason": {"type": "null"},
-        "limitations": {"type": "array", "items": {"type": "string"}},
-        "missing_data": {"type": "array", "items": {"type": "string"}}
+        "analysis_snapshot_id": {
+          "title": "Analysis Snapshot Id",
+          "type": "string"
+        },
+        "analyzed_at": {
+          "title": "Analyzed At",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "data_quality_grade": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Quality Grade"
+        },
+        "evidence_coverage_summary": {
+          "$ref": "#/$defs/CandidateEvidenceCoverageSummary"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        }
       },
-      "additionalProperties": true
+      "required": [
+        "analysis_snapshot_id",
+        "analyzed_at"
+      ],
+      "title": "CandidateAnalysisHistoryItem",
+      "type": "object"
+    },
+    "CandidateDashboardSummary": {
+      "properties": {
+        "total_candidates": {
+          "default": 0,
+          "title": "Total Candidates",
+          "type": "integer"
+        },
+        "active_candidates": {
+          "default": 0,
+          "title": "Active Candidates",
+          "type": "integer"
+        },
+        "watching_count": {
+          "default": 0,
+          "title": "Watching Count",
+          "type": "integer"
+        },
+        "researching_count": {
+          "default": 0,
+          "title": "Researching Count",
+          "type": "integer"
+        },
+        "reviewed_count": {
+          "default": 0,
+          "title": "Reviewed Count",
+          "type": "integer"
+        },
+        "archived_count": {
+          "default": 0,
+          "title": "Archived Count",
+          "type": "integer"
+        },
+        "high_priority_count": {
+          "default": 0,
+          "title": "High Priority Count",
+          "type": "integer"
+        },
+        "stale_evidence_candidate_count": {
+          "default": 0,
+          "title": "Stale Evidence Candidate Count",
+          "type": "integer"
+        },
+        "needs_review_count": {
+          "default": 0,
+          "title": "Needs Review Count",
+          "type": "integer"
+        },
+        "with_comparison_evidence_count": {
+          "default": 0,
+          "title": "With Comparison Evidence Count",
+          "type": "integer"
+        },
+        "needs_analysis_count": {
+          "default": 0,
+          "title": "Needs Analysis Count",
+          "type": "integer"
+        },
+        "stale_analysis_count": {
+          "default": 0,
+          "title": "Stale Analysis Count",
+          "type": "integer"
+        },
+        "missing_evidence_candidate_count": {
+          "default": 0,
+          "title": "Missing Evidence Candidate Count",
+          "type": "integer"
+        },
+        "review_overdue_count": {
+          "default": 0,
+          "title": "Review Overdue Count",
+          "type": "integer"
+        },
+        "status_breakdown": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Status Breakdown",
+          "type": "object"
+        },
+        "priority_breakdown": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Priority Breakdown",
+          "type": "object"
+        },
+        "missing_criteria_breakdown": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Missing Criteria Breakdown",
+          "type": "object"
+        },
+        "average_latest_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Average Latest Score"
+        },
+        "data_quality_grade_breakdown": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Data Quality Grade Breakdown",
+          "type": "object"
+        }
+      },
+      "title": "CandidateDashboardSummary",
+      "type": "object"
+    },
+    "CandidateEvidenceBadge": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "info",
+            "warning",
+            "success"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "severity",
+        "reason"
+      ],
+      "title": "CandidateEvidenceBadge",
+      "type": "object"
+    },
+    "CandidateEvidenceCoverageSummary": {
+      "properties": {
+        "criteria_covered": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Criteria Covered",
+          "type": "array"
+        },
+        "criteria_missing": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Criteria Missing",
+          "type": "array"
+        },
+        "active_evidence_count": {
+          "default": 0,
+          "title": "Active Evidence Count",
+          "type": "integer"
+        },
+        "stale_evidence_count": {
+          "default": 0,
+          "title": "Stale Evidence Count",
+          "type": "integer"
+        },
+        "comparison_evidence_count": {
+          "default": 0,
+          "title": "Comparison Evidence Count",
+          "type": "integer"
+        }
+      },
+      "title": "CandidateEvidenceCoverageSummary",
+      "type": "object"
+    },
+    "CandidateEvidenceSummary": {
+      "properties": {
+        "manual_evidence_count": {
+          "default": 0,
+          "title": "Manual Evidence Count",
+          "type": "integer"
+        },
+        "active_evidence_count": {
+          "default": 0,
+          "title": "Active Evidence Count",
+          "type": "integer"
+        },
+        "reviewed_evidence_count": {
+          "default": 0,
+          "title": "Reviewed Evidence Count",
+          "type": "integer"
+        },
+        "unreviewed_evidence_count": {
+          "default": 0,
+          "title": "Unreviewed Evidence Count",
+          "type": "integer"
+        },
+        "stale_evidence_count": {
+          "default": 0,
+          "title": "Stale Evidence Count",
+          "type": "integer"
+        },
+        "comparison_evidence_count": {
+          "default": 0,
+          "title": "Comparison Evidence Count",
+          "type": "integer"
+        },
+        "criteria_covered": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Criteria Covered",
+          "type": "array"
+        },
+        "criteria_missing": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Criteria Missing",
+          "type": "array"
+        },
+        "peer_companies_mentioned": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Peer Companies Mentioned",
+          "type": "array"
+        }
+      },
+      "title": "CandidateEvidenceSummary",
+      "type": "object"
+    },
+    "CandidateResearchItem": {
+      "properties": {
+        "ticker": {
+          "maxLength": 10,
+          "minLength": 1,
+          "title": "Ticker",
+          "type": "string"
+        },
+        "market": {
+          "const": "US",
+          "default": "US",
+          "title": "Market",
+          "type": "string"
+        },
+        "company_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Company Name"
+        },
+        "theme": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Theme"
+        },
+        "user_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Reason"
+        },
+        "source_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Label"
+        },
+        "source_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Date"
+        },
+        "priority": {
+          "default": "medium",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "title": "Priority",
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "candidate_id": {
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "status": {
+          "default": "watching",
+          "enum": [
+            "watching",
+            "researching",
+            "reviewed",
+            "archived"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        },
+        "last_analyzed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Analyzed At"
+        },
+        "last_analysis_snapshot_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Analysis Snapshot Id"
+        },
+        "latest_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest Score"
+        },
+        "latest_confidence": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest Confidence"
+        },
+        "latest_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest Label"
+        },
+        "latest_data_quality_grade": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest Data Quality Grade"
+        },
+        "evidence_summary": {
+          "$ref": "#/$defs/CandidateEvidenceSummary"
+        },
+        "next_review_due_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Review Due At"
+        },
+        "review_notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Review Notes"
+        },
+        "review_note_history": {
+          "items": {
+            "$ref": "#/$defs/CandidateReviewNote"
+          },
+          "title": "Review Note History",
+          "type": "array"
+        },
+        "analysis_history": {
+          "items": {
+            "$ref": "#/$defs/CandidateAnalysisHistoryItem"
+          },
+          "title": "Analysis History",
+          "type": "array"
+        },
+        "evidence_badges": {
+          "items": {
+            "$ref": "#/$defs/CandidateEvidenceBadge"
+          },
+          "title": "Evidence Badges",
+          "type": "array"
+        },
+        "review_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Review Reasons",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ticker"
+      ],
+      "title": "CandidateResearchItem",
+      "type": "object"
+    },
+    "CandidateReviewNote": {
+      "properties": {
+        "note": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Note",
+          "type": "string"
+        },
+        "note_type": {
+          "default": "general",
+          "enum": [
+            "general",
+            "evidence_review",
+            "analysis_review",
+            "risk_review",
+            "follow_up"
+          ],
+          "title": "Note Type",
+          "type": "string"
+        },
+        "related_analysis_snapshot_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Related Analysis Snapshot Id"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "note_id": {
+          "title": "Note Id",
+          "type": "string"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "created_by": {
+          "const": "local_user",
+          "default": "local_user",
+          "title": "Created By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "note"
+      ],
+      "title": "CandidateReviewNote",
+      "type": "object"
+    },
+    "CandidateWorkspaceSourceStatus": {
+      "properties": {
+        "source_type": {
+          "const": "derived",
+          "default": "derived",
+          "title": "Source Type",
+          "type": "string"
+        },
+        "provider": {
+          "const": "local_candidate_workspace",
+          "default": "local_candidate_workspace",
+          "title": "Provider",
+          "type": "string"
+        },
+        "source_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Date"
+        },
+        "fetched_at": {
+          "default": null,
+          "title": "Fetched At",
+          "type": "null"
+        },
+        "is_fresh": {
+          "default": true,
+          "title": "Is Fresh",
+          "type": "boolean"
+        },
+        "freshness_window": {
+          "const": "local_workspace_store",
+          "default": "local_workspace_store",
+          "title": "Freshness Window",
+          "type": "string"
+        },
+        "fallback_used": {
+          "default": false,
+          "title": "Fallback Used",
+          "type": "boolean"
+        },
+        "fallback_reason": {
+          "default": null,
+          "title": "Fallback Reason",
+          "type": "null"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        }
+      },
+      "title": "CandidateWorkspaceSourceStatus",
+      "type": "object"
+    },
+    "CandidateReadinessComparisonResponse": {
+      "$defs": {
+        "CandidateReadinessComparisonItem": {
+          "properties": {
+            "candidate_id": {
+              "title": "Candidate Id",
+              "type": "string"
+            },
+            "ticker": {
+              "title": "Ticker",
+              "type": "string"
+            },
+            "company_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Company Name"
+            },
+            "theme": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Theme"
+            },
+            "status": {
+              "enum": [
+                "watching",
+                "researching",
+                "reviewed",
+                "archived"
+              ],
+              "title": "Status",
+              "type": "string"
+            },
+            "priority": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "title": "Priority",
+              "type": "string"
+            },
+            "latest_label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Latest Label"
+            },
+            "latest_data_quality_grade": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Latest Data Quality Grade"
+            },
+            "readiness_state": {
+              "enum": [
+                "comparison_ready_for_review",
+                "needs_evidence_before_comparison",
+                "needs_analysis_refresh",
+                "review_queue_attention"
+              ],
+              "title": "Readiness State",
+              "type": "string"
+            },
+            "evidence_completeness": {
+              "$ref": "#/$defs/CandidateReadinessEvidenceCompleteness"
+            },
+            "top_gap": {
+              "$ref": "#/$defs/CandidateReadinessTopGap"
+            },
+            "next_action": {
+              "title": "Next Action",
+              "type": "string"
+            },
+            "route_hint": {
+              "enum": [
+                "manual_evidence",
+                "stock_research",
+                "evidence_library"
+              ],
+              "title": "Route Hint",
+              "type": "string"
+            },
+            "affects_score": {
+              "default": false,
+              "title": "Affects Score",
+              "type": "boolean"
+            },
+            "final_score_unchanged": {
+              "default": true,
+              "title": "Final Score Unchanged",
+              "type": "boolean"
+            },
+            "not_investment_advice": {
+              "default": true,
+              "title": "Not Investment Advice",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "candidate_id",
+            "ticker",
+            "status",
+            "priority",
+            "readiness_state",
+            "next_action",
+            "route_hint"
+          ],
+          "title": "CandidateReadinessComparisonItem",
+          "type": "object"
+        },
+        "CandidateReadinessComparisonSummary": {
+          "properties": {
+            "candidate_count": {
+              "default": 0,
+              "title": "Candidate Count",
+              "type": "integer"
+            },
+            "comparison_ready_count": {
+              "default": 0,
+              "title": "Comparison Ready Count",
+              "type": "integer"
+            },
+            "needs_manual_evidence_count": {
+              "default": 0,
+              "title": "Needs Manual Evidence Count",
+              "type": "integer"
+            },
+            "needs_analysis_refresh_count": {
+              "default": 0,
+              "title": "Needs Analysis Refresh Count",
+              "type": "integer"
+            },
+            "review_queue_attention_count": {
+              "default": 0,
+              "title": "Review Queue Attention Count",
+              "type": "integer"
+            }
+          },
+          "title": "CandidateReadinessComparisonSummary",
+          "type": "object"
+        },
+        "CandidateReadinessEvidenceCompleteness": {
+          "properties": {
+            "covered_count": {
+              "default": 0,
+              "title": "Covered Count",
+              "type": "integer"
+            },
+            "missing_count": {
+              "default": 0,
+              "title": "Missing Count",
+              "type": "integer"
+            },
+            "active_evidence_count": {
+              "default": 0,
+              "title": "Active Evidence Count",
+              "type": "integer"
+            },
+            "stale_evidence_count": {
+              "default": 0,
+              "title": "Stale Evidence Count",
+              "type": "integer"
+            },
+            "unreviewed_evidence_count": {
+              "default": 0,
+              "title": "Unreviewed Evidence Count",
+              "type": "integer"
+            },
+            "criteria_covered": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Criteria Covered",
+              "type": "array"
+            },
+            "criteria_missing": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Criteria Missing",
+              "type": "array"
+            }
+          },
+          "title": "CandidateReadinessEvidenceCompleteness",
+          "type": "object"
+        },
+        "CandidateReadinessTopGap": {
+          "properties": {
+            "gap_type": {
+              "default": "none",
+              "enum": [
+                "manual_evidence_required",
+                "analysis_refresh_required",
+                "review_queue_attention",
+                "none"
+              ],
+              "title": "Gap Type",
+              "type": "string"
+            },
+            "criterion": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Criterion"
+            },
+            "source_route": {
+              "default": "none",
+              "enum": [
+                "manual_evidence",
+                "stock_research",
+                "evidence_library",
+                "none"
+              ],
+              "title": "Source Route",
+              "type": "string"
+            },
+            "reason": {
+              "default": "No high-priority readiness gap identified.",
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "title": "CandidateReadinessTopGap",
+          "type": "object"
+        },
+        "CandidateWorkspaceSourceStatus": {
+          "properties": {
+            "source_type": {
+              "const": "derived",
+              "default": "derived",
+              "title": "Source Type",
+              "type": "string"
+            },
+            "provider": {
+              "const": "local_candidate_workspace",
+              "default": "local_candidate_workspace",
+              "title": "Provider",
+              "type": "string"
+            },
+            "source_date": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Source Date"
+            },
+            "fetched_at": {
+              "default": null,
+              "title": "Fetched At",
+              "type": "null"
+            },
+            "is_fresh": {
+              "default": true,
+              "title": "Is Fresh",
+              "type": "boolean"
+            },
+            "freshness_window": {
+              "const": "local_workspace_store",
+              "default": "local_workspace_store",
+              "title": "Freshness Window",
+              "type": "string"
+            },
+            "fallback_used": {
+              "default": false,
+              "title": "Fallback Used",
+              "type": "boolean"
+            },
+            "fallback_reason": {
+              "default": null,
+              "title": "Fallback Reason",
+              "type": "null"
+            },
+            "limitations": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Limitations",
+              "type": "array"
+            },
+            "missing_data": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Missing Data",
+              "type": "array"
+            }
+          },
+          "title": "CandidateWorkspaceSourceStatus",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "version": {
+          "const": "phase70_candidate_readiness_comparison_v1",
+          "default": "phase70_candidate_readiness_comparison_v1",
+          "title": "Version",
+          "type": "string"
+        },
+        "generated_at": {
+          "title": "Generated At",
+          "type": "string"
+        },
+        "source_status": {
+          "$ref": "#/$defs/CandidateWorkspaceSourceStatus"
+        },
+        "summary": {
+          "$ref": "#/$defs/CandidateReadinessComparisonSummary"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/CandidateReadinessComparisonItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "ranking_policy": {
+          "const": "not_ranked_by_score_or_recommendation",
+          "default": "not_ranked_by_score_or_recommendation",
+          "title": "Ranking Policy",
+          "type": "string"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "final_score_unchanged": {
+          "default": true,
+          "title": "Final Score Unchanged",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "generated_at",
+        "source_status"
+      ],
+      "title": "CandidateReadinessComparisonResponse",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "generated_at": {
+      "title": "Generated At",
+      "type": "string"
+    },
+    "source_status": {
+      "$ref": "#/$defs/CandidateWorkspaceSourceStatus"
     },
     "summary": {
-      "type": "object",
-      "required": ["total_candidates", "active_candidates", "watching_count", "researching_count", "reviewed_count", "archived_count", "high_priority_count", "stale_evidence_candidate_count", "needs_review_count", "with_comparison_evidence_count"],
-      "properties": {
-        "total_candidates": {"type": "integer"},
-        "active_candidates": {"type": "integer"},
-        "watching_count": {"type": "integer"},
-        "researching_count": {"type": "integer"},
-        "reviewed_count": {"type": "integer"},
-        "archived_count": {"type": "integer"},
-        "high_priority_count": {"type": "integer"},
-        "stale_evidence_candidate_count": {"type": "integer"},
-        "needs_review_count": {"type": "integer"},
-        "with_comparison_evidence_count": {"type": "integer"},
-        "needs_analysis_count": {"type": "integer"},
-        "stale_analysis_count": {"type": "integer"},
-        "missing_evidence_candidate_count": {"type": "integer"},
-        "review_overdue_count": {"type": "integer"},
-        "status_breakdown": {"type": "object", "additionalProperties": {"type": "integer"}},
-        "priority_breakdown": {"type": "object", "additionalProperties": {"type": "integer"}},
-        "missing_criteria_breakdown": {"type": "object", "additionalProperties": {"type": "integer"}},
-        "average_latest_score": {"type": ["number", "null"]},
-        "data_quality_grade_breakdown": {"type": "object", "additionalProperties": {"type": "integer"}}
-      },
-      "additionalProperties": false
+      "$ref": "#/$defs/CandidateDashboardSummary"
     },
-    "items": {"type": "array", "items": {"$ref": "#/$defs/candidateResearchItem"}},
-    "review_queue": {"type": "array", "items": {"$ref": "#/$defs/candidateResearchItem"}},
-    "limitations": {"type": "array", "items": {"type": "string"}},
-    "missing_data": {"type": "array", "items": {"type": "string"}},
-    "not_investment_advice": {"const": true}
-  },
-  "additionalProperties": false,
-  "$defs": {
-    "candidateResearchItem": {
-      "type": "object",
-      "required": ["candidate_id", "ticker", "market", "status", "priority", "tags", "created_at", "updated_at", "evidence_summary", "limitations", "not_investment_advice"],
-      "properties": {
-        "candidate_id": {"type": "string"},
-        "ticker": {"type": "string"},
-        "market": {"type": "string"},
-        "company_name": {"type": ["string", "null"]},
-        "theme": {"type": ["string", "null"]},
-        "user_reason": {"type": ["string", "null"]},
-        "source_label": {"type": ["string", "null"]},
-        "source_date": {"type": ["string", "null"]},
-        "status": {"enum": ["watching", "researching", "reviewed", "archived"]},
-        "priority": {"enum": ["low", "medium", "high"]},
-        "tags": {"type": "array", "items": {"type": "string"}},
-        "created_at": {"type": "string"},
-        "updated_at": {"type": "string"},
-        "last_analyzed_at": {"type": ["string", "null"]},
-        "last_analysis_snapshot_id": {"type": ["string", "null"]},
-        "latest_score": {"type": ["number", "null"]},
-        "latest_confidence": {"type": ["number", "null"]},
-        "latest_label": {"type": ["string", "null"]},
-        "latest_data_quality_grade": {"type": ["string", "null"]},
-        "evidence_summary": {
-          "type": "object",
-          "required": ["manual_evidence_count", "active_evidence_count", "reviewed_evidence_count", "unreviewed_evidence_count", "stale_evidence_count", "comparison_evidence_count", "criteria_covered", "criteria_missing", "peer_companies_mentioned"],
-          "properties": {
-            "manual_evidence_count": {"type": "integer"},
-            "active_evidence_count": {"type": "integer"},
-            "reviewed_evidence_count": {"type": "integer"},
-            "unreviewed_evidence_count": {"type": "integer"},
-            "stale_evidence_count": {"type": "integer"},
-            "comparison_evidence_count": {"type": "integer"},
-            "criteria_covered": {"type": "array", "items": {"type": "string"}},
-            "criteria_missing": {"type": "array", "items": {"type": "string"}},
-            "peer_companies_mentioned": {"type": "array", "items": {"type": "string"}}
-          },
-          "additionalProperties": false
-        },
-        "next_review_due_at": {"type": ["string", "null"]},
-        "review_notes": {"type": ["string", "null"]},
-        "review_note_history": {"type": "array", "items": {"$ref": "#/$defs/candidateReviewNote"}},
-        "analysis_history": {"type": "array", "items": {"$ref": "#/$defs/candidateAnalysisHistoryItem"}},
-        "evidence_badges": {"type": "array", "items": {"$ref": "#/$defs/candidateEvidenceBadge"}},
-        "review_reasons": {"type": "array", "items": {"type": "string"}},
-        "limitations": {"type": "array", "items": {"type": "string"}},
-        "not_investment_advice": {"const": true}
+    "items": {
+      "items": {
+        "$ref": "#/$defs/CandidateResearchItem"
       },
-      "additionalProperties": false
+      "title": "Items",
+      "type": "array"
     },
-    "candidateReviewNote": {
-      "type": "object",
-      "required": ["note_id", "created_at", "created_by", "note", "note_type", "tags"],
-      "properties": {
-        "note_id": {"type": "string"},
-        "created_at": {"type": "string"},
-        "created_by": {"const": "local_user"},
-        "note": {"type": "string"},
-        "note_type": {"enum": ["general", "evidence_review", "analysis_review", "risk_review", "follow_up"]},
-        "related_analysis_snapshot_id": {"type": ["string", "null"]},
-        "tags": {"type": "array", "items": {"type": "string"}}
+    "review_queue": {
+      "items": {
+        "$ref": "#/$defs/CandidateResearchItem"
       },
-      "additionalProperties": false
+      "title": "Review Queue",
+      "type": "array"
     },
-    "candidateAnalysisHistoryItem": {
-      "type": "object",
-      "required": ["analysis_snapshot_id", "analyzed_at", "evidence_coverage_summary", "limitations"],
-      "properties": {
-        "analysis_snapshot_id": {"type": "string"},
-        "analyzed_at": {"type": "string"},
-        "score": {"type": ["number", "null"]},
-        "confidence": {"type": ["number", "null"]},
-        "label": {"type": ["string", "null"]},
-        "data_quality_grade": {"type": ["string", "null"]},
-        "evidence_coverage_summary": {
-          "type": "object",
-          "required": ["criteria_covered", "criteria_missing", "active_evidence_count", "stale_evidence_count", "comparison_evidence_count"],
-          "properties": {
-            "criteria_covered": {"type": "array", "items": {"type": "string"}},
-            "criteria_missing": {"type": "array", "items": {"type": "string"}},
-            "active_evidence_count": {"type": "integer"},
-            "stale_evidence_count": {"type": "integer"},
-            "comparison_evidence_count": {"type": "integer"}
-          },
-          "additionalProperties": false
-        },
-        "limitations": {"type": "array", "items": {"type": "string"}}
+    "limitations": {
+      "items": {
+        "type": "string"
       },
-      "additionalProperties": false
+      "title": "Limitations",
+      "type": "array"
     },
-    "candidateEvidenceBadge": {
-      "type": "object",
-      "required": ["label", "severity", "reason"],
-      "properties": {
-        "label": {"type": "string"},
-        "severity": {"enum": ["info", "warning", "success"]},
-        "reason": {"type": "string"}
+    "missing_data": {
+      "items": {
+        "type": "string"
       },
-      "additionalProperties": false
+      "title": "Missing Data",
+      "type": "array"
+    },
+    "not_investment_advice": {
+      "default": true,
+      "title": "Not Investment Advice",
+      "type": "boolean"
     }
-  }
+  },
+  "required": [
+    "generated_at",
+    "source_status",
+    "summary"
+  ],
+  "title": "CandidateDashboardResponse",
+  "type": "object"
 }

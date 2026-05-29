@@ -263,3 +263,73 @@ class CandidateDashboardResponse(BaseModel):
     ])
     missing_data: list[str] = Field(default_factory=list)
     not_investment_advice: bool = True
+
+
+CandidateReadinessState = Literal[
+    "comparison_ready_for_review",
+    "needs_evidence_before_comparison",
+    "needs_analysis_refresh",
+    "review_queue_attention",
+]
+
+
+class CandidateReadinessEvidenceCompleteness(BaseModel):
+    covered_count: int = 0
+    missing_count: int = 0
+    active_evidence_count: int = 0
+    stale_evidence_count: int = 0
+    unreviewed_evidence_count: int = 0
+    criteria_covered: list[str] = Field(default_factory=list)
+    criteria_missing: list[str] = Field(default_factory=list)
+
+
+class CandidateReadinessTopGap(BaseModel):
+    gap_type: Literal["manual_evidence_required", "analysis_refresh_required", "review_queue_attention", "none"] = "none"
+    criterion: str | None = None
+    source_route: Literal["manual_evidence", "stock_research", "evidence_library", "none"] = "none"
+    reason: str = "No high-priority readiness gap identified."
+
+
+class CandidateReadinessComparisonItem(BaseModel):
+    candidate_id: str
+    ticker: str
+    company_name: str | None = None
+    theme: str | None = None
+    status: CandidateStatus
+    priority: CandidatePriority
+    latest_label: str | None = None
+    latest_data_quality_grade: str | None = None
+    readiness_state: CandidateReadinessState
+    evidence_completeness: CandidateReadinessEvidenceCompleteness = Field(default_factory=CandidateReadinessEvidenceCompleteness)
+    top_gap: CandidateReadinessTopGap = Field(default_factory=CandidateReadinessTopGap)
+    next_action: str
+    route_hint: Literal["manual_evidence", "stock_research", "evidence_library"]
+    affects_score: bool = False
+    final_score_unchanged: bool = True
+    not_investment_advice: bool = True
+
+
+class CandidateReadinessComparisonSummary(BaseModel):
+    candidate_count: int = 0
+    comparison_ready_count: int = 0
+    needs_manual_evidence_count: int = 0
+    needs_analysis_refresh_count: int = 0
+    review_queue_attention_count: int = 0
+
+
+class CandidateReadinessComparisonResponse(BaseModel):
+    version: Literal["phase70_candidate_readiness_comparison_v1"] = "phase70_candidate_readiness_comparison_v1"
+    generated_at: str
+    source_status: CandidateWorkspaceSourceStatus
+    summary: CandidateReadinessComparisonSummary = Field(default_factory=CandidateReadinessComparisonSummary)
+    items: list[CandidateReadinessComparisonItem] = Field(default_factory=list)
+    ranking_policy: Literal["not_ranked_by_score_or_recommendation"] = "not_ranked_by_score_or_recommendation"
+    limitations: list[str] = Field(default_factory=lambda: [
+        "Candidate readiness comparison is workflow metadata only and not investment advice.",
+        "Items are ordered by unresolved evidence/readiness gaps, not by score or recommendation.",
+        "Candidate Workspace does not discover stocks or fetch external sources.",
+    ])
+    missing_data: list[str] = Field(default_factory=list)
+    affects_score: bool = False
+    final_score_unchanged: bool = True
+    not_investment_advice: bool = True

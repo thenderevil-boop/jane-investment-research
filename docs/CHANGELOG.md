@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 70 — Candidate Readiness Comparison MVP
+
+- Added `GET /api/candidates/readiness-comparison` for workflow-only cross-candidate readiness review.
+- Added `CandidateReadinessComparisonResponse` schema with readiness state, evidence completeness, top gap, next action, `ranking_policy="not_ranked_by_score_or_recommendation"`, `affects_score=false`, and `final_score_unchanged=true`.
+- Added Candidate Workspace UI copy/section for Phase 70 readiness comparison.
+- Added backend/frontend tests for the non-scoring and no-object-leakage boundaries.
+
 ## Phase 69 — Manual Evidence Quality Loop
 
 - Added saved Manual Evidence Library linkage metadata (`linked_gap_id`, `linked_criterion_id`, `linked_submetrics`) and derived quality-loop state (`resolution_status`, `missing_required_fields`, `review_state`, `freshness_state`, `evidence_quality_note`).

@@ -1,4 +1,4 @@
-import type { AnalyzeStockExportPayload, AnalyzeStockExportResponse, ApiError, CandidateAnalysisHistoryItem, CandidateAnalyzeResponse, CandidateDashboard, CandidateFilters, CandidateResearchItem, CandidateResearchItemCreate, CandidateReviewNote, CandidateReviewNoteCreate, DailyReport, JaneCriteriaResponse, LocalBackupExportOptions, LocalBackupExportResponse, ManualEvidenceDashboard, ManualEvidenceDashboardFilters, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, OperationsDiagnostics, QualitativeEvidenceInput, ResearchContext, SEC13FManagerUniverseSettings, StockAnalysis } from '../types';
+import type { AnalyzeStockExportPayload, AnalyzeStockExportResponse, ApiError, CandidateAnalysisHistoryItem, CandidateAnalyzeResponse, CandidateDashboard, CandidateFilters, CandidateReadinessComparison, CandidateResearchItem, CandidateResearchItemCreate, CandidateReviewNote, CandidateReviewNoteCreate, DailyReport, JaneCriteriaResponse, LocalBackupExportOptions, LocalBackupExportResponse, ManualEvidenceDashboard, ManualEvidenceDashboardFilters, ManualQualitativeEvidence, ManualQualitativeEvidenceCreate, OperationsDiagnostics, QualitativeEvidenceInput, ResearchContext, SEC13FManagerUniverseSettings, StockAnalysis } from '../types';
 
 async function parseJson<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') ?? '';
@@ -193,6 +193,10 @@ export function analyzeCandidate(candidateId: string, payload: { refresh_evidenc
 
 export function getCandidateDashboard(filters: CandidateFilters = {}): Promise<CandidateDashboard> {
   return request<CandidateDashboard>(`/api/candidates/dashboard${candidateQuery({ include_archived: filters.include_archived })}`);
+}
+
+export function getCandidateReadinessComparison(filters: CandidateFilters = {}): Promise<CandidateReadinessComparison> {
+  return request<CandidateReadinessComparison>(`/api/candidates/readiness-comparison${candidateQuery({ include_archived: filters.include_archived })}`);
 }
 
 export function createManualEvidence(payload: ManualQualitativeEvidenceCreate): Promise<ManualQualitativeEvidence> {

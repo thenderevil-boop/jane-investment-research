@@ -261,12 +261,15 @@ Local workflow endpoints:
 - `GET /api/candidates/{candidate_id}/notes`
 - `GET /api/candidates/{candidate_id}/analysis-history`
 - `GET /api/candidates/dashboard`
+- `GET /api/candidates/readiness-comparison`
 
 Candidate entries are user-provided watchlist/workspace metadata. Status values are `watching`, `researching`, `reviewed`, and `archived`; status is not a recommendation and does not alter analyze-stock scoring. Archived candidates are excluded from active lists by default.
 
 `POST /api/candidates/{candidate_id}/analyze` calls the existing analyze-stock pipeline for that candidate only, using candidate theme and user reason as research context. It may accept request-scoped `qualitative_evidence`, but that evidence is not automatically saved to the Manual Evidence Library. The response contains `{ "candidate": CandidateResearchItem, "analysis": AnalyzeStockResponse, "not_investment_advice": true }`.
 
 `GET /api/candidates/dashboard` returns `source_status.source_type="derived"` and `provider="local_candidate_workspace"`. It reads the local candidate store and local Manual Evidence Library summaries only.
+
+Candidate Readiness Comparison: `GET /api/candidates/readiness-comparison` returns Phase 70 `CandidateReadinessComparisonResponse` with `version="phase70_candidate_readiness_comparison_v1"`, `summary`, `items[].readiness_state`, `items[].evidence_completeness`, `items[].top_gap`, `items[].next_action`, and `ranking_policy="not_ranked_by_score_or_recommendation"`. It is workflow-only: `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`; it does not discover stocks, fetch external sources, update scores, or recommend securities.
 
 Phase 24 adds local-only workflow auditability:
 

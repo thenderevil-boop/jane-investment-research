@@ -8,6 +8,8 @@ describe('CandidateWorkspace', () => {
     expect(html).toContain('Watchlist Research Flow');
     expect(html).toContain('Add Candidate');
     expect(html).toContain('Candidates');
+    expect(html).toContain('Candidate Readiness Comparison');
+    expect(html).toContain('evidence gaps and next actions');
     expect(html).not.toContain('[object Object]');
   });
 });

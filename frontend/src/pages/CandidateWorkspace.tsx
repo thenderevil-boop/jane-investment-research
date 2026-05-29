@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { addCandidateNote, analyzeCandidate, archiveCandidate, createCandidate, getCandidateAnalysisHistory, getCandidateDashboard, getCandidateNotes, listCandidates, refreshCandidateEvidenceSummary, restoreCandidate, updateCandidate } from '../api/client';
+import { addCandidateNote, analyzeCandidate, archiveCandidate, createCandidate, getCandidateAnalysisHistory, getCandidateDashboard, getCandidateNotes, getCandidateReadinessComparison, listCandidates, refreshCandidateEvidenceSummary, restoreCandidate, updateCandidate } from '../api/client';
 import SignalBadge from '../components/SignalBadge';
-import type { CandidateAnalysisHistoryItem, CandidateDashboard, CandidateFilters, CandidatePriority, CandidateResearchItem, CandidateReviewNote, CandidateReviewNoteCreate, CandidateStatus } from '../types';
+import type { CandidateAnalysisHistoryItem, CandidateDashboard, CandidateFilters, CandidatePriority, CandidateReadinessComparison, CandidateResearchItem, CandidateReviewNote, CandidateReviewNoteCreate, CandidateStatus } from '../types';
 
 function displayKey(value: string) {
   return value.replace(/_/g, ' ');
@@ -26,6 +26,7 @@ function badgeVariant(severity: string) {
 
 export default function CandidateWorkspace() {
   const [dashboard, setDashboard] = useState<CandidateDashboard | null>(null);
+  const [readinessComparison, setReadinessComparison] = useState<CandidateReadinessComparison | null>(null);
   const [items, setItems] = useState<CandidateResearchItem[]>([]);
   const [selected, setSelected] = useState<CandidateResearchItem | null>(null);
   const [form, setForm] = useState({ ticker: 'NVDA', theme: 'AI infrastructure', user_reason: 'External trend research candidate', source_label: 'User watchlist note', source_date: '2026-05-08', priority: 'medium' as CandidatePriority, tags: 'AI, GPU, infrastructure' });
@@ -55,8 +56,9 @@ export default function CandidateWorkspace() {
     setLoading(true);
     setError('');
     try {
-      const [nextDashboard, nextItems] = await Promise.all([getCandidateDashboard(nextFilters), listCandidates(nextFilters)]);
+      const [nextDashboard, nextComparison, nextItems] = await Promise.all([getCandidateDashboard(nextFilters), getCandidateReadinessComparison(nextFilters), listCandidates(nextFilters)]);
       setDashboard(nextDashboard);
+      setReadinessComparison(nextComparison);
       setItems(nextItems);
       const nextSelected = nextItems.find((item) => item.candidate_id === selected?.candidate_id) ?? nextItems[0] ?? null;
       setSelected(nextSelected);
@@ -155,7 +157,7 @@ export default function CandidateWorkspace() {
         <div>
           <p className="eyebrow">Candidate Workspace</p>
           <h1>Watchlist Research Flow</h1>
-          <p>Local workflow metadata for user-provided US ticker ideas. Not investment advice.</p>
+          <p>Local workflow metadata for user-provided US ticker ideas. Not investment advice. Phase 70 adds Candidate Readiness Comparison for evidence gaps and next actions.</p>
         </div>
       </header>
 
@@ -171,6 +173,35 @@ export default function CandidateWorkspace() {
             <SummaryCard label="Review overdue" value={summary.review_overdue_count} />
             <SummaryCard label="Comparison evidence" value={summary.with_comparison_evidence_count} />
             <SummaryCard label="Avg latest score" value={summary.average_latest_score ?? 'N/A'} />
+          </div>
+        </section>
+      )}
+
+      {readinessComparison && (
+        <section className="pageSection">
+          <h2>Candidate Readiness Comparison</h2>
+          <p className="muted">Workflow-only readiness view. Items are not ranked by score or recommendation.</p>
+          <div className="scoreGrid">
+            <SummaryCard label="Candidates" value={readinessComparison.summary.candidate_count} />
+            <SummaryCard label="Manual evidence gaps" value={readinessComparison.summary.needs_manual_evidence_count} />
+            <SummaryCard label="Needs analysis refresh" value={readinessComparison.summary.needs_analysis_refresh_count} />
+            <SummaryCard label="Review queue attention" value={readinessComparison.summary.review_queue_attention_count} />
+          </div>
+          <div className="tableWrap">
+            <table>
+              <thead><tr><th>Ticker</th><th>Readiness</th><th>Evidence</th><th>Top gap</th><th>Next action</th></tr></thead>
+              <tbody>
+                {readinessComparison.items.map((item) => (
+                  <tr key={item.candidate_id}>
+                    <td>{item.ticker}</td>
+                    <td><SignalBadge label={displayKey(item.readiness_state)} variant={item.readiness_state === 'comparison_ready_for_review' ? 'positive' : 'warning'} /></td>
+                    <td>{item.evidence_completeness.covered_count} covered / {item.evidence_completeness.missing_count} missing</td>
+                    <td>{item.top_gap.criterion ? displayKey(item.top_gap.criterion) : displayKey(item.top_gap.gap_type)}</td>
+                    <td>{item.next_action}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
       )}

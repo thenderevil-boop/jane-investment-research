@@ -22,6 +22,11 @@ from backend.app.schemas.candidate_workspace import (
     CandidateEvidenceBadge,
     CandidateEvidenceCoverageSummary,
     CandidateEvidenceSummary,
+    CandidateReadinessComparisonItem,
+    CandidateReadinessComparisonResponse,
+    CandidateReadinessComparisonSummary,
+    CandidateReadinessEvidenceCompleteness,
+    CandidateReadinessTopGap,
     CandidateResearchItem,
     CandidateResearchItemCreate,
     CandidateResearchItemPatch,
@@ -364,6 +369,108 @@ def analyze_candidate(candidate_id: str, payload: CandidateAnalyzeRequest) -> Ca
 
 def _needs_review(item: CandidateResearchItem) -> bool:
     return bool(item.review_reasons)
+
+
+
+def _candidate_readiness_item(item: CandidateResearchItem) -> CandidateReadinessComparisonItem:
+    summary = item.evidence_summary
+    missing = [criterion for criterion in summary.criteria_missing if criterion in JANE_QUALITATIVE_CRITERIA]
+    completeness = CandidateReadinessEvidenceCompleteness(
+        covered_count=len(summary.criteria_covered),
+        missing_count=len(missing),
+        active_evidence_count=summary.active_evidence_count,
+        stale_evidence_count=summary.stale_evidence_count,
+        unreviewed_evidence_count=summary.unreviewed_evidence_count,
+        criteria_covered=summary.criteria_covered,
+        criteria_missing=missing,
+    )
+    if missing:
+        criterion = missing[0]
+        state = "needs_evidence_before_comparison"
+        top_gap = CandidateReadinessTopGap(
+            gap_type="manual_evidence_required",
+            criterion=criterion,
+            source_route="manual_evidence",
+            reason=f"Candidate is missing local evidence for {criterion} before readiness comparison is meaningful.",
+        )
+        next_action = f"Add or review manual evidence for {criterion}."
+        route_hint = "manual_evidence"
+    elif item.last_analyzed_at is None:
+        state = "needs_analysis_refresh"
+        top_gap = CandidateReadinessTopGap(
+            gap_type="analysis_refresh_required",
+            source_route="stock_research",
+            reason="Candidate has local evidence coverage but no stored analysis snapshot.",
+        )
+        next_action = "Run or refresh Stock Research analysis for this candidate."
+        route_hint = "stock_research"
+    elif summary.stale_evidence_count > 0 or summary.unreviewed_evidence_count > 0:
+        state = "review_queue_attention"
+        top_gap = CandidateReadinessTopGap(
+            gap_type="review_queue_attention",
+            source_route="evidence_library",
+            reason="Candidate has stale or unreviewed local evidence that should be checked before comparison.",
+        )
+        next_action = "Review stale or unreviewed evidence in the Evidence Library."
+        route_hint = "evidence_library"
+    else:
+        state = "comparison_ready_for_review"
+        top_gap = CandidateReadinessTopGap()
+        next_action = "Compare readiness context manually; this is not a score ranking."
+        route_hint = "stock_research"
+    return CandidateReadinessComparisonItem(
+        candidate_id=item.candidate_id,
+        ticker=item.ticker,
+        company_name=item.company_name,
+        theme=item.theme,
+        status=item.status,
+        priority=item.priority,
+        latest_label=item.latest_label,
+        latest_data_quality_grade=item.latest_data_quality_grade,
+        readiness_state=state,
+        evidence_completeness=completeness,
+        top_gap=top_gap,
+        next_action=next_action,
+        route_hint=route_hint,
+    )
+
+
+def build_candidate_readiness_comparison(include_archived: bool = False) -> CandidateReadinessComparisonResponse:
+    now = datetime.now(timezone.utc)
+    items = [item for item in list_candidate_items(include_archived=include_archived) if include_archived or item.status != "archived"]
+    comparison_items = [_candidate_readiness_item(item) for item in items]
+    priority_rank = {
+        "needs_evidence_before_comparison": 0,
+        "review_queue_attention": 1,
+        "needs_analysis_refresh": 2,
+        "comparison_ready_for_review": 3,
+    }
+    comparison_items = sorted(
+        comparison_items,
+        key=lambda item: (
+            priority_rank.get(item.readiness_state, 9),
+            item.evidence_completeness.active_evidence_count,
+            -item.evidence_completeness.missing_count,
+            item.ticker,
+        ),
+    )
+    source_dates = sorted({item.updated_at[:10] for item in items if item.updated_at})
+    return CandidateReadinessComparisonResponse(
+        generated_at=now.isoformat(),
+        source_status=CandidateWorkspaceSourceStatus(
+            source_date=source_dates[-1] if source_dates else None,
+            limitations=WORKSPACE_LIMITATIONS,
+        ),
+        summary=CandidateReadinessComparisonSummary(
+            candidate_count=len(comparison_items),
+            comparison_ready_count=sum(1 for item in comparison_items if item.readiness_state == "comparison_ready_for_review"),
+            needs_manual_evidence_count=sum(1 for item in comparison_items if item.readiness_state == "needs_evidence_before_comparison"),
+            needs_analysis_refresh_count=sum(1 for item in comparison_items if item.readiness_state == "needs_analysis_refresh"),
+            review_queue_attention_count=sum(1 for item in comparison_items if item.readiness_state == "review_queue_attention"),
+        ),
+        items=comparison_items,
+        missing_data=[] if comparison_items else ["candidate workspace is empty"],
+    )
 
 
 def build_candidate_dashboard(include_archived: bool = False) -> CandidateDashboardResponse:
