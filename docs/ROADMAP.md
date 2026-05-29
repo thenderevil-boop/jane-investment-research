@@ -50,7 +50,7 @@ Do not resume feature stacking with more cards, mock-heavy engines, automatic th
 - `adr_or_foreign_filer_limitation`
 - `optional_context`
 
-**Non-goals:** Score changes, ranking, buy/sell guidance, automatic theme discovery, new providers, or live provider refresh.
+**Non-goals:** Score changes, ranking, trade-direction guidance, automatic theme discovery, new providers, or live provider refresh.
 
 **Acceptance:** Top evidence gaps include priority, criterion, gap type, recommended action, source route, whether the gap blocks workflow status, `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`.
 
@@ -88,7 +88,7 @@ Do not resume feature stacking with more cards, mock-heavy engines, automatic th
 
 **In scope:** Compare configured or user-selected candidates by evidence completeness, source quality, workflow status, and next research action.
 
-**Non-goals:** Buy/sell ranking, portfolio allocation, automatic ticker discovery, or price-target generation.
+**Non-goals:** Directional ranking, portfolio allocation, automatic ticker discovery, or price-target generation.
 
 **Acceptance:** Comparison output uses safe research-readiness language and makes unresolved evidence gaps more visible than raw score ordering.
 
@@ -117,5 +117,5 @@ Do not resume feature stacking with more cards, mock-heavy engines, automatic th
 - Automatic Future Theme Library / theme discovery unless high-confidence external research integration exists.
 - Additional specialized providers unless they directly unblock Coverage Matrix actionability or source-health routing.
 - More signal breakdown cards before Daily Report and Evidence Gap Inbox are useful.
-- Ranking engine, buy/sell language, portfolio allocation, or price-target workflows.
+- Ranking engine, trade-direction language, portfolio allocation, or price-target workflows.
 - Mock-heavy Crisis or Future Industry Radar expansion unless explicitly requested.
