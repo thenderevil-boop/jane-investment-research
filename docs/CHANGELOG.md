@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 68 — Research Workflow Summary v2 Alignment
+
+- Upgraded `research_workflow_summary` to `phase68_research_workflow_summary_v2` with `workflow_alignment_version="phase68_workflow_alignment_v1"`.
+- Added dominant workflow blocker metadata (`dominant_blocker`, `dominant_reason`, `dominant_route`, `dominant_gap_id`, `dominant_provider`, `dominant_criterion_id`) derived from Evidence Gap Inbox items.
+- Added Stock Research Analyst Brief rendering for Workflow Alignment so the first screen uses the same route vocabulary as Evidence Gap Inbox, Operations, and Daily Command Center.
+- Preserved score weights, final scores, final verdicts, provider behavior, and investment-advice boundaries with non-scoring metadata.
+
 ## Phase 66 — Source Health Action Routing
 
 - Added Operations Diagnostics `source_health_actions` (`phase66_source_health_actions_v1`) so missing keys, missing SEC EDGAR user-agent setup, disabled providers, and cache/readiness issues become routeable operations actions.

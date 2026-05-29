@@ -8,6 +8,14 @@ Build a US-market-only investment research automation system based on Jane's Mar
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
+## Phase 68 Research Workflow Summary v2 Alignment
+
+Phase 68 upgrades `POST /api/analyze-stock` `research_workflow_summary` to `phase68_research_workflow_summary_v2`:
+
+- Adds `workflow_alignment_version="phase68_workflow_alignment_v1"` plus `dominant_blocker`, `dominant_reason`, `dominant_route`, `dominant_gap_id`, `dominant_provider`, and `dominant_criterion_id`.
+- Aligns Stock Research first-screen workflow language with Evidence Gap Inbox and Source Health Action routing, so the dominant next step is visible without reading every detailed section.
+- Preserves final score, verdict, provider behavior, and advice boundaries with `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`.
+
 ## Phase 66 Source Health Action Routing
 
 Phase 66 adds `source_health_actions` (`phase66_source_health_actions_v1`) to `GET /api/operations/diagnostics` and feeds the highest-attention items into Daily Report `command_center.source_health_alerts`:
@@ -62,12 +70,13 @@ Phase 62 adds `GET /api/operations/diagnostics` (`phase62_operations_diagnostics
 - Secrets policy exposes `api_key_values_returned=false`; API key values are never returned.
 - Diagnostics are read-only and do not trigger provider calls.
 
-## Phase 61 Research Workflow Summary
+## Phase 61/68 Research Workflow Summary
 
-Phase 61 adds `research_workflow_summary` to `POST /api/analyze-stock` as a non-scoring first-screen workflow layer:
+Phase 61 introduced `research_workflow_summary` to `POST /api/analyze-stock` as a non-scoring first-screen workflow layer; Phase 68 upgrades it to `phase68_research_workflow_summary_v2`:
 
-- Returns `version="phase61_v1"`, deterministic `research_status`, confidence, one-line summary, top three strengths, top three gaps, next three research actions, and `not_investment_advice=true`.
-- Uses only existing final score, data-quality grade, Jane Coverage Matrix counts, score-driver breakdown, ADR/data-gap diagnostics, Form 4, 13F, and valuation context.
+- Returns deterministic `research_status`, confidence, one-line summary, top three strengths, top three gaps, next three research actions, and `not_investment_advice=true`.
+- Adds `workflow_alignment_version="phase68_workflow_alignment_v1"` plus dominant blocker/reason/route metadata derived from Evidence Gap Inbox routing.
+- Uses only existing final score, data-quality grade, Jane Coverage Matrix counts, score-driver breakdown, ADR/data-gap diagnostics, Form 4, 13F, valuation context, and Evidence Gap Inbox state.
 - Displays at the top of the Stock Research Analyst Brief before score cards and detailed evidence sections.
 - Does not change scoring weights, final score, engine logic, provider behavior, or safety boundaries.
 

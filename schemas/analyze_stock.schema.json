@@ -4283,9 +4283,18 @@
     "ResearchWorkflowSummary": {
       "properties": {
         "version": {
-          "const": "phase61_v1",
-          "default": "phase61_v1",
+          "default": "phase68_research_workflow_summary_v2",
+          "enum": [
+            "phase61_v1",
+            "phase68_research_workflow_summary_v2"
+          ],
           "title": "Version",
+          "type": "string"
+        },
+        "workflow_alignment_version": {
+          "const": "phase68_workflow_alignment_v1",
+          "default": "phase68_workflow_alignment_v1",
+          "title": "Workflow Alignment Version",
           "type": "string"
         },
         "research_status": {
@@ -4337,6 +4346,93 @@
           "maxItems": 3,
           "title": "Next 3 Research Actions",
           "type": "array"
+        },
+        "dominant_blocker": {
+          "default": "none",
+          "enum": [
+            "manual_evidence_gap",
+            "source_health_action",
+            "provider_cache_refresh",
+            "adr_source_limitation",
+            "none"
+          ],
+          "title": "Dominant Blocker",
+          "type": "string"
+        },
+        "dominant_reason": {
+          "default": "No dominant Evidence Gap Inbox blocker is currently surfaced.",
+          "title": "Dominant Reason",
+          "type": "string"
+        },
+        "dominant_route": {
+          "default": "stock_research",
+          "enum": [
+            "manual_evidence",
+            "operations",
+            "stock_research",
+            "evidence_library",
+            "daily_report"
+          ],
+          "title": "Dominant Route",
+          "type": "string"
+        },
+        "dominant_gap_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dominant Gap Id"
+        },
+        "dominant_provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dominant Provider"
+        },
+        "dominant_criterion_id": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dominant Criterion Id"
+        },
+        "aligned_with_evidence_gap_inbox": {
+          "default": true,
+          "title": "Aligned With Evidence Gap Inbox",
+          "type": "boolean"
+        },
+        "aligned_with_source_health_actions": {
+          "default": true,
+          "title": "Aligned With Source Health Actions",
+          "type": "boolean"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "final_score_unchanged": {
+          "default": true,
+          "title": "Final Score Unchanged",
+          "type": "boolean"
         },
         "not_investment_advice": {
           "default": true,

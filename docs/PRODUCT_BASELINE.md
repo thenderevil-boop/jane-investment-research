@@ -8,7 +8,7 @@ Jane Investment Research is a research workflow assistant for macro / quality-gr
 
 Phase 64A synchronizes roadmap/baseline docs after the committed Phase 61-63 work. Current baseline now includes:
 
-- Phase 61 Research Workflow Summary for `POST /api/analyze-stock`.
+- Phase 68 Research Workflow Summary v2 Alignment for Stock Research dominant blocker / reason / route vocabulary.
 - Phase 62 read-only Operations Diagnostics.
 - Phase 63 editable local 13F manager-universe settings.
 

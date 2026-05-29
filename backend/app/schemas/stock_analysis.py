@@ -342,8 +342,19 @@ class ValidationOSReport(BaseModel):
     not_investment_advice: bool = True
 
 
+ResearchWorkflowRoute = Literal["manual_evidence", "operations", "stock_research", "evidence_library", "daily_report"]
+ResearchWorkflowDominantBlocker = Literal[
+    "manual_evidence_gap",
+    "source_health_action",
+    "provider_cache_refresh",
+    "adr_source_limitation",
+    "none",
+]
+
+
 class ResearchWorkflowSummary(BaseModel):
-    version: Literal["phase61_v1"] = "phase61_v1"
+    version: Literal["phase61_v1", "phase68_research_workflow_summary_v2"] = "phase68_research_workflow_summary_v2"
+    workflow_alignment_version: Literal["phase68_workflow_alignment_v1"] = "phase68_workflow_alignment_v1"
     research_status: Literal[
         "high_conviction_candidate",
         "watchlist_candidate",
@@ -355,6 +366,16 @@ class ResearchWorkflowSummary(BaseModel):
     top_3_strengths: list[str] = Field(default_factory=list, max_length=3)
     top_3_gaps: list[str] = Field(default_factory=list, max_length=3)
     next_3_research_actions: list[str] = Field(default_factory=list, max_length=3)
+    dominant_blocker: ResearchWorkflowDominantBlocker = "none"
+    dominant_reason: str = "No dominant Evidence Gap Inbox blocker is currently surfaced."
+    dominant_route: ResearchWorkflowRoute = "stock_research"
+    dominant_gap_id: str | None = None
+    dominant_provider: str | None = None
+    dominant_criterion_id: int | None = Field(default=None, ge=1, le=20)
+    aligned_with_evidence_gap_inbox: bool = True
+    aligned_with_source_health_actions: bool = True
+    affects_score: bool = False
+    final_score_unchanged: bool = True
     not_investment_advice: bool = True
 
 

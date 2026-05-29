@@ -33,7 +33,8 @@ def test_research_workflow_summary_is_present_and_safe_for_nvda() -> None:
     payload = client.post("/api/analyze-stock", json={"ticker": "NVDA", "market": "US"}).json()
     summary = payload["research_workflow_summary"]
 
-    assert summary["version"] == "phase61_v1"
+    assert summary["version"] == "phase68_research_workflow_summary_v2"
+    assert summary["workflow_alignment_version"] == "phase68_workflow_alignment_v1"
     assert summary["research_status"] in ALLOWED_RESEARCH_STATUSES
     assert summary["not_investment_advice"] is True
     assert len(summary["one_line_summary"]) <= 120

@@ -780,14 +780,28 @@ export type ValidationOSReport = {
   not_investment_advice: boolean;
 };
 
+export type ResearchWorkflowRoute = 'manual_evidence' | 'operations' | 'stock_research' | 'evidence_library' | 'daily_report';
+export type ResearchWorkflowDominantBlocker = 'manual_evidence_gap' | 'source_health_action' | 'provider_cache_refresh' | 'adr_source_limitation' | 'none';
+
 export type ResearchWorkflowSummary = {
-  version: 'phase61_v1';
+  version: 'phase61_v1' | 'phase68_research_workflow_summary_v2';
+  workflow_alignment_version?: 'phase68_workflow_alignment_v1';
   research_status: 'high_conviction_candidate' | 'watchlist_candidate' | 'needs_evidence_before_research' | 'deprioritize_data_gaps';
   confidence: 'high' | 'medium' | 'low';
   one_line_summary: string;
   top_3_strengths: string[];
   top_3_gaps: string[];
   next_3_research_actions: string[];
+  dominant_blocker?: ResearchWorkflowDominantBlocker;
+  dominant_reason?: string;
+  dominant_route?: ResearchWorkflowRoute;
+  dominant_gap_id?: string | null;
+  dominant_provider?: string | null;
+  dominant_criterion_id?: number | null;
+  aligned_with_evidence_gap_inbox?: boolean;
+  aligned_with_source_health_actions?: boolean;
+  affects_score?: boolean;
+  final_score_unchanged?: boolean;
   not_investment_advice: boolean;
 };
 

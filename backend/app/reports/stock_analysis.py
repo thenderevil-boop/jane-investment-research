@@ -5072,17 +5072,90 @@ def _phase61_research_actions(response: AnalyzeStockResponse) -> list[str]:
     return actions[:3]
 
 
-def _build_research_workflow_summary(response: AnalyzeStockResponse) -> dict:
+def _workflow_route(source_route: str | None) -> str:
+    if source_route == "evidence_dashboard":
+        return "evidence_library"
+    if source_route in {"manual_evidence", "operations", "stock_research", "evidence_library", "daily_report"}:
+        return source_route
+    return "stock_research"
+
+
+def _dominant_workflow_alignment(evidence_gap_inbox: dict | None) -> dict:
+    items = list((evidence_gap_inbox or {}).get("items") or [])
+    if not items:
+        return {
+            "dominant_blocker": "none",
+            "dominant_reason": "No dominant Evidence Gap Inbox blocker is currently surfaced.",
+            "dominant_route": "stock_research",
+            "dominant_gap_id": None,
+            "dominant_provider": None,
+            "dominant_criterion_id": None,
+        }
+
+    priority_order = {"high": 0, "medium": 1, "low": 2}
+    source_order = {
+        "source_setup_required": 0,
+        "provider_cache_refresh_required": 1,
+        "manual_evidence_required": 2,
+        "adr_or_foreign_filer_limitation": 3,
+        "provider_limitation": 4,
+        "optional_context": 5,
+    }
+    dominant = sorted(
+        items,
+        key=lambda item: (
+            0 if item.get("blocks_research_status") else 1,
+            priority_order.get(str(item.get("priority")), 9),
+            source_order.get(str(item.get("gap_type")), 9),
+            item.get("criterion_id") or 99,
+            str(item.get("gap_id") or ""),
+        ),
+    )[0]
+    gap_type = str(dominant.get("gap_type") or "")
+    route = _workflow_route(dominant.get("source_route"))
+    blocker = "manual_evidence_gap"
+    if gap_type == "provider_cache_refresh_required":
+        blocker = "provider_cache_refresh"
+    elif gap_type == "source_setup_required" or route == "operations":
+        blocker = "source_health_action"
+    elif gap_type == "adr_or_foreign_filer_limitation":
+        blocker = "adr_source_limitation"
+    criterion_id = dominant.get("criterion_id")
+    criterion_prefix = f"C{criterion_id} {dominant.get('criterion_name')}" if criterion_id else str(dominant.get("criterion_name") or "Source")
+    if route == "operations":
+        reason = f"Operations source-health task: {criterion_prefix} needs {dominant.get('recommended_action')} before workflow confidence can improve."
+    elif blocker == "adr_source_limitation":
+        reason = f"ADR/source coverage limitation: {criterion_prefix} needs local filing or manual evidence review."
+    else:
+        reason = f"Manual evidence gap: {criterion_prefix} needs source-backed review before workflow confidence can improve."
+    return {
+        "dominant_blocker": blocker,
+        "dominant_reason": reason[:180],
+        "dominant_route": route,
+        "dominant_gap_id": dominant.get("gap_id"),
+        "dominant_provider": dominant.get("related_provider"),
+        "dominant_criterion_id": criterion_id,
+    }
+
+
+def _build_research_workflow_summary(response: AnalyzeStockResponse, evidence_gap_inbox: dict | None = None) -> dict:
     status = _research_status(response)
     coverage_count = _covered_or_partial_count(response)
+    alignment = _dominant_workflow_alignment(evidence_gap_inbox)
     return {
-        "version": "phase61_v1",
+        "version": "phase68_research_workflow_summary_v2",
+        "workflow_alignment_version": "phase68_workflow_alignment_v1",
         "research_status": status,
         "confidence": _research_workflow_confidence(status, response),
         "one_line_summary": _safe_short_summary(response, status, coverage_count),
         "top_3_strengths": _driver_summaries(response.score_driver_breakdown.positive_drivers),
         "top_3_gaps": _driver_summaries(response.score_driver_breakdown.negative_or_limiting_drivers),
         "next_3_research_actions": _phase61_research_actions(response),
+        **alignment,
+        "aligned_with_evidence_gap_inbox": True,
+        "aligned_with_source_health_actions": True,
+        "affects_score": False,
+        "final_score_unchanged": True,
         "not_investment_advice": True,
     }
 
@@ -5519,6 +5592,9 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
     response.candidate_validation_summary = CandidateValidationSummary.model_validate(_build_candidate_summary(response))
     response.validation_quality_summary = ValidationQualitySummary.model_validate(_build_validation_quality_summary(response))
     response.validation_os_report = ValidationOSReport.model_validate(_build_validation_os_report(response))
-    response.research_workflow_summary = ResearchWorkflowSummary.model_validate(_build_research_workflow_summary(response))
-    response.evidence_gap_inbox = EvidenceGapInbox.model_validate(_build_evidence_gap_inbox(response))
+    evidence_gap_inbox = _build_evidence_gap_inbox(response)
+    response.evidence_gap_inbox = EvidenceGapInbox.model_validate(evidence_gap_inbox)
+    response.research_workflow_summary = ResearchWorkflowSummary.model_validate(
+        _build_research_workflow_summary(response, evidence_gap_inbox=evidence_gap_inbox)
+    )
     return AnalyzeStockResponse.model_validate(_sanitize_api_secret_markers(response.model_dump(mode="json")))

@@ -1,8 +1,8 @@
 # Roadmap
 
-## Current baseline after Phase 66
+## Current baseline after Phase 68
 
-The committed Phase 63 baseline added Phase 61 research workflow summary, Phase 62 read-only Operations Diagnostics, and Phase 63 editable 13F manager-universe local settings. Phase 64 added analyze-stock `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`) so Coverage Matrix gaps become routeable manual research actions. Phase 65 added Daily Report `command_center` (`phase65_daily_command_center_v1`) so the first screen combines macro/source/watchlist/evidence attention with route hints. Phase 66 adds Operations Diagnostics `source_health_actions` (`phase66_source_health_actions_v1`) and routes high-attention source-health items into the Daily Command Center.
+The committed Phase 63 baseline added Phase 61 research workflow summary, Phase 62 read-only Operations Diagnostics, and Phase 63 editable 13F manager-universe local settings. Phase 64 added analyze-stock `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`) so Coverage Matrix gaps become routeable manual research actions. Phase 65 added Daily Report `command_center` (`phase65_daily_command_center_v1`) so the first screen combines macro/source/watchlist/evidence attention with route hints. Phase 66 added Operations Diagnostics `source_health_actions` (`phase66_source_health_actions_v1`) and routes high-attention source-health items into the Daily Command Center. Phase 68 upgrades analyze-stock `research_workflow_summary` to `phase68_research_workflow_summary_v2` so Stock Research exposes dominant blocker/reason/route metadata aligned with Evidence Gap Inbox and source-health routing.
 
 The product direction is intentionally **workflow-first**:
 
@@ -103,6 +103,10 @@ Do not resume feature stacking with more cards, mock-heavy engines, automatic th
 **In scope:** Align status vocabulary, expose dominant blocker/reason, and let evidence gaps explain why a candidate is watchlist/blocked/deprioritized.
 
 **Non-goals:** Score changes, new verdict semantics, or directive recommendation wording.
+
+**Acceptance:** `research_workflow_summary` returns `phase68_research_workflow_summary_v2`, dominant blocker/reason/route metadata, non-scoring flags, and Stock Research UI copy aligned with Evidence Gap Inbox / Operations / Daily Command Center routing.
+
+**Status:** Implemented as a non-scoring v2 alignment layer derived from Evidence Gap Inbox items.
 
 ## Phase 69 — Manual Evidence Quality Loop
 

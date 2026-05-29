@@ -333,6 +333,19 @@ export function AnalystBriefSection({ result }: { result: StockAnalysis }) {
           <span>{workflowSummary.one_line_summary}</span>
         </div>
       )}
+      {workflowSummary?.workflow_alignment_version && (
+        <div className="briefOverheatContext workflowAlignmentContext">
+          <strong>Workflow alignment</strong>
+          <span>Dominant blocker: {displayKey(workflowSummary.dominant_blocker ?? 'none')}</span>
+          {workflowSummary.dominant_reason && <span>{workflowSummary.dominant_reason}</span>}
+          <span>Route: {displayKey(workflowSummary.dominant_route ?? 'stock_research')}</span>
+          {workflowSummary.dominant_gap_id && <span>Gap: {workflowSummary.dominant_gap_id}</span>}
+          {workflowSummary.dominant_provider && <span>Provider: {workflowSummary.dominant_provider}</span>}
+          {workflowSummary.dominant_criterion_id ? <span>Criterion: C{workflowSummary.dominant_criterion_id}</span> : null}
+          {workflowSummary.final_score_unchanged !== false ? <span>Final score unchanged</span> : null}
+          <span>Non-scoring workflow alignment</span>
+        </div>
+      )}
       {workflowSummary && (
         <div className="threeColumn workflowSummaryLists">
           <div><h3>Top strengths</h3><ul>{workflowSummary.top_3_strengths.map((item) => <li key={item}>{item}</li>)}</ul></div>

@@ -364,13 +364,24 @@ describe('StockResearch presentation helpers', () => {
         not_investment_advice: true,
       },
       research_workflow_summary: {
-        version: 'phase61_v1',
+        version: 'phase68_research_workflow_summary_v2',
+        workflow_alignment_version: 'phase68_workflow_alignment_v1',
         research_status: 'watchlist_candidate',
         confidence: 'medium',
         one_line_summary: 'NVDA: watchlist_candidate with score 45, data grade B, coverage 6.',
         top_3_strengths: ['Macro context is constructive.'],
         top_3_gaps: ['C1 evidence is insufficient.'],
         next_3_research_actions: ['Document monopoly/moat evidence for C1', 'Check 13F cache in Operations and refresh', 'Verify SEC EDGAR user agent configuration'],
+        dominant_blocker: 'manual_evidence_gap',
+        dominant_reason: 'Manual evidence gap: C1 Monopoly / Moat needs source-backed review before workflow confidence can improve.',
+        dominant_route: 'manual_evidence',
+        dominant_gap_id: 'NVDA_C1_manual_evidence',
+        dominant_provider: null,
+        dominant_criterion_id: 1,
+        aligned_with_evidence_gap_inbox: true,
+        aligned_with_source_health_actions: true,
+        affects_score: false,
+        final_score_unchanged: true,
         not_investment_advice: true,
       },
       evidence_gap_inbox: {
@@ -567,6 +578,12 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('watchlist candidate');
     expect(html).toContain('medium confidence');
     expect(html).toContain('NVDA: watchlist_candidate with score 45, data grade B, coverage 6.');
+    expect(html).toContain('Workflow alignment');
+    expect(html).toContain('Dominant blocker: manual evidence gap');
+    expect(html).toContain('Route: manual evidence');
+    expect(html).toContain('Gap: NVDA_C1_manual_evidence');
+    expect(html).toContain('Criterion: C1');
+    expect(html).toContain('Final score unchanged');
     expect(html).toContain('Next research actions');
     expect(html).toContain('Evidence Gap Inbox');
     expect(html).toContain('Top evidence gaps');

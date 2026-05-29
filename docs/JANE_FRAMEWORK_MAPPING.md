@@ -2,6 +2,15 @@
 
 This file maps Jane's Markdown methodology into system modules.
 
+## Phase 68 Research Workflow Summary v2 Alignment
+
+Phase 68 aligns Jane's single-name workflow summary with the routeable evidence/source workflow:
+
+- `research_workflow_summary` now returns `phase68_research_workflow_summary_v2` and `workflow_alignment_version="phase68_workflow_alignment_v1"`.
+- The dominant blocker fields summarize the highest-priority Evidence Gap Inbox item using the same route vocabulary used by Operations and Daily Command Center.
+- `dominant_blocker` values are `manual_evidence_gap`, `source_health_action`, `provider_cache_refresh`, `adr_source_limitation`, or `none`; `dominant_route` values include `manual_evidence`, `operations`, `stock_research`, `evidence_library`, and `daily_report`.
+- This is workflow triage only: `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`.
+
 ## Phase 66 Source Health Action Routing
 
 Phase 66 turns Jane's source-awareness rule into routeable operations work:
