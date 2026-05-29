@@ -26,6 +26,12 @@ Phase 62 operations diagnostics notes:
 - Diagnostics expose only safe booleans such as `has_api_key`; `api_key_values_returned=false` and API key values are never returned.
 - Phase 62 does not trigger provider calls and does not make 13F manager universe settings editable.
 
+Phase 65 daily command-center notes:
+
+- Daily Report `command_center` is derived from existing report fields (`today_research_actions`, `macro_delta`, `watchlist_delta`, and data-quality/source-health metadata).
+- It does not trigger new provider calls, does not fetch per-ticker deep analysis, and does not alter scores or verdicts.
+- Route hints are UI/workflow pointers only: `daily_report`, `operations`, `stock_research`, and `evidence_library`.
+
 Phase 61 daily-efficiency notes:
 
 - Daily Report adds `macro_delta` (`phase61_macro_delta_v1`) by comparing current macro score, VIX, 10Y-2Y spread, and available CPI/PPI observations with the latest stored Daily Report snapshot.

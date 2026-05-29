@@ -89,6 +89,13 @@ Phase 61 adds daily-efficiency fields to the same response:
 - `watchlist_delta` (`phase61_watchlist_delta_v1`) compares configured candidates with the latest stored snapshot and surfaces overheat-score change, 13F status, Form 4 placeholder, price-change placeholder, and data issues.
 - `overheat_risk.derived_metrics.source_backing` (`phase61_overheat_source_backing_v1`) discloses live/derived versus mock/fallback configured weight while preserving `final_score_unchanged=true`.
 
+Phase 65 adds `command_center` (`phase65_daily_command_center_v1`) to the same Daily Report response. It is the first-screen command-center summary for the 5-minute workflow:
+
+- `headline` and `workflow_focus` summarize whether the day should start from macro context, source-health review, watchlist changes, or evidence-gap review.
+- `top_actions` reuses existing-data actions with `route_hint` values such as `daily_report`, `operations`, `stock_research`, and `evidence_library`.
+- `source_health_alerts`, `watchlist_focus`, and `macro_snapshot` compact the highest-attention source/delta context.
+- `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`; no provider calls, scores, or verdicts change.
+
 Phase 11.5 defaults this endpoint to `DAILY_REPORT_READ_MODE=snapshot_first`. When a fresh daily snapshot exists in raw store, the endpoint returns that snapshot without refreshing live providers. The top-level `source_status` uses schema-compatible `source_type="derived"` and `provider="daily_report_snapshot"` to identify snapshot-served reports. If the snapshot is missing or stale, the endpoint computes the report only when `DAILY_BATCH_ALLOW_LIVE_FETCH=true`; otherwise it returns a safe 503 payload with `not_investment_advice=true`.
 
 Phase 11.5a adds `daily_report_metadata` to `/api/daily-report/latest` responses and stale-snapshot 503 details. Metadata includes `read_mode`, `snapshot_used`, `snapshot_id`, `snapshot_generated_at`, `snapshot_is_fresh`, `batch_refresh_status`, `batch_refresh_started_at`, `batch_refresh_completed_at`, and `batch_duration_ms`. The endpoint must not silently recompute without this metadata.

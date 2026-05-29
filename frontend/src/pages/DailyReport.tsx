@@ -93,6 +93,67 @@ function actionLabel(action: TodayResearchAction) {
   return action.ticker ? `${action.ticker}: ${action.title}` : action.title;
 }
 
+function routeForAction(action: TodayResearchAction) {
+  return action.route_hint ?? ({
+    source_setup: 'operations',
+    evidence_review: 'evidence_library',
+    coverage_gap: 'stock_research',
+    watchlist_change: 'stock_research',
+    macro_context: 'daily_report',
+  }[action.action_type] ?? 'daily_report');
+}
+
+export function DailyCommandCenter({ report }: { report: DailyReport }) {
+  const center = report.command_center;
+  if (!center) return null;
+  return (
+    <section className="pageSection dailyCommandCenter">
+      <div className="panelHeader">
+        <div>
+          <p className="eyebrow">5-minute workflow</p>
+          <h2>Daily Command Center</h2>
+          <p className="muted">Non-scoring workflow summary: start with the highest-attention source, delta, or evidence task.</p>
+        </div>
+      </div>
+      <p>{center.headline}</p>
+      <div className="briefMetricGrid">
+        <div><span>Workflow focus</span><strong>{center.workflow_focus}</strong></div>
+        <div><span>Top actions</span><strong>{center.top_actions?.length ?? 0}</strong></div>
+        <div><span>Source alerts</span><strong>{center.source_health_alerts?.length ?? 0}</strong></div>
+        <div><span>Watchlist focus</span><strong>{center.watchlist_focus?.length ?? 0}</strong></div>
+      </div>
+      {center.macro_snapshot && <p className="muted">Macro: {center.macro_snapshot.summary} · Route: {center.macro_snapshot.route_hint}</p>}
+      {center.source_health_alerts?.length ? (
+        <ul className="noteList">
+          {center.source_health_alerts.map((alert) => (
+            <li key={`${alert.severity}-${alert.title}`}>
+              <strong>{alert.severity.toUpperCase()} · {alert.title}</strong>
+              <span> — {alert.reason} · Route: {alert.route_hint}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {center.top_actions?.length ? (
+        <ol className="noteList">
+          {center.top_actions.map((action) => (
+            <li key={`${action.priority}-${action.action_type}-${action.ticker ?? 'market'}-${action.title}`}>
+              <strong>{action.priority.toUpperCase()} · {actionLabel(action)}</strong>
+              <span> — {action.reason} · Route: {routeForAction(action)}</span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+      {center.watchlist_focus?.length ? (
+        <ul className="noteList">
+          {center.watchlist_focus.map((item) => (
+            <li key={item.ticker}><strong>{item.ticker}</strong><span> — {item.summary} · Route: {item.route_hint}</span></li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
+
 export function DailyResearchActions({ actions }: { actions?: TodayResearchAction[] }) {
   if (!actions?.length) return null;
   return (
@@ -232,6 +293,7 @@ export default function DailyReport() {
         </div>
         <div className="disclaimer">Research reference only. Not investment advice.</div>
       </header>
+      <DailyCommandCenter report={report} />
       <DailyResearchActions actions={report.today_research_actions} />
       <DailyDeltaSummary report={report} />
       <DailyDataCoverageSummary report={report} />

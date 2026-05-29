@@ -1517,14 +1517,51 @@ export type HumanVerificationQueueItem = {
 
 export type HumanVerificationQueueEntry = string | HumanVerificationQueueItem;
 
+export type DailyActionRouteHint = 'daily_report' | 'operations' | 'stock_research' | 'evidence_library';
+
 export type TodayResearchAction = {
   priority: 'high' | 'medium' | 'low';
   ticker?: string | null;
   action_type: 'source_setup' | 'evidence_review' | 'coverage_gap' | 'watchlist_change' | 'macro_context';
   title: string;
   reason: string;
+  route_hint?: DailyActionRouteHint;
   source: 'existing_data';
   affects_score: boolean;
+  not_investment_advice: boolean;
+};
+
+export type DailyCommandCenterSourceAlert = {
+  severity: 'high' | 'medium' | 'low';
+  title: string;
+  reason: string;
+  route_hint: DailyActionRouteHint;
+  not_investment_advice: boolean;
+};
+
+export type DailyCommandCenterWatchlistFocus = {
+  ticker: string;
+  summary: string;
+  route_hint: DailyActionRouteHint;
+  not_investment_advice: boolean;
+};
+
+export type DailyCommandCenterMacroSnapshot = {
+  summary: string;
+  route_hint: DailyActionRouteHint;
+  not_investment_advice: boolean;
+};
+
+export type DailyCommandCenterSummary = {
+  version: 'phase65_daily_command_center_v1';
+  headline: string;
+  workflow_focus: 'macro_first' | 'source_health_first' | 'watchlist_first' | 'evidence_gap_first';
+  top_actions?: TodayResearchAction[];
+  source_health_alerts?: DailyCommandCenterSourceAlert[];
+  watchlist_focus?: DailyCommandCenterWatchlistFocus[];
+  macro_snapshot?: DailyCommandCenterMacroSnapshot | null;
+  affects_score: boolean;
+  final_score_unchanged: boolean;
   not_investment_advice: boolean;
 };
 
@@ -1586,6 +1623,7 @@ export type DailyReport = {
   missing_data?: string[];
   human_verification_queue?: HumanVerificationQueueEntry[];
   today_research_actions?: TodayResearchAction[];
+  command_center?: DailyCommandCenterSummary | null;
   macro_delta?: DailyMacroDelta | null;
   watchlist_delta?: DailyWatchlistDelta | null;
   data_quality?: DataQualitySummary | null;

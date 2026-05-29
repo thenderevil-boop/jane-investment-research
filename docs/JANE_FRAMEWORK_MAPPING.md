@@ -2,6 +2,14 @@
 
 This file maps Jane's Markdown methodology into system modules.
 
+## Phase 65 Daily Report Command Center Refinement
+
+Phase 65 maps Jane's daily review habit into a single first-screen command-center summary:
+
+- Daily Report `command_center` (`phase65_daily_command_center_v1`) combines macro delta context, source-health alerts, watchlist focus, and top research actions.
+- Route hints point to `daily_report`, `operations`, `stock_research`, or `evidence_library` so the next step is visible without treating the output as advice.
+- The section is workflow-only: `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`.
+
 ## Phase 64 Evidence Gap Inbox / Manual Research Queue
 
 Phase 64 maps Jane's evidence-gap review process into a structured non-scoring queue:

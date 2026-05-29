@@ -7,7 +7,7 @@ Phase 64A keeps architecture planning aligned with the committed Phase 61-63 bas
 ## Backend request flow
 
 - `backend/app/api/routes.py` exposes API endpoints.
-- `backend/app/pipelines/research_pipeline.py` builds Daily Report payloads and the 5-minute `today_research_actions` starting flow.
+- `backend/app/pipelines/research_pipeline.py` builds Daily Report payloads, the 5-minute `today_research_actions` starting flow, and the Phase 65 `command_center` first-screen workflow summary.
 - `backend/app/reports/stock_analysis.py` builds deep single-name `POST /api/analyze-stock` responses and the Phase 64 `evidence_gap_inbox` non-scoring manual research queue.
 
 - `backend/app/services/operations_diagnostics_service.py` builds the read-only Phase 62 diagnostics payload for `GET /api/operations/diagnostics`; it reports Provider Health, Coverage Readiness, 13F Runtime Universe, and `api_key_values_returned=false` without triggering provider calls.

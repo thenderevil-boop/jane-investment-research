@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { DailyReport, DataSourceStatus } from '../types';
-import { DailyDataCoverageSummary, DailyDeltaSummary, DailyResearchActions, OverheatSourceBacking } from './DailyReport';
+import { DailyCommandCenter, DailyDataCoverageSummary, DailyDeltaSummary, DailyResearchActions, OverheatSourceBacking } from './DailyReport';
 
 function status(sourceType: DataSourceStatus['source_type'], sourceDate = '2026-05-15', isFresh = true): DataSourceStatus {
   return {
@@ -44,6 +44,65 @@ describe('DailyReport presentation helpers', () => {
     expect(html).toContain('Missing source date');
     expect(html).toContain('Some components still use mock data.');
     expect(html).not.toContain('Live / derived');
+    expect(html).not.toContain('[object Object]');
+  });
+
+  it('renders Daily Command Center with routeable top actions and source alerts', () => {
+    const report = {
+      date: '2026-05-29',
+      market: 'US',
+      command_center: {
+        version: 'phase65_daily_command_center_v1',
+        headline: 'Start with source-health review, then validate NVDA evidence gaps.',
+        workflow_focus: 'source_health_first',
+        top_actions: [
+          {
+            priority: 'high',
+            ticker: 'NVDA',
+            action_type: 'coverage_gap',
+            title: 'Resolve NVDA evidence gap',
+            reason: 'Evidence gap is the highest-value research action.',
+            route_hint: 'stock_research',
+            source: 'existing_data',
+            affects_score: false,
+            not_investment_advice: true,
+          },
+        ],
+        source_health_alerts: [
+          {
+            severity: 'high',
+            title: 'Review fallback data sources',
+            reason: 'One or more sources need setup before interpretation.',
+            route_hint: 'operations',
+            not_investment_advice: true,
+          },
+        ],
+        watchlist_focus: [
+          {
+            ticker: 'NVDA',
+            summary: 'Overheat changed versus previous snapshot.',
+            route_hint: 'stock_research',
+            not_investment_advice: true,
+          },
+        ],
+        macro_snapshot: {
+          summary: 'Macro context changed versus previous snapshot.',
+          route_hint: 'daily_report',
+          not_investment_advice: true,
+        },
+        affects_score: false,
+        final_score_unchanged: true,
+        not_investment_advice: true,
+      },
+    } as DailyReport;
+
+    const html = renderToStaticMarkup(<DailyCommandCenter report={report} />);
+
+    expect(html).toContain('Daily Command Center');
+    expect(html).toContain('Start with source-health review');
+    expect(html).toContain('Route: operations');
+    expect(html).toContain('Route: stock_research');
+    expect(html).toContain('Non-scoring workflow summary');
     expect(html).not.toContain('[object Object]');
   });
 

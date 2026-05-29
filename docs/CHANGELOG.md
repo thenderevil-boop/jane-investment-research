@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 65 — Daily Report Command Center Refinement
+
+- Added Daily Report `command_center` (`phase65_daily_command_center_v1`) as the first-screen workflow summary for macro/source/watchlist/evidence attention.
+- Added route hints to `today_research_actions` and command-center items so actions point to `daily_report`, `operations`, `stock_research`, or `evidence_library` without adding a new page.
+- Added frontend Daily Command Center rendering above existing daily actions/deltas.
+- Preserved score weights, final scores, verdicts, provider behavior, and language-policy boundaries with non-scoring metadata.
+
 ## Phase 64 — Evidence Gap Inbox / Manual Research Queue
 
 - Added `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`) to `POST /api/analyze-stock` as a non-scoring manual research queue.

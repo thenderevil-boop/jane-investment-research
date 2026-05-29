@@ -18,10 +18,10 @@ The next implementation target is Phase 64 Evidence Gap Inbox / Manual Research 
 
 The product entry point is the **5-minute Daily Report workflow**:
 
-1. Read macro context.
-2. Review data-source and watchlist/source changes.
-3. Complete 2-3 `today_research_actions`.
-4. Open Stock Research only for tickers that need deep single-name work.
+1. Read the Daily Report `command_center` headline and workflow focus.
+2. Review macro context plus data-source and watchlist/source changes.
+3. Complete 2-3 routeable top actions from `command_center.top_actions` / `today_research_actions`.
+4. Open Operations, Stock Research, or Evidence Library only when the route hint points there.
 5. Add or review manual evidence when Coverage Matrix gaps block interpretation.
 
 ## Current Analyze-Stock output layers
@@ -48,7 +48,7 @@ Phase 64 adds `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`) to `POST /a
 
 ## Daily Report baseline
 
-Daily Report now exposes `today_research_actions` as the product starting point. Actions use existing data only and can include:
+Daily Report now exposes `command_center` as the first screen and keeps `today_research_actions` as the underlying 2-3 item action list. Actions use existing data only and can include:
 
 - `macro_context`
 - `source_setup`
@@ -56,7 +56,7 @@ Daily Report now exposes `today_research_actions` as the product starting point.
 - `evidence_review`
 - `watchlist_change`
 
-This is a hard gate: future phases should improve the 5-minute Daily Report workflow before adding more decorative cards.
+This is a hard gate: future phases should improve the 5-minute Daily Report workflow before adding more decorative cards. Command-center route hints should point to `daily_report`, `operations`, `stock_research`, or `evidence_library` and must remain non-scoring.
 
 ## Operations Diagnostics baseline
 

@@ -8,6 +8,14 @@ Build a US-market-only investment research automation system based on Jane's Mar
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
+## Phase 65 Daily Report Command Center Refinement
+
+Phase 65 adds `command_center` (`phase65_daily_command_center_v1`) to `GET /api/daily-report/latest` and surfaces it as the first Daily Report workflow panel:
+
+- Aggregates existing `today_research_actions`, source-health alerts, macro snapshot deltas, and watchlist focus into one non-scoring first-screen summary.
+- Adds route hints (`daily_report`, `operations`, `stock_research`, `evidence_library`) so actions point to the next research surface without adding a new page or triggering provider calls.
+- Preserves score weights, final scores, verdicts, provider behavior, and language-policy boundaries with `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`.
+
 ## Phase 64 Evidence Gap Inbox / Manual Research Queue
 
 Phase 64 adds `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`) to `POST /api/analyze-stock` and surfaces top research gaps in the Analyst Brief:

@@ -626,6 +626,190 @@
       "title": "CrisisOutput",
       "type": "object"
     },
+    "DailyCommandCenter": {
+      "properties": {
+        "version": {
+          "const": "phase65_daily_command_center_v1",
+          "default": "phase65_daily_command_center_v1",
+          "title": "Version",
+          "type": "string"
+        },
+        "headline": {
+          "title": "Headline",
+          "type": "string"
+        },
+        "workflow_focus": {
+          "enum": [
+            "macro_first",
+            "source_health_first",
+            "watchlist_first",
+            "evidence_gap_first"
+          ],
+          "title": "Workflow Focus",
+          "type": "string"
+        },
+        "top_actions": {
+          "items": {
+            "$ref": "#/$defs/TodayResearchAction"
+          },
+          "title": "Top Actions",
+          "type": "array"
+        },
+        "source_health_alerts": {
+          "items": {
+            "$ref": "#/$defs/DailyCommandCenterSourceAlert"
+          },
+          "title": "Source Health Alerts",
+          "type": "array"
+        },
+        "watchlist_focus": {
+          "items": {
+            "$ref": "#/$defs/DailyCommandCenterWatchlistFocus"
+          },
+          "title": "Watchlist Focus",
+          "type": "array"
+        },
+        "macro_snapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DailyCommandCenterMacroSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "final_score_unchanged": {
+          "default": true,
+          "title": "Final Score Unchanged",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "headline",
+        "workflow_focus"
+      ],
+      "title": "DailyCommandCenter",
+      "type": "object"
+    },
+    "DailyCommandCenterMacroSnapshot": {
+      "properties": {
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "route_hint": {
+          "default": "daily_report",
+          "enum": [
+            "daily_report",
+            "operations",
+            "stock_research",
+            "evidence_library"
+          ],
+          "title": "Route Hint",
+          "type": "string"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "summary"
+      ],
+      "title": "DailyCommandCenterMacroSnapshot",
+      "type": "object"
+    },
+    "DailyCommandCenterSourceAlert": {
+      "properties": {
+        "severity": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "route_hint": {
+          "default": "operations",
+          "enum": [
+            "daily_report",
+            "operations",
+            "stock_research",
+            "evidence_library"
+          ],
+          "title": "Route Hint",
+          "type": "string"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "severity",
+        "title",
+        "reason"
+      ],
+      "title": "DailyCommandCenterSourceAlert",
+      "type": "object"
+    },
+    "DailyCommandCenterWatchlistFocus": {
+      "properties": {
+        "ticker": {
+          "title": "Ticker",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "route_hint": {
+          "default": "stock_research",
+          "enum": [
+            "daily_report",
+            "operations",
+            "stock_research",
+            "evidence_library"
+          ],
+          "title": "Route Hint",
+          "type": "string"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ticker",
+        "summary"
+      ],
+      "title": "DailyCommandCenterWatchlistFocus",
+      "type": "object"
+    },
     "DailyMacroDelta": {
       "properties": {
         "version": {
@@ -2084,6 +2268,17 @@
           "title": "Reason",
           "type": "string"
         },
+        "route_hint": {
+          "default": "daily_report",
+          "enum": [
+            "daily_report",
+            "operations",
+            "stock_research",
+            "evidence_library"
+          ],
+          "title": "Route Hint",
+          "type": "string"
+        },
         "source": {
           "const": "existing_data",
           "default": "existing_data",
@@ -2292,6 +2487,17 @@
       ],
       "default": null,
       "title": "Performance Diagnostics"
+    },
+    "command_center": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DailyCommandCenter"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "not_investment_advice": {
       "default": true,

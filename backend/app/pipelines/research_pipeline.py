@@ -26,6 +26,11 @@ from backend.app.services.daily_candidates import configured_daily_report_candid
 from backend.app.schemas.candidate import StockCandidate
 from backend.app.schemas.common import DataSourceStatus, ScoreObject
 from backend.app.schemas.daily_report import (
+    DailyActionRouteHint,
+    DailyCommandCenter,
+    DailyCommandCenterMacroSnapshot,
+    DailyCommandCenterSourceAlert,
+    DailyCommandCenterWatchlistFocus,
     DailyMacroDelta,
     DailyResearchReport,
     DailyWatchlistDelta,
@@ -386,6 +391,7 @@ def build_daily_report(
     report.macro_delta = _build_macro_delta(report, previous_snapshot)
     report.watchlist_delta = _build_watchlist_delta(report, previous_snapshot)
     report.today_research_actions = _build_today_research_actions(report)
+    report.command_center = _build_command_center(report)
     if config.INCLUDE_PERFORMANCE_DIAGNOSTICS:
         report.performance_diagnostics = finalize_performance_context(performance_started_at)
     return report
@@ -472,6 +478,119 @@ def _build_watchlist_delta(report: DailyResearchReport, previous_snapshot: dict 
         items=items,
         limitations=["Watchlist delta compares configured Daily Report candidates with the latest stored snapshot; price delta remains null unless a stable prior/current price field is available."],
     )
+
+def _route_for_action(action: TodayResearchAction) -> DailyActionRouteHint:
+    routes: dict[str, DailyActionRouteHint] = {
+        "source_setup": "operations",
+        "evidence_review": "evidence_library",
+        "coverage_gap": "stock_research",
+        "watchlist_change": "stock_research",
+        "macro_context": "daily_report",
+    }
+    return routes.get(action.action_type, "daily_report")
+
+
+def _with_route(action: TodayResearchAction) -> TodayResearchAction:
+    action.route_hint = _route_for_action(action)
+    return action
+
+
+def _macro_snapshot_for_command_center(report: DailyResearchReport) -> DailyCommandCenterMacroSnapshot | None:
+    delta = report.macro_delta
+    if not delta:
+        return DailyCommandCenterMacroSnapshot(summary=f"Macro regime is {report.macro_regime.label}; use it as research context before single-name work.")
+    parts = []
+    if delta.macro_score_change is not None:
+        parts.append(f"macro score changed {delta.macro_score_change:+g}")
+    if delta.vix_change is not None:
+        parts.append(f"VIX changed {delta.vix_change:+g}")
+    if delta.yield_curve_10y2y_spread_change_bps is not None:
+        parts.append(f"10Y-2Y spread changed {delta.yield_curve_10y2y_spread_change_bps:+g} bps")
+    summary = "; ".join(parts) if parts else "Macro delta has no numeric change available versus the previous snapshot."
+    return DailyCommandCenterMacroSnapshot(summary=summary)
+
+
+def _source_alerts_for_command_center(report: DailyResearchReport) -> list[DailyCommandCenterSourceAlert]:
+    alerts: list[DailyCommandCenterSourceAlert] = []
+    if not report.data_quality:
+        return alerts
+    if report.data_quality.fallback_components:
+        alerts.append(
+            DailyCommandCenterSourceAlert(
+                severity="high",
+                title="Review fallback data sources",
+                reason="One or more live or derived data sources are unavailable; check Operations before comparing evidence.",
+            )
+        )
+    if report.data_quality.stale_components:
+        alerts.append(
+            DailyCommandCenterSourceAlert(
+                severity="medium",
+                title="Review stale source status",
+                reason="At least one component is stale; confirm source freshness before using daily changes as context.",
+            )
+        )
+    if report.data_quality.missing_source_date_components:
+        alerts.append(
+            DailyCommandCenterSourceAlert(
+                severity="medium",
+                title="Review missing source dates",
+                reason="Some components are missing source dates, which limits daily change interpretation.",
+            )
+        )
+    return alerts[:3]
+
+
+def _watchlist_focus_for_command_center(report: DailyResearchReport) -> list[DailyCommandCenterWatchlistFocus]:
+    items: list[DailyCommandCenterWatchlistFocus] = []
+    if not report.watchlist_delta:
+        return items
+    for item in report.watchlist_delta.items:
+        reasons = []
+        if item.overheat_score_change is not None:
+            reasons.append(f"overheat changed {item.overheat_score_change:+g}")
+        if item.institutional_13f_status not in {"unknown", "live", "cached_live"}:
+            reasons.append(f"13F status is {item.institutional_13f_status}")
+        if item.data_issue:
+            reasons.append(f"data issue: {item.data_issue}")
+        if reasons:
+            items.append(DailyCommandCenterWatchlistFocus(ticker=item.ticker, summary="; ".join(reasons)))
+    return items[:3]
+
+
+def _workflow_focus(source_alerts: list[DailyCommandCenterSourceAlert], watchlist_focus: list[DailyCommandCenterWatchlistFocus], actions: list[TodayResearchAction]) -> str:
+    if any(alert.severity == "high" for alert in source_alerts):
+        return "source_health_first"
+    if any(action.action_type == "coverage_gap" for action in actions):
+        return "evidence_gap_first"
+    if watchlist_focus:
+        return "watchlist_first"
+    return "macro_first"
+
+
+def _build_command_center(report: DailyResearchReport) -> DailyCommandCenter:
+    top_actions = [_with_route(action) for action in report.today_research_actions[:3]]
+    source_alerts = _source_alerts_for_command_center(report)
+    watchlist_focus = _watchlist_focus_for_command_center(report)
+    macro_snapshot = _macro_snapshot_for_command_center(report)
+    workflow_focus = _workflow_focus(source_alerts, watchlist_focus, top_actions)
+    if workflow_focus == "source_health_first":
+        headline = "Start with source-health review, then use Daily Report changes as research context."
+    elif workflow_focus == "evidence_gap_first":
+        headline = "Start with the top evidence gap before opening deeper single-name research."
+    elif workflow_focus == "watchlist_first":
+        headline = "Start with watchlist changes, then review source context and evidence gaps."
+    else:
+        headline = "Start with macro context, then confirm whether any source or evidence gap needs attention."
+    return DailyCommandCenter(
+        headline=headline,
+        workflow_focus=workflow_focus,  # type: ignore[arg-type]
+        top_actions=top_actions,
+        source_health_alerts=source_alerts,
+        watchlist_focus=watchlist_focus,
+        macro_snapshot=macro_snapshot,
+    )
+
 
 def _build_today_research_actions(report: DailyResearchReport) -> list[TodayResearchAction]:
     actions: list[TodayResearchAction] = []

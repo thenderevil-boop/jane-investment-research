@@ -43,14 +43,52 @@ class JaneReferenceConditions(BaseModel):
     limitations: list[str]
 
 
+DailyActionRouteHint = Literal["daily_report", "operations", "stock_research", "evidence_library"]
+
+
 class TodayResearchAction(BaseModel):
     priority: Literal["high", "medium", "low"]
     ticker: str | None = None
     action_type: Literal["source_setup", "evidence_review", "coverage_gap", "watchlist_change", "macro_context"]
     title: str
     reason: str
+    route_hint: DailyActionRouteHint = "daily_report"
     source: Literal["existing_data"] = "existing_data"
     affects_score: bool = False
+    not_investment_advice: bool = True
+
+
+class DailyCommandCenterSourceAlert(BaseModel):
+    severity: Literal["high", "medium", "low"]
+    title: str
+    reason: str
+    route_hint: DailyActionRouteHint = "operations"
+    not_investment_advice: bool = True
+
+
+class DailyCommandCenterWatchlistFocus(BaseModel):
+    ticker: str
+    summary: str
+    route_hint: DailyActionRouteHint = "stock_research"
+    not_investment_advice: bool = True
+
+
+class DailyCommandCenterMacroSnapshot(BaseModel):
+    summary: str
+    route_hint: DailyActionRouteHint = "daily_report"
+    not_investment_advice: bool = True
+
+
+class DailyCommandCenter(BaseModel):
+    version: Literal["phase65_daily_command_center_v1"] = "phase65_daily_command_center_v1"
+    headline: str
+    workflow_focus: Literal["macro_first", "source_health_first", "watchlist_first", "evidence_gap_first"]
+    top_actions: list[TodayResearchAction] = Field(default_factory=list)
+    source_health_alerts: list[DailyCommandCenterSourceAlert] = Field(default_factory=list)
+    watchlist_focus: list[DailyCommandCenterWatchlistFocus] = Field(default_factory=list)
+    macro_snapshot: DailyCommandCenterMacroSnapshot | None = None
+    affects_score: bool = False
+    final_score_unchanged: bool = True
     not_investment_advice: bool = True
 
 
@@ -111,4 +149,5 @@ class DailyResearchReport(BaseModel):
     source_status: DataSourceStatus | None = None
     daily_report_metadata: DailyReportMetadata | None = None
     performance_diagnostics: dict[str, int | float] | None = None
+    command_center: DailyCommandCenter | None = None
     not_investment_advice: bool = True
