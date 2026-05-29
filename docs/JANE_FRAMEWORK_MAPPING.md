@@ -2,6 +2,15 @@
 
 This file maps Jane's Markdown methodology into system modules.
 
+## Phase 66 Source Health Action Routing
+
+Phase 66 turns Jane's source-awareness rule into routeable operations work:
+
+- `GET /api/operations/diagnostics` now returns `source_health_actions` (`phase66_source_health_actions_v1`) for missing keys, missing SEC EDGAR user-agent setup, disabled providers, and cache/readiness issues.
+- Each action identifies affected Jane criteria and surfaces (`operations`, `daily_report`, `stock_research`, `evidence_library`) so the next workflow step is explicit.
+- Daily Report `command_center.source_health_alerts` consumes the highest-attention source-health actions before falling back to generic data-quality alerts.
+- The layer is read-only and non-scoring: no provider calls, secret values, score changes, verdict changes, or investment-advice wording.
+
 ## Phase 65 Daily Report Command Center Refinement
 
 Phase 65 maps Jane's daily review habit into a single first-screen command-center summary:

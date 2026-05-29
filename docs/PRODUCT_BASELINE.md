@@ -60,7 +60,7 @@ This is a hard gate: future phases should improve the 5-minute Daily Report work
 
 ## Operations Diagnostics baseline
 
-Phase 62 adds a read-only Operations Diagnostics surface backed by `GET /api/operations/diagnostics` (`phase62_operations_diagnostics_v1`). It provides Provider Health, Coverage Readiness, 13F Runtime Universe, and secrets-policy visibility before interpreting Daily Report or Stock Research outputs. It exposes `api_key_values_returned=false`, never returns API key values, and does not trigger provider calls.
+Phase 62 adds a read-only Operations Diagnostics surface backed by `GET /api/operations/diagnostics` (`phase62_operations_diagnostics_v1`). It provides Provider Health, Coverage Readiness, 13F Runtime Universe, and secrets-policy visibility before interpreting Daily Report or Stock Research outputs. Phase 66 adds `source_health_actions` (`phase66_source_health_actions_v1`) so missing keys, SEC EDGAR setup, disabled providers, and cache/readiness issues become routeable operations tasks that can also feed Daily Command Center source alerts. It exposes `api_key_values_returned=false`, never returns API key values, and does not trigger provider calls.
 
 Phase 63 adds editable local 13F manager-universe settings via `GET/PUT/DELETE /api/operations/settings/13f-manager-universe` (`phase63_13f_manager_universe_settings_v1`). Precedence is `local_settings` > `startup_env` > `bundled_starter_universe`. The editor changes research scope only; it does not change scoring, final verdicts, provider calls, or 13F's delayed filing limitations.
 

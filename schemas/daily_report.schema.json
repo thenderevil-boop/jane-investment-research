@@ -734,6 +734,30 @@
     },
     "DailyCommandCenterSourceAlert": {
       "properties": {
+        "action_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action Id"
+        },
+        "provider_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Id"
+        },
         "severity": {
           "enum": [
             "high",
@@ -742,6 +766,18 @@
           ],
           "title": "Severity",
           "type": "string"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category"
         },
         "title": {
           "title": "Title",
@@ -761,6 +797,26 @@
           ],
           "title": "Route Hint",
           "type": "string"
+        },
+        "affected_criteria": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Affected Criteria",
+          "type": "array"
+        },
+        "affected_surfaces": {
+          "items": {
+            "enum": [
+              "daily_report",
+              "operations",
+              "stock_research",
+              "evidence_library"
+            ],
+            "type": "string"
+          },
+          "title": "Affected Surfaces",
+          "type": "array"
         },
         "not_investment_advice": {
           "default": true,

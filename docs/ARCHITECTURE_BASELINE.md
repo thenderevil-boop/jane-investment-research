@@ -7,10 +7,9 @@ Phase 64A keeps architecture planning aligned with the committed Phase 61-63 bas
 ## Backend request flow
 
 - `backend/app/api/routes.py` exposes API endpoints.
-- `backend/app/pipelines/research_pipeline.py` builds Daily Report payloads, the 5-minute `today_research_actions` starting flow, and the Phase 65 `command_center` first-screen workflow summary.
+- `backend/app/pipelines/research_pipeline.py` builds Daily Report payloads, the 5-minute `today_research_actions` starting flow, and the Phase 65 `command_center` first-screen workflow summary; Phase 66 source-health actions can feed command-center source alerts.
+- `backend/app/services/operations_diagnostics_service.py` builds Phase 62 read-only provider diagnostics, Coverage Readiness, 13F manager-universe visibility, and Phase 66 routeable `source_health_actions`.
 - `backend/app/reports/stock_analysis.py` builds deep single-name `POST /api/analyze-stock` responses and the Phase 64 `evidence_gap_inbox` non-scoring manual research queue.
-
-- `backend/app/services/operations_diagnostics_service.py` builds the read-only Phase 62 diagnostics payload for `GET /api/operations/diagnostics`; it reports Provider Health, Coverage Readiness, 13F Runtime Universe, and `api_key_values_returned=false` without triggering provider calls.
 - `backend/app/services/operations_settings_service.py` builds Phase 63 editable local settings for `GET/PUT/DELETE /api/operations/settings/13f-manager-universe`; local_settings override startup_env, then bundled_starter_universe, and this changes research scope only but does not change scoring.
 
 ## Scoring engines

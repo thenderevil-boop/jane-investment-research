@@ -69,6 +69,22 @@ const payload: OperationsDiagnosticsPayload = {
     editable: true,
     warnings: [],
   },
+  source_health_actions_version: 'phase66_source_health_actions_v1',
+  source_health_actions: [
+    {
+      action_id: 'missing_fmp_key',
+      provider_id: 'fmp_financial_proxy',
+      severity: 'high',
+      category: 'missing_key',
+      title: 'Configure FMP key',
+      recommended_action: 'Add FMP API key in local environment before relying on ADR financial proxy context.',
+      affected_criteria: [5, 6, 10],
+      affected_surfaces: ['operations', 'stock_research', 'daily_report'],
+      route_hint: 'operations',
+      affects_score: false,
+      not_investment_advice: true,
+    },
+  ],
   secrets_policy: {
     api_key_values_returned: false,
     redaction_policy: 'only safe booleans are exposed; API key values are never returned',
@@ -96,6 +112,12 @@ describe('OperationsDiagnosticsPanel', () => {
     const html = renderToStaticMarkup(<OperationsDiagnosticsPanel diagnostics={payload} />);
 
     expect(html).toContain('Provider Health');
+    expect(html).toContain('Source Health Actions');
+    expect(html).toContain('Configure FMP key');
+    expect(html).toContain('missing_key');
+    expect(html).toContain('C5, C6, C10');
+    expect(html).toContain('operations, stock_research, daily_report');
+    expect(html).toContain('Non-scoring operations action');
     expect(html).toContain('Coverage Readiness');
     expect(html).toContain('SEC 13F institutional holdings');
     expect(html).toContain('C18 Patents / IP');

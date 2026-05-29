@@ -10,6 +10,7 @@ from backend.app.schemas.operations_diagnostics import (
     OperationsDiagnosticsResponse,
     ProviderDiagnosticRow,
     RuntimeDiagnostics,
+    SourceHealthAction,
 )
 from backend.app.services.operations_settings_service import get_13f_manager_universe_settings
 
@@ -262,14 +263,101 @@ def _coverage_rows() -> list[CoverageReadinessRow]:
     ]
 
 
+def _source_health_actions(providers: list[ProviderDiagnosticRow], coverage_rows: list[CoverageReadinessRow]) -> list[SourceHealthAction]:
+    readiness_by_provider: dict[str, set[int]] = {}
+    for row in coverage_rows:
+        readiness_by_provider.setdefault(row.provider_id, set()).add(row.criterion_id)
+
+    configured_criteria: dict[str, list[int]] = {
+        "fmp_financial_proxy": [5, 6, 10],
+        "fmp_transcript": [2, 17],
+        "fred_macro": [],
+        "sec_form4": [2, 3],
+        "sec_companyfacts": [5],
+        "uspto_patentsview": [18],
+        "sec_13f": [19],
+        "usaspending": [15],
+        "openbb_sidecar": [3],
+        "alpha_vantage": [],
+    }
+    surfaces_by_provider: dict[str, list[str]] = {
+        "fred_macro": ["operations", "daily_report"],
+        "fmp_financial_proxy": ["operations", "stock_research", "daily_report"],
+        "fmp_transcript": ["operations", "stock_research", "evidence_library"],
+        "sec_form4": ["operations", "daily_report", "stock_research"],
+        "sec_companyfacts": ["operations", "stock_research", "daily_report"],
+        "uspto_patentsview": ["operations", "stock_research", "daily_report"],
+        "sec_13f": ["operations", "stock_research", "daily_report"],
+        "usaspending": ["operations", "stock_research"],
+        "openbb_sidecar": ["operations", "stock_research"],
+        "alpha_vantage": ["operations"],
+    }
+    titles = {
+        "fmp_financial_proxy": "Configure FMP financial proxy key",
+        "fmp_transcript": "Configure FMP transcript key",
+        "fred_macro": "Configure FRED macro key",
+        "sec_form4": "Configure SEC EDGAR user agent for Form 4",
+        "sec_companyfacts": "Configure SEC EDGAR user agent for Companyfacts",
+        "uspto_patentsview": "Enable USPTO PatentsView context",
+        "sec_13f": "Enable SEC 13F target-manager context",
+    }
+    action_ids = {
+        ("fmp_financial_proxy", "missing_key"): "missing_fmp_key",
+        ("fmp_transcript", "missing_key"): "missing_fmp_key",
+        ("fred_macro", "missing_key"): "missing_fred_key",
+        ("sec_form4", "source_setup_required"): "missing_sec_user_agent",
+        ("sec_companyfacts", "source_setup_required"): "missing_sec_user_agent",
+        ("uspto_patentsview", "provider_disabled"): "disabled_uspto",
+        ("sec_13f", "provider_disabled"): "disabled_sec_13f",
+    }
+    actions: list[SourceHealthAction] = []
+    seen: set[str] = set()
+    for provider in providers:
+        category = None
+        if provider.status == "missing_key":
+            category = "missing_key"
+        elif "sec_edgar_user_agent" in provider.missing_data:
+            category = "source_setup_required"
+        elif provider.status == "disabled" and provider.provider_id in {"uspto_patentsview", "sec_13f", "usaspending", "openbb_sidecar", "alpha_vantage"}:
+            category = "provider_disabled"
+        elif provider.status == "stale":
+            category = "cache_refresh_required"
+        if not category:
+            continue
+        action_id = action_ids.get((provider.provider_id, category), f"{category}_{provider.provider_id}")
+        if action_id in seen:
+            continue
+        seen.add(action_id)
+        affected_criteria = sorted(set(configured_criteria.get(provider.provider_id, [])) | readiness_by_provider.get(provider.provider_id, set()))
+        severity = "high" if category in {"missing_key", "source_setup_required"} else "medium"
+        actions.append(
+            SourceHealthAction(
+                action_id=action_id,
+                provider_id=provider.provider_id,
+                severity=severity,
+                category=category,  # type: ignore[arg-type]
+                title=titles.get(provider.provider_id, f"Review {provider.label} setup"),
+                recommended_action=provider.next_action,
+                affected_criteria=affected_criteria,
+                affected_surfaces=surfaces_by_provider.get(provider.provider_id, ["operations"]),  # type: ignore[arg-type]
+            )
+        )
+    severity_rank = {"high": 0, "medium": 1, "low": 2}
+    actions.sort(key=lambda action: (severity_rank[action.severity], action.provider_id, action.action_id))
+    return actions[:10]
+
+
 def build_operations_diagnostics() -> OperationsDiagnosticsResponse:
+    providers = _provider_rows()
+    coverage_rows = _coverage_rows()
     return OperationsDiagnosticsResponse(
         generated_at=_now_iso(),
         runtime=RuntimeDiagnostics(
             daily_report_read_mode=config.DAILY_REPORT_READ_MODE,
             daily_batch_allow_live_fetch=config.DAILY_BATCH_ALLOW_LIVE_FETCH,
         ),
-        providers=_provider_rows(),
-        coverage_readiness=_coverage_rows(),
+        providers=providers,
+        coverage_readiness=coverage_rows,
         manager_universe=_manager_universe(),
+        source_health_actions=_source_health_actions(providers, coverage_rows),
     )

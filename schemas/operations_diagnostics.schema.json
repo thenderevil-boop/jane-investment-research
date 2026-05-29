@@ -261,6 +261,97 @@
       },
       "title": "SecretsPolicyDiagnostics",
       "type": "object"
+    },
+    "SourceHealthAction": {
+      "properties": {
+        "action_id": {
+          "title": "Action Id",
+          "type": "string"
+        },
+        "provider_id": {
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "missing_key",
+            "source_setup_required",
+            "provider_disabled",
+            "cache_refresh_required",
+            "provider_limited"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "recommended_action": {
+          "title": "Recommended Action",
+          "type": "string"
+        },
+        "affected_criteria": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Affected Criteria",
+          "type": "array"
+        },
+        "affected_surfaces": {
+          "items": {
+            "enum": [
+              "operations",
+              "daily_report",
+              "stock_research",
+              "evidence_library"
+            ],
+            "type": "string"
+          },
+          "title": "Affected Surfaces",
+          "type": "array"
+        },
+        "route_hint": {
+          "default": "operations",
+          "enum": [
+            "operations",
+            "daily_report",
+            "stock_research",
+            "evidence_library"
+          ],
+          "title": "Route Hint",
+          "type": "string"
+        },
+        "affects_score": {
+          "default": false,
+          "title": "Affects Score",
+          "type": "boolean"
+        },
+        "not_investment_advice": {
+          "default": true,
+          "title": "Not Investment Advice",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "action_id",
+        "provider_id",
+        "severity",
+        "category",
+        "title",
+        "recommended_action"
+      ],
+      "title": "SourceHealthAction",
+      "type": "object"
     }
   },
   "properties": {
@@ -293,6 +384,19 @@
     },
     "manager_universe": {
       "$ref": "#/$defs/ManagerUniverseDiagnostics"
+    },
+    "source_health_actions_version": {
+      "const": "phase66_source_health_actions_v1",
+      "default": "phase66_source_health_actions_v1",
+      "title": "Source Health Actions Version",
+      "type": "string"
+    },
+    "source_health_actions": {
+      "items": {
+        "$ref": "#/$defs/SourceHealthAction"
+      },
+      "title": "Source Health Actions",
+      "type": "array"
     },
     "secrets_policy": {
       "$ref": "#/$defs/SecretsPolicyDiagnostics"

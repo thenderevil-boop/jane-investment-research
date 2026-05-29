@@ -11,6 +11,10 @@ function listText(items: string[] | undefined, fallback = 'None listed') {
   return items?.length ? items.join(', ') : fallback;
 }
 
+function criteriaText(items: number[] | undefined) {
+  return items?.length ? items.map((item) => `C${item}`).join(', ') : 'No criterion mapping';
+}
+
 export function SEC13FManagerUniverseEditor({ settings, onSaved }: { settings: SEC13FManagerUniverseSettings; onSaved?: (settings: SEC13FManagerUniverseSettings) => void }) {
   const [managerText, setManagerText] = useState(settings.effective_manager_ciks.join('\n'));
   const [note, setNote] = useState(settings.note ?? '');
@@ -122,6 +126,38 @@ export function OperationsDiagnosticsPanel({ diagnostics, managerSettings, onMan
           </table>
         </div>
       </section>
+
+      {diagnostics.source_health_actions?.length ? (
+        <section className="pageSection">
+          <div className="panelHeader">
+            <div>
+              <p className="eyebrow">Phase 66 · Routed operations work</p>
+              <h2>Source Health Actions</h2>
+            </div>
+          </div>
+          <p className="muted">Non-scoring operations action list. These route provider setup, disabled-source, and cache-refresh work without changing scores or verdicts.</p>
+          <div className="tableWrap">
+            <table>
+              <thead>
+                <tr><th>Action</th><th>Provider</th><th>Category</th><th>Criteria</th><th>Surfaces</th><th>Route</th><th>Recommended action</th></tr>
+              </thead>
+              <tbody>
+                {diagnostics.source_health_actions.map((action) => (
+                  <tr key={action.action_id}>
+                    <td>{action.title}</td>
+                    <td>{action.provider_id}</td>
+                    <td>{action.category}</td>
+                    <td>{criteriaText(action.affected_criteria)}</td>
+                    <td>{listText(action.affected_surfaces)}</td>
+                    <td>{action.route_hint}</td>
+                    <td>{action.recommended_action}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       <section className="pageSection">
         <div className="panelHeader">

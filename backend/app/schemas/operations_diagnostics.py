@@ -8,6 +8,23 @@ ProviderSourceType = Literal["live", "cached_live", "derived", "fallback", "mock
 ProviderStatus = Literal["available", "disabled", "missing_key", "stale", "unavailable", "not_configured"]
 Readiness = Literal["ready", "partial", "disabled", "missing_key", "stale", "unavailable"]
 ManagerUniverseSource = Literal["startup_env", "local_settings", "bundled_starter_universe"]
+SourceHealthActionCategory = Literal["missing_key", "source_setup_required", "provider_disabled", "cache_refresh_required", "provider_limited"]
+SourceHealthActionRoute = Literal["operations", "daily_report", "stock_research", "evidence_library"]
+SourceHealthActionSeverity = Literal["high", "medium", "low"]
+
+
+class SourceHealthAction(BaseModel):
+    action_id: str
+    provider_id: str
+    severity: SourceHealthActionSeverity
+    category: SourceHealthActionCategory
+    title: str
+    recommended_action: str
+    affected_criteria: list[int] = Field(default_factory=list)
+    affected_surfaces: list[SourceHealthActionRoute] = Field(default_factory=list)
+    route_hint: SourceHealthActionRoute = "operations"
+    affects_score: bool = False
+    not_investment_advice: bool = True
 
 
 class RuntimeDiagnostics(BaseModel):
@@ -65,5 +82,7 @@ class OperationsDiagnosticsResponse(BaseModel):
     providers: list[ProviderDiagnosticRow]
     coverage_readiness: list[CoverageReadinessRow]
     manager_universe: ManagerUniverseDiagnostics
+    source_health_actions_version: Literal["phase66_source_health_actions_v1"] = "phase66_source_health_actions_v1"
+    source_health_actions: list[SourceHealthAction] = Field(default_factory=list)
     secrets_policy: SecretsPolicyDiagnostics = Field(default_factory=SecretsPolicyDiagnostics)
     not_investment_advice: bool = True

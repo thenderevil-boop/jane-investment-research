@@ -1,8 +1,8 @@
 # Roadmap
 
-## Current baseline after Phase 65
+## Current baseline after Phase 66
 
-The committed Phase 63 baseline added Phase 61 research workflow summary, Phase 62 read-only Operations Diagnostics, and Phase 63 editable 13F manager-universe local settings. Phase 64 added analyze-stock `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`) so Coverage Matrix gaps become routeable manual research actions. Phase 65 adds Daily Report `command_center` (`phase65_daily_command_center_v1`) so the first screen combines macro/source/watchlist/evidence attention with route hints.
+The committed Phase 63 baseline added Phase 61 research workflow summary, Phase 62 read-only Operations Diagnostics, and Phase 63 editable 13F manager-universe local settings. Phase 64 added analyze-stock `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`) so Coverage Matrix gaps become routeable manual research actions. Phase 65 added Daily Report `command_center` (`phase65_daily_command_center_v1`) so the first screen combines macro/source/watchlist/evidence attention with route hints. Phase 66 adds Operations Diagnostics `source_health_actions` (`phase66_source_health_actions_v1`) and routes high-attention source-health items into the Daily Command Center.
 
 The product direction is intentionally **workflow-first**:
 
@@ -66,7 +66,7 @@ Do not resume feature stacking with more cards, mock-heavy engines, automatic th
 
 **Non-goals:** Ranking engine, automatic ticker discovery, new providers, or deep per-ticker recalculation from the Daily Report endpoint.
 
-**Status:** Implemented for Daily Report as `command_center` with routeable top actions, source-health alerts, watchlist focus, and macro snapshot context. Next step is Phase 66: turn provider/setup issues into richer source-health action routing.
+**Status:** Implemented for Daily Report as `command_center` with routeable top actions, source-health alerts, watchlist focus, and macro snapshot context. Phase 66 now turns provider/setup issues into richer source-health action routing.
 
 ## Phase 66 — Source Health Action Routing
 
@@ -79,6 +79,8 @@ Do not resume feature stacking with more cards, mock-heavy engines, automatic th
 **Non-goals:** Secret editing, automatic provider refresh, provider-side effects, scoring changes, or credential storage.
 
 **Acceptance:** Each route has provider id, severity, category, action, affected criteria/surfaces, and `not_investment_advice=true`.
+
+**Status:** Implemented as Operations Diagnostics `source_health_actions` plus Daily Command Center source-alert metadata. Next planning target should align candidate/workflow readiness only after source-health routing remains consistent across Daily Report, Operations, and Stock Research.
 
 ## Phase 67 — Candidate Comparison / Watchlist MVP
 

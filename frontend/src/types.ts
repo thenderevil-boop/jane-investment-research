@@ -1,5 +1,21 @@
 export type SourceType = 'live' | 'cached_live' | 'mock' | 'fallback' | 'derived' | 'unknown';
 export type DiagnosticsSourceType = SourceType | 'disabled';
+export type SourceHealthActionCategory = 'missing_key' | 'source_setup_required' | 'provider_disabled' | 'cache_refresh_required' | 'provider_limited';
+export type SourceHealthActionRoute = 'operations' | 'daily_report' | 'stock_research' | 'evidence_library';
+
+export type SourceHealthAction = {
+  action_id: string;
+  provider_id: string;
+  severity: 'high' | 'medium' | 'low';
+  category: SourceHealthActionCategory;
+  title: string;
+  recommended_action: string;
+  affected_criteria: number[];
+  affected_surfaces: SourceHealthActionRoute[];
+  route_hint: SourceHealthActionRoute;
+  affects_score: boolean;
+  not_investment_advice: boolean;
+};
 
 export type ProviderDiagnosticRow = {
   provider_id: string;
@@ -47,6 +63,8 @@ export type OperationsDiagnostics = {
     editable: boolean;
     warnings: string[];
   };
+  source_health_actions_version: 'phase66_source_health_actions_v1';
+  source_health_actions: SourceHealthAction[];
   secrets_policy: {
     api_key_values_returned: boolean;
     redaction_policy: string;
@@ -1532,10 +1550,15 @@ export type TodayResearchAction = {
 };
 
 export type DailyCommandCenterSourceAlert = {
+  action_id?: string | null;
+  provider_id?: string | null;
   severity: 'high' | 'medium' | 'low';
+  category?: string | null;
   title: string;
   reason: string;
   route_hint: DailyActionRouteHint;
+  affected_criteria?: number[];
+  affected_surfaces?: DailyActionRouteHint[];
   not_investment_advice: boolean;
 };
 

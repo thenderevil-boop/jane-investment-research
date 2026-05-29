@@ -70,10 +70,15 @@ describe('DailyReport presentation helpers', () => {
         ],
         source_health_alerts: [
           {
+            action_id: 'missing_fmp_key',
+            provider_id: 'fmp_financial_proxy',
             severity: 'high',
-            title: 'Review fallback data sources',
-            reason: 'One or more sources need setup before interpretation.',
+            category: 'missing_key',
+            title: 'Review FMP financial proxy setup',
+            reason: 'FMP key is missing for ADR financial proxy context.',
             route_hint: 'operations',
+            affected_criteria: [5, 6, 10],
+            affected_surfaces: ['operations', 'stock_research', 'daily_report'],
             not_investment_advice: true,
           },
         ],
@@ -101,6 +106,9 @@ describe('DailyReport presentation helpers', () => {
     expect(html).toContain('Daily Command Center');
     expect(html).toContain('Start with source-health review');
     expect(html).toContain('Route: operations');
+    expect(html).toContain('Provider: fmp_financial_proxy');
+    expect(html).toContain('missing_key');
+    expect(html).toContain('C5, C6, C10');
     expect(html).toContain('Route: stock_research');
     expect(html).toContain('Non-scoring workflow summary');
     expect(html).not.toContain('[object Object]');

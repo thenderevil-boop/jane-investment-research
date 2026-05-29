@@ -59,10 +59,15 @@ class TodayResearchAction(BaseModel):
 
 
 class DailyCommandCenterSourceAlert(BaseModel):
+    action_id: str | None = None
+    provider_id: str | None = None
     severity: Literal["high", "medium", "low"]
+    category: str | None = None
     title: str
     reason: str
     route_hint: DailyActionRouteHint = "operations"
+    affected_criteria: list[int] = Field(default_factory=list)
+    affected_surfaces: list[DailyActionRouteHint] = Field(default_factory=list)
     not_investment_advice: bool = True
 
 

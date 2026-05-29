@@ -26,6 +26,13 @@ Phase 62 operations diagnostics notes:
 - Diagnostics expose only safe booleans such as `has_api_key`; `api_key_values_returned=false` and API key values are never returned.
 - Phase 62 does not trigger provider calls and does not make 13F manager universe settings editable.
 
+Phase 66 source-health action notes:
+
+- `GET /api/operations/diagnostics` exposes `source_health_actions` (`phase66_source_health_actions_v1`) derived from existing provider diagnostics and Coverage Readiness rows.
+- Actions cover missing API keys, missing SEC EDGAR user agent, disabled providers, and cache/readiness issues as routeable operations tasks.
+- Daily Report `command_center.source_health_alerts` reuses the highest-attention source-health actions; this does not trigger provider calls or change score/verdict behavior.
+- API key values and credential strings remain outside payloads; only safe booleans and setup categories are returned.
+
 Phase 65 daily command-center notes:
 
 - Daily Report `command_center` is derived from existing report fields (`today_research_actions`, `macro_delta`, `watchlist_delta`, and data-quality/source-health metadata).

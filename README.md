@@ -8,6 +8,14 @@ Build a US-market-only investment research automation system based on Jane's Mar
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
+## Phase 66 Source Health Action Routing
+
+Phase 66 adds `source_health_actions` (`phase66_source_health_actions_v1`) to `GET /api/operations/diagnostics` and feeds the highest-attention items into Daily Report `command_center.source_health_alerts`:
+
+- Converts missing keys, missing SEC EDGAR user agent, disabled providers, and cache/readiness issues into routeable operations actions.
+- Each action includes provider, severity, category, affected Jane criteria, affected surfaces, route hint, and `recommended_action` without returning credential values.
+- The action layer is read-only and non-scoring: it does not trigger provider calls, edit settings, change scores, or change verdicts.
+
 ## Phase 65 Daily Report Command Center Refinement
 
 Phase 65 adds `command_center` (`phase65_daily_command_center_v1`) to `GET /api/daily-report/latest` and surfaces it as the first Daily Report workflow panel:

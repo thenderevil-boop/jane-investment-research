@@ -20,6 +20,7 @@ Response highlights:
 - `providers`: Provider Health rows with provider id, enabled state, source/status, safe `has_api_key` boolean, cache TTL, limitations, missing-data hints, and next action.
 - `coverage_readiness`: Coverage Readiness rows mapping Jane C18 and C19 plus adjacent criteria to provider readiness and covered submetrics.
 - `manager_universe`: 13F Runtime Universe source (`startup_env`, `local_settings`, or `bundled_starter_universe`), manager count, runtime override flag, and warnings.
+- `source_health_actions` (`phase66_source_health_actions_v1`): routeable read-only source-health actions for missing keys, missing SEC EDGAR user agent, disabled providers, cache/readiness issues, affected criteria, affected surfaces, and route hints.
 - `secrets_policy`: `api_key_values_returned=false`; API key values are never returned.
 
 Example:
@@ -42,6 +43,10 @@ Example:
     {"criterion_id": 19, "criterion_name": "VC / Institutional Support", "provider_id": "sec_13f", "readiness": "ready", "covered_submetrics": ["institutional_support", "fund_support"], "not_investment_advice": true}
   ],
   "manager_universe": {"source": "bundled_starter_universe", "manager_count": 5, "is_runtime_override": false},
+  "source_health_actions_version": "phase66_source_health_actions_v1",
+  "source_health_actions": [
+    {"action_id": "missing_fmp_key", "provider_id": "fmp_financial_proxy", "severity": "high", "category": "missing_key", "affected_criteria": [5, 6, 10], "affected_surfaces": ["operations", "stock_research", "daily_report"], "route_hint": "operations", "affects_score": false, "not_investment_advice": true}
+  ],
   "secrets_policy": {"api_key_values_returned": false, "redaction_policy": "only safe booleans are exposed; API key values are never returned"},
   "not_investment_advice": true
 }
@@ -93,7 +98,7 @@ Phase 65 adds `command_center` (`phase65_daily_command_center_v1`) to the same D
 
 - `headline` and `workflow_focus` summarize whether the day should start from macro context, source-health review, watchlist changes, or evidence-gap review.
 - `top_actions` reuses existing-data actions with `route_hint` values such as `daily_report`, `operations`, `stock_research`, and `evidence_library`.
-- `source_health_alerts`, `watchlist_focus`, and `macro_snapshot` compact the highest-attention source/delta context.
+- `source_health_alerts`, `watchlist_focus`, and `macro_snapshot` compact the highest-attention source/delta context. Phase 66 source alerts include provider id, category, affected criteria, affected surfaces, and route metadata when available.
 - `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`; no provider calls, scores, or verdicts change.
 
 Phase 11.5 defaults this endpoint to `DAILY_REPORT_READ_MODE=snapshot_first`. When a fresh daily snapshot exists in raw store, the endpoint returns that snapshot without refreshing live providers. The top-level `source_status` uses schema-compatible `source_type="derived"` and `provider="daily_report_snapshot"` to identify snapshot-served reports. If the snapshot is missing or stale, the endpoint computes the report only when `DAILY_BATCH_ALLOW_LIVE_FETCH=true`; otherwise it returns a safe 503 payload with `not_investment_advice=true`.

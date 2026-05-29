@@ -103,6 +103,14 @@ function routeForAction(action: TodayResearchAction) {
   }[action.action_type] ?? 'daily_report');
 }
 
+function criteriaLabel(criteria?: number[]) {
+  return criteria?.length ? criteria.map((criterion) => `C${criterion}`).join(', ') : 'No criterion mapping';
+}
+
+function surfaceLabel(surfaces?: string[]) {
+  return surfaces?.length ? surfaces.join(', ') : 'operations';
+}
+
 export function DailyCommandCenter({ report }: { report: DailyReport }) {
   const center = report.command_center;
   if (!center) return null;
@@ -129,6 +137,10 @@ export function DailyCommandCenter({ report }: { report: DailyReport }) {
             <li key={`${alert.severity}-${alert.title}`}>
               <strong>{alert.severity.toUpperCase()} · {alert.title}</strong>
               <span> — {alert.reason} · Route: {alert.route_hint}</span>
+              {alert.provider_id ? <span> · Provider: {alert.provider_id}</span> : null}
+              {alert.category ? <span> · {alert.category}</span> : null}
+              <span> · Criteria: {criteriaLabel(alert.affected_criteria)}</span>
+              <span> · Surfaces: {surfaceLabel(alert.affected_surfaces)}</span>
             </li>
           ))}
         </ul>

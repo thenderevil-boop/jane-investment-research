@@ -1,5 +1,12 @@
 # Changelog
 
+## Phase 66 — Source Health Action Routing
+
+- Added Operations Diagnostics `source_health_actions` (`phase66_source_health_actions_v1`) so missing keys, missing SEC EDGAR user-agent setup, disabled providers, and cache/readiness issues become routeable operations actions.
+- Added provider/category/severity/affected-criteria/affected-surfaces/route metadata to Daily Report `command_center.source_health_alerts`.
+- Added Operations Diagnostics UI rendering for Source Health Actions and expanded Daily Command Center source-alert metadata.
+- Preserved read-only diagnostics, secret redaction, provider-call boundaries, final scores, verdicts, and investment-advice boundaries.
+
 ## Phase 65 — Daily Report Command Center Refinement
 
 - Added Daily Report `command_center` (`phase65_daily_command_center_v1`) as the first-screen workflow summary for macro/source/watchlist/evidence attention.

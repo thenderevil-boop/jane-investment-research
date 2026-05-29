@@ -23,6 +23,7 @@ from backend.app.engines.sec_13f_target_matching import build_candidate_13f_evid
 from backend.app.engines.smart_money_engine import evaluate_smart_money
 from backend.app.raw_store.repository import read_daily_report_snapshot, read_macro_data, read_market_data, read_sec_filings
 from backend.app.services.daily_candidates import configured_daily_report_candidates
+from backend.app.services.operations_diagnostics_service import build_operations_diagnostics
 from backend.app.schemas.candidate import StockCandidate
 from backend.app.schemas.common import DataSourceStatus, ScoreObject
 from backend.app.schemas.daily_report import (
@@ -511,6 +512,26 @@ def _macro_snapshot_for_command_center(report: DailyResearchReport) -> DailyComm
 
 
 def _source_alerts_for_command_center(report: DailyResearchReport) -> list[DailyCommandCenterSourceAlert]:
+    try:
+        operations = build_operations_diagnostics()
+    except Exception:
+        operations = None
+    if operations and operations.source_health_actions:
+        return [
+            DailyCommandCenterSourceAlert(
+                action_id=action.action_id,
+                provider_id=action.provider_id,
+                severity=action.severity,
+                category=action.category,
+                title=action.title,
+                reason=action.recommended_action,
+                route_hint=action.route_hint,
+                affected_criteria=action.affected_criteria,
+                affected_surfaces=action.affected_surfaces,
+            )
+            for action in operations.source_health_actions[:3]
+        ]
+
     alerts: list[DailyCommandCenterSourceAlert] = []
     if not report.data_quality:
         return alerts
