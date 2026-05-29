@@ -103,6 +103,40 @@ function routeForAction(action: TodayResearchAction) {
   }[action.action_type] ?? 'daily_report');
 }
 
+function actionTargetUrl(action: TodayResearchAction) {
+  const target = action.action_target;
+  if (!target) return '';
+  if (target.surface === 'operations') return '/operations';
+  if (target.surface === 'stock_research' && target.ticker) {
+    const params = new URLSearchParams(target.url_params);
+    return `/stock-research?${params.toString()}`;
+  }
+  return '';
+}
+
+function openActionTarget(action: TodayResearchAction) {
+  const url = actionTargetUrl(action);
+  if (!url || typeof window === 'undefined') return;
+  if (action.action_target?.open_in_new_tab) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  } else {
+    window.location.href = url;
+  }
+}
+
+function actionTargetButton(action: TodayResearchAction) {
+  const target = action.action_target;
+  const url = actionTargetUrl(action);
+  if (!target || !url) return null;
+  if (target.surface === 'stock_research' && target.ticker) {
+    return <button type="button" data-target-url={url} onClick={() => openActionTarget(action)}>Open Stock Research →</button>;
+  }
+  if (target.surface === 'operations') {
+    return <button type="button" data-target-url={url} onClick={() => openActionTarget(action)}>Open Operations →</button>;
+  }
+  return null;
+}
+
 function criteriaLabel(criteria?: number[]) {
   return criteria?.length ? criteria.map((criterion) => `C${criterion}`).join(', ') : 'No criterion mapping';
 }
@@ -151,6 +185,7 @@ export function DailyCommandCenter({ report }: { report: DailyReport }) {
             <li key={`${action.priority}-${action.action_type}-${action.ticker ?? 'market'}-${action.title}`}>
               <strong>{action.priority.toUpperCase()} · {actionLabel(action)}</strong>
               <span> — {action.reason} · Route: {routeForAction(action)}</span>
+              {actionTargetButton(action)}
             </li>
           ))}
         </ol>

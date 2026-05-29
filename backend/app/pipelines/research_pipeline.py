@@ -32,6 +32,7 @@ from backend.app.schemas.daily_report import (
     DailyCommandCenterMacroSnapshot,
     DailyCommandCenterSourceAlert,
     DailyCommandCenterWatchlistFocus,
+    DailyActionTarget,
     DailyMacroDelta,
     DailyResearchReport,
     DailyWatchlistDelta,
@@ -491,8 +492,21 @@ def _route_for_action(action: TodayResearchAction) -> DailyActionRouteHint:
     return routes.get(action.action_type, "daily_report")
 
 
+def _target_for_action(action: TodayResearchAction) -> DailyActionTarget:
+    surface = action.route_hint
+    if surface == "stock_research" and action.ticker:
+        params = {"ticker": action.ticker, "source": "daily_action"}
+        if "evidence gap" in action.title.lower() or "data issue" in action.reason.lower() or action.action_type in {"coverage_gap", "watchlist_change"}:
+            params["blocker"] = "manual_evidence_gap"
+        return DailyActionTarget(ticker=action.ticker, surface="stock_research", url_params=params)
+    if surface == "operations":
+        return DailyActionTarget(ticker=None, surface="operations", url_params={"provider": "sec_edgar"})
+    return DailyActionTarget(ticker=action.ticker, surface=surface, url_params={"source": "daily_action"})
+
+
 def _with_route(action: TodayResearchAction) -> TodayResearchAction:
     action.route_hint = _route_for_action(action)
+    action.action_target = _target_for_action(action)
     return action
 
 
@@ -590,7 +604,13 @@ def _workflow_focus(source_alerts: list[DailyCommandCenterSourceAlert], watchlis
 
 
 def _build_command_center(report: DailyResearchReport) -> DailyCommandCenter:
+    theme_by_ticker = {candidate.ticker.upper(): candidate.theme for candidate in report.stock_candidates}
     top_actions = [_with_route(action) for action in report.today_research_actions[:3]]
+    for action in top_actions:
+        if action.action_target and action.ticker:
+            theme = theme_by_ticker.get(action.ticker.upper())
+            if theme:
+                action.action_target.url_params["theme"] = theme
     source_alerts = _source_alerts_for_command_center(report)
     watchlist_focus = _watchlist_focus_for_command_center(report)
     macro_snapshot = _macro_snapshot_for_command_center(report)

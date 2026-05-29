@@ -5065,16 +5065,12 @@ def _research_status(response: AnalyzeStockResponse) -> str:
     score = response.research_verdict.score
     grade = response.data_quality_summary.source_quality_grade
     coverage_count = _covered_or_partial_count(response)
-    adr_limited = _is_adr_limited(response)
-    financial_metric_count = _financial_metric_available_count(response)
 
-    if score < 30 or (grade == "D" and adr_limited and financial_metric_count < 2):
-        return "deprioritize_data_gaps"
     if score >= 70 and grade in {"A", "B"} and coverage_count >= 8:
         return "high_conviction_candidate"
-    if (score >= 45 and grade in {"A", "B", "C"} and coverage_count >= 4) or (score >= 55 and grade == "D" and adr_limited and financial_metric_count >= 2):
+    if score >= 45 and grade in {"A", "B", "C"} and coverage_count >= 4:
         return "watchlist_candidate"
-    if score >= 30 and coverage_count < 4:
+    if score >= 30 and coverage_count >= 2:
         return "needs_evidence_before_research"
     return "deprioritize_data_gaps"
 

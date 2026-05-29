@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import type { DataSourceStatus, JaneCriterion, ScoreLike, StockAnalysis } from '../types';
 import { getJaneCriteria } from '../api/client';
-import StockResearch, { AnalystBriefSection, AnalyzeDataQualitySection, CandidateSummarySection, CompanyEventSignalBreakdownSection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, ForeignFilerCoverageDiagnosticsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, MacroFlowSignalBreakdownSection, ManualChecksSection, PlatformBusinessQualityCardSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ResearchSignalExplanationSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ThemeValidationBoundarySection, ValidationOSReportSection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildJaneCriteriaEvidenceInput, parseQualitativeEvidenceJson } from './StockResearch';
+import StockResearch, { AnalystBriefSection, AnalyzeDataQualitySection, CandidateSummarySection, CompanyEventSignalBreakdownSection, CompanyFundamentalsSection, ComparisonEvidenceAssessmentSection, EvidenceMatrixSection, FinancialStatementSignalsSection, ForeignFilerCoverageDiagnosticsSection, FundamentalsCrossCheckSection, JaneCompanyQualitySection, JaneCriteriaCoverageSection, MacroFlowSignalBreakdownSection, ManualChecksSection, PlatformBusinessQualityCardSection, ProfileGrid, QualitativeEvidenceAssessmentSection, ResearchSignalExplanationSection, ScoreBlock, SecFinancialFactsSection, SmartMoneySourceQualitySection, ThemeValidationBoundarySection, ValidationOSReportSection, ValidationQualitySummarySection, ValidationReportExportSection, ValuationRiskExplanationSection, buildDailyActionBannerText, buildJaneCriteriaEvidenceInput, getDailyActionLaunchState, parseQualitativeEvidenceJson } from './StockResearch';
 
 const mockStatus: DataSourceStatus = {
   source_type: 'mock',
@@ -164,6 +164,32 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Jane 20 Criteria Evidence Input');
     expect(html).toContain('User-provided evidence is local validation context only');
     expect(html).not.toContain('[object Object]');
+  });
+
+  it('prefills Stock Research from Daily Report URL state and shows a dismiss-on-run banner', () => {
+    const params = new URLSearchParams('ticker=NVDA&theme=AI+infrastructure&source=daily_action&blocker=manual_evidence_gap');
+    const launchState = getDailyActionLaunchState(params);
+
+    expect(launchState).toEqual({
+      ticker: 'NVDA',
+      theme: 'AI infrastructure',
+      source: 'daily_action',
+      blocker: 'manual_evidence_gap',
+      showBanner: true,
+    });
+    expect(buildDailyActionBannerText(launchState)).toBe('Opened from Daily Report — NVDA watchlist delta');
+
+    vi.stubGlobal('window', {
+      location: {
+        search: '?ticker=NVDA&theme=AI+infrastructure&source=daily_action&blocker=manual_evidence_gap',
+      },
+    });
+    const html = renderToStaticMarkup(<StockResearch />);
+
+    expect(html).toContain('Opened from Daily Report — NVDA watchlist delta');
+    expect(html).toContain('value="NVDA"');
+    expect(html).toContain('value="AI infrastructure"');
+    expect(html).toContain('Run research');
   });
 
   it('renders user-supplied theme boundary as validation-only context', () => {

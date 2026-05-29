@@ -46,6 +46,13 @@ class JaneReferenceConditions(BaseModel):
 DailyActionRouteHint = Literal["daily_report", "operations", "stock_research", "evidence_library"]
 
 
+class DailyActionTarget(BaseModel):
+    ticker: str | None = None
+    surface: DailyActionRouteHint
+    url_params: dict[str, str] = Field(default_factory=dict)
+    open_in_new_tab: bool = False
+
+
 class TodayResearchAction(BaseModel):
     priority: Literal["high", "medium", "low"]
     ticker: str | None = None
@@ -53,6 +60,7 @@ class TodayResearchAction(BaseModel):
     title: str
     reason: str
     route_hint: DailyActionRouteHint = "daily_report"
+    action_target: DailyActionTarget | None = None
     source: Literal["existing_data"] = "existing_data"
     affects_score: bool = False
     not_investment_advice: bool = True

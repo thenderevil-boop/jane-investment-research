@@ -626,6 +626,49 @@
       "title": "CrisisOutput",
       "type": "object"
     },
+    "DailyActionTarget": {
+      "properties": {
+        "ticker": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ticker"
+        },
+        "surface": {
+          "enum": [
+            "daily_report",
+            "operations",
+            "stock_research",
+            "evidence_library"
+          ],
+          "title": "Surface",
+          "type": "string"
+        },
+        "url_params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Url Params",
+          "type": "object"
+        },
+        "open_in_new_tab": {
+          "default": false,
+          "title": "Open In New Tab",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "surface"
+      ],
+      "title": "DailyActionTarget",
+      "type": "object"
+    },
     "DailyCommandCenter": {
       "properties": {
         "version": {
@@ -2334,6 +2377,17 @@
           ],
           "title": "Route Hint",
           "type": "string"
+        },
+        "action_target": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DailyActionTarget"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "source": {
           "const": "existing_data",

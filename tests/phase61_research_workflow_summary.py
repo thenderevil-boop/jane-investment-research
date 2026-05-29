@@ -56,6 +56,28 @@ def test_research_workflow_nvda_phase61_reference_case_is_watchlist() -> None:
     assert summary["confidence"] == "medium"
 
 
+def test_nvda_profile_returns_watchlist_candidate() -> None:
+    response = _base_response()
+    response.research_verdict.score = 45
+    response.data_quality_summary.source_quality_grade = "B"
+    _set_coverage(response, 3, 3)
+
+    summary = _build_research_workflow_summary(response)
+
+    assert summary["research_status"] == "watchlist_candidate"
+    assert summary["confidence"] == "medium"
+    assert summary["one_line_summary"] == "NVDA: watchlist_candidate with score 45, data grade B, coverage 6."
+
+
+def test_low_score_returns_deprioritize() -> None:
+    response = _base_response()
+    response.research_verdict.score = 25
+    response.data_quality_summary.source_quality_grade = "D"
+    _set_coverage(response, 1, 0)
+
+    assert _build_research_workflow_summary(response)["research_status"] == "deprioritize_data_gaps"
+
+
 def test_research_workflow_status_logic_is_deterministic() -> None:
     response = _base_response()
 
@@ -73,15 +95,20 @@ def test_research_workflow_status_logic_is_deterministic() -> None:
     response.data_quality_summary.source_quality_grade = "D"
     response.foreign_filer_coverage_diagnostics.is_foreign_filer_or_adr = False
     _set_coverage(response, 4, 0)
-    assert _build_research_workflow_summary(response)["research_status"] == "deprioritize_data_gaps"
+    assert _build_research_workflow_summary(response)["research_status"] == "needs_evidence_before_research"
 
     response.foreign_filer_coverage_diagnostics.is_foreign_filer_or_adr = True
     response.financial_quality.derived_metrics = {"available_core_metric_count": 2}
-    assert _build_research_workflow_summary(response)["research_status"] == "watchlist_candidate"
+    assert _build_research_workflow_summary(response)["research_status"] == "needs_evidence_before_research"
 
     response.research_verdict.score = 30
     response.data_quality_summary.source_quality_grade = "C"
     _set_coverage(response, 1, 2)
+    assert _build_research_workflow_summary(response)["research_status"] == "needs_evidence_before_research"
+
+    response.research_verdict.score = 30
+    response.data_quality_summary.source_quality_grade = "C"
+    _set_coverage(response, 2, 2)
     assert _build_research_workflow_summary(response)["research_status"] == "needs_evidence_before_research"
 
     response.research_verdict.score = 29
@@ -94,7 +121,7 @@ def test_research_workflow_status_logic_is_deterministic() -> None:
     response.foreign_filer_coverage_diagnostics.is_foreign_filer_or_adr = True
     response.financial_quality.derived_metrics = {"available_core_metric_count": 1}
     _set_coverage(response, 4, 0)
-    assert _build_research_workflow_summary(response)["research_status"] == "deprioritize_data_gaps"
+    assert _build_research_workflow_summary(response)["research_status"] == "needs_evidence_before_research"
 
 
 def test_research_workflow_actions_follow_phase61_rules() -> None:

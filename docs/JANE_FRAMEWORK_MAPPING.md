@@ -2,6 +2,14 @@
 
 This file maps Jane's Markdown methodology into system modules.
 
+## Phase 70 Daily Report → Stock Research Action Bridge
+
+Phase 70 turns Daily Command Center actions into URL-state navigation without adding scoring or provider work:
+
+- Daily Report `command_center.top_actions[].action_target` identifies the target surface, ticker, URL params, and tab behavior for each top action.
+- Stock Research actions open `/stock-research` with ticker/theme/source/blocker query params; Stock Research pre-fills those fields and shows a Daily Report origin banner until Run research is clicked.
+- Operations actions open `/operations` with provider context in URL params, while preserving `affects_score=false`, no provider calls, and `not_investment_advice=true`.
+
 ## Phase 69 Manual Evidence Quality Loop
 
 Phase 69 connects Jane Coverage Matrix gaps to saved manual evidence quality state:

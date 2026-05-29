@@ -21,6 +21,13 @@
 - Added Stock Research Analyst Brief rendering for Workflow Alignment so the first screen uses the same route vocabulary as Evidence Gap Inbox, Operations, and Daily Command Center.
 - Preserved score weights, final scores, final verdicts, provider behavior, and investment-advice boundaries with non-scoring metadata.
 
+## Phase 70 — Daily Report → Stock Research Action Bridge
+
+- Added `action_target` to Daily Command Center `top_actions` so stock actions can open `/stock-research?ticker=...&theme=...&source=daily_action&blocker=...` and Operations actions can open `/operations`.
+- Added Daily Command Center buttons for `Open Stock Research →` and `Open Operations →`, plus Stock Research URL-state prefill for ticker/theme/source/blocker.
+- Added a Daily Report origin banner on Stock Research that clears when Run research is clicked.
+- Preserved score weights, final scores, verdicts, provider-call boundaries, URL-as-state behavior, and `not_investment_advice=true`.
+
 ## Phase 66 — Source Health Action Routing
 
 - Added Operations Diagnostics `source_health_actions` (`phase66_source_health_actions_v1`) so missing keys, missing SEC EDGAR user-agent setup, disabled providers, and cache/readiness issues become routeable operations actions.

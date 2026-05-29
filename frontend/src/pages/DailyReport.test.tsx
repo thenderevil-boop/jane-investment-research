@@ -63,6 +63,17 @@ describe('DailyReport presentation helpers', () => {
             title: 'Resolve NVDA evidence gap',
             reason: 'Evidence gap is the highest-value research action.',
             route_hint: 'stock_research',
+            action_target: {
+              ticker: 'NVDA',
+              surface: 'stock_research',
+              url_params: {
+                ticker: 'NVDA',
+                theme: 'AI infrastructure',
+                source: 'daily_action',
+                blocker: 'manual_evidence_gap',
+              },
+              open_in_new_tab: false,
+            },
             source: 'existing_data',
             affects_score: false,
             not_investment_advice: true,
@@ -110,6 +121,8 @@ describe('DailyReport presentation helpers', () => {
     expect(html).toContain('missing_key');
     expect(html).toContain('C5, C6, C10');
     expect(html).toContain('Route: stock_research');
+    expect(html).toContain('Open Stock Research →');
+    expect(html).toContain('/stock-research?ticker=NVDA&amp;theme=AI+infrastructure&amp;source=daily_action&amp;blocker=manual_evidence_gap');
     expect(html).toContain('Non-scoring workflow summary');
     expect(html).not.toContain('[object Object]');
   });

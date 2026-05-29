@@ -214,6 +214,65 @@ function downloadText(filename: string, contentType: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
+export type DailyActionLaunchState = {
+  ticker: string;
+  theme: string;
+  source: string;
+  blocker: string;
+  showBanner: boolean;
+};
+
+export function getDailyActionLaunchState(params: URLSearchParams): DailyActionLaunchState | null {
+  const ticker = (params.get('ticker') ?? '').trim().toUpperCase();
+  if (!ticker) return null;
+  const source = (params.get('source') ?? '').trim();
+  const theme = (params.get('theme') ?? '').trim();
+  const blocker = (params.get('blocker') ?? '').trim();
+  return {
+    ticker,
+    theme,
+    source,
+    blocker,
+    showBanner: source === 'daily_action',
+  };
+}
+
+export function getDailyActionLaunchStateFromLocation(): DailyActionLaunchState | null {
+  if (typeof window === 'undefined' || !window.location?.search) return null;
+  return getDailyActionLaunchState(new URLSearchParams(window.location.search));
+}
+
+export function buildDailyActionBannerText(state: DailyActionLaunchState | null): string {
+  if (!state?.showBanner) return '';
+  return `Opened from Daily Report — ${state.ticker} watchlist delta`;
+}
+
+export function resolveInitialTicker(defaultTicker = 'NVDA') {
+  return getDailyActionLaunchStateFromLocation()?.ticker ?? defaultTicker;
+}
+
+export function resolveInitialTheme(defaultTheme = 'AI infrastructure') {
+  return getDailyActionLaunchStateFromLocation()?.theme || defaultTheme;
+}
+
+export function resolveInitialDailyActionBanner() {
+  return getDailyActionLaunchStateFromLocation()?.showBanner ?? false;
+}
+
+export function resolveInitialDailyActionBannerText() {
+  return buildDailyActionBannerText(getDailyActionLaunchStateFromLocation());
+}
+
+export function resolveInitialUserReason(defaultReason = 'External trend research') {
+  const state = getDailyActionLaunchStateFromLocation();
+  if (state?.source === 'daily_action') return 'Daily Report action bridge';
+  return defaultReason;
+}
+
+export function resolveDailyActionBlocker() {
+  return getDailyActionLaunchStateFromLocation()?.blocker ?? '';
+}
+
 export function resolveScoreSourceStatus(score?: ScoreLike): DataSourceStatus | null {
   if (!score) return null;
   if (score.source_status) return score.source_status;
@@ -1582,9 +1641,12 @@ export function ValidationReportExportSection({
 }
 
 export default function StockResearch() {
-  const [ticker, setTicker] = useState('NVDA');
-  const [theme, setTheme] = useState('AI infrastructure');
-  const [userReason, setUserReason] = useState('External trend research');
+  const [ticker, setTicker] = useState(() => resolveInitialTicker());
+  const [theme, setTheme] = useState(() => resolveInitialTheme());
+  const [userReason, setUserReason] = useState(() => resolveInitialUserReason());
+  const [dailyActionBannerVisible, setDailyActionBannerVisible] = useState(() => resolveInitialDailyActionBanner());
+  const [dailyActionBannerText] = useState(() => resolveInitialDailyActionBannerText());
+  const [dailyActionBlocker] = useState(() => resolveDailyActionBlocker());
   const [qualitativeEvidenceJson, setQualitativeEvidenceJson] = useState('');
   const [janeCriteria, setJaneCriteria] = useState<JaneCriterion[]>([]);
   const [selectedCriterionId, setSelectedCriterionId] = useState(1);
@@ -1656,6 +1718,7 @@ export default function StockResearch() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
+    setDailyActionBannerVisible(false);
     analyzeAbortRef.current?.abort();
     const controller = new AbortController();
     analyzeAbortRef.current = controller;
@@ -1686,6 +1749,14 @@ export default function StockResearch() {
           <p className="muted">Primary workflow: submit a ticker to validate the idea using evidence, data quality, and missing-data checks.</p>
         </div>
       </header>
+
+      {dailyActionBannerVisible && dailyActionBannerText && (
+        <section className="pageSection dailyActionLaunchBanner">
+          <strong>{dailyActionBannerText}</strong>
+          {dailyActionBlocker ? <span> · Blocker: {displayKey(dailyActionBlocker)}</span> : null}
+          <p className="muted">URL state pre-filled this research form. The banner clears after Run research is clicked.</p>
+        </section>
+      )}
 
       <form className="tickerForm" onSubmit={onSubmit}>
         <label htmlFor="ticker">Ticker</label>

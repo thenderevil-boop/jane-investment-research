@@ -1618,6 +1618,13 @@ export type HumanVerificationQueueEntry = string | HumanVerificationQueueItem;
 
 export type DailyActionRouteHint = 'daily_report' | 'operations' | 'stock_research' | 'evidence_library';
 
+export type DailyActionTarget = {
+  ticker?: string | null;
+  surface: DailyActionRouteHint;
+  url_params: Record<string, string>;
+  open_in_new_tab: boolean;
+};
+
 export type TodayResearchAction = {
   priority: 'high' | 'medium' | 'low';
   ticker?: string | null;
@@ -1625,6 +1632,7 @@ export type TodayResearchAction = {
   title: string;
   reason: string;
   route_hint?: DailyActionRouteHint;
+  action_target?: DailyActionTarget | null;
   source: 'existing_data';
   affects_score: boolean;
   not_investment_advice: boolean;

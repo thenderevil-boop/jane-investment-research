@@ -98,6 +98,7 @@ Phase 65 adds `command_center` (`phase65_daily_command_center_v1`) to the same D
 
 - `headline` and `workflow_focus` summarize whether the day should start from macro context, source-health review, watchlist changes, or evidence-gap review.
 - `top_actions` reuses existing-data actions with `route_hint` values such as `daily_report`, `operations`, `stock_research`, and `evidence_library`.
+- Phase 70 adds `action_target` to each `command_center.top_actions` item so Daily Report can open the next work surface directly. Stock actions carry `{ticker, surface="stock_research", url_params={ticker, theme?, source="daily_action", blocker?}, open_in_new_tab=false}` and Operations actions carry `{ticker=null, surface="operations", url_params={provider="sec_edgar"}, open_in_new_tab=false}`. This is URL-state only; it does not add provider calls or state-management dependencies.
 - `source_health_alerts`, `watchlist_focus`, and `macro_snapshot` compact the highest-attention source/delta context. Phase 66 source alerts include provider id, category, affected criteria, affected surfaces, and route metadata when available.
 - `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`; no provider calls, scores, or verdicts change.
 

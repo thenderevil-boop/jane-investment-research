@@ -8,8 +8,16 @@ import StockResearch from './pages/StockResearch';
 
 type Page = 'daily' | 'stock' | 'candidates' | 'evidence-dashboard' | 'evidence' | 'operations';
 
+function initialPageFromLocation(): Page {
+  if (typeof window === 'undefined') return 'stock';
+  if (window.location.pathname.startsWith('/daily-report')) return 'daily';
+  if (window.location.pathname.startsWith('/operations')) return 'operations';
+  if (window.location.pathname.startsWith('/stock-research')) return 'stock';
+  return 'stock';
+}
+
 export default function App() {
-  const [page, setPage] = useState<Page>('stock');
+  const [page, setPage] = useState<Page>(() => initialPageFromLocation());
   return (
     <div>
       <nav className="appNav">
