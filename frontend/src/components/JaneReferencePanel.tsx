@@ -14,7 +14,7 @@ export default function JaneReferencePanel({ reference }: { reference?: JaneRefe
     <div className="janeReferencePanel">
       <div className="panelHeader">
         <div>
-          <h3>Jane Methodology Reference Conditions</h3>
+          <h3>Methodology Reference Conditions</h3>
           <p>僅作方法論脈絡參考，不參與系統評分。</p>
         </div>
         <span className="smallPill">未納入評分</span>

@@ -1,6 +1,18 @@
 # Changelog
 
-## Phase 70 — Candidate Readiness Comparison MVP
+## Phase 70.5 — Daily Report Reading Simplification
+
+- Kept Daily Command Center as the only visible 5-minute Daily Report workflow.
+- Hid the older `Today research actions` main UI section while preserving backend `today_research_actions` payload compatibility.
+- Preserved Daily Command Center CTA routing, URL-state action targets, provider-call boundaries, score weights, final scores, verdicts, and investment-advice boundaries.
+
+## User-facing Brand Neutralization
+
+- Replaced visible product copy with neutral Investment Research / Company Quality / research criteria wording while preserving internal `jane_*` schema keys and `/api/jane-criteria` compatibility.
+- Added user-facing text sanitization for raw/debug UI surfaces so legacy brand terms do not leak through JSON panels, badge titles, limitations, missing-data lists, or generated schema titles.
+- Preserved scoring, provider behavior, route contracts, and generated schema field names except for user-visible titles.
+
+## Phase 67 / Phase 70 contract — Candidate Readiness Comparison MVP
 
 - Added `GET /api/candidates/readiness-comparison` for workflow-only cross-candidate readiness review.
 - Added `CandidateReadinessComparisonResponse` schema with readiness state, evidence completeness, top gap, next action, `ranking_policy="not_ranked_by_score_or_recommendation"`, `affects_score=false`, and `final_score_unchanged=true`.

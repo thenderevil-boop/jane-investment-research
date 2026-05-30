@@ -21,7 +21,7 @@ export default function App() {
   return (
     <div>
       <nav className="appNav">
-        <div className="brand">Jane Research Assistant</div>
+        <div className="brand">Investment Research Assistant</div>
         <button className={page === 'stock' ? 'active' : ''} onClick={() => setPage('stock')}>Stock Research</button>
         <button className={page === 'candidates' ? 'active' : ''} onClick={() => setPage('candidates')}>Candidate Workspace</button>
         <button className={page === 'evidence' ? 'active' : ''} onClick={() => setPage('evidence')}>Evidence Library</button>

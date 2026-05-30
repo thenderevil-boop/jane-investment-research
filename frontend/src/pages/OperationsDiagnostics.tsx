@@ -162,7 +162,7 @@ export function OperationsDiagnosticsPanel({ diagnostics, managerSettings, onMan
       <section className="pageSection">
         <div className="panelHeader">
           <div>
-            <p className="eyebrow">Jane criteria</p>
+            <p className="eyebrow">research criteria</p>
             <h2>Coverage Readiness</h2>
           </div>
         </div>

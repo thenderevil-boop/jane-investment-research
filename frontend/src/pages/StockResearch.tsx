@@ -7,8 +7,9 @@ import RawDataPanel from '../components/RawDataPanel';
 import ScoreCard from '../components/ScoreCard';
 import SignalBadge from '../components/SignalBadge';
 import WarningBanner from '../components/WarningBanner';
-import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceGapInbox, EvidenceMatrixItem, FinancialStatementSignals, ForeignFilerCoverageDiagnostics, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, CompanyEventSignalBreakdown, CompanyEventSignalItem, MacroFlowSignalBreakdown, MacroFlowSignalItem, ManualEvidenceResolution, NextManualCheck, PlatformBusinessQualityCard, PlatformBusinessQualityMetric, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ScoreDriver, ScoreLike, StockAnalysis, ThemeValidationContext, ValidationOSReport, ValidationQualitySummary } from '../types';
+import type { AnalyzeStockDataQualitySummary, ComparisonContext, ComparisonEvidenceAssessment, DataSourceStatus, EvidenceGapInbox, EvidenceMatrixItem, FinancialStatementSignals, ForeignFilerCoverageDiagnostics, JaneCompanyQuality, JaneCriteriaCoverageMatrix, JaneCriterion, CompanyEventSignalBreakdown, CompanyEventSignalItem, MacroFlowSignalBreakdown, MacroFlowSignalItem, ManualEvidenceResolution, NextManualCheck, PlatformBusinessQualityCard, PlatformBusinessQualityMetric, QualitativeEvidenceAssessment, QualitativeEvidenceInput, ResearchWorkflowSummary, ScoreDriver, ScoreDriverBreakdown, ScoreLike, StockAnalysis, ThemeValidationContext, ValidationQualitySummary, ValidationOSReport } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
+import { displayUserFacingKey, sanitizeUserFacingText } from '../utils/userFacingCopy';
 
 export const janeLeadershipCriteria = [
   { name: 'monopoly_power', displayName: 'Monopoly Power / High Entry Barrier', description: 'Durable market power, switching costs, entry barriers, ecosystem control, or defensible share.' },
@@ -164,15 +165,15 @@ function scoreMax(score?: ScoreLike) {
 }
 
 function displayKey(value: string) {
-  return value.replace(/_/g, ' ');
+  return displayUserFacingKey(value);
 }
 
 function displayValue(value: unknown) {
   if (value === null || value === undefined || value === '') return 'N/A';
   if (typeof value === 'number') return Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  if (Array.isArray(value)) return value.join(', ');
-  if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
+  if (Array.isArray(value)) return sanitizeUserFacingText(value.join(', '));
+  if (typeof value === 'object') return sanitizeUserFacingText(JSON.stringify(value));
+  return sanitizeUserFacingText(String(value));
 }
 
 function displayOptionalKey(value?: string | null) {
@@ -519,7 +520,7 @@ export function ResearchSignalExplanationSection({ result }: { result: StockAnal
       <div className="threeColumn">
         <div>
           <h3>Coverage Matrix is evidence completeness</h3>
-          <p className="muted">Coverage Matrix tracks whether the 20 Jane criteria have direct qualitative evidence. Jane Company Quality can still score from financial and operating metrics when qualitative evidence is missing.</p>
+          <p className="muted">Coverage Matrix tracks whether the 20 research criteria have direct qualitative evidence. Company Quality can still score from financial and operating metrics when qualitative evidence is missing.</p>
         </div>
         <div>
           <h3>Market Sentiment measures entry environment</h3>
@@ -822,12 +823,12 @@ export function ForeignFilerCoverageDiagnosticsSection({ diagnostics }: { diagno
       )}
       <div className="calloutBox">
         <h3>ADR Manual Evidence Intake Helper</h3>
-        <p className="muted">Paste filing-backed evidence into Qualitative Evidence JSON using these metadata fields. This preserves the source reference and can map the selected submetric into the Jane Coverage Matrix without changing score weights.</p>
+        <p className="muted">Paste filing-backed evidence into Qualitative Evidence JSON using these metadata fields. This preserves the source reference and can map the selected submetric into the Coverage Matrix without changing score weights.</p>
         <ul>
           <li><strong>adr_evidence_type</strong>: annual_report, local_regulatory_filing, governance_page, investor_presentation, earnings_webcast, company_ir_page, or other</li>
           <li><strong>source_url / document_title / document_date / filing_period</strong>: filing reference and freshness metadata</li>
           <li><strong>quoted_text</strong>: exact snippet to review; <strong>local_market / local_ticker</strong>: non-US listing context</li>
-          <li><strong>criterion_id / submetric</strong>: target Jane Coverage Matrix row, e.g. C2 founder_ownership or C10 positive_fcf</li>
+          <li><strong>criterion_id / submetric</strong>: target Coverage Matrix row, e.g. C2 founder_ownership or C10 positive_fcf</li>
         </ul>
       </div>
     </section>
@@ -839,7 +840,7 @@ export function JaneCompanyQualitySection({ quality, profile }: { quality?: Jane
   const researchContext = profile?.research_context as { theme?: unknown; user_reason?: unknown } | undefined;
   return (
     <section className="pageSection">
-      <h2>Jane Company Quality</h2>
+      <h2>Company Quality</h2>
       <div className="summaryMain">
         <span className="smallPill">{quality.label}</span>
         <strong>{quality.score.toFixed(0)} / {quality.max_score}</strong>
@@ -1388,7 +1389,7 @@ export function JaneCriteriaCoverageSection({ coverage }: { coverage?: JaneCrite
   if (!coverage?.criteria?.length) return null;
   return (
     <section className="pageSection">
-      <h2>Jane Criteria Coverage Matrix</h2>
+      <h2>Research Criteria Coverage Matrix</h2>
       <p className="muted">{coverage.source_quality_summary}</p>
       <p className="sourceWarning">Coverage is for validation workflow only. Not investment advice.</p>
       <div className="metricGrid">
@@ -1473,7 +1474,7 @@ export function ValidationOSReportSection({ report }: { report?: ValidationOSRep
         <div>
           <h3>Context Summary</h3>
           <p><strong>Macro:</strong> {report.macro_backdrop}</p>
-          <p><strong>Jane quality:</strong> {report.jane_quality_summary}</p>
+          <p><strong>Quality:</strong> {report.jane_quality_summary}</p>
           <p><strong>Financial signals:</strong> {report.financial_signals_summary}</p>
           <p><strong>Smart money:</strong> {report.smart_money_summary}</p>
         </div>
@@ -1697,7 +1698,7 @@ export default function StockResearch() {
 
   function addJaneEvidenceInput() {
     if (!selectedCriterion || !selectedSubmetric || !evidenceSummary.trim() || !evidenceSourceLabel.trim()) {
-      setError('Jane criteria evidence needs a criterion, submetric, summary, and source label.');
+      setError('research criteria evidence needs a criterion, submetric, summary, and source label.');
       return;
     }
     const existingEvidence = parseQualitativeEvidenceJson(qualitativeEvidenceJson) ?? [];
@@ -1766,7 +1767,7 @@ export default function StockResearch() {
         <label htmlFor="reason">Reason</label>
         <input id="reason" value={userReason} onChange={(event) => setUserReason(event.target.value)} />
         <details className="qualitativeEvidenceInput">
-          <summary>Jane 20 Criteria Evidence Input</summary>
+          <summary>20 Criteria Evidence Input</summary>
           <p className="muted">User-provided evidence is local validation context only. It is not independently verified and does not provide investment advice.</p>
           <label htmlFor="janeCriterion">Criterion</label>
           <select id="janeCriterion" value={selectedCriterion?.criterion_id ?? ''} onChange={(event) => setSelectedCriterionId(Number(event.target.value))}>
@@ -1777,7 +1778,7 @@ export default function StockResearch() {
           <label htmlFor="janeSubmetric">Submetric</label>
           <select id="janeSubmetric" value={selectedSubmetric} onChange={(event) => setSelectedSubmetric(event.target.value)}>
             {(selectedCriterion?.requires_user_input_submetrics ?? []).map((submetric) => (
-              <option key={submetric} value={submetric}>{submetric}</option>
+              <option key={submetric} value={submetric}>{displayKey(submetric)}</option>
             ))}
           </select>
           <label htmlFor="janeEvidenceSummary">Evidence summary</label>
@@ -1786,7 +1787,7 @@ export default function StockResearch() {
           <input id="janeEvidenceSource" value={evidenceSourceLabel} onChange={(event) => setEvidenceSourceLabel(event.target.value)} />
           <label htmlFor="janeEvidenceConfidence">Confidence</label>
           <input id="janeEvidenceConfidence" type="number" min="0" max="1" step="0.05" value={evidenceConfidence} onChange={(event) => setEvidenceConfidence(Number(event.target.value))} />
-          <button type="button" onClick={addJaneEvidenceInput}>Add Jane evidence to JSON</button>
+          <button type="button" onClick={addJaneEvidenceInput}>Add evidence to JSON</button>
         </details>
         <details className="qualitativeEvidenceInput">
           <summary>Qualitative Evidence JSON</summary>
@@ -1799,7 +1800,7 @@ export default function StockResearch() {
             placeholder='[{"criterion":"network_effect","evidence_type":"platform_ecosystem","summary":"Specific claim requiring manual verification.","source_label":"User research note","source_date":"2026-05-06","confidence":0.65,"user_provided":true,"limitations":["Requires manual verification."]}]'
           />
           <details className="criteriaHelp">
-            <summary>Jane 20 criteria reference</summary>
+            <summary>20 criteria reference</summary>
             <ul>
               {janeLeadershipCriteria.map((criterion) => (
                 <li key={criterion.name}>
@@ -1918,7 +1919,7 @@ export default function StockResearch() {
               <p className="muted">Detailed raw data, derived metrics, benchmarks, limitations, and missing-data diagnostics for audit/debug review.</p>
               <RawDataPanel title="Macro raw evidence" rawData={result.macro_regime?.raw_data} derivedMetrics={result.macro_regime?.derived_metrics} benchmark={result.macro_regime?.benchmark} trend={result.macro_regime?.trend} limitations={result.macro_regime?.limitations} missingData={result.macro_regime?.missing_data} sourceStatus={resolveScoreSourceStatus(result.macro_regime)} />
               <RawDataPanel title="Leadership raw evidence" rawData={result.leadership_score?.raw_data} derivedMetrics={result.leadership_score?.derived_metrics} benchmark={result.leadership_score?.benchmark} trend={result.leadership_score?.trend} limitations={result.leadership_score?.limitations} missingData={result.leadership_score?.missing_data} sourceStatus={resolveScoreSourceStatus(result.leadership_score)} />
-              <RawDataPanel title="Jane company quality raw evidence" rawData={{ criteria: result.jane_company_quality?.criteria }} derivedMetrics={{ score: result.jane_company_quality?.score, label: result.jane_company_quality?.label }} limitations={result.jane_company_quality?.limitations} missingData={result.jane_company_quality?.missing_data} sourceStatus={result.jane_company_quality?.source_status} />
+              <RawDataPanel title="company quality raw evidence" rawData={{ criteria: result.jane_company_quality?.criteria }} derivedMetrics={{ score: result.jane_company_quality?.score, label: result.jane_company_quality?.label }} limitations={result.jane_company_quality?.limitations} missingData={result.jane_company_quality?.missing_data} sourceStatus={result.jane_company_quality?.source_status} />
               <RawDataPanel title="Financial statement signals raw evidence" rawData={{ signals: result.financial_statement_signals?.signals }} derivedMetrics={{ score: result.financial_statement_signals?.score, label: result.financial_statement_signals?.label }} limitations={result.financial_statement_signals?.limitations} missingData={result.financial_statement_signals?.missing_data} sourceStatus={result.financial_statement_signals?.source_status} />
               <RawDataPanel title="SEC financial facts raw evidence" rawData={result.sec_financial_facts} derivedMetrics={(result.sec_financial_facts?.derived_metrics as Record<string, unknown>) ?? {}} limitations={(result.sec_financial_facts?.limitations as string[]) ?? []} missingData={(result.sec_financial_facts?.missing_data as string[]) ?? []} sourceStatus={result.sec_financial_facts?.source_status as DataSourceStatus | undefined} />
               <RawDataPanel title="Fundamentals cross-check raw evidence" rawData={result.fundamentals_cross_check} derivedMetrics={{ agreement_level: result.fundamentals_cross_check?.agreement_level }} limitations={(result.fundamentals_cross_check?.limitations as string[]) ?? []} missingData={(result.fundamentals_cross_check?.missing_data as string[]) ?? []} sourceStatus={result.fundamentals_cross_check?.source_status as DataSourceStatus | undefined} />

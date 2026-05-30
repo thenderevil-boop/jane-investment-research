@@ -1,8 +1,8 @@
 # Roadmap
 
-## Current baseline after Phase 69
+## Current baseline after Phase 70.5
 
-The committed Phase 63 baseline added Phase 61 research workflow summary, Phase 62 read-only Operations Diagnostics, and Phase 63 editable 13F manager-universe local settings. Phase 64 added analyze-stock `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`) so Coverage Matrix gaps become routeable manual research actions. Phase 65 added Daily Report `command_center` (`phase65_daily_command_center_v1`) so the first screen combines macro/source/watchlist/evidence attention with route hints. Phase 66 added Operations Diagnostics `source_health_actions` (`phase66_source_health_actions_v1`) and routes high-attention source-health items into the Daily Command Center. Phase 68 upgrades analyze-stock `research_workflow_summary` to `phase68_research_workflow_summary_v2` so Stock Research exposes dominant blocker/reason/route metadata aligned with Evidence Gap Inbox and source-health routing. Phase 69 adds the Manual Evidence Quality Loop so saved manual evidence can link back to Evidence Gap Inbox and Coverage Matrix gaps through `manual_evidence_resolution` without changing scoring or verdict semantics.
+The committed Phase 63 baseline added Phase 61 research workflow summary, Phase 62 read-only Operations Diagnostics, and Phase 63 editable 13F manager-universe local settings. Phase 64 added analyze-stock `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`) so Coverage Matrix gaps become routeable manual research actions. Phase 65 added Daily Report `command_center` (`phase65_daily_command_center_v1`) so the first screen combines macro/source/watchlist/evidence attention with route hints. Phase 66 added Operations Diagnostics `source_health_actions` (`phase66_source_health_actions_v1`) and routes high-attention source-health items into the Daily Command Center. Phase 68 upgrades analyze-stock `research_workflow_summary` to `phase68_research_workflow_summary_v2` so Stock Research exposes dominant blocker/reason/route metadata aligned with Evidence Gap Inbox and source-health routing. Phase 69 adds the Manual Evidence Quality Loop so saved manual evidence can link back to Evidence Gap Inbox and Coverage Matrix gaps through `manual_evidence_resolution` without changing scoring or verdict semantics. Phase 70 adds Daily Command Center `action_target` URL-state navigation into Stock Research or Operations. Phase 70.5 keeps Daily Command Center as the only visible 5-minute workflow and preserves `today_research_actions` as source payload compatibility.
 
 The product direction is intentionally **workflow-first**:
 
@@ -121,6 +121,32 @@ Do not resume feature stacking with more cards, mock-heavy engines, automatic th
 **Acceptance:** Saved evidence preserves `linked_gap_id`, `linked_criterion_id`, `linked_submetrics`, `resolution_status`, `missing_required_fields`, `review_state`, `freshness_state`, and `evidence_quality_note`; analyze-stock exposes linked evidence counts/state in `evidence_gap_inbox.items[].manual_evidence_resolution` and `jane_criteria_coverage.criteria[].manual_evidence_resolution`; Stock Research displays the quality-loop state; `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true` remain explicit workflow boundaries.
 
 **Status:** Implemented as a non-scoring Manual Evidence Quality Loop for Stock Research actionability. Next planning target can revisit Phase 67 candidate/watchlist comparison only after the routeable evidence workflow remains green.
+
+## Phase 70.5 — Daily Report Reading Simplification
+
+**Fund-manager rationale:** The first screen should not make the user choose between two competing workflow starts.
+
+**System rationale:** Phase 65/70 made Daily Command Center the routed workflow surface; the older `Today research actions` UI should remain source/API data but not duplicate the main reading path.
+
+**Status:** In progress in the working tree.
+
+**Acceptance:** Daily Report renders one visible 5-minute workflow, command-center CTAs still work, backend payload compatibility remains intact, and no scoring/provider/verdict behavior changes.
+
+## Phase 70.6 — Macro Interpretation Layer
+
+**Fund-manager rationale:** Macro/rates/policy context should be readable as supportive, neutral, or restrictive before the user audits raw values.
+
+**Status:** Not started.
+
+**Acceptance:** Deterministic interpretation copy appears before raw macro values, raw values remain available as audit detail, and language-policy boundaries remain green.
+
+## Phase 71 — Operations Remediation Checklist
+
+**Fund-manager rationale:** Provider/setup/cache issues should appear as a checklist of what to fix next.
+
+**Status:** Not started.
+
+**Acceptance:** Operations source-health tasks are grouped by remediation state without exposing secrets, mutating credentials, or changing scoring/verdicts.
 
 ## Deferred work
 

@@ -2,17 +2,20 @@
 
 ## Purpose
 
-Jane Investment Research is a research workflow assistant for macro / quality-growth stock evaluation. The product baseline is not a recommendation engine. Its job is to organize source quality, evidence coverage, major research gaps, and next research actions so the user can decide what to investigate next.
+Investment Research Assistant is a research workflow assistant for macro / quality-growth stock evaluation. The product baseline is not a recommendation engine. Its job is to organize source quality, evidence coverage, major research gaps, and next research actions so the user can decide what to investigate next.
 
 ## Planning baseline
 
-Current baseline includes the Phase 64A docs-aligned Phase 61-69 routeable research workflow stack:
+Current baseline includes the Phase 64A docs-aligned Phase 61-70.5 routeable research workflow stack:
 
 - Phase 64 Evidence Gap Inbox / Manual Research Queue for Coverage Matrix actionability.
 - Phase 65 Daily Report Command Center for first-screen routeable actions.
 - Phase 66 Source Health Action Routing for provider/setup readiness actions.
 - Phase 68 Research Workflow Summary v2 Alignment for Stock Research dominant blocker / reason / route vocabulary.
 - Phase 69 Manual Evidence Quality Loop for linking saved evidence back to Evidence Gap Inbox and Coverage Matrix gaps.
+- Phase 70 Daily Report action bridge for URL-state navigation from command-center actions into Stock Research or Operations.
+- Phase 70.5 Daily Report reading simplification so Daily Command Center is the only visible 5-minute workflow.
+- User-facing brand neutralization keeps visible copy neutral while preserving internal `jane_*` compatibility contracts.
 - Phase 62 read-only Operations Diagnostics and Phase 63 editable local 13F manager-universe settings remain the provider/settings visibility baseline.
 
 The next implementation target should improve candidate/watchlist comparison or Daily Report action usefulness only if the hard gates below remain green; avoid adding decorative cards/providers before routeable evidence workflows stay useful.
@@ -23,7 +26,7 @@ The product entry point is the **5-minute Daily Report workflow**:
 
 1. Read the Daily Report `command_center` headline and workflow focus.
 2. Review macro context plus data-source and watchlist/source changes.
-3. Complete 2-3 routeable top actions from `command_center.top_actions` / `today_research_actions`.
+3. Complete 2-3 routeable top actions from `command_center.top_actions`; `today_research_actions` remains source data but is not a second visible workflow section.
 4. Open Operations, Stock Research, or Evidence Library only when the route hint points there.
 5. Add or review manual evidence when Coverage Matrix gaps block interpretation.
 
@@ -34,7 +37,7 @@ The product entry point is the **5-minute Daily Report workflow**:
 - Evidence Gap Inbox / Manual Evidence Quality Loop
 - final score and existing research verdict fields
 - Evidence Matrix
-- Jane Coverage Matrix
+- Coverage Matrix
 - data quality summary
 - foreign-filer / ADR diagnostics
 - theme validation context
@@ -55,7 +58,7 @@ Phase 69 adds local quality-loop metadata to saved Manual Evidence Library items
 
 ## Daily Report baseline
 
-Daily Report now exposes `command_center` as the first screen and keeps `today_research_actions` as the underlying 2-3 item action list. Actions use existing data only and can include:
+Daily Report now exposes `command_center` as the first screen and keeps `today_research_actions` as the underlying 2-3 item action list rather than a second visible workflow section. Actions use existing data only and can include:
 
 - `macro_context`
 - `source_setup`

@@ -113,7 +113,7 @@ def _adr_review_guidance(item: dict[str, Any]) -> list[str]:
         return []
     guidance = [
         "ADR / foreign-filer manual evidence is user-provided and not independently verified.",
-        "Use this queue item to review the filing reference, quoted text, local-market context, and mapped Jane submetric before marking reviewed.",
+        "Use this queue item to review the filing reference, quoted text, local-market context, and mapped research submetric before marking reviewed.",
         "Manual Evidence Library metadata does not change scoring or verdict semantics.",
     ]
     if not item.get("document_date"):

@@ -7,7 +7,7 @@ describe('JaneReferencePanel', () => {
     const html = renderToStaticMarkup(
       <JaneReferencePanel
         reference={{
-          title: 'Jane methodology reference conditions',
+          title: 'Methodology reference conditions',
           source_type: 'methodology_reference',
           affects_score: false,
           not_investment_advice: true,
@@ -25,7 +25,7 @@ describe('JaneReferencePanel', () => {
         }}
       />,
     );
-    expect(html).toContain('Jane Methodology Reference Conditions');
+    expect(html).toContain('Methodology Reference Conditions');
     expect(html).toContain('未納入評分');
     expect(html).toContain('資料源未啟用');
     expect(html).toContain('score_contribution_allowed=false');

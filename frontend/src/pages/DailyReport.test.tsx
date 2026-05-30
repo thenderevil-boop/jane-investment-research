@@ -127,28 +127,69 @@ describe('DailyReport presentation helpers', () => {
     expect(html).not.toContain('[object Object]');
   });
 
-  it('renders today research actions as the daily starting point', () => {
+  it('hides today research actions so Daily Command Center is the only visible 5-minute workflow', () => {
     const html = renderToStaticMarkup(
-      <DailyResearchActions
-        actions={[
-          {
-            priority: 'high',
-            ticker: 'NVDA',
-            action_type: 'coverage_gap',
-            title: 'Resolve evidence gap',
-            reason: 'C1 moat evidence is the highest-value research action.',
-            source: 'existing_data',
-            affects_score: false,
-            not_investment_advice: true,
-          },
-        ]}
-      />,
+      <>
+        <DailyCommandCenter
+          report={{
+            date: '2026-05-29',
+            market: 'US',
+            command_center: {
+              version: 'phase65_daily_command_center_v1',
+              headline: 'Start with the highest-attention evidence task.',
+              workflow_focus: 'evidence_gap_first',
+              top_actions: [
+                {
+                  priority: 'high',
+                  ticker: 'NVDA',
+                  action_type: 'coverage_gap',
+                  title: 'Resolve evidence gap',
+                  reason: 'C1 moat evidence is the highest-value research action.',
+                  route_hint: 'stock_research',
+                  action_target: {
+                    ticker: 'NVDA',
+                    surface: 'stock_research',
+                    url_params: { ticker: 'NVDA', source: 'daily_action', blocker: 'manual_evidence_gap' },
+                    open_in_new_tab: false,
+                  },
+                  source: 'existing_data',
+                  affects_score: false,
+                  not_investment_advice: true,
+                },
+              ],
+              source_health_alerts: [],
+              watchlist_focus: [],
+              macro_snapshot: null,
+              affects_score: false,
+              final_score_unchanged: true,
+              not_investment_advice: true,
+            },
+          } as DailyReport}
+        />
+        <DailyResearchActions
+          actions={[
+            {
+              priority: 'high',
+              ticker: 'NVDA',
+              action_type: 'coverage_gap',
+              title: 'Duplicate evidence gap',
+              reason: 'This source data should not render as a second workflow section.',
+              source: 'existing_data',
+              affects_score: false,
+              not_investment_advice: true,
+            },
+          ]}
+        />
+      </>,
     );
 
-    expect(html).toContain('5-minute workflow');
-    expect(html).toContain('Today research actions');
+    expect((html.match(/5-minute workflow/g) ?? []).length).toBe(1);
+    expect(html).toContain('Daily Command Center');
+    expect(html).toContain('Open Stock Research →');
     expect(html).toContain('NVDA: Resolve evidence gap');
     expect(html).toContain('C1 moat evidence');
+    expect(html).not.toContain('Today research actions');
+    expect(html).not.toContain('Duplicate evidence gap');
     expect(html).not.toContain('[object Object]');
   });
 

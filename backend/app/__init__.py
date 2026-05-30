@@ -1,1 +1,1 @@
-"""Jane Framework mock research backend."""
+"""Investment research backend."""

@@ -99,6 +99,7 @@ Phase 65 adds `command_center` (`phase65_daily_command_center_v1`) to the same D
 - `headline` and `workflow_focus` summarize whether the day should start from macro context, source-health review, watchlist changes, or evidence-gap review.
 - `top_actions` reuses existing-data actions with `route_hint` values such as `daily_report`, `operations`, `stock_research`, and `evidence_library`.
 - Phase 70 adds `action_target` to each `command_center.top_actions` item so Daily Report can open the next work surface directly. Stock actions carry `{ticker, surface="stock_research", url_params={ticker, theme?, source="daily_action", blocker?}, open_in_new_tab=false}` and Operations actions carry `{ticker=null, surface="operations", url_params={provider="sec_edgar"}, open_in_new_tab=false}`. This is URL-state only; it does not add provider calls or state-management dependencies.
+- Phase 70.5 keeps `command_center` as the only visible 5-minute workflow in the main Daily Report UI; `today_research_actions` remains a compatible source payload but no longer renders as a second workflow section.
 - `source_health_alerts`, `watchlist_focus`, and `macro_snapshot` compact the highest-attention source/delta context. Phase 66 source alerts include provider id, category, affected criteria, affected surfaces, and route metadata when available.
 - `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`; no provider calls, scores, or verdicts change.
 
@@ -182,7 +183,7 @@ Returns daily report by date.
 
 ### POST /api/analyze-stock
 
-Primary endpoint. Validates a user-provided US ticker using structured evidence and Jane methodology. Future Industry Radar is not required for this endpoint.
+Primary endpoint. Validates a user-provided US ticker using structured evidence and the research methodology. Future Industry Radar is not required for this endpoint.
 
 Phase 14 makes the response a candidate validation report rather than a loose bundle of engine outputs. Phase 15 adds live/cached company profile, financial quality, and derived valuation context through repository-backed yfinance data when company data is enabled. Phase 16 adds evidence-based Jane company quality and financial statement signals so mock leadership no longer acts as the primary company-quality driver. The main user-facing fields are:
 
@@ -190,7 +191,7 @@ Phase 14 makes the response a candidate validation report rather than a loose bu
 - `validation_quality_summary`: explanation-only validation quality level, supporting evidence, limiting factors, review need, data-quality grade, and confidence-cap status. This field does not alter scoring by itself.
 - `qualitative_evidence_assessment`: optional manual qualitative evidence validation results when the request includes structured qualitative evidence. Phase 52 preserves ADR manual filing metadata (`adr_evidence_type`, `document_title`, `document_date`, `filing_period`, `quoted_text`, `local_market`, `local_ticker`, `translation_note`) and exposes `verification_level`, `affects_score=false`, and `not_investment_advice=true` per evidence item. Phase 69 preserves saved-library quality-loop metadata (`linked_gap_id`, `linked_criterion_id`, `linked_submetrics`, `resolution_status`, `missing_required_fields`, `review_state`, `freshness_state`, `evidence_quality_note`, `final_score_unchanged`) for manual review.
 - `comparison_evidence_assessment`: manual competitor/comparison evidence summary for peer context hooks.
-- `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, qualitative evidence, comparison evidence, Jane company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
+- `evidence_matrix`: primary explanation layer for macro environment, company profile, financial quality, valuation context, qualitative evidence, comparison evidence, company quality, financial statement signals, legacy leadership score, smart money, insider activity, institutional 13F, and risk flags.
 - `jane_criteria_coverage`: non-scoring coverage matrix across the canonical Jane 20 criteria, accepted evidence items, SEC Companyfacts financial proxies where available, C2/C3/C5 auto-derived yfinance/financial proxies, C18 PatentsView patent-count proxy, C19 SEC 13F institutional-support context, covered and missing submetrics, and next manual checks. Phase 53 adds explicit C18 activation guidance when USPTO PatentsView is disabled; Phase 55 enables no-key USPTO by default and bridges existing 13F context without changing final scoring. Phase 56 keeps C11 `jane_theme_alignment` as manual evidence: user-supplied themes do not auto-cover C11. Phase 69 adds per-row `manual_evidence_resolution` workflow metadata for linked saved evidence review/freshness/completeness state without changing score or verdict behavior.
 - `research_workflow_summary`: Phase 68 non-scoring first-screen workflow summary. It returns `version="phase68_research_workflow_summary_v2"`, `workflow_alignment_version="phase68_workflow_alignment_v1"`, deterministic `research_status` (`high_conviction_candidate`, `watchlist_candidate`, `needs_evidence_before_research`, or `deprioritize_data_gaps`), `confidence`, a max-120-character safe summary, top three strengths/gaps from existing score drivers, next three research actions, and dominant workflow metadata (`dominant_blocker`, `dominant_reason`, `dominant_route`, `dominant_gap_id`, `dominant_provider`, `dominant_criterion_id`). Dominant workflow metadata is derived from Evidence Gap Inbox routing so Stock Research uses the same workflow vocabulary as Operations and Daily Command Center. It preserves `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`.
 - `evidence_gap_inbox`: Phase 64 non-scoring manual research queue. It returns `version="phase64_evidence_gap_inbox_v1"`, prioritized `items`, summary counts, `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`. Items convert Coverage Matrix gaps, manual-evidence needs, ADR/foreign-filer diagnostics, Form 4 fallback, and SEC 13F cache/setup needs into `recommended_action` plus `source_route` (`manual_evidence`, `operations`, `stock_research`, or `evidence_dashboard`). Supported `gap_type` values are `manual_evidence_required`, `source_setup_required`, `provider_cache_refresh_required`, `provider_limitation`, `adr_or_foreign_filer_limitation`, and `optional_context`. Phase 69 adds `manual_evidence_resolution` to each item so linked saved evidence count/ids, `resolution_status`, missing required fields, review state, freshness state, and quality note are visible before the user decides whether the gap is actually resolved.
@@ -242,7 +243,7 @@ Phase 41 adds OpenBB sidecar / Stockgrid options evidence for the Smart Money op
 - `smart_money.raw_data.options` may include provider-backed fields such as `large_block_count`, `total_premium`, `sentiment_score`, `option_volume`, `open_interest`, `call_put_ratio`, `abnormal_volume_ratio`, and source status.
 - `smart_money.source_quality_breakdown.options` exposes the provider, large block count, total premium, source type, interpretation, and score-impact note for frontend auditability.
 - Disabled, empty, failed, or unreachable sidecar states must not fail `POST /api/analyze-stock`; they fall back to explicit source-status disclosure and existing mock/fallback limitations.
-- Options activity remains supplemental research context only and must not be framed as a buy/sell signal.
+- Options activity remains supplemental research context only and must not be framed as directional trading guidance.
 
 Raw evidence remains available in the legacy score objects, `raw_data`, and debug/expandable frontend panels for audit. Mock and fallback data reduce confidence. The endpoint must keep `not_investment_advice=true` and must not emit trading instructions.
 
@@ -270,7 +271,7 @@ Candidate entries are user-provided watchlist/workspace metadata. Status values 
 
 `GET /api/candidates/dashboard` returns `source_status.source_type="derived"` and `provider="local_candidate_workspace"`. It reads the local candidate store and local Manual Evidence Library summaries only.
 
-Candidate Readiness Comparison: `GET /api/candidates/readiness-comparison` returns Phase 70 `CandidateReadinessComparisonResponse` with `version="phase70_candidate_readiness_comparison_v1"`, `summary`, `items[].readiness_state`, `items[].evidence_completeness`, `items[].top_gap`, `items[].next_action`, and `ranking_policy="not_ranked_by_score_or_recommendation"`. It is workflow-only: `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`; it does not discover stocks, fetch external sources, update scores, or recommend securities.
+Candidate Readiness Comparison: `GET /api/candidates/readiness-comparison` returns the Phase 67 planning / Phase 70 contract `CandidateReadinessComparisonResponse` with `version="phase70_candidate_readiness_comparison_v1"`, `summary`, `items[].readiness_state`, `items[].evidence_completeness`, `items[].top_gap`, `items[].next_action`, and `ranking_policy="not_ranked_by_score_or_recommendation"`. It is workflow-only: `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`; it does not discover stocks, fetch external sources, update scores, or recommend securities.
 
 Phase 24 adds local-only workflow auditability:
 
@@ -321,7 +322,7 @@ Phase 29 Validation OS Report behavior:
 - The report summarizes existing outputs only: `research_label`, `validation_level`, `data_quality_grade`, macro backdrop, Jane quality summary, Jane criteria coverage counts and gaps, financial statement signals, smart-money context, top strengths, top limitations, top evidence gaps, manual checks, and source-quality caveats.
 - `validation_os_report.scoring_note` must state that the report is non-scoring and does not change the final research verdict.
 - The report must include `not_investment_advice: true`, avoid direct investment instructions, and must not expose secrets such as `FRED_API_KEY` or `SEC_EDGAR_USER_AGENT`.
-- Phase 29 does not add live providers, news, scraping, sentiment, source URL fetching, or any buy/sell/hold language.
+- Phase 29 does not add live providers, news, scraping, sentiment, source URL fetching, or any directive recommendation wording.
 
 Phase 30 analyze-stock contract sync behavior:
 

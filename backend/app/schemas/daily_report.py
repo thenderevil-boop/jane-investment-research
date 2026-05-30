@@ -35,7 +35,7 @@ class JaneReferenceCondition(BaseModel):
 
 
 class JaneReferenceConditions(BaseModel):
-    title: str = "Jane methodology reference conditions"
+    title: str = "Methodology reference conditions"
     source_type: str = "methodology_reference"
     affects_score: bool = False
     not_investment_advice: bool = True

@@ -1495,7 +1495,7 @@
           "type": "string"
         },
         "jane_reference": {
-          "title": "Jane Reference",
+          "title": "Reference",
           "type": "string"
         },
         "action": {
@@ -1568,7 +1568,7 @@
     "JaneReferenceConditions": {
       "properties": {
         "title": {
-          "default": "Jane methodology reference conditions",
+          "default": "Methodology reference conditions",
           "title": "Title",
           "type": "string"
         },

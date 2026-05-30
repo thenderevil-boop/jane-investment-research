@@ -693,7 +693,7 @@ def _build_today_research_actions(report: DailyResearchReport) -> list[TodayRese
                 priority="medium",
                 action_type="coverage_gap",
                 title="Check top Coverage Matrix gaps before adding new signals",
-                reason="Use existing Jane Coverage Matrix and manual evidence status to choose the next evidence item, rather than adding another explanation card.",
+                reason="Use existing Coverage Matrix and manual evidence status to choose the next evidence item, rather than adding another explanation card.",
             )
         )
     return actions[:3]
@@ -720,7 +720,7 @@ def _build_jane_reference_conditions(macro_snapshot: dict[str, object]) -> JaneR
     else:
         index_status = "partially_observable"
     return JaneReferenceConditions(
-        title=str(definition.get("title") or "Jane methodology reference conditions"),
+        title=str(definition.get("title") or "Methodology reference conditions"),
         conditions=[
             JaneReferenceCondition(
                 name="fed_rate_cut_cycle",
@@ -746,7 +746,7 @@ def _build_jane_reference_conditions(macro_snapshot: dict[str, object]) -> JaneR
             ),
         ],
         limitations=[
-            "Jane reference conditions are displayed for methodology context only.",
+            "Reference conditions are displayed for methodology context only.",
             "CNN Fear & Greed is excluded from scoring because no licensed/stable source is configured.",
             "ISM Manufacturing PMI is excluded from scoring because no valid licensed/live source is configured.",
             "Reference conditions are not system recommendations or investment instructions.",
@@ -757,9 +757,9 @@ def _build_jane_reference_conditions(macro_snapshot: dict[str, object]) -> JaneR
 @lru_cache(maxsize=1)
 def _load_jane_reference_condition_text() -> dict[str, object]:
     if not JANE_REFERENCE_CONDITIONS_PATH.exists():
-        return {"title": "Jane methodology reference conditions", "conditions": []}
+        return {"title": "Methodology reference conditions", "conditions": []}
     with JANE_REFERENCE_CONDITIONS_PATH.open(encoding="utf-8") as file:
         try:
             return json.load(file)
         except json.JSONDecodeError:
-            return {"title": "Jane methodology reference conditions", "conditions": []}
+            return {"title": "Methodology reference conditions", "conditions": []}

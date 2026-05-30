@@ -1,6 +1,18 @@
 # JANE_FRAMEWORK_MAPPING.md
 
-This file maps Jane's Markdown methodology into system modules.
+This file maps the internal `jane_*` compatibility contracts to the user-facing research methodology. Visible UI/API copy should prefer neutral terms such as research criteria, Company Quality, and research methodology; internal keys remain stable unless a future breaking-contract phase explicitly renames them.
+
+## Phase 70.5 Daily Report Reading Simplification
+
+Phase 70.5 keeps Daily Command Center as the single visible 5-minute workflow:
+
+- `today_research_actions` remains source data feeding the command center and API compatibility.
+- The main Daily Report UI hides the older Today Research Actions section so users do not see two competing workflow starts.
+- The boundary remains non-scoring: no provider calls, score changes, verdict changes, or investment-advice wording.
+
+## User-facing Brand Neutralization
+
+The UI and display payloads use neutral research-language labels while internal `jane_*` schema keys, route names, and type names remain compatibility contracts. Raw/debug panels sanitize visible legacy terms without rewriting the underlying payload.
 
 ## Phase 70 Daily Report → Stock Research Action Bridge
 

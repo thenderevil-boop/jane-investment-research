@@ -271,7 +271,7 @@ def _research_verdict(
         summary = "Research reference only. The ticker has elevated risk context, so deeper review should focus on evidence quality and downside scenarios."
     elif score >= 70 and macro_score >= 50:
         label = "worth_deep_research"
-        summary = "Research reference only. The ticker is worth deeper research under Jane methodology, with current environment context included."
+        summary = "Research reference only. The ticker is worth deeper research under the research methodology, with current environment context included."
     elif score >= 45:
         label = "watchlist_candidate"
         summary = "Research reference only. The ticker merits watchlist-level validation while missing or weaker evidence is checked."
@@ -289,11 +289,11 @@ def _research_verdict(
     if smart_money_score >= 50:
         boosters.append("Aggregate smart-money evidence is at least neutral in the current framework.")
     if company_quality_score >= 60 and company_quality_confidence >= 0.45:
-        boosters.append("Jane company quality has partial evidence from financial metrics.")
+        boosters.append("Company quality has partial evidence from financial metrics.")
     if mock_evidence_present:
         limiters.append("Legacy leadership or company-related evidence is mock-based.")
     if key_qualitative_insufficient:
-        limiters.append("Key qualitative Jane company quality criteria remain insufficient.")
+        limiters.append("Key qualitative company quality criteria remain insufficient.")
     if user_qualitative_evidence_present:
         limiters.append("User-provided qualitative evidence is preliminary until independently verified.")
     if fallback_evidence_present:
@@ -3233,7 +3233,7 @@ def _c2_auto_evidence(financials: dict) -> dict | None:
         "confidence": confidence,
         "source_quality": source_quality,
         "source_label": "Yfinance insider ownership proxy",
-        "summary": f"Insider ownership {insider_pct:.1f}% provides a preliminary ownership-alignment proxy for Jane C2 ({label}).",
+        "summary": f"Insider ownership {insider_pct:.1f}% provides a preliminary ownership-alignment proxy for C2 ({label}).",
         "auto_derived": True,
         "requires_human_verification": True,
         "requires_review": True,
@@ -3277,7 +3277,7 @@ def _c3_auto_evidence(financials: dict) -> dict | None:
         "confidence": confidence,
         "source_quality": source_quality,
         "source_label": "Yfinance short interest proxy",
-        "summary": f"{', '.join(parts)}. {label} market skepticism proxy for Jane C3.",
+        "summary": f"{', '.join(parts)}. {label} market skepticism proxy for C3.",
         "auto_derived": True,
         "requires_human_verification": False,
         "requires_review": False,
@@ -3322,7 +3322,7 @@ def _c5_auto_evidence(financials: dict) -> dict | None:
         "confidence": confidence,
         "source_quality": source_quality,
         "source_label": "Financial statements R&D/revenue proxy",
-        "summary": f"R&D expense equals {rd_pct:.1f}% of revenue, providing an auto-derived Jane C5 technology commitment proxy.",
+        "summary": f"R&D expense equals {rd_pct:.1f}% of revenue, providing an auto-derived C5 technology commitment proxy.",
         "auto_derived": True,
         "requires_human_verification": False,
         "requires_review": False,
@@ -3370,7 +3370,7 @@ def _build_theme_validation_context(research_context: dict) -> ThemeValidationCo
         ],
         limitations=[
             "No automatic theme discovery or theme ranking is performed.",
-            "Known Jane article themes are not treated as a complete theme universe or a score library.",
+            "Known research article themes are not treated as a complete theme universe or a score library.",
             THEME_CONTEXT_LIMITATION,
         ],
         not_investment_advice=True,
@@ -3497,7 +3497,7 @@ def _external_transcript_evidence_by_criterion(response: AnalyzeStockResponse) -
                     "confidence": item.confidence,
                     "source_quality": item.source_quality,
                     "source_label": "FMP earnings transcript criteria evidence",
-                    "summary": item.evidence_snippets[0] if item.evidence_snippets else "FMP transcript context supports preliminary Jane criteria review.",
+                    "summary": item.evidence_snippets[0] if item.evidence_snippets else "FMP transcript context supports preliminary research criteria review.",
                 }
             )
     return evidence
@@ -3686,9 +3686,9 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
                     "industry CAGR, policy support, and capital inflow before marking C11 evidence as supported."
                 )
             elif missing:
-                next_manual_check = f"Verify Jane criterion {criterion_id} missing submetrics: {', '.join(missing[:4])}."
+                next_manual_check = f"Verify research criterion {criterion_id} missing submetrics: {', '.join(missing[:4])}."
         elif missing:
-            next_manual_check = f"Verify Jane criterion {criterion_id} missing submetrics: {', '.join(missing[:4])}."
+            next_manual_check = f"Verify research criterion {criterion_id} missing submetrics: {', '.join(missing[:4])}."
         limitations = [
             "Coverage matrix measures evidence completeness only and does not change scoring logic.",
             "User-provided evidence still requires manual source verification.",
@@ -3707,7 +3707,7 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
             if limitation not in limitations:
                 limitations.append(limitation)
         evidence_summaries = [str(item.get("summary")) for item in accepted_items if item.get("summary")]
-        summary = f"Jane criterion {criterion_id} coverage is {status} based on accepted canonical evidence."
+        summary = f"Research criterion {criterion_id} coverage is {status} based on accepted canonical evidence."
         if evidence_summaries:
             summary = f"{summary} {evidence_summaries[0]}"
         rows.append(
@@ -3742,7 +3742,7 @@ def _build_jane_criteria_coverage(response: AnalyzeStockResponse) -> dict:
         "insufficient_count": insufficient_count,
         "user_input_required_count": sum(1 for item in rows if item["requires_user_input_submetrics"]),
         "financial_proxy_available_count": sum(1 for item in rows if item["financial_proxy_source"]),
-        "source_quality_summary": f"Jane 20 coverage: {covered_count} covered, {partial_count} partial, {insufficient_count} insufficient. Coverage is non-scoring and for validation workflow only.",
+        "source_quality_summary": f"Research criteria coverage: {covered_count} covered, {partial_count} partial, {insufficient_count} insufficient. Coverage is non-scoring and for validation workflow only.",
         "not_investment_advice": True,
     }
 
@@ -3883,7 +3883,7 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
             "score": None,
             "confidence": min(0.7, max([item.confidence for item in qualitative.evidence_items if item.accepted], default=0.2)),
             "source_quality": "user_provided" if qualitative.accepted_evidence_count else "insufficient",
-            "summary": f"User-provided qualitative evidence supports preliminary review of selected Jane criteria; saved library items: {qualitative.saved_evidence_count}, request-scoped items: {qualitative.request_evidence_count}." if qualitative.accepted_evidence_count else "No structured qualitative evidence was provided for moat/founder/network/disruption criteria.",
+            "summary": f"User-provided qualitative evidence supports preliminary review of selected research criteria; saved library items: {qualitative.saved_evidence_count}, request-scoped items: {qualitative.request_evidence_count}." if qualitative.accepted_evidence_count else "No structured qualitative evidence was provided for moat/founder/network/disruption criteria.",
             "key_evidence": _limited(
                 [
                     f"Saved evidence items: {qualitative.saved_evidence_count}",
@@ -3911,7 +3911,7 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
             "confidence": 0.62 if comparison.reviewed_comparison_count else 0.45 if comparison.accepted_comparison_count else 0.2,
             "source_quality": comparison.source_quality,
             "summary": (
-                f"User-provided comparison evidence mentions {len(comparison.peer_companies_mentioned)} peer company item(s) and supports preliminary review of {len(comparison.criteria_supported)} Jane criteria."
+                f"User-provided comparison evidence mentions {len(comparison.peer_companies_mentioned)} peer company item(s) and supports preliminary review of {len(comparison.criteria_supported)} research criteria."
                 if comparison.accepted_comparison_count
                 else "No structured competitor or comparison evidence was provided."
             ),
@@ -3934,7 +3934,7 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
             "score": response.jane_company_quality.score,
             "confidence": response.jane_company_quality.confidence,
             "source_quality": _source_quality_from_status(_status_dict(response.jane_company_quality.source_status)),
-            "summary": "Jane company quality replaces mock leadership as the primary company-quality model.",
+            "summary": "company quality replaces mock leadership as the primary company-quality model.",
             "key_evidence": _limited(
                 [
                     f"Evidence-backed criteria: {len(quality_supportive)} supportive",
@@ -3948,9 +3948,9 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
                     f"Insufficient criteria: {len(quality_insufficient)}",
                     f"Label: {response.jane_company_quality.label}",
                 ],
-                "Jane company quality evidence unavailable.",
+                "Company quality evidence unavailable.",
             ),
-            "limitations": _limited(response.jane_company_quality.limitations, "Jane company quality limitations unavailable."),
+            "limitations": _limited(response.jane_company_quality.limitations, "Company quality limitations unavailable."),
         },
         {
             "category": "financial_statement_signals",
@@ -4065,7 +4065,7 @@ def _build_evidence_matrix(response: AnalyzeStockResponse) -> list[dict]:
             row["why_it_matters"] = "Smart-money evidence combines delayed 13F, Form 4 source quality, and mock options context, so source constraints affect confidence."
         elif category == "qualitative_evidence":
             row["review_priority"] = "high" if qualitative.unreviewed_active_count or qualitative.stale_count or qualitative.criteria_still_insufficient else "medium" if qualitative.accepted_evidence_count else "high"
-            row["why_it_matters"] = "Jane qualitative criteria remain preliminary unless user-provided evidence is reviewed and current."
+            row["why_it_matters"] = "Qualitative criteria remain preliminary unless user-provided evidence is reviewed and current."
         elif category == "comparison_evidence":
             stronger_unverified = comparison.claimed_advantage_breakdown.get("stronger", 0) and comparison.reviewed_comparison_count < comparison.accepted_comparison_count
             row["review_priority"] = "high" if stronger_unverified or comparison.stale_comparison_count else "medium" if comparison.accepted_comparison_count else "low"
@@ -4219,7 +4219,7 @@ def _build_manual_checks(response: AnalyzeStockResponse) -> list[dict]:
                     "priority": "medium",
                     "area": "qualitative_evidence",
                     "check": "Confirm market share, capability, or ecosystem claims from official filings or reputable sources.",
-                    "reason": "Comparison evidence can only support preliminary Jane criteria until claims are manually validated.",
+                    "reason": "Comparison evidence can only support preliminary research criteria until claims are manually validated.",
                 },
             ]
         )
@@ -4291,7 +4291,7 @@ def _build_manual_checks(response: AnalyzeStockResponse) -> list[dict]:
                 "priority": "medium",
                 "area": "qualitative_evidence",
                 "check": "Provide competitor comparison evidence for monopoly, network, disruption, or trend-fit criteria.",
-                "reason": "Jane qualitative criteria need structured peer context before they can gain stronger preliminary support.",
+                "reason": "Qualitative criteria need structured peer context before they can gain stronger preliminary support.",
             }
         )
     checks.extend(
@@ -4630,7 +4630,7 @@ def _build_score_driver_breakdown(response: AnalyzeStockResponse) -> dict:
             "category": "legacy_leadership_score",
             "effect": "limiting",
             "source_quality": "mock_only",
-            "summary": "Legacy leadership evidence remains mock-only and is replaced by evidence-based Jane company quality criteria.",
+            "summary": "Legacy leadership evidence remains mock-only and is replaced by evidence-based company quality criteria.",
         }
     )
     criteria_by_name = {criterion.name: criterion for criterion in response.jane_company_quality.criteria}
@@ -4782,7 +4782,7 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
         strengths.append("SEC Companyfacts and yfinance are directionally consistent for comparable metrics.")
     supportive_quality = [criterion for criterion in response.jane_company_quality.criteria if criterion.status == "supportive"]
     if any(criterion.name == "scalability" for criterion in supportive_quality):
-        strengths.append("Live financial quality supports scalability under Jane company quality criteria.")
+        strengths.append("Live financial quality supports scalability under company quality criteria.")
     if any(criterion.name == "financial_statement_quality" for criterion in supportive_quality):
         strengths.append("Revenue growth, margin, or free cash flow metrics support financial statement quality.")
     if qualitative.accepted_evidence_count:
@@ -4837,7 +4837,7 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
         elif fmp_financial_used:
             company = "Live company profile and fundamentals are available; SEC Companyfacts is insufficient, so FMP financial statements provide provider-backed ADR or SEC-gap financial proxy context."
         else:
-            company = "Live company profile and fundamentals are available; Jane company quality is partially evidence-backed by financial metrics, while qualitative moat/founder/network/disruption evidence remains insufficient."
+            company = "Live company profile and fundamentals are available; company quality is partially evidence-backed by financial metrics, while qualitative moat/founder/network/disruption evidence remains insufficient."
         if sec_invalid:
             company = f"{company} SEC Companyfacts is available, but some derived metrics require period-alignment review."
         if qualitative.accepted_evidence_count:
@@ -4845,14 +4845,14 @@ def _build_candidate_summary(response: AnalyzeStockResponse) -> dict:
         else:
             company = f"{company} SEC/yfinance agreement is {sec_agreement}; qualitative moat/founder/network/disruption evidence remains insufficient."
     elif company_live:
-        company = "Live company profile is available; fundamentals and qualitative Jane company quality evidence still need verification."
+        company = "Live company profile is available; fundamentals and qualitative company quality evidence still need verification."
     else:
         company = "Company evidence remains preliminary because profile, fundamentals, or qualitative company-quality data is incomplete."
     smart = "Smart-money assessment is limited by fallback or cached components." if smart_limited else f"Smart-money assessment is {response.smart_money.label}."
     overall = (
         f"{response.ticker} qualifies as a {response.research_verdict.label} research candidate under the current validation framework. "
         f"Macro context is {response.macro_regime.label}, company profile/fundamentals evidence "
-        f"{'uses live or cached sources' if company_live and fundamentals_live else 'remains partly preliminary'}, Jane company quality "
+        f"{'uses live or cached sources' if company_live and fundamentals_live else 'remains partly preliminary'}, company quality "
         f"{'is partially evidence-backed by financial metrics' if response.jane_company_quality.label == 'preliminary' else response.jane_company_quality.label}, and smart-money evidence "
         f"{'includes fallback or cached-limited components' if smart_limited else 'is available with disclosed limitations'}. "
         f"{'User-provided qualitative evidence is preliminary and not independently verified. ' if qualitative.accepted_evidence_count else ''}"
@@ -5001,7 +5001,7 @@ def _build_validation_os_report(response: AnalyzeStockResponse) -> dict:
         "report_sections": report_sections,
         "executive_summary": (
             f"{response.ticker} validation workflow summary: {candidate.overall_summary} "
-            f"Jane criteria coverage has {coverage.covered_count} covered, {coverage.partial_count} partial, "
+            f"research criteria coverage has {coverage.covered_count} covered, {coverage.partial_count} partial, "
             f"and {coverage.insufficient_count} insufficient criteria. Manual verification remains required."
         ),
         "macro_backdrop": candidate.environment_assessment,
@@ -5139,7 +5139,7 @@ def _phase61_research_actions(response: AnalyzeStockResponse) -> list[str]:
             actions.append(check.check)
     for fallback in [
         "Review source-quality caveats",
-        "Update missing Jane evidence",
+        "Update missing research evidence",
         "Recheck validation coverage",
     ]:
         if len(actions) >= 3:
@@ -5613,7 +5613,7 @@ def analyze_stock(request: AnalyzeStockRequest) -> AnalyzeStockResponse:
         ],
         jane_reference_conditions=_build_jane_reference_conditions(macro_snapshot),
         jane_quality_methodology_reference={
-            "framework": "Jane 7-principle company quality framework",
+            "framework": "7-principle company quality framework",
             "principles": JANE_QUALITY_PRINCIPLES,
             "affects_score": True,
             "limitations": [

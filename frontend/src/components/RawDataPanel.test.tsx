@@ -41,4 +41,31 @@ describe('RawDataPanel', () => {
     expect(html).toContain('mock');
     expect(html).toContain('network unavailable');
   });
+
+  it('sanitizes legacy Jane terms from raw user-visible output', () => {
+    const html = renderToStaticMarkup(
+      <RawDataPanel
+        rawData={{ jane_company_quality: 'Jane Company Quality', summary: 'Jane criterion 1 coverage is partial.' }}
+        limitations={['Jane qualitative criteria remain preliminary.']}
+        missingData={['Update missing Jane evidence']}
+        sourceStatus={{
+          source_type: 'derived',
+          provider: 'jane_company_quality',
+          source_date: 'summary',
+          fetched_at: null,
+          is_fresh: true,
+          freshness_window: 'summary',
+          fallback_used: false,
+          fallback_reason: 'Jane reference condition unavailable',
+          limitations: [],
+          missing_data: [],
+        }}
+      />,
+    );
+    expect(html).toContain('company_quality');
+    expect(html).toContain('Company Quality');
+    expect(html).toContain('research criterion 1 coverage is partial');
+    expect(html).not.toContain('Jane');
+    expect(html).not.toContain('jane');
+  });
 });

@@ -1790,7 +1790,7 @@
           "type": "string"
         },
         "jane_reference": {
-          "title": "Jane Reference",
+          "title": "Reference",
           "type": "string"
         },
         "action": {
@@ -2033,7 +2033,7 @@
           "type": "integer"
         },
         "source_quality_summary": {
-          "default": "Jane criteria coverage has not been computed.",
+          "default": "research criteria coverage has not been computed.",
           "title": "Source Quality Summary",
           "type": "string"
         },
@@ -2359,7 +2359,7 @@
     "JaneQualityMethodologyReference": {
       "properties": {
         "framework": {
-          "default": "Jane 7-principle company quality framework",
+          "default": "7-principle company quality framework",
           "title": "Framework",
           "type": "string"
         },
@@ -2441,7 +2441,7 @@
     "JaneReferenceConditions": {
       "properties": {
         "title": {
-          "default": "Jane methodology reference conditions",
+          "default": "Methodology reference conditions",
           "title": "Title",
           "type": "string"
         },
@@ -5264,7 +5264,7 @@
         },
         "jane_quality_summary": {
           "default": "",
-          "title": "Jane Quality Summary",
+          "title": "Quality Summary",
           "type": "string"
         },
         "jane_criteria_coverage_summary": {
@@ -5278,7 +5278,7 @@
               }
             ]
           },
-          "title": "Jane Criteria Coverage Summary",
+          "title": "Criteria Coverage Summary",
           "type": "object"
         },
         "financial_signals_summary": {

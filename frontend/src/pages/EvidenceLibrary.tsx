@@ -2,9 +2,10 @@ import { FormEvent, useEffect, useState } from 'react';
 import { archiveManualEvidence, createManualEvidence, getManualEvidenceDashboard, listManualEvidence, updateManualEvidence } from '../api/client';
 import SignalBadge from '../components/SignalBadge';
 import type { ManualQualitativeEvidence, ManualQualitativeEvidenceCreate } from '../types';
+import { displayUserFacingKey } from '../utils/userFacingCopy';
 
 function displayKey(value: string) {
-  return value.replace(/_/g, ' ');
+  return displayUserFacingKey(value);
 }
 
 const defaultEvidence: ManualQualitativeEvidenceCreate = {
@@ -23,8 +24,8 @@ const defaultEvidence: ManualQualitativeEvidenceCreate = {
   created_by: 'local_user',
   limitations: ['Requires manual verification against official filings or independent sources.'],
   tags: ['manual evidence'],
-  note_title: 'Jane qualitative research note',
-  research_question: 'Which Jane qualitative criterion does this evidence support or challenge?',
+  note_title: 'Qualitative research note',
+  research_question: 'Which qualitative criterion does this evidence support or challenge?',
   thesis_direction: 'unknown',
   workflow_status: 'draft',
   comparison_context: null,

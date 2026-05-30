@@ -205,7 +205,7 @@ def _markdown_report(request: AnalyzeStockExportRequest, analysis: dict[str, Any
         f"- Label: {(analysis.get('macro_regime') or {}).get('label', 'N/A')}\n"
         f"- Score: {(analysis.get('macro_regime') or {}).get('score', 'N/A')}\n"
         f"- Limitations: {' '.join((analysis.get('macro_regime') or {}).get('limitations', []) or []) or 'None listed'}",
-        "## Jane Company Quality\n"
+        "## Company Quality\n"
         f"- Label: {(analysis.get('jane_company_quality') or {}).get('label', 'N/A')}\n"
         f"- Score: {(analysis.get('jane_company_quality') or {}).get('score', 'N/A')}\n"
         f"- Missing data: {', '.join((analysis.get('jane_company_quality') or {}).get('missing_data', []) or []) or 'None listed'}",
@@ -263,7 +263,7 @@ def export_analyze_stock_report(request: AnalyzeStockExportRequest) -> AnalyzeSt
     report: dict[str, Any] | str
     content_type = "application/json" if request.format == "json" else "text/markdown"
     ext = "json" if request.format == "json" else "md"
-    filename = f"jane-validation-{_safe_filename_part(analysis_model.ticker)}-{_filename_timestamp(now)}.{ext}"
+    filename = f"investment-validation-{_safe_filename_part(analysis_model.ticker)}-{_filename_timestamp(now)}.{ext}"
     if request.format == "json":
         report = _build_json_report(request, analysis, generated_at)
     else:

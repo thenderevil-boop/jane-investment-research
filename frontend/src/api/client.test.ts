@@ -102,7 +102,7 @@ describe('api client', () => {
   });
 
   it('calls export endpoints with normalized payload and options', async () => {
-    const fetchMock = vi.fn(async () => new Response('{"export_id":"export_1","generated_at":"2026-05-09T15:01:06Z","ticker":"NVDA","format":"json","filename":"jane-validation-NVDA-2026-05-09T150106Z.json","content_type":"application/json","report":{},"source_status":{"source_type":"derived","provider":"analyze_stock_export","source_date":"2026-05-09T15:01:06Z","is_fresh":true,"freshness_window":"export_generated_at","fallback_used":false,"limitations":[],"missing_data":[]},"not_investment_advice":true}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    const fetchMock = vi.fn(async () => new Response('{"export_id":"export_1","generated_at":"2026-05-09T15:01:06Z","ticker":"NVDA","format":"json","filename":"investment-validation-NVDA-2026-05-09T150106Z.json","content_type":"application/json","report":{},"source_status":{"source_type":"derived","provider":"analyze_stock_export","source_date":"2026-05-09T15:01:06Z","is_fresh":true,"freshness_window":"export_generated_at","fallback_used":false,"limitations":[],"missing_data":[]},"not_investment_advice":true}', { status: 200, headers: { 'content-type': 'application/json' } }));
     vi.stubGlobal('fetch', fetchMock);
     await exportAnalyzeStockReport({
       ticker: 'nvda',

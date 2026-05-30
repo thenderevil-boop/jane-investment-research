@@ -161,7 +161,7 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Primary workflow: submit a ticker to validate the idea using evidence, data quality, and missing-data checks.');
     expect(html).toContain('Qualitative Evidence JSON');
     expect(html).toContain('Structured qualitative evidence');
-    expect(html).toContain('Jane 20 Criteria Evidence Input');
+    expect(html).toContain('20 Criteria Evidence Input');
     expect(html).toContain('User-provided evidence is local validation context only');
     expect(html).not.toContain('[object Object]');
   });
@@ -197,7 +197,7 @@ describe('StockResearch presentation helpers', () => {
       <ThemeValidationBoundarySection
         context={{
           supplied_theme: 'AI infrastructure',
-          user_reason: 'External Jane note',
+          user_reason: 'External research note',
           input_source: 'user_supplied',
           boundary_label: 'user_supplied_validation_target',
           validation_status: 'needs_manual_evidence',
@@ -224,7 +224,7 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Not investment advice');
   });
 
-  it('fetches Jane criteria from the canonical API endpoint', async () => {
+  it('fetches research criteria from the canonical API endpoint', async () => {
     const payload = {
       criteria: [
         {
@@ -251,7 +251,7 @@ describe('StockResearch presentation helpers', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/jane-criteria', undefined);
   });
 
-  it('builds canonical Jane criteria evidence input for analyze requests', () => {
+  it('builds canonical research criteria evidence input for analyze requests', () => {
     const criterion: JaneCriterion = {
       criterion_id: 1,
       criterion_name: 'Market Monopoly / Entry Barrier',
@@ -367,7 +367,7 @@ describe('StockResearch presentation helpers', () => {
         report_sections: [],
         executive_summary: 'Validation summary text.',
         macro_backdrop: 'Macro environment is neutral_to_constructive.',
-        jane_quality_summary: 'Jane quality is preliminary.',
+        jane_quality_summary: 'quality is preliminary.',
         jane_criteria_coverage_summary: {
           covered_count: 2,
           partial_count: 3,
@@ -375,7 +375,7 @@ describe('StockResearch presentation helpers', () => {
           coverage_gap_count: 18,
           user_input_required_count: 18,
           financial_proxy_available_count: 6,
-          source_quality_summary: 'Jane 20 coverage is preliminary.',
+          source_quality_summary: 'Research criteria coverage is preliminary.',
         },
         financial_signals_summary: 'Financial signals are adequate.',
         smart_money_summary: 'Smart money is limited.',
@@ -481,12 +481,12 @@ describe('StockResearch presentation helpers', () => {
         confidence: 0.92,
         derived_metrics: {
           phase36_explanation_version: 'market_timing_condition_explanation_v2',
-          score_zero_interpretation: 'Score 0 means Jane entry timing conditions are not met; this is expected near market highs.',
-          entry_timing_summary: 'Jane entry timing conditions are not met yet; this is expected near market highs or calm markets.',
+          score_zero_interpretation: 'Score 0 means entry timing conditions are not met; this is expected near market highs.',
+          entry_timing_summary: 'Entry timing conditions are not met yet; this is expected near market highs or calm markets.',
           condition_checklist: [
-            { id: 'fed_consecutive_cuts', label: 'Fed consecutive cuts', status: 'not_met', observed_value: '0 consecutive cut(s)', explanation: 'Jane timing framework looks for at least two consecutive cuts.', affects_score: false },
-            { id: 'market_drawdown_stabilization', label: 'Market drawdown and stabilization', status: 'not_met', observed_value: 'SPY -4.0%, QQQ -7.0% drawdown', explanation: 'Jane timing framework looks for a deep drawdown plus stabilization.', affects_score: false },
-            { id: 'vix_spike_recovery', label: 'VIX spike and recovery', status: 'not_met', observed_value: 'VIX 17.0; spike no; falling no', explanation: 'Jane timing framework looks for volatility spike confirmation and recovery.', affects_score: false },
+            { id: 'fed_consecutive_cuts', label: 'Fed consecutive cuts', status: 'not_met', observed_value: '0 consecutive cut(s)', explanation: 'The timing framework looks for at least two consecutive cuts.', affects_score: false },
+            { id: 'market_drawdown_stabilization', label: 'Market drawdown and stabilization', status: 'not_met', observed_value: 'SPY -4.0%, QQQ -7.0% drawdown', explanation: 'The timing framework looks for a deep drawdown plus stabilization.', affects_score: false },
+            { id: 'vix_spike_recovery', label: 'VIX spike and recovery', status: 'not_met', observed_value: 'VIX 17.0; spike no; falling no', explanation: 'The timing framework looks for volatility spike confirmation and recovery.', affects_score: false },
             { id: 'overheat_state', label: 'Overheat / normal / fear state', status: 'normal', observed_value: 'VIX 17.0; drawdown -7.0%', explanation: 'Normal market context often means entry timing score remains low.', affects_score: false },
           ],
         },
@@ -605,7 +605,7 @@ describe('StockResearch presentation helpers', () => {
         {
           item: 'jane_social_heat_check',
           question: 'Have non-investor friends or family recently asked you about this stock or theme unprompted?',
-          jane_reference: 'Jane handbook social heat check.',
+          jane_reference: 'Research handbook social heat check.',
           action: 'If yes, treat as additional overheat evidence. Not a scoring input — human judgment required.',
           needs_human_verification: true,
         },
@@ -644,7 +644,7 @@ describe('StockResearch presentation helpers', () => {
     expect(html).toContain('Data quality: B');
     expect(html).toContain('Macro: neutral to constructive');
     expect(html).toContain('Entry timing conditions');
-    expect(html).toContain('Score 0 means Jane entry timing conditions are not met; this is expected near market highs.');
+    expect(html).toContain('Score 0 means entry timing conditions are not met; this is expected near market highs.');
     expect(html).toContain('Fed consecutive cuts');
     expect(html).toContain('0 consecutive cut(s)');
     expect(html).toContain('Market drawdown and stabilization');
@@ -691,7 +691,7 @@ describe('StockResearch presentation helpers', () => {
         coverage_gap_count: 19,
         user_input_required_count: 19,
         financial_proxy_available_count: 6,
-        source_quality_summary: 'Jane 20 coverage is preliminary and needs manual qualitative evidence.',
+        source_quality_summary: 'Research criteria coverage is preliminary and needs manual qualitative evidence.',
         not_investment_advice: true,
         criteria: [],
       },
@@ -847,7 +847,7 @@ describe('StockResearch presentation helpers', () => {
     expect(() => parseQualitativeEvidenceJson('[{"criterion":"network_effect","evidence_type":"platform_ecosystem","summary":"x","source_label":"note","confidence":2,"user_provided":true}]')).toThrow('between 0 and 1');
   });
 
-  it('accepts each canonical Jane 20 qualitative criterion and rejects unsupported criteria', () => {
+  it('accepts each canonical 20 qualitative criterion and rejects unsupported criteria', () => {
     const canonicalCriteria = [
       'monopoly_power',
       'visionary_founder_ceo',
@@ -1229,7 +1229,7 @@ describe('StockResearch presentation helpers', () => {
     expect(html).not.toContain('Fallback or mixed source quality');
   });
 
-  it('renders Jane Company Quality criteria and user theme as context', () => {
+  it('renders Company Quality criteria and user theme as context', () => {
     const html = renderToStaticMarkup(
       <JaneCompanyQualitySection
         profile={{
@@ -1273,7 +1273,7 @@ describe('StockResearch presentation helpers', () => {
         }}
       />,
     );
-    expect(html).toContain('Jane Company Quality');
+    expect(html).toContain('Company Quality');
     expect(html).toContain('Market Monopoly / Moat');
     expect(html).toContain('insufficient');
     expect(html).toContain('This is context, not verified evidence');
@@ -1291,7 +1291,7 @@ describe('StockResearch presentation helpers', () => {
           report_sections: ['candidate_context', 'macro_backdrop', 'jane_quality', 'evidence_coverage', 'financial_signals', 'smart_money', 'manual_verification', 'source_quality'],
           executive_summary: 'NVDA validation workflow summary: structured evidence exists and manual verification remains required.',
           macro_backdrop: 'Macro environment is normal.',
-          jane_quality_summary: 'Jane company quality is preliminary.',
+          jane_quality_summary: 'company quality is preliminary.',
           jane_criteria_coverage_summary: {
             covered_count: 0,
             partial_count: 1,
@@ -1299,7 +1299,7 @@ describe('StockResearch presentation helpers', () => {
             coverage_gap_count: 20,
             user_input_required_count: 20,
             financial_proxy_available_count: 6,
-            source_quality_summary: 'Jane 20 coverage: 0 covered, 1 partial, 19 insufficient.',
+            source_quality_summary: 'Research criteria coverage: 0 covered, 1 partial, 19 insufficient.',
           },
           financial_signals_summary: 'Financial statement signals are adequate.',
           smart_money_summary: 'Smart-money assessment is neutral.',
@@ -1311,7 +1311,7 @@ describe('StockResearch presentation helpers', () => {
               criterion_name: 'Market Monopoly / Entry Barrier',
               coverage_status: 'partial',
               missing_submetrics: ['market_share', 'pricing_power'],
-              next_manual_check: 'Verify Jane criterion 1 missing submetrics.',
+              next_manual_check: 'Verify research criterion 1 missing submetrics.',
             },
           ],
           top_manual_checks: ['Verify company fundamentals with current filings.'],
@@ -1334,7 +1334,7 @@ describe('StockResearch presentation helpers', () => {
     expect(html).not.toContain('[object Object]');
   });
 
-  it('renders user-provided qualitative criteria coverage in Jane Company Quality', () => {
+  it('renders user-provided qualitative criteria coverage in Company Quality', () => {
     const html = renderToStaticMarkup(
       <JaneCompanyQualitySection
         quality={{
@@ -1371,7 +1371,7 @@ describe('StockResearch presentation helpers', () => {
     expect(html).not.toContain('[object Object]');
   });
 
-  it('renders Jane Criteria Coverage Matrix with counts and missing submetrics', () => {
+  it('renders Research Criteria Coverage Matrix with counts and missing submetrics', () => {
     const html = renderToStaticMarkup(
       <JaneCriteriaCoverageSection
         coverage={{
@@ -1380,7 +1380,7 @@ describe('StockResearch presentation helpers', () => {
           insufficient_count: 19,
           user_input_required_count: 20,
           financial_proxy_available_count: 6,
-          source_quality_summary: 'Jane 20 coverage: 0 covered, 1 partial, 19 insufficient.',
+          source_quality_summary: 'Research criteria coverage: 0 covered, 1 partial, 19 insufficient.',
           not_investment_advice: true,
           criteria: [
             {
@@ -1398,9 +1398,9 @@ describe('StockResearch presentation helpers', () => {
               accepted_evidence_item_count: 1,
               financial_proxy_source: null,
               requires_human_verification: true,
-              summary: 'Jane criterion 1 coverage is partial.',
+              summary: 'Research criterion 1 coverage is partial.',
               limitations: ['User-provided evidence still requires manual source verification.'],
-              next_manual_check: 'Verify Jane criterion 1 missing submetrics: network_effect.',
+              next_manual_check: 'Verify research criterion 1 missing submetrics: network_effect.',
               manual_evidence_resolution: {
                 linked_gap_id: 'NVDA_C1_manual_evidence',
                 linked_criterion_id: 1,
@@ -1421,7 +1421,7 @@ describe('StockResearch presentation helpers', () => {
         }}
       />,
     );
-    expect(html).toContain('Jane Criteria Coverage Matrix');
+    expect(html).toContain('Research Criteria Coverage Matrix');
     expect(html).toContain('Partial: 1');
     expect(html).toContain('Insufficient: 19');
     expect(html).toContain('Market Monopoly / Entry Barrier');

@@ -57,4 +57,4 @@ def get_criterion_by_id(criterion_id: int) -> dict[str, Any]:
     for criterion in JANE_CRITERIA:
         if criterion["criterion_id"] == criterion_id:
             return criterion
-    raise ValueError(f"Unknown Jane criterion_id: {criterion_id}")
+    raise ValueError(f"Unknown Research criterion_id: {criterion_id}")

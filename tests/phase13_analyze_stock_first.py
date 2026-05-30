@@ -109,7 +109,8 @@ def test_phase14_analyze_stock_composition_layers() -> None:
     for key in ["primary_strengths", "primary_risks", "missing_or_mock_evidence", "next_manual_checks"]:
         assert isinstance(summary[key], list)
         assert summary[key]
-    assert "jane company quality" in summary["overall_summary"].lower()
+    assert "company quality" in summary["overall_summary"].lower()
+    assert "jane company quality" not in summary["overall_summary"].lower()
 
     matrix = {item["category"]: item for item in payload["evidence_matrix"]}
     for category in ["macro_environment", "company_profile", "jane_company_quality", "financial_statement_signals", "legacy_leadership_score", "smart_money", "insider_activity", "institutional_13f"]:

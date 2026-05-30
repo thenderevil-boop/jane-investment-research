@@ -53,7 +53,7 @@ def test_phase36_market_timing_explanation_checklist_is_non_scoring() -> None:
     assert metrics["phase36_explanation_version"] == "market_timing_condition_explanation_v2"
     assert metrics["scoring_unchanged"] is True
     assert metrics["score_zero_interpretation"] == (
-        "Score 0 means Jane entry timing conditions are not met; this is expected near market highs."
+        "Score 0 means entry timing conditions are not met; this is expected near market highs."
     )
 
     checklist = {item["id"]: item for item in metrics["condition_checklist"]}
@@ -106,5 +106,5 @@ def test_phase36_market_timing_explanation_marks_confirmed_fear_recovery_context
     assert checklist["market_drawdown_stabilization"]["status"] == "met"
     assert checklist["vix_spike_recovery"]["status"] == "met"
     assert checklist["overheat_state"]["status"] == "fear_recovery"
-    assert result.derived_metrics["entry_timing_summary"] == "Jane timing conditions are broadly met for research context."
+    assert result.derived_metrics["entry_timing_summary"] == "Timing conditions are broadly met for research context."
     assert_no_prohibited_language(result.model_dump())

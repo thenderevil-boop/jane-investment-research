@@ -1,23 +1,31 @@
-# Jane Framework Investment Research Assistant
+# Investment Research Assistant
 
 This repo specification pack is designed to be copied into a new VSCode project and used with Codex.
 
 ## Purpose
 
-Build a US-market-only investment research automation system based on Jane's Markdown investment framework.
+Build a US-market-only investment research automation system based on a macro / quality-growth research framework.
 
 This is not a trading system. It produces research signals, evidence, benchmarks, trends, confidence, and missing-data warnings.
 
-## Phase 70 Candidate Readiness Comparison MVP
+## Phase 70.5 Daily Report Reading Simplification
 
-Phase 70 adds `/api/candidates/readiness-comparison`, a workflow-only comparison surface for user-supplied Candidate Workspace items. It summarizes candidate count, readiness state, manual evidence gaps, analysis-refresh needs, review-queue attention, top gap, and next action.
+Phase 70.5 keeps Daily Command Center as the only visible 5-minute Daily Report workflow. The backend `today_research_actions` list remains available as source data, but the main UI no longer renders a second competing `Today research actions` section. Command-center CTAs, route hints, action targets, score boundaries, and provider-call boundaries are preserved.
+
+## User-facing Brand Neutralization
+
+Visible UI/API copy now prefers neutral product language such as Investment Research, Company Quality, research criteria, and research methodology. Internal compatibility names such as `jane_criteria_coverage`, `jane_company_quality`, `/api/jane-criteria`, and existing schema keys remain stable unless a future breaking-contract phase explicitly renames them. Raw/debug UI surfaces sanitize legacy brand terms before display while preserving the underlying payload for contract compatibility.
+
+## Phase 67 / Phase 70 contract — Candidate Readiness Comparison MVP
+
+The roadmap planning slot for Candidate Comparison was Phase 67; the implemented API contract version remains `phase70_candidate_readiness_comparison_v1` for backward compatibility. It adds `/api/candidates/readiness-comparison`, a workflow-only comparison surface for user-supplied Candidate Workspace items. It summarizes candidate count, readiness state, manual evidence gaps, analysis-refresh needs, review-queue attention, top gap, and next action.
 
 Boundary rules:
 
 - `version="phase70_candidate_readiness_comparison_v1"`.
 - `ranking_policy="not_ranked_by_score_or_recommendation"`.
 - `affects_score=false`, `final_score_unchanged=true`, and `not_investment_advice=true`.
-- It does not discover stocks, fetch external sources, change scoring, or issue buy/sell/hold language.
+- It does not discover stocks, fetch external sources, change scoring, or issue directive recommendation wording.
 - It depends on local Candidate Workspace and Manual Evidence Library state.
 
 ## Phase 69 Manual Evidence Quality Loop

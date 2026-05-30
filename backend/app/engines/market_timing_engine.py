@@ -361,7 +361,7 @@ def _phase36_market_timing_condition_checklist(data: dict[str, Any]) -> list[dic
             "label": "Fed consecutive cuts",
             "status": "met" if cuts >= 2 else "partial" if cuts == 1 else "not_met",
             "observed_value": f"{cuts} consecutive cut(s)",
-            "explanation": "Jane timing framework looks for at least two consecutive cuts.",
+            "explanation": "The timing framework looks for at least two consecutive cuts.",
             "affects_score": False,
         },
         {
@@ -369,7 +369,7 @@ def _phase36_market_timing_condition_checklist(data: dict[str, Any]) -> list[dic
             "label": "Market drawdown and stabilization",
             "status": "met" if deep_drawdown and stabilizing else "partial" if deep_drawdown else "not_met",
             "observed_value": f"SPY {_format_pct(sp500_drawdown)}, QQQ {_format_pct(nasdaq_drawdown)} drawdown",
-            "explanation": "Jane timing framework looks for a deep drawdown plus stabilization.",
+            "explanation": "The timing framework looks for a deep drawdown plus stabilization.",
             "affects_score": False,
         },
         {
@@ -377,7 +377,7 @@ def _phase36_market_timing_condition_checklist(data: dict[str, Any]) -> list[dic
             "label": "VIX spike and recovery",
             "status": "met" if vix_full_confirmation else "partial" if vix_partial_confirmation else "not_met",
             "observed_value": f"VIX {vix if vix is not None else 'N/A'}; spike {'yes' if vix_recent_spike else 'no'}; falling {'yes' if vix_falling else 'no'}",
-            "explanation": "Jane timing framework looks for volatility spike confirmation and recovery.",
+            "explanation": "The timing framework looks for volatility spike confirmation and recovery.",
             "affects_score": False,
         },
         {
@@ -393,10 +393,10 @@ def _phase36_market_timing_condition_checklist(data: dict[str, Any]) -> list[dic
 
 def _phase36_entry_timing_summary(score: float) -> str:
     if score >= 80:
-        return "Jane timing conditions are broadly met for research context."
+        return "Timing conditions are broadly met for research context."
     if score >= 60:
-        return "Some Jane timing conditions are present but still need confirmation."
-    return "Jane entry timing conditions are not met yet; this is expected near market highs or calm markets."
+        return "Some timing conditions are present but still need confirmation."
+    return "Entry timing conditions are not met yet; this is expected near market highs or calm markets."
 
 
 def evaluate_market_timing(data: dict[str, Any]) -> ScoreObject:
@@ -432,7 +432,7 @@ def evaluate_market_timing(data: dict[str, Any]) -> ScoreObject:
             "weights": weights,
             "phase36_explanation_version": "market_timing_condition_explanation_v2",
             "scoring_unchanged": True,
-            "score_zero_interpretation": "Score 0 means Jane entry timing conditions are not met; this is expected near market highs.",
+            "score_zero_interpretation": "Score 0 means entry timing conditions are not met; this is expected near market highs.",
             "entry_timing_summary": _phase36_entry_timing_summary(total),
             "condition_checklist": _phase36_market_timing_condition_checklist(data),
         },

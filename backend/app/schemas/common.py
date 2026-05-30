@@ -57,6 +57,6 @@ class VerificationItem(BaseModel):
 class HumanVerificationQueueItem(BaseModel):
     item: str
     question: str
-    jane_reference: str
+    jane_reference: str = Field(title="Reference")
     action: str
     needs_human_verification: bool = True

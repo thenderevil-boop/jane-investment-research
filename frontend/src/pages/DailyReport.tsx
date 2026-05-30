@@ -13,6 +13,7 @@ import TrendSummary from '../components/TrendSummary';
 import WarningBanner from '../components/WarningBanner';
 import type { DailyReport, ScoreLike, TodayResearchAction } from '../types';
 import { detectForbiddenLanguage } from '../utils/forbiddenLanguage';
+import { sanitizeUserFacingText } from '../utils/userFacingCopy';
 
 function scoreMax(score?: ScoreLike) {
   return score?.max_score ?? score?.maxScore ?? 100;
@@ -164,7 +165,7 @@ export function DailyCommandCenter({ report }: { report: DailyReport }) {
         <div><span>Source alerts</span><strong>{center.source_health_alerts?.length ?? 0}</strong></div>
         <div><span>Watchlist focus</span><strong>{center.watchlist_focus?.length ?? 0}</strong></div>
       </div>
-      {center.macro_snapshot && <p className="muted">Macro: {center.macro_snapshot.summary} · Route: {center.macro_snapshot.route_hint}</p>}
+      {center.macro_snapshot && <p className="muted">Macro: {sanitizeUserFacingText(center.macro_snapshot.summary)} · Route: {center.macro_snapshot.route_hint}</p>}
       {center.source_health_alerts?.length ? (
         <ul className="noteList">
           {center.source_health_alerts.map((alert) => (
@@ -193,7 +194,7 @@ export function DailyCommandCenter({ report }: { report: DailyReport }) {
       {center.watchlist_focus?.length ? (
         <ul className="noteList">
           {center.watchlist_focus.map((item) => (
-            <li key={item.ticker}><strong>{item.ticker}</strong><span> — {item.summary} · Route: {item.route_hint}</span></li>
+            <li key={item.ticker}><strong>{item.ticker}</strong><span> — {sanitizeUserFacingText(item.summary)} · Route: {item.route_hint}</span></li>
           ))}
         </ul>
       ) : null}
@@ -203,25 +204,7 @@ export function DailyCommandCenter({ report }: { report: DailyReport }) {
 
 export function DailyResearchActions({ actions }: { actions?: TodayResearchAction[] }) {
   if (!actions?.length) return null;
-  return (
-    <section className="pageSection dailyActions">
-      <div className="panelHeader">
-        <div>
-          <p className="eyebrow">5-minute workflow</p>
-          <h2>Today research actions</h2>
-          <p className="muted">Start here: macro context, source changes, then the highest-value evidence work.</p>
-        </div>
-      </div>
-      <ol className="noteList">
-        {actions.map((action) => (
-          <li key={`${action.action_type}-${action.ticker ?? 'market'}-${action.title}`}>
-            <strong>{action.priority.toUpperCase()} · {actionLabel(action)}</strong>
-            <span> — {action.reason}</span>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
+  return null;
 }
 
 function formatDelta(value?: number | null, suffix = '') {
@@ -341,7 +324,6 @@ export default function DailyReport() {
         <div className="disclaimer">Research reference only. Not investment advice.</div>
       </header>
       <DailyCommandCenter report={report} />
-      <DailyResearchActions actions={report.today_research_actions} />
       <DailyDeltaSummary report={report} />
       <DailyDataCoverageSummary report={report} />
       <DataQualitySummary summary={report.data_quality} latestSourceDate={latestSourceDate(report)} />
@@ -377,11 +359,11 @@ export default function DailyReport() {
                 <tr key={String(theme.theme ?? theme.raw_data?.theme ?? theme.label)}>
                   <td>{String(theme.theme ?? theme.raw_data?.theme ?? theme.name ?? 'Theme')}</td>
                   <td>{theme.score}</td>
-                  <td>{Object.values(theme.trend ?? {}).join(', ') || 'N/A'}</td>
+                  <td>{sanitizeUserFacingText(Object.values(theme.trend ?? {}).join(', ') || 'N/A')}</td>
                   <td>{theme.candidate_companies?.join(', ') || 'None listed'}</td>
                   <td><SignalBadge label={theme.label} /></td>
                   <td><DataSourceBadge status={theme.source_status} /></td>
-                  <td>{theme.missing_data?.join(', ') || 'None listed'}</td>
+                  <td>{sanitizeUserFacingText(theme.missing_data?.join(', ') || 'None listed')}</td>
                 </tr>
               ))}
             </tbody>
@@ -403,7 +385,7 @@ export default function DailyReport() {
                   <td>{candidate.risk_score}</td>
                   <td><SignalBadge label={candidate.label} /></td>
                   <td><DataSourceBadge status={candidate.source_status} /></td>
-                  <td>{candidate.missing_data?.join(', ') || 'None listed'}</td>
+                  <td>{sanitizeUserFacingText(candidate.missing_data?.join(', ') || 'None listed')}</td>
                 </tr>
               ))}
             </tbody>
@@ -442,7 +424,7 @@ export default function DailyReport() {
           </div>
           <div>
             <h3>Limitations</h3>
-            <ul>{limitations.map((item) => <li key={item}>{item}</li>)}</ul>
+            <ul>{limitations.map((item) => <li key={item}>{sanitizeUserFacingText(item)}</li>)}</ul>
           </div>
         </div>
       </Section>

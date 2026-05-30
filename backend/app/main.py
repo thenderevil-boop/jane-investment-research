@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Jane Framework Daily Investment Research Assistant",
+    title="Investment Research Assistant",
     version="0.1.0",
     description="Phase 1 mock-data backend for US-market research assistance.",
     lifespan=lifespan,

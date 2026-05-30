@@ -110,7 +110,7 @@ def _evidence_badges(item: CandidateResearchItem) -> list[CandidateEvidenceBadge
     summary = item.evidence_summary
     badges: list[CandidateEvidenceBadge] = []
     if summary.criteria_missing:
-        badges.append(CandidateEvidenceBadge(label="evidence_missing", severity="warning", reason="One or more Jane qualitative criteria lack active local evidence."))
+        badges.append(CandidateEvidenceBadge(label="evidence_missing", severity="warning", reason="One or more qualitative criteria lack active local evidence."))
     if summary.stale_evidence_count > 0:
         badges.append(CandidateEvidenceBadge(label="stale_evidence", severity="warning", reason="One or more local manual evidence items is stale."))
     if summary.unreviewed_evidence_count > 0:

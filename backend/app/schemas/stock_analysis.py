@@ -324,7 +324,7 @@ class JaneCriteriaCoverageMatrix(BaseModel):
     insufficient_count: int = 0
     user_input_required_count: int = 0
     financial_proxy_available_count: int = 0
-    source_quality_summary: str = "Jane criteria coverage has not been computed."
+    source_quality_summary: str = "research criteria coverage has not been computed."
     not_investment_advice: bool = True
 
 
@@ -344,8 +344,8 @@ class ValidationOSReport(BaseModel):
     report_sections: list[str] = Field(default_factory=list)
     executive_summary: str = "Validation OS Report has not been computed."
     macro_backdrop: str = ""
-    jane_quality_summary: str = ""
-    jane_criteria_coverage_summary: dict[str, int | str] = Field(default_factory=dict)
+    jane_quality_summary: str = Field(default="", title="Quality Summary")
+    jane_criteria_coverage_summary: dict[str, int | str] = Field(default_factory=dict, title="Criteria Coverage Summary")
     financial_signals_summary: str = ""
     smart_money_summary: str = ""
     top_strengths: list[str] = Field(default_factory=list)
@@ -687,7 +687,7 @@ class FinancialStatementSignals(BaseModel):
 
 
 class JaneQualityMethodologyReference(BaseModel):
-    framework: str = "Jane 7-principle company quality framework"
+    framework: str = "7-principle company quality framework"
     principles: list[str]
     affects_score: bool = True
     limitations: list[str]

@@ -2,23 +2,23 @@
 
 ## Planning baseline
 
-Phase 69 adds the Manual Evidence Quality Loop on top of the Phase 64A-aligned Phase 61-68 routeable workflow stack. Phase 64 adds `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`), a non-scoring Evidence Gap Inbox that converts Coverage Matrix/manual-evidence/operations-readiness state into prioritized research actions. Gap types include `manual_evidence_required`, `source_setup_required`, `provider_cache_refresh_required`, `provider_limitation`, `adr_or_foreign_filer_limitation`, and `optional_context`. Phase 68 aligns the Stock Research workflow summary with the same dominant blocker/reason/route vocabulary. Phase 69 links saved manual evidence back to those gaps through `manual_evidence_resolution` metadata.
+Phase 70.5 simplifies Daily Report reading on top of the Phase 64A-aligned Phase 61-70 routeable workflow stack. Phase 64 adds `evidence_gap_inbox` (`phase64_evidence_gap_inbox_v1`), a non-scoring Evidence Gap Inbox that converts Coverage Matrix/manual-evidence/operations-readiness state into prioritized research actions. Gap types include `manual_evidence_required`, `source_setup_required`, `provider_cache_refresh_required`, `provider_limitation`, `adr_or_foreign_filer_limitation`, and `optional_context`. Phase 68 aligns the Stock Research workflow summary with the same dominant blocker/reason/route vocabulary. Phase 69 Manual Evidence Quality Loop links saved manual evidence back to those gaps through `manual_evidence_resolution` metadata. Phase 70 adds URL-state `action_target` navigation from Daily Command Center, and Phase 70.5 keeps the command center as the only visible 5-minute workflow.
 
 ## Backend request flow
 
 - `backend/app/api/routes.py` exposes API endpoints.
-- `backend/app/pipelines/research_pipeline.py` builds Daily Report payloads, the 5-minute `today_research_actions` starting flow, and the Phase 65 `command_center` first-screen workflow summary; Phase 66 source-health actions can feed command-center source alerts.
+- `backend/app/pipelines/research_pipeline.py` builds Daily Report payloads, the source `today_research_actions` list, and the Phase 65 `command_center` first-screen workflow summary; Phase 66 source-health actions can feed command-center source alerts and Phase 70 action targets can route users to the next surface.
 - `backend/app/services/operations_diagnostics_service.py` builds Phase 62 read-only provider diagnostics, Coverage Readiness, 13F manager-universe visibility, and Phase 66 routeable `source_health_actions`.
 - `backend/app/reports/stock_analysis.py` builds deep single-name `POST /api/analyze-stock` responses, the Phase 64 `evidence_gap_inbox` non-scoring manual research queue, and the Phase 68 `research_workflow_summary` alignment layer derived from that queue.
 - `backend/app/services/operations_settings_service.py` builds Phase 63 editable local settings for `GET/PUT/DELETE /api/operations/settings/13f-manager-universe`; local_settings override startup_env, then bundled_starter_universe, and this changes research scope only but does not change scoring.
 
 ## Scoring engines
 
-Scoring engines live under `backend/app/engines/`. They evaluate macro regime, market timing, smart money, crisis, overheat, risk allocation, and Jane-style company-quality evidence. Phase 60B does not rewrite score weights.
+Scoring engines live under `backend/app/engines/`. They evaluate macro regime, market timing, smart money, crisis, overheat, risk allocation, and company-quality evidence. Phase 60B does not rewrite score weights.
 
 ## Evidence and coverage layers
 
-Deep single-name analysis includes Evidence Matrix, Jane Coverage Matrix, data quality summary, validation OS report, theme validation context, event-signal explanations, and platform-business quality review. Coverage Matrix gaps should become research actions rather than remaining passive `insufficient` rows.
+Deep single-name analysis includes Evidence Matrix, Coverage Matrix, data quality summary, validation OS report, theme validation context, event-signal explanations, and platform-business quality review. Coverage Matrix gaps should become research actions rather than remaining passive `insufficient` rows.
 
 ## Provider and data-source layers
 
